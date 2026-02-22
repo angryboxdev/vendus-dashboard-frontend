@@ -13,6 +13,7 @@ export type AggTotals = {
   tax_amount: number;
   units_count: number;
   documents_count: number;
+  items_count: number;
 };
 
 export type TaxBreakdownItem = {
