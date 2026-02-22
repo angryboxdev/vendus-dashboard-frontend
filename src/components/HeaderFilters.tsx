@@ -16,7 +16,7 @@ export function HeaderFilters({
   return (
     <div className="flex flex-col gap-4 rounded-2xl bg-white p-6 shadow-sm">
       <div className="flex flex-col gap-1">
-        <h1 className="text-2xl font-semibold">Vendus Dashboard</h1>
+        <h1 className="text-2xl font-semibold">Vendus Analytics</h1>
         <p className="text-sm text-slate-500">
           Conectado ao backend via <code className="font-mono">/api</code>
         </p>
