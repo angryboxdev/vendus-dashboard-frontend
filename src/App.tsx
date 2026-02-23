@@ -5,7 +5,6 @@ import { CustosVariaveisPage } from "./pages/dre/CustosVariaveisPage";
 import { DashboardPage } from "./pages/DashboardPage";
 import { DemonstrativoPage } from "./pages/dre/DemonstrativoPage";
 import { DreLayout } from "./pages/dre/DreLayout";
-import { KpisPage } from "./pages/dre/KpisPage";
 import { ReceitaBrutaPage } from "./pages/dre/ReceitaBrutaPage";
 import { Sidebar } from "./components/Sidebar";
 
@@ -22,7 +21,6 @@ export default function App() {
           />
           <Route element={<DreLayout />}>
             <Route path="/dre/demonstrativo" element={<DemonstrativoPage />} />
-            <Route path="/dre/kpis" element={<KpisPage />} />
             <Route path="/dre/receita-bruta" element={<ReceitaBrutaPage />} />
             <Route path="/dre/custos-fixos" element={<CustosFixosPage />} />
             <Route

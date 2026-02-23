@@ -56,8 +56,7 @@ export function ReceitaBrutaPage() {
 
   return (
     <div className="mx-auto max-w-6xl p-6">
-      <h2 className="text-lg font-semibold text-slate-800">Receita Bruta</h2>
-
+      <h2 className="text-lg font-semibold text-slate-800">Receitas</h2>
       <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <MiniKpiCard
           secondary

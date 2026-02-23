@@ -4,7 +4,6 @@ import { useState } from "react";
 
 const dreNavItems = [
   { to: "/dre/demonstrativo", label: "Demonstrativo" },
-  { to: "/dre/kpis", label: "KPIs" },
   { to: "/dre/receita-bruta", label: "Receitas" },
   { to: "/dre/custos-fixos", label: "Custos Fixos" },
   { to: "/dre/custos-variaveis", label: "Custos Variáveis" },

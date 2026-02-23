@@ -6,7 +6,7 @@ export function KpiCard({
   value: number | string;
 }) {
   return (
-    <div className="h-full rounded-2xl bg-white p-6 shadow-sm">
+    <div className="h-full rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
       <div className="text-sm text-slate-500">{title}</div>
       <div className="mt-2 text-xl font-semibold">{value}</div>
     </div>
