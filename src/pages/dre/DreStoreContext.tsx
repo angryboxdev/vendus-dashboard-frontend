@@ -9,6 +9,7 @@ import {
 } from "react";
 
 import type { CustosFixoItem } from "./custosFixos.types";
+import type { ReceitaBrutaPayload } from "./receitaBruta.types";
 import type { CustosVariaveisPayload } from "./custosVariaveis.types";
 import { apiGet } from "../../lib/api";
 import { useDrePeriod } from "./DrePeriodContext";
@@ -16,7 +17,7 @@ import { useDrePeriod } from "./DrePeriodContext";
 type DreCache = {
   custosVariaveis: CustosVariaveisPayload | null;
   custosFixos: CustosFixoItem[] | null;
-  receitaBruta: unknown | null;
+  receitaBruta: ReceitaBrutaPayload | null;
   kpis: unknown | null;
 };
 
@@ -36,7 +37,10 @@ type DreStoreValue = {
   loadingCustosFixos: boolean;
   loadCustosFixos: (force?: boolean) => Promise<void>;
   setCustosFixos: (data: CustosFixoItem[]) => void;
-  receitaBruta: unknown | null;
+  receitaBruta: ReceitaBrutaPayload | null;
+  loadingReceitaBruta: boolean;
+  loadReceitaBruta: (force?: boolean) => Promise<void>;
+  setReceitaBruta: (data: ReceitaBrutaPayload) => void;
   kpis: unknown | null;
 };
 
@@ -53,6 +57,7 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
   const [cache, setCache] = useState<DreCache>(EMPTY_CACHE);
   const [loadingCustosVariaveis, setLoadingCustosVariaveis] = useState(false);
   const [loadingCustosFixos, setLoadingCustosFixos] = useState(false);
+  const [loadingReceitaBruta, setLoadingReceitaBruta] = useState(false);
 
   useEffect(() => {
     if (currentKey !== cacheKeyRef.current) {
@@ -135,6 +140,47 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
     setCache((prev) => ({ ...prev, custosFixos: data }));
   }, []);
 
+  const loadReceitaBruta = useCallback(
+    async (force?: boolean) => {
+      if (
+        !force &&
+        cache.receitaBruta !== null &&
+        cacheKeyRef.current === currentKey
+      ) {
+        return;
+      }
+      const keyAtStart = currentKey;
+      setLoadingReceitaBruta(true);
+      try {
+        const res = await apiGet<ReceitaBrutaPayload>(
+          `/api/reports/dre/receita-bruta?year=${period.year}&month=${period.month}`
+        );
+        if (cacheKeyRef.current !== keyAtStart) return;
+        setCache((prev) => ({
+          ...prev,
+          receitaBruta: {
+            dinheiro: res.dinheiro ?? [],
+            tpa: res.tpa ?? [],
+            apps: res.apps ?? [],
+          },
+        }));
+      } catch {
+        if (cacheKeyRef.current !== keyAtStart) return;
+        setCache((prev) => ({
+          ...prev,
+          receitaBruta: { dinheiro: [], tpa: [], apps: [] },
+        }));
+      } finally {
+        setLoadingReceitaBruta(false);
+      }
+    },
+    [period.year, period.month, currentKey, cache.receitaBruta]
+  );
+
+  const setReceitaBruta = useCallback((data: ReceitaBrutaPayload) => {
+    setCache((prev) => ({ ...prev, receitaBruta: data }));
+  }, []);
+
   const value = useMemo<DreStoreValue>(
     () => ({
       custosVariaveis: cache.custosVariaveis,
@@ -146,6 +192,9 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
       loadCustosFixos,
       setCustosFixos,
       receitaBruta: cache.receitaBruta,
+      loadingReceitaBruta,
+      loadReceitaBruta,
+      setReceitaBruta,
       kpis: cache.kpis,
     }),
     [
@@ -159,6 +208,9 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
       loadingCustosFixos,
       loadCustosFixos,
       setCustosFixos,
+      loadingReceitaBruta,
+      loadReceitaBruta,
+      setReceitaBruta,
     ]
   );
 
