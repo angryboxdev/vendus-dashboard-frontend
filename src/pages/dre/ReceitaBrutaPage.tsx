@@ -189,10 +189,15 @@ export function ReceitaBrutaPage() {
     <div className="mx-auto max-w-6xl p-6">
       <h2 className="text-lg font-semibold text-slate-800">Receita Bruta</h2>
       <p className="mt-2 mb-1 text-sm text-slate-800">
-        Total Bruto: <span className="font-bold">{formatEUR(totalBruto)}</span>
+        <span className="italic">Total Bruto</span>:{" "}
+        <span className="font-bold">{formatEUR(totalBruto)}</span>
+      </p>
+      <p className="mb-1 text-sm text-slate-800">
+        <span className="italic">Total Taxa</span>:{" "}
+        <span className="font-bold">{formatEUR(totalTaxas)}</span>
       </p>
       <p className="text-sm text-slate-800">
-        Total Líquido:{" "}
+        <span className="italic">Total Líquido</span>:{" "}
         <span className="font-bold">{formatEUR(totalLiquido)}</span>
       </p>
 
