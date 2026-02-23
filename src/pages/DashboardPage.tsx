@@ -1,48 +1,27 @@
-import { useEffect, useMemo, useState } from "react";
-
 import { CategoryBreakdown } from "../components/CategoryBreakdown/index";
 import { ChannelComparison } from "../components/ChannelComparison";
 import { DebugPanel } from "../components/DebugPanel";
 import { HeaderFilters } from "../components/HeaderFilters";
 import { KpiCard } from "../components/KpiCard";
-import type { MonthlySummary } from "../types/monthlySummary";
 import { ProductsTable } from "../components/ProductsTable";
-import { apiGet } from "../lib/api";
 import { buildOverallCategoryRows } from "../components/CategoryBreakdown/buildRows";
 import { formatEUR } from "../lib/format";
+import { useDashboardStore } from "./DashboardStoreContext";
 
 export function DashboardPage() {
-  const [since, setSince] = useState("2026-01-12");
-  const [until, setUntil] = useState("2026-01-12");
-  const [type, setType] = useState("FS");
-
-  const [data, setData] = useState<MonthlySummary | null>(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  const url = useMemo(() => {
-    const qs = new URLSearchParams({ since, until });
-    return `/api/reports/monthly-summary?${qs.toString()}`;
-  }, [since, until]);
-
-  async function load() {
-    try {
-      setLoading(true);
-      setError(null);
-      const json = await apiGet<MonthlySummary>(url);
-      setData(json);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Erro ao carregar");
-      setData(null);
-    } finally {
-      setLoading(false);
-    }
-  }
-
-  useEffect(() => {
-    load();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  const {
+    since,
+    until,
+    type,
+    setSince,
+    setUntil,
+    setType,
+    data,
+    loading,
+    error,
+    load,
+    url,
+  } = useDashboardStore();
 
   const totals = data?.totals;
   const docsCount = totals?.documents_count ?? 0;
