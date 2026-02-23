@@ -4,6 +4,7 @@ import type {
   ReceitaBrutaSectionKey,
 } from "./receitaBruta.types";
 
+import { MiniKpiCard } from "../../components/MiniKpiCard";
 import { RECEITA_BRUTA_TAX_RATE } from "./receitaBruta.types";
 import { formatEUR } from "../../lib/format";
 import { useDreStore } from "./DreStoreContext";
@@ -20,6 +21,7 @@ const EMPTY_PAYLOAD: ReceitaBrutaPayload = {
   dinheiro: [],
   tpa: [],
   apps: [],
+  tax_amount: 0,
 };
 
 export function ReceitaBrutaPage() {
@@ -55,18 +57,29 @@ export function ReceitaBrutaPage() {
   return (
     <div className="mx-auto max-w-6xl p-6">
       <h2 className="text-lg font-semibold text-slate-800">Receita Bruta</h2>
-      <p className="mt-2 mb-1 text-sm text-slate-800">
-        <span className="italic">Total Bruto</span>:{" "}
-        <span className="font-bold">{formatEUR(totalBruto)}</span>
-      </p>
-      <p className="mb-1 text-sm text-slate-800">
-        <span className="italic">Total Taxa</span>:{" "}
-        <span className="font-bold">{formatEUR(totalTaxas)}</span>
-      </p>
-      <p className="text-sm text-slate-800">
-        <span className="italic">Total Líquido</span>:{" "}
-        <span className="font-bold">{formatEUR(totalLiquido)}</span>
-      </p>
+
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MiniKpiCard
+          secondary
+          title="Total Bruto"
+          value={formatEUR(totalBruto)}
+        />
+        <MiniKpiCard
+          secondary
+          title="Total Taxa"
+          value={formatEUR(totalTaxas)}
+        />
+        <MiniKpiCard
+          secondary
+          title="Total Líquido"
+          value={formatEUR(totalLiquido)}
+        />
+        <MiniKpiCard
+          secondary
+          title="IVA recolhido"
+          value={formatEUR(data.tax_amount)}
+        />
+      </div>
 
       <ReceitaBrutaTable
         title="Dinheiro"

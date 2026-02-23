@@ -2,6 +2,7 @@ import { apiDelete, apiPost, apiPut } from "../../lib/api";
 import { useCallback, useEffect, useState } from "react";
 
 import type { CustosFixoItem } from "./custosFixos.types";
+import { MiniKpiCard } from "../../components/MiniKpiCard";
 import { formatEUR } from "../../lib/format";
 import { useDrePeriod } from "./DrePeriodContext";
 import { useDreStore } from "./DreStoreContext";
@@ -148,14 +149,10 @@ export function CustosFixosPage() {
   return (
     <div className="mx-auto max-w-6xl p-6">
       <h2 className="text-lg font-semibold text-slate-800">Custos Fixos</h2>
-      <p className="mt-2 mb-1 text-sm text-slate-800">
-        <span className="italic">Com IVA</span>:{" "}
-        <span className="font-bold">{formatEUR(totalValor)}</span>
-      </p>
-      <p className="text-sm text-slate-800">
-        <span className="italic">Sem IVA</span>:{" "}
-        <span className="font-bold">{formatEUR(totalSemIva)}</span>
-      </p>
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <MiniKpiCard secondary title="Com IVA" value={formatEUR(totalValor)} />
+        <MiniKpiCard secondary title="Sem IVA" value={formatEUR(totalSemIva)} />
+      </div>
 
       {actionError ? (
         <div className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">

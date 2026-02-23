@@ -10,6 +10,7 @@ export type ReceitaBrutaPayload = {
   dinheiro: ReceitaBrutaItem[];
   tpa: ReceitaBrutaItem[];
   apps: ReceitaBrutaItem[];
+  tax_amount: number;
 };
 
 export type ReceitaBrutaSectionKey = "dinheiro" | "tpa" | "apps";

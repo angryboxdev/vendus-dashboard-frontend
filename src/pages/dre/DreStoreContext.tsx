@@ -162,13 +162,19 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
             dinheiro: res.dinheiro ?? [],
             tpa: res.tpa ?? [],
             apps: res.apps ?? [],
+            tax_amount: res.tax_amount ?? 0,
           },
         }));
       } catch {
         if (cacheKeyRef.current !== keyAtStart) return;
         setCache((prev) => ({
           ...prev,
-          receitaBruta: { dinheiro: [], tpa: [], apps: [] },
+          receitaBruta: {
+            dinheiro: [],
+            tpa: [],
+            apps: [],
+            tax_amount: 0,
+          },
         }));
       } finally {
         setLoadingReceitaBruta(false);

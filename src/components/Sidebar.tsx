@@ -1,10 +1,11 @@
-import { useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
+
+import { useState } from "react";
 
 const dreNavItems = [
   { to: "/dre/demonstrativo", label: "Demonstrativo" },
   { to: "/dre/kpis", label: "KPIs" },
-  { to: "/dre/receita-bruta", label: "Receita Bruta" },
+  { to: "/dre/receita-bruta", label: "Receitas" },
   { to: "/dre/custos-fixos", label: "Custos Fixos" },
   { to: "/dre/custos-variaveis", label: "Custos Variáveis" },
 ] as const;
@@ -19,7 +20,9 @@ const navLinkClass = ({ isActive }: { isActive: boolean }) =>
 function ChevronDown({ open }: { open: boolean }) {
   return (
     <svg
-      className={`h-4 w-4 text-slate-400 transition-transform ${open ? "rotate-180" : ""}`}
+      className={`h-4 w-4 text-slate-400 transition-transform ${
+        open ? "rotate-180" : ""
+      }`}
       viewBox="0 0 20 20"
       fill="currentColor"
       aria-hidden="true"
