@@ -2,11 +2,12 @@ import type {
   CustosVariaveisItem,
   CustosVariaveisPayload,
 } from "./custosVariaveis.types";
-import { apiDelete, apiGet, apiPost, apiPut } from "../../lib/api";
+import { apiDelete, apiPost, apiPut } from "../../lib/api";
 import { useCallback, useEffect, useState } from "react";
 
 import { formatEUR } from "../../lib/format";
 import { useDrePeriod } from "./DrePeriodContext";
+import { useDreStore } from "./DreStoreContext";
 
 type SectionKey = "producao" | "venda";
 
@@ -17,13 +18,19 @@ function sumValorSemIva(items: CustosVariaveisItem[]) {
   return items.reduce((a, i) => a + i.valorSemIva, 0);
 }
 
+const EMPTY_PAYLOAD: CustosVariaveisPayload = {
+  producao: [],
+  venda: [],
+};
+
 export function CustosVariaveisPage() {
   const { period } = useDrePeriod();
-  const [data, setData] = useState<CustosVariaveisPayload>({
-    producao: [],
-    venda: [],
-  });
-  const [loading, setLoading] = useState(true);
+  const {
+    custosVariaveis,
+    loadingCustosVariaveis: loading,
+    loadCustosVariaveis,
+  } = useDreStore();
+  const data = custosVariaveis ?? EMPTY_PAYLOAD;
   const [actionError, setActionError] = useState<string | null>(null);
   const [pendingDelete, setPendingDelete] = useState<{
     section: SectionKey;
@@ -42,27 +49,9 @@ export function CustosVariaveisPage() {
     observacao: "",
   });
 
-  const loadData = useCallback(async () => {
-    setLoading(true);
-    try {
-      const { year, month } = period;
-      const res = await apiGet<CustosVariaveisPayload>(
-        `/api/reports/dre/custos-variaveis?year=${year}&month=${month}`
-      );
-      setData({
-        producao: res.producao ?? [],
-        venda: res.venda ?? [],
-      });
-    } catch {
-      setData({ producao: [], venda: [] });
-    } finally {
-      setLoading(false);
-    }
-  }, [period]);
-
   useEffect(() => {
-    loadData();
-  }, [loadData]);
+    loadCustosVariaveis();
+  }, [loadCustosVariaveis]);
 
   const startEdit = useCallback((item: CustosVariaveisItem) => {
     setEditingId(item.id);
@@ -113,12 +102,12 @@ export function CustosVariaveisPage() {
         }
         setAddingSection(null);
         setEditingId(null);
-        await loadData();
+        await loadCustosVariaveis(true);
       } catch (e) {
         setActionError(e instanceof Error ? e.message : "Erro ao guardar");
       }
     },
-    [period, editForm, addingSection, loadData]
+    [period, editForm, addingSection, loadCustosVariaveis]
   );
 
   const deleteItem = useCallback(
@@ -130,12 +119,12 @@ export function CustosVariaveisPage() {
         await apiDelete(`${baseUrl}/${id}?${qs}`);
         if (editingId === id) setEditingId(null);
         if (addingSection) setAddingSection(null);
-        await loadData();
+        await loadCustosVariaveis(true);
       } catch (e) {
         setActionError(e instanceof Error ? e.message : "Erro ao apagar");
       }
     },
-    [period, editingId, addingSection, loadData]
+    [period, editingId, addingSection, loadCustosVariaveis]
   );
 
   const requestDelete = useCallback((section: SectionKey, id: string) => {
