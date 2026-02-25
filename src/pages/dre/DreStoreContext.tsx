@@ -11,6 +11,7 @@ import {
 import type { CustosFixoItem } from "./custosFixos.types";
 import type { ReceitaBrutaPayload } from "./receitaBruta.types";
 import type { CustosVariaveisPayload } from "./custosVariaveis.types";
+import type { DREKpisPayload } from "./dreKpis.types";
 import { apiGet } from "../../lib/api";
 import { useDrePeriod } from "./DrePeriodContext";
 
@@ -18,7 +19,7 @@ type DreCache = {
   custosVariaveis: CustosVariaveisPayload | null;
   custosFixos: CustosFixoItem[] | null;
   receitaBruta: ReceitaBrutaPayload | null;
-  kpis: unknown | null;
+  kpis: DREKpisPayload | null;
 };
 
 const EMPTY_CACHE: DreCache = {
@@ -41,7 +42,9 @@ type DreStoreValue = {
   loadingReceitaBruta: boolean;
   loadReceitaBruta: (force?: boolean) => Promise<void>;
   setReceitaBruta: (data: ReceitaBrutaPayload) => void;
-  kpis: unknown | null;
+  kpis: DREKpisPayload | null;
+  loadingKpis: boolean;
+  loadKpis: (force?: boolean) => Promise<void>;
 };
 
 const DreStoreContext = createContext<DreStoreValue | null>(null);
@@ -58,6 +61,7 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
   const [loadingCustosVariaveis, setLoadingCustosVariaveis] = useState(false);
   const [loadingCustosFixos, setLoadingCustosFixos] = useState(false);
   const [loadingReceitaBruta, setLoadingReceitaBruta] = useState(false);
+  const [loadingKpis, setLoadingKpis] = useState(false);
 
   useEffect(() => {
     if (currentKey !== cacheKeyRef.current) {
@@ -187,6 +191,33 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
     setCache((prev) => ({ ...prev, receitaBruta: data }));
   }, []);
 
+  const loadKpis = useCallback(
+    async (force?: boolean) => {
+      if (
+        !force &&
+        cache.kpis !== null &&
+        cacheKeyRef.current === currentKey
+      ) {
+        return;
+      }
+      const keyAtStart = currentKey;
+      setLoadingKpis(true);
+      try {
+        const res = await apiGet<DREKpisPayload>(
+          `/api/reports/dre/kpis?year=${period.year}&month=${period.month}`
+        );
+        if (cacheKeyRef.current !== keyAtStart) return;
+        setCache((prev) => ({ ...prev, kpis: res }));
+      } catch {
+        if (cacheKeyRef.current !== keyAtStart) return;
+        setCache((prev) => ({ ...prev, kpis: null }));
+      } finally {
+        setLoadingKpis(false);
+      }
+    },
+    [period.year, period.month, currentKey, cache.kpis]
+  );
+
   const value = useMemo<DreStoreValue>(
     () => ({
       custosVariaveis: cache.custosVariaveis,
@@ -202,6 +233,8 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
       loadReceitaBruta,
       setReceitaBruta,
       kpis: cache.kpis,
+      loadingKpis,
+      loadKpis,
     }),
     [
       cache.custosVariaveis,
@@ -217,6 +250,8 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
       loadingReceitaBruta,
       loadReceitaBruta,
       setReceitaBruta,
+      loadingKpis,
+      loadKpis,
     ]
   );
 

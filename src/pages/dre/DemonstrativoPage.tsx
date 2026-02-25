@@ -1,4 +1,4 @@
-import { formatEUR, formatPct } from "../../lib/format";
+import { formatEUR, formatNumber, formatPct } from "../../lib/format";
 
 import type { CustosFixoItem } from "./custosFixos.types";
 import type { CustosVariaveisPayload } from "./custosVariaveis.types";
@@ -30,22 +30,29 @@ export function DemonstrativoPage() {
     receitaBruta,
     custosFixos,
     custosVariaveis,
+    kpis,
     loadReceitaBruta,
     loadCustosFixos,
     loadCustosVariaveis,
+    loadKpis,
     loadingReceitaBruta,
     loadingCustosFixos,
     loadingCustosVariaveis,
+    loadingKpis,
   } = useDreStore();
 
   useEffect(() => {
     loadReceitaBruta();
     loadCustosFixos();
     loadCustosVariaveis();
-  }, [loadReceitaBruta, loadCustosFixos, loadCustosVariaveis]);
+    loadKpis();
+  }, [loadReceitaBruta, loadCustosFixos, loadCustosVariaveis, loadKpis]);
 
   const loading =
-    loadingReceitaBruta || loadingCustosFixos || loadingCustosVariaveis;
+    loadingReceitaBruta ||
+    loadingCustosFixos ||
+    loadingCustosVariaveis ||
+    loadingKpis;
 
   const receitaBrutaValor = receitaBruta ? sumReceitaBruta(receitaBruta) : 0;
   const ivaRecolhido = receitaBruta?.tax_amount ?? 0;
@@ -141,7 +148,7 @@ export function DemonstrativoPage() {
                     </td>
                   </tr>
                   <tr className="border-t-2 border-slate-200 bg-white font-semibold">
-                    <td className="py-3 pr-4">Lucro líquido</td>
+                    <td className="py-3 pr-4">Resultado líquido</td>
                     <td className="py-3 text-right tabular-nums">
                       {formatEUR(lucroLiquido)}
                     </td>
@@ -156,11 +163,43 @@ export function DemonstrativoPage() {
           <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
             <h3 className="font-semibold text-slate-800">KPIs</h3>
           </div>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <KpiCard title="KPI 1" value="—" />
-            <KpiCard title="KPI 2" value="—" />
-            <KpiCard title="KPI 3" value="—" />
-            <KpiCard title="KPI 4" value="—" />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <KpiCard
+              title="Vendas loja"
+              value={kpis != null ? formatNumber(kpis.vendas_loja) : "—"}
+            />
+            <KpiCard
+              title="Vendas apps"
+              value={kpis != null ? formatNumber(kpis.vendas_apps) : "—"}
+            />
+            <KpiCard
+              title="Vendas totais"
+              value={kpis != null ? formatNumber(kpis.vendas_totais) : "—"}
+            />
+            <KpiCard
+              title="Ticket bruto"
+              value={kpis != null ? formatEUR(kpis.ticket_medio_bruto) : "—"}
+            />
+            <KpiCard
+              title="Ticket líquido"
+              value={kpis != null ? formatEUR(kpis.ticket_medio_liquido) : "—"}
+            />
+            <KpiCard
+              title="Vendas loja"
+              value={kpis != null ? formatPct(kpis.receita_pct_loja) : "—"}
+            />
+            <KpiCard
+              title="Vendas apps"
+              value={kpis != null ? formatPct(kpis.receita_pct_apps) : "—"}
+            />
+            <KpiCard
+              title="CMV"
+              value={kpis != null ? formatPct(kpis.cmv_pct) : "—"}
+            />
+            <KpiCard
+              title="Custo fixo"
+              value={kpis != null ? formatPct(kpis.custo_fixo_pct) : "—"}
+            />
           </div>
         </div>
       </div>

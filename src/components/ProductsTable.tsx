@@ -140,7 +140,6 @@ export function ProductsTable({ products, totalsGross }: Props) {
                 <th className="text-right">Líquido</th>
                 <th className="text-right">Líquido (- 30%)</th>
                 <th className="text-right">% total</th>
-                <th className="text-right">Ticket (Bruto)</th>
               </tr>
             </thead>
 
@@ -192,10 +191,6 @@ export function ProductsTable({ products, totalsGross }: Props) {
 
                       <td className="px-4 py-3 text-right">
                         {formatPct(share)}
-                      </td>
-
-                      <td className="px-4 py-3 text-right">
-                        {formatEUR(p.amounts.avg_gross_unit)}
                       </td>
                     </tr>
 

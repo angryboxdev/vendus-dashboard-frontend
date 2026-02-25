@@ -24,9 +24,6 @@ export function DashboardPage() {
   } = useDashboardStore();
 
   const totals = data?.totals;
-  const docsCount = totals?.documents_count ?? 0;
-  const ticketBruto = docsCount > 0 && totals ? totals.gross / docsCount : null;
-  const ticketLiquido = docsCount > 0 && totals ? totals.net / docsCount : null;
 
   return (
     <div className="min-h-full bg-slate-50">
@@ -63,18 +60,9 @@ export function DashboardPage() {
             title="Imposto (IVA)"
             value={totals ? formatEUR(totals.tax_amount) : "—"}
           />
-          <KpiCard title="Unidades" value={totals ? totals.units_count : "—"} />
           <KpiCard
             title="Vendas (Docs)"
             value={totals?.documents_count ?? "—"}
-          />
-          <KpiCard
-            title="Ticket (Bruto)"
-            value={ticketBruto != null ? formatEUR(ticketBruto) : "—"}
-          />
-          <KpiCard
-            title="Ticket (Líquido)"
-            value={ticketLiquido != null ? formatEUR(ticketLiquido) : "—"}
           />
         </div>
 
