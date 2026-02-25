@@ -325,36 +325,36 @@ export function StockPage() {
 
   return (
     <div className="mx-auto max-w-6xl p-6">
-      <h2 className="text-lg font-semibold text-slate-800">Stock</h2>
-
-      {/* Top: two buttons */}
-      <div className="mt-4 flex gap-3">
-        <button
-          type="button"
-          onClick={() => {
-            setUpdateModalOpen(true);
-            setUpdateError(null);
-            setUpdateRows([
-              {
-                itemId: "",
-                quantity: 0,
-                movementType: "adjustment",
-                unitCost: "",
-                reference: "",
-              },
-            ]);
-          }}
-          className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-        >
-          Atualizar stock
-        </button>
-        <button
-          type="button"
-          onClick={openNewItemModal}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-        >
-          Novo item
-        </button>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold text-slate-800">Stock</h2>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              setUpdateModalOpen(true);
+              setUpdateError(null);
+              setUpdateRows([
+                {
+                  itemId: "",
+                  quantity: 0,
+                  movementType: "adjustment",
+                  unitCost: "",
+                  reference: "",
+                },
+              ]);
+            }}
+            className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
+          >
+            Atualizar stock
+          </button>
+          <button
+            type="button"
+            onClick={openNewItemModal}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Novo item
+          </button>
+        </div>
       </div>
 
       {updateModalOpen && (
