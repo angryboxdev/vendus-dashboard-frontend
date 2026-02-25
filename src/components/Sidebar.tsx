@@ -9,6 +9,12 @@ const dreNavItems = [
   { to: "/dre/custos-variaveis", label: "Custos Variáveis" },
 ] as const;
 
+const stockNavItems = [
+  { to: "/stock/painel", label: "Painel" },
+  { to: "/stock/stock", label: "Stock" },
+  { to: "/stock/pizzas", label: "Pizzas" },
+] as const;
+
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `block rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
     isActive
@@ -38,8 +44,11 @@ function ChevronDown({ open }: { open: boolean }) {
 export function Sidebar() {
   const location = useLocation();
   const isDrePath = location.pathname.startsWith("/dre");
+  const isStockPath = location.pathname.startsWith("/stock");
   const [dreOpen, setDreOpen] = useState(false);
+  const [stockOpen, setStockOpen] = useState(false);
   const dreExpanded = isDrePath || dreOpen;
+  const stockExpanded = isStockPath || stockOpen;
 
   return (
     <aside className="flex w-56 flex-shrink-0 flex-col border-r border-slate-200 bg-white">
@@ -67,6 +76,30 @@ export function Sidebar() {
           {dreExpanded && (
             <div className="mt-0.5 flex flex-col gap-0.5 pl-1">
               {dreNavItems.map(({ to, label }) => (
+                <NavLink key={to} to={to} className={navLinkClass}>
+                  {label}
+                </NavLink>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-0.5">
+          <button
+            type="button"
+            onClick={() => setStockOpen(!stockExpanded)}
+            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
+              isStockPath
+                ? "bg-slate-100 text-slate-900"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+            }`}
+          >
+            <span>Gestão de Stock</span>
+            <ChevronDown open={stockExpanded} />
+          </button>
+          {stockExpanded && (
+            <div className="mt-0.5 flex flex-col gap-0.5 pl-1">
+              {stockNavItems.map(({ to, label }) => (
                 <NavLink key={to} to={to} className={navLinkClass}>
                   {label}
                 </NavLink>

@@ -6,6 +6,10 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { DemonstrativoPage } from "./pages/dre/DemonstrativoPage";
 import { DreLayout } from "./pages/dre/DreLayout";
 import { ReceitaBrutaPage } from "./pages/dre/ReceitaBrutaPage";
+import { PainelPage } from "./pages/stock/PainelPage";
+import { PizzasPage } from "./pages/stock/PizzasPage";
+import { StockLayout } from "./pages/stock/StockLayout";
+import { StockPage } from "./pages/stock/StockPage";
 import { Sidebar } from "./components/Sidebar";
 
 export default function App() {
@@ -27,6 +31,15 @@ export default function App() {
               path="/dre/custos-variaveis"
               element={<CustosVariaveisPage />}
             />
+          </Route>
+          <Route
+            path="/stock"
+            element={<Navigate to="/stock/painel" replace />}
+          />
+          <Route element={<StockLayout />}>
+            <Route path="/stock/painel" element={<PainelPage />} />
+            <Route path="/stock/stock" element={<StockPage />} />
+            <Route path="/stock/pizzas" element={<PizzasPage />} />
           </Route>
         </Routes>
       </main>
