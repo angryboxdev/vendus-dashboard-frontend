@@ -498,7 +498,7 @@ export function StockPage() {
                 <th className="px-4 py-3 font-medium text-right">Qtd. atual</th>
                 <th className="px-4 py-3 font-medium text-right">Stock mín.</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
-                <th className="px-4 py-3 font-medium w-20" />
+                <th className="px-4 py-3 font-medium w-20 text-center">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -913,7 +913,7 @@ function UpdateStockModal({
                 <th className="pr-4 py-2 font-medium">Tipo</th>
                 <th className="pr-4 py-2 font-medium">Custo unit.</th>
                 <th className="pr-4 py-2 font-medium">Referência</th>
-                <th className="w-20" />
+                <th className="w-20 text-center">Ações</th>
               </tr>
             </thead>
             <tbody>

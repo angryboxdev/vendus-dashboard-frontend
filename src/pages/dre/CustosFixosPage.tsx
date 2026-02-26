@@ -168,7 +168,7 @@ export function CustosFixosPage() {
               <th className="px-4 py-3 font-medium">Valor</th>
               <th className="px-4 py-3 font-medium">Valor (Sem IVA)</th>
               <th className="px-4 py-3 font-medium">Observação</th>
-              <th className="w-24 px-4 py-3" />
+              <th className="w-24 px-4 py-3 text-center">Ações</th>
             </tr>
           </thead>
           <tbody>
