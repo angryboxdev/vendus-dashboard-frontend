@@ -6,7 +6,7 @@ import { DashboardPage } from "./pages/DashboardPage";
 import { DemonstrativoPage } from "./pages/dre/DemonstrativoPage";
 import { DreLayout } from "./pages/dre/DreLayout";
 import { ReceitaBrutaPage } from "./pages/dre/ReceitaBrutaPage";
-import { PainelPage } from "./pages/stock/PainelPage";
+import { MovimentacoesPage } from "./pages/stock/MovimentacoesPage";
 import { PizzasPage } from "./pages/stock/PizzasPage";
 import { StockLayout } from "./pages/stock/StockLayout";
 import { StockPage } from "./pages/stock/StockPage";
@@ -34,10 +34,10 @@ export default function App() {
           </Route>
           <Route
             path="/stock"
-            element={<Navigate to="/stock/painel" replace />}
+            element={<Navigate to="/stock/movimentacoes" replace />}
           />
           <Route element={<StockLayout />}>
-            <Route path="/stock/painel" element={<PainelPage />} />
+            <Route path="/stock/movimentacoes" element={<MovimentacoesPage />} />
             <Route path="/stock/stock" element={<StockPage />} />
             <Route path="/stock/pizzas" element={<PizzasPage />} />
           </Route>

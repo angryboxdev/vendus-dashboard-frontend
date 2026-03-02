@@ -50,6 +50,7 @@ export type StockMovement = {
   unit_cost_per_base_unit: number | null;
   reason: string | null;
   reference: string | null;
+  movement_date: string; // ISO 8601 – data em que a movimentação ocorreu
   created_at: string;
   created_by: string | null;
 };
@@ -90,7 +91,16 @@ export type StockMovementCreateBody = {
   unit_cost_per_base_unit?: number | null;
   reason?: string | null;
   reference?: string | null;
+  movement_date?: string; // ISO 8601 – se omitido, backend usa "agora"
   created_by?: string | null;
+};
+
+export type StockMovementUpdateBody = {
+  movement_date?: string;
+  quantity?: number;
+  unit_cost_per_base_unit?: number | null;
+  reason?: string | null;
+  reference?: string | null;
 };
 
 export const STOCK_ITEM_TYPE_LABELS: Record<StockItemType, string> = {

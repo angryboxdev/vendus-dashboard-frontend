@@ -53,6 +53,9 @@ export function StockPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
+  const [updateMovementDate, setUpdateMovementDate] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  );
   const [updateRows, setUpdateRows] = useState<UpdateMovementRow[]>([
     {
       itemId: "",
@@ -65,6 +68,9 @@ export function StockPage() {
   const [updateError, setUpdateError] = useState<string | null>(null);
 
   const [newItemModalOpen, setNewItemModalOpen] = useState(false);
+  const [newItemMovementDate, setNewItemMovementDate] = useState(() =>
+    new Date().toISOString().slice(0, 10)
+  );
   const [newItemForm, setNewItemForm] = useState<StockItemCreateBody>({
     name: "",
     category_id: "",
@@ -211,6 +217,9 @@ export function StockPage() {
       return;
     }
     try {
+      const movementDateIso = updateMovementDate
+        ? new Date(updateMovementDate + "T12:00:00").toISOString()
+        : undefined;
       for (const r of valid) {
         await apiPost<unknown>("/api/stock/movements", {
           item_id: r.itemId,
@@ -219,9 +228,11 @@ export function StockPage() {
           unit_cost_per_base_unit:
             r.unitCost !== "" ? Number(r.unitCost) || null : null,
           reference: r.reference.trim() || null,
+          movement_date: movementDateIso,
         } satisfies StockMovementCreateBody);
       }
       setUpdateModalOpen(false);
+      setUpdateMovementDate(new Date().toISOString().slice(0, 10));
       setUpdateRows([
         {
           itemId: "",
@@ -237,7 +248,7 @@ export function StockPage() {
         e instanceof Error ? e.message : "Erro ao registar movimento"
       );
     }
-  }, [updateRows, loadItems]);
+  }, [updateRows, updateMovementDate, loadItems]);
 
   const addUpdateRow = useCallback(() => {
     setUpdateRows((prev) => [
@@ -277,10 +288,14 @@ export function StockPage() {
     try {
       const created = await apiPost<StockItem>("/api/stock/items", newItemForm);
       if (newItemInitialQty !== 0) {
+        const movementDateIso = newItemMovementDate
+          ? new Date(newItemMovementDate + "T12:00:00").toISOString()
+          : undefined;
         await apiPost("/api/stock/movements", {
           item_id: created.id,
           type: "adjustment" as StockMovementType,
           quantity: newItemInitialQty,
+          movement_date: movementDateIso,
         } satisfies StockMovementCreateBody);
       }
       setNewItemModalOpen(false);
@@ -299,11 +314,12 @@ export function StockPage() {
     } catch (e) {
       setNewItemError(e instanceof Error ? e.message : "Erro ao criar item");
     }
-  }, [newItemForm, newItemInitialQty, categories, loadItems]);
+  }, [newItemForm, newItemInitialQty, newItemMovementDate, categories, loadItems]);
 
   const openNewItemModal = useCallback(() => {
     setNewItemModalOpen(true);
     setNewItemError(null);
+    setNewItemMovementDate(new Date().toISOString().slice(0, 10));
     if (categories.length > 0) {
       setNewItemForm((f) => ({
         ...f,
@@ -333,7 +349,8 @@ export function StockPage() {
             onClick={() => {
               setUpdateModalOpen(true);
               setUpdateError(null);
-              setUpdateRows([
+              setUpdateMovementDate(new Date().toISOString().slice(0, 10));
+            setUpdateRows([
                 {
                   itemId: "",
                   quantity: 0,
@@ -360,6 +377,8 @@ export function StockPage() {
       {updateModalOpen && (
         <UpdateStockModal
           items={items}
+          movementDate={updateMovementDate}
+          setMovementDate={setUpdateMovementDate}
           rows={updateRows}
           updateRow={updateUpdateRow}
           addRow={addUpdateRow}
@@ -376,6 +395,8 @@ export function StockPage() {
           setForm={setNewItemForm}
           initialQty={newItemInitialQty}
           setInitialQty={setNewItemInitialQty}
+          movementDate={newItemMovementDate}
+          setMovementDate={setNewItemMovementDate}
           categories={categories}
           error={newItemError}
           onSubmit={submitNewItem}
@@ -873,6 +894,8 @@ type UpdateMovementRow = {
 
 function UpdateStockModal({
   items,
+  movementDate,
+  setMovementDate,
   rows,
   updateRow,
   addRow,
@@ -882,6 +905,8 @@ function UpdateStockModal({
   onClose,
 }: {
   items: StockItem[];
+  movementDate: string;
+  setMovementDate: (v: string) => void;
   rows: UpdateMovementRow[];
   updateRow: (idx: number, patch: Partial<UpdateMovementRow>) => void;
   addRow: () => void;
@@ -904,6 +929,17 @@ function UpdateStockModal({
         >
           Atualizar stock
         </h3>
+        <div className="mt-4">
+          <label className="mb-1 block text-xs text-slate-500">
+            Data da movimentação
+          </label>
+          <input
+            type="date"
+            value={movementDate}
+            onChange={(e) => setMovementDate(e.target.value)}
+            className="rounded border border-slate-200 px-3 py-2 text-sm"
+          />
+        </div>
         <div className="mt-4 overflow-x-auto">
           <table className="w-full text-left text-sm">
             <thead>
@@ -1046,6 +1082,8 @@ function NewItemModal({
   setForm,
   initialQty,
   setInitialQty,
+  movementDate,
+  setMovementDate,
   categories,
   error,
   onSubmit,
@@ -1055,6 +1093,8 @@ function NewItemModal({
   setForm: React.Dispatch<React.SetStateAction<StockItemCreateBody>>;
   initialQty: number;
   setInitialQty: (n: number) => void;
+  movementDate: string;
+  setMovementDate: (v: string) => void;
   categories: StockCategory[];
   error: string | null;
   onSubmit: () => void;
@@ -1241,6 +1281,19 @@ function NewItemModal({
               placeholder="0"
             />
           </div>
+          {initialQty !== 0 && (
+            <div>
+              <label className="mb-1 block text-xs text-slate-500">
+                Data da movimentação
+              </label>
+              <input
+                type="date"
+                value={movementDate}
+                onChange={(e) => setMovementDate(e.target.value)}
+                className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
+              />
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <input
               type="checkbox"

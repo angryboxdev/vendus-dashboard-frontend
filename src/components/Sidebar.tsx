@@ -10,7 +10,7 @@ const dreNavItems = [
 ] as const;
 
 const stockNavItems = [
-  { to: "/stock/painel", label: "Painel" },
+  { to: "/stock/movimentacoes", label: "Movimentações" },
   { to: "/stock/stock", label: "Stock" },
   { to: "/stock/pizzas", label: "Pizzas" },
 ] as const;
