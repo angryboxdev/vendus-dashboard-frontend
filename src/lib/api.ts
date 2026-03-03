@@ -1,8 +1,11 @@
+const API_BASE = import.meta.env.VITE_API_URL ?? "";
+
 async function request(
   path: string,
   options: { method: string; body?: string } = { method: "GET" }
 ): Promise<Response> {
-  const res = await fetch(path, {
+  const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
+  const res = await fetch(url, {
     method: options.method,
     headers:
       options.body != null
