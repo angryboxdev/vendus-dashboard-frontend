@@ -85,7 +85,7 @@ export function DemonstrativoPage() {
           <div className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
             <div className="border-b border-slate-200 px-4 py-3">
               <h3 className="font-semibold text-slate-800">
-                Demonstrativo de Resultados
+                Mapa de rentabilidade
               </h3>
             </div>
             <div className="p-4">

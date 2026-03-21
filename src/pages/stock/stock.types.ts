@@ -38,8 +38,14 @@ export type StockItem = {
   updated_at?: string;
   /** Calculado: SUM(stock_movements.quantity) */
   current_quantity?: number;
-  /** Calculado: média ponderada das compras (opcional) */
-  average_cost_per_base_unit?: number | null;
+  /** Último custo por base_unit com IVA (só leitura) */
+  last_purchase_unit_cost_with_vat?: number | null;
+  /** Último custo por base_unit sem IVA (só leitura) */
+  last_purchase_unit_cost_without_vat?: number | null;
+  /** Custo de referência por base_unit no catálogo, com IVA */
+  purchase_reference_unit_cost_with_vat?: number | null;
+  /** Custo de referência por base_unit no catálogo, sem IVA */
+  purchase_reference_unit_cost_without_vat?: number | null;
 };
 
 export type StockMovement = {
@@ -47,7 +53,8 @@ export type StockMovement = {
   item_id: string;
   type: StockMovementType;
   quantity: number;
-  unit_cost_per_base_unit: number | null;
+  unit_cost_per_base_unit_with_vat?: number | null;
+  unit_cost_per_base_unit_without_vat?: number | null;
   reason: string | null;
   reference: string | null;
   movement_date: string; // ISO 8601 – data em que a movimentação ocorreu
@@ -68,6 +75,8 @@ export type StockItemCreateBody = {
   min_stock?: number;
   base_unit: StockBaseUnit;
   is_active?: boolean;
+  purchase_reference_unit_cost_with_vat?: number | null;
+  purchase_reference_unit_cost_without_vat?: number | null;
 };
 
 export type StockItemUpdateBody = Partial<
@@ -82,13 +91,16 @@ export type StockItemUpdateBody = Partial<
   min_stock?: number;
   base_unit?: StockBaseUnit;
   is_active?: boolean;
+  purchase_reference_unit_cost_with_vat?: number | null;
+  purchase_reference_unit_cost_without_vat?: number | null;
 };
 
 export type StockMovementCreateBody = {
   item_id: string;
   type: StockMovementType;
   quantity: number;
-  unit_cost_per_base_unit?: number | null;
+  unit_cost_per_base_unit_with_vat?: number | null;
+  unit_cost_per_base_unit_without_vat?: number | null;
   reason?: string | null;
   reference?: string | null;
   movement_date?: string; // ISO 8601 – se omitido, backend usa "agora"
@@ -98,7 +110,8 @@ export type StockMovementCreateBody = {
 export type StockMovementUpdateBody = {
   movement_date?: string;
   quantity?: number;
-  unit_cost_per_base_unit?: number | null;
+  unit_cost_per_base_unit_with_vat?: number | null;
+  unit_cost_per_base_unit_without_vat?: number | null;
   reason?: string | null;
   reference?: string | null;
 };

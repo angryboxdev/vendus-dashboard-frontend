@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { apiGet, apiPost, apiPut } from "../../lib/api";
-import { formatNumber } from "../../lib/format";
+import { formatEUR, formatNumber } from "../../lib/format";
 import type {
   StockBaseUnit,
   StockCategory,
@@ -61,7 +61,8 @@ export function StockPage() {
       itemId: "",
       quantity: 0,
       movementType: "adjustment",
-      unitCost: "",
+      unitCostWithVat: "",
+      unitCostWithoutVat: "",
       reference: "",
     },
   ]);
@@ -80,6 +81,8 @@ export function StockPage() {
     is_sellable: false,
     sale_price: null,
     is_active: true,
+    purchase_reference_unit_cost_with_vat: null,
+    purchase_reference_unit_cost_without_vat: null,
   });
   const [newItemInitialQty, setNewItemInitialQty] = useState<number>(0);
   const [newItemError, setNewItemError] = useState<string | null>(null);
@@ -187,6 +190,8 @@ export function StockPage() {
       min_stock: item.min_stock,
       base_unit: item.base_unit,
       is_active: item.is_active,
+      purchase_reference_unit_cost_with_vat: item.purchase_reference_unit_cost_with_vat,
+      purchase_reference_unit_cost_without_vat: item.purchase_reference_unit_cost_without_vat,
     });
     setSaveError(null);
   }, []);
@@ -225,8 +230,10 @@ export function StockPage() {
           item_id: r.itemId,
           type: r.movementType,
           quantity: r.quantity,
-          unit_cost_per_base_unit:
-            r.unitCost !== "" ? Number(r.unitCost) || null : null,
+          unit_cost_per_base_unit_with_vat:
+            r.unitCostWithVat !== "" ? Number(r.unitCostWithVat) || null : null,
+          unit_cost_per_base_unit_without_vat:
+            r.unitCostWithoutVat !== "" ? Number(r.unitCostWithoutVat) || null : null,
           reference: r.reference.trim() || null,
           movement_date: movementDateIso,
         } satisfies StockMovementCreateBody);
@@ -238,7 +245,8 @@ export function StockPage() {
           itemId: "",
           quantity: 0,
           movementType: "adjustment",
-          unitCost: "",
+          unitCostWithVat: "",
+          unitCostWithoutVat: "",
           reference: "",
         },
       ]);
@@ -257,7 +265,8 @@ export function StockPage() {
         itemId: "",
         quantity: 0,
         movementType: "adjustment" as StockMovementType,
-        unitCost: "",
+        unitCostWithVat: "",
+        unitCostWithoutVat: "",
         reference: "",
       },
     ]);
@@ -308,6 +317,8 @@ export function StockPage() {
         is_sellable: false,
         sale_price: null,
         is_active: true,
+        purchase_reference_unit_cost_with_vat: null,
+        purchase_reference_unit_cost_without_vat: null,
       });
       setNewItemInitialQty(0);
       await loadItems();
@@ -355,7 +366,8 @@ export function StockPage() {
                   itemId: "",
                   quantity: 0,
                   movementType: "adjustment",
-                  unitCost: "",
+                  unitCostWithVat: "",
+                  unitCostWithoutVat: "",
                   reference: "",
                 },
               ]);
@@ -518,6 +530,8 @@ export function StockPage() {
                 <th className="px-4 py-3 font-medium">Tipo</th>
                 <th className="px-4 py-3 font-medium text-right">Qtd. atual</th>
                 <th className="px-4 py-3 font-medium text-right">Stock mín.</th>
+                <th className="px-4 py-3 font-medium text-right">Custo c/ IVA</th>
+                <th className="px-4 py-3 font-medium text-right">Custo s/ IVA</th>
                 <th className="px-4 py-3 font-medium">Estado</th>
                 <th className="px-4 py-3 font-medium w-20 text-center">Ações</th>
               </tr>
@@ -555,6 +569,16 @@ export function StockPage() {
                       {formatNumber(min)}{" "}
                       {STOCK_BASE_UNIT_LABELS[item.base_unit]}
                     </td>
+                    <td className="px-4 py-2 text-right tabular-nums text-slate-600">
+                      {item.last_purchase_unit_cost_with_vat != null && item.last_purchase_unit_cost_with_vat > 0
+                        ? formatEUR(item.last_purchase_unit_cost_with_vat)
+                        : "—"}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums text-slate-600">
+                      {item.last_purchase_unit_cost_without_vat != null && item.last_purchase_unit_cost_without_vat > 0
+                        ? formatEUR(item.last_purchase_unit_cost_without_vat)
+                        : "—"}
+                    </td>
                     <td className="px-4 py-2">
                       <span
                         className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${
@@ -578,16 +602,16 @@ export function StockPage() {
                   </tr>
                 );
               })}
-              {paginatedItems.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={7}
-                    className="px-4 py-8 text-center text-slate-500"
-                  >
-                    Nenhum item encontrado
-                  </td>
-                </tr>
-              )}
+                {paginatedItems.length === 0 && (
+                  <tr>
+                    <td
+                      colSpan={9}
+                      className="px-4 py-8 text-center text-slate-500"
+                    >
+                      Nenhum item encontrado
+                    </td>
+                  </tr>
+                )}
             </tbody>
           </table>
         )}
@@ -800,6 +824,79 @@ function StockEditModal({
               ))}
             </select>
           </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">
+              Custo de referência c/ IVA por {STOCK_BASE_UNIT_LABELS[form.base_unit ?? item.base_unit] ?? "un"} (€)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={
+                form.purchase_reference_unit_cost_with_vat == null ||
+                form.purchase_reference_unit_cost_with_vat === 0
+                  ? ""
+                  : form.purchase_reference_unit_cost_with_vat
+              }
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  purchase_reference_unit_cost_with_vat:
+                    e.target.value !== ""
+                      ? Number(e.target.value) || null
+                      : null,
+                }))
+              }
+              className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
+              placeholder="Opcional"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">
+              Custo de referência s/ IVA por {STOCK_BASE_UNIT_LABELS[form.base_unit ?? item.base_unit] ?? "un"} (€)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={
+                form.purchase_reference_unit_cost_without_vat == null ||
+                form.purchase_reference_unit_cost_without_vat === 0
+                  ? ""
+                  : form.purchase_reference_unit_cost_without_vat
+              }
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  purchase_reference_unit_cost_without_vat:
+                    e.target.value !== ""
+                      ? Number(e.target.value) || null
+                      : null,
+                }))
+              }
+              className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
+              placeholder="Opcional"
+            />
+          </div>
+          {((item.last_purchase_unit_cost_with_vat != null && item.last_purchase_unit_cost_with_vat > 0) ||
+            (item.last_purchase_unit_cost_without_vat != null && item.last_purchase_unit_cost_without_vat > 0)) && (
+            <div>
+              <label className="mb-1 block text-xs text-slate-500">
+                Último custo de compra (só leitura)
+              </label>
+              <p className="rounded border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                {item.last_purchase_unit_cost_with_vat != null && item.last_purchase_unit_cost_with_vat > 0 && (
+                  <>c/ IVA: {formatEUR(item.last_purchase_unit_cost_with_vat)}</>
+                )}
+                {item.last_purchase_unit_cost_with_vat != null && item.last_purchase_unit_cost_with_vat > 0 &&
+                 item.last_purchase_unit_cost_without_vat != null && item.last_purchase_unit_cost_without_vat > 0 && " · "}
+                {item.last_purchase_unit_cost_without_vat != null && item.last_purchase_unit_cost_without_vat > 0 && (
+                  <>s/ IVA: {formatEUR(item.last_purchase_unit_cost_without_vat)}</>
+                )}
+                {" "}/ {STOCK_BASE_UNIT_LABELS[item.base_unit]}
+              </p>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
@@ -888,7 +985,8 @@ type UpdateMovementRow = {
   itemId: string;
   quantity: number;
   movementType: StockMovementType;
-  unitCost: string;
+  unitCostWithVat: string;
+  unitCostWithoutVat: string;
   reference: string;
 };
 
@@ -947,8 +1045,9 @@ function UpdateStockModal({
                 <th className="pr-4 py-2 font-medium">Item</th>
                 <th className="pr-4 py-2 font-medium">Quantidade (+/−)</th>
                 <th className="pr-4 py-2 font-medium">Tipo</th>
-                <th className="pr-4 py-2 font-medium">Custo unit.</th>
-                <th className="pr-4 py-2 font-medium">Referência</th>
+                <th className="pr-4 py-2 font-medium">Custo c/ IVA</th>
+                <th className="pr-4 py-2 font-medium">Custo s/ IVA</th>
+                <th className="pr-4 py-2 font-medium">Notas</th>
                 <th className="w-20 text-center">Ações</th>
               </tr>
             </thead>
@@ -958,9 +1057,20 @@ function UpdateStockModal({
                   <td className="py-2 pr-4">
                     <select
                       value={row.itemId}
-                      onChange={(e) =>
-                        updateRow(idx, { itemId: e.target.value })
-                      }
+                      onChange={(e) => {
+                        const itemId = e.target.value;
+                        const patch: Partial<UpdateMovementRow> = { itemId };
+                        if (row.movementType === "purchase" && itemId) {
+                          const item = items.find((i) => i.id === itemId);
+                          if (item && row.unitCostWithVat === "" && row.unitCostWithoutVat === "") {
+                            const withVat = item.last_purchase_unit_cost_with_vat ?? item.purchase_reference_unit_cost_with_vat;
+                            const withoutVat = item.last_purchase_unit_cost_without_vat ?? item.purchase_reference_unit_cost_without_vat;
+                            if (withVat != null && withVat > 0) patch.unitCostWithVat = String(withVat);
+                            if (withoutVat != null && withoutVat > 0) patch.unitCostWithoutVat = String(withoutVat);
+                          }
+                        }
+                        updateRow(idx, patch);
+                      }}
                       className="w-full min-w-[160px] rounded border border-slate-200 px-3 py-2 text-sm"
                     >
                       <option value="">Selecionar</option>
@@ -1013,11 +1123,24 @@ function UpdateStockModal({
                       type="number"
                       step="0.01"
                       min="0"
-                      value={row.unitCost}
+                      value={row.unitCostWithVat}
                       onChange={(e) =>
-                        updateRow(idx, { unitCost: e.target.value })
+                        updateRow(idx, { unitCostWithVat: e.target.value })
                       }
-                      className="w-24 rounded border border-slate-200 px-3 py-2 text-sm"
+                      className="w-20 rounded border border-slate-200 px-3 py-2 text-sm"
+                      placeholder="—"
+                    />
+                  </td>
+                  <td className="py-2 pr-4">
+                    <input
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={row.unitCostWithoutVat}
+                      onChange={(e) =>
+                        updateRow(idx, { unitCostWithoutVat: e.target.value })
+                      }
+                      className="w-20 rounded border border-slate-200 px-3 py-2 text-sm"
                       placeholder="—"
                     />
                   </td>
@@ -1046,7 +1169,7 @@ function UpdateStockModal({
             </tbody>
           </table>
         </div>
-        <div className="mt-4 flex items-center gap-4">
+        <div className="mt-4 flex flex-wrap items-center gap-4">
           <button
             type="button"
             onClick={addRow}
@@ -1054,6 +1177,9 @@ function UpdateStockModal({
           >
             + Adicionar item
           </button>
+          <p className="text-xs text-slate-500">
+            O custo só atualiza o «último custo» do item na tabela quando o tipo for <strong>Compra</strong>.
+          </p>
         </div>
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
         <div className="mt-6 flex justify-end gap-2">
@@ -1221,6 +1347,60 @@ function NewItemModal({
                 }))
               }
               className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">
+              Custo de referência c/ IVA por {STOCK_BASE_UNIT_LABELS[form.base_unit] ?? "un"} (€)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={
+                form.purchase_reference_unit_cost_with_vat == null ||
+                form.purchase_reference_unit_cost_with_vat === 0
+                  ? ""
+                  : form.purchase_reference_unit_cost_with_vat
+              }
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  purchase_reference_unit_cost_with_vat:
+                    e.target.value !== ""
+                      ? Number(e.target.value) || null
+                      : null,
+                }))
+              }
+              className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
+              placeholder="Opcional"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">
+              Custo de referência s/ IVA por {STOCK_BASE_UNIT_LABELS[form.base_unit] ?? "un"} (€)
+            </label>
+            <input
+              type="number"
+              step="0.01"
+              min="0"
+              value={
+                form.purchase_reference_unit_cost_without_vat == null ||
+                form.purchase_reference_unit_cost_without_vat === 0
+                  ? ""
+                  : form.purchase_reference_unit_cost_without_vat
+              }
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  purchase_reference_unit_cost_without_vat:
+                    e.target.value !== ""
+                      ? Number(e.target.value) || null
+                      : null,
+                }))
+              }
+              className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
+              placeholder="Opcional"
             />
           </div>
           <div className="flex items-center gap-2">

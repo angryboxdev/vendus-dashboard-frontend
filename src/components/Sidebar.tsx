@@ -3,7 +3,7 @@ import { NavLink, useLocation } from "react-router-dom";
 import { useState } from "react";
 
 const dreNavItems = [
-  { to: "/dre/demonstrativo", label: "Demonstrativo" },
+  { to: "/dre/demonstrativo", label: "Mapa" },
   { to: "/dre/receita-bruta", label: "Receitas" },
   { to: "/dre/custos-fixos", label: "Custos Fixos" },
   { to: "/dre/custos-variaveis", label: "Custos Variáveis" },
@@ -70,7 +70,7 @@ export function Sidebar() {
                 : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
             }`}
           >
-            <span>DRE</span>
+            <span>Mapa de rentabilidade</span>
             <ChevronDown open={dreExpanded} />
           </button>
           {dreExpanded && (
