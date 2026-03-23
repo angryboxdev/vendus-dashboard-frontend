@@ -39,6 +39,7 @@ export function DemonstrativoPage() {
     loadingCustosFixos,
     loadingCustosVariaveis,
     loadingKpis,
+    refreshTrigger,
   } = useDreStore();
 
   useEffect(() => {
@@ -46,7 +47,7 @@ export function DemonstrativoPage() {
     loadCustosFixos();
     loadCustosVariaveis();
     loadKpis();
-  }, [loadReceitaBruta, loadCustosFixos, loadCustosVariaveis, loadKpis]);
+  }, [loadReceitaBruta, loadCustosFixos, loadCustosVariaveis, loadKpis, refreshTrigger]);
 
   const loading =
     loadingReceitaBruta ||

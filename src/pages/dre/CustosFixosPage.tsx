@@ -20,6 +20,7 @@ export function CustosFixosPage() {
     custosFixos,
     loadingCustosFixos: loading,
     loadCustosFixos,
+    refreshTrigger,
   } = useDreStore();
   const items = custosFixos ?? [];
   const [actionError, setActionError] = useState<string | null>(null);
@@ -36,7 +37,7 @@ export function CustosFixosPage() {
 
   useEffect(() => {
     loadCustosFixos();
-  }, [loadCustosFixos]);
+  }, [loadCustosFixos, refreshTrigger]);
 
   const startEdit = useCallback((item: CustosFixoItem) => {
     setEditingId(item.id);

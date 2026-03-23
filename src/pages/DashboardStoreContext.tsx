@@ -68,7 +68,8 @@ export function DashboardStoreProvider({
 
   useEffect(() => {
     load();
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load só no mount; depois usa botão Atualizar
+  }, []);
 
   const setSince = useCallback((value: string) => setSinceState(value), []);
   const setUntil = useCallback((value: string) => setUntilState(value), []);

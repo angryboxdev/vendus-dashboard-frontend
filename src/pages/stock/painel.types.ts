@@ -18,6 +18,16 @@ export type StockAdditionEntry = {
   quantity_added: number;
 };
 
+export type OpeningStockEntry = {
+  stock_item_id: string;
+  name: string;
+  base_unit: string;
+  type: string;
+  category_id: string;
+  category_name: string;
+  quantity_at_period_start: number;
+};
+
 export type MatchedProductEntry = {
   title: string;
   reference: string;
@@ -45,6 +55,7 @@ export type IngredientConsumptionResponse = {
   };
   consumption: IngredientConsumptionEntry[];
   additions: StockAdditionEntry[];
+  opening_stock?: OpeningStockEntry[];
   matched_products?: MatchedProductEntry[];
   debug?: {
     products_total: number;

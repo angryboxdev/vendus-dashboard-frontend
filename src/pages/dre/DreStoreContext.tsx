@@ -45,6 +45,8 @@ type DreStoreValue = {
   kpis: DREKpisPayload | null;
   loadingKpis: boolean;
   loadKpis: (force?: boolean) => Promise<void>;
+  refreshTrigger: number;
+  refresh: () => void;
 };
 
 const DreStoreContext = createContext<DreStoreValue | null>(null);
@@ -55,6 +57,8 @@ function periodKey(year: number, month: number) {
 
 export function DreStoreProvider({ children }: { children: React.ReactNode }) {
   const { period } = useDrePeriod();
+  const periodRef = useRef(period);
+  periodRef.current = period;
   const currentKey = periodKey(period.year, period.month);
   const cacheKeyRef = useRef(currentKey);
   const [cache, setCache] = useState<DreCache>(EMPTY_CACHE);
@@ -62,6 +66,9 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
   const [loadingCustosFixos, setLoadingCustosFixos] = useState(false);
   const [loadingReceitaBruta, setLoadingReceitaBruta] = useState(false);
   const [loadingKpis, setLoadingKpis] = useState(false);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+
+  const refresh = useCallback(() => setRefreshTrigger((t) => t + 1), []);
 
   useEffect(() => {
     if (currentKey !== cacheKeyRef.current) {
@@ -82,8 +89,9 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
       const keyAtStart = currentKey;
       setLoadingCustosVariaveis(true);
       try {
+        const p = periodRef.current;
         const res = await apiGet<CustosVariaveisPayload>(
-          `/api/reports/dre/custos-variaveis?year=${period.year}&month=${period.month}`
+          `/api/reports/dre/custos-variaveis?year=${p.year}&month=${p.month}`
         );
         if (cacheKeyRef.current !== keyAtStart) return;
         setCache((prev) => ({
@@ -103,7 +111,7 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
         setLoadingCustosVariaveis(false);
       }
     },
-    [period.year, period.month, currentKey, cache.custosVariaveis]
+    [currentKey, cache.custosVariaveis]
   );
 
   const setCustosVariaveis = useCallback((data: CustosVariaveisPayload) => {
@@ -122,8 +130,9 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
       const keyAtStart = currentKey;
       setLoadingCustosFixos(true);
       try {
+        const p = periodRef.current;
         const res = await apiGet<CustosFixoItem[]>(
-          `/api/reports/dre/custos-fixos?year=${period.year}&month=${period.month}`
+          `/api/reports/dre/custos-fixos?year=${p.year}&month=${p.month}`
         );
         if (cacheKeyRef.current !== keyAtStart) return;
         setCache((prev) => ({
@@ -137,7 +146,7 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
         setLoadingCustosFixos(false);
       }
     },
-    [period.year, period.month, currentKey, cache.custosFixos]
+    [currentKey, cache.custosFixos]
   );
 
   const setCustosFixos = useCallback((data: CustosFixoItem[]) => {
@@ -156,8 +165,9 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
       const keyAtStart = currentKey;
       setLoadingReceitaBruta(true);
       try {
+        const p = periodRef.current;
         const res = await apiGet<ReceitaBrutaPayload>(
-          `/api/reports/dre/receita-bruta?year=${period.year}&month=${period.month}`
+          `/api/reports/dre/receita-bruta?year=${p.year}&month=${p.month}`
         );
         if (cacheKeyRef.current !== keyAtStart) return;
         setCache((prev) => ({
@@ -184,7 +194,7 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
         setLoadingReceitaBruta(false);
       }
     },
-    [period.year, period.month, currentKey, cache.receitaBruta]
+    [currentKey, cache.receitaBruta]
   );
 
   const setReceitaBruta = useCallback((data: ReceitaBrutaPayload) => {
@@ -203,8 +213,9 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
       const keyAtStart = currentKey;
       setLoadingKpis(true);
       try {
+        const p = periodRef.current;
         const res = await apiGet<DREKpisPayload>(
-          `/api/reports/dre/kpis?year=${period.year}&month=${period.month}`
+          `/api/reports/dre/kpis?year=${p.year}&month=${p.month}`
         );
         if (cacheKeyRef.current !== keyAtStart) return;
         setCache((prev) => ({ ...prev, kpis: res }));
@@ -215,7 +226,7 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
         setLoadingKpis(false);
       }
     },
-    [period.year, period.month, currentKey, cache.kpis]
+    [currentKey, cache.kpis]
   );
 
   const value = useMemo<DreStoreValue>(
@@ -235,6 +246,8 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
       kpis: cache.kpis,
       loadingKpis,
       loadKpis,
+      refreshTrigger,
+      refresh,
     }),
     [
       cache.custosVariaveis,
@@ -252,6 +265,8 @@ export function DreStoreProvider({ children }: { children: React.ReactNode }) {
       setReceitaBruta,
       loadingKpis,
       loadKpis,
+      refreshTrigger,
+      refresh,
     ]
   );
 

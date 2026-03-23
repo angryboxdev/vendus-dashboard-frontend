@@ -20,6 +20,9 @@ import {
 
 const DEFAULT_CATEGORY_NAME = "Geral";
 
+/** Percentagem do mínimo acima da qual o stock é considerado OK. Ex: 1.2 = 120% → "próximo" entre min e min×1.2 */
+const APPROACHING_THRESHOLD_PCT = 1.2;
+
 function buildItemsQuery(params: {
   category_id?: string;
   type?: string;
@@ -54,7 +57,7 @@ export function StockPage() {
 
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
   const [updateMovementDate, setUpdateMovementDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
+    new Date().toISOString().slice(0, 10),
   );
   const [updateRows, setUpdateRows] = useState<UpdateMovementRow[]>([
     {
@@ -70,7 +73,7 @@ export function StockPage() {
 
   const [newItemModalOpen, setNewItemModalOpen] = useState(false);
   const [newItemMovementDate, setNewItemMovementDate] = useState(() =>
-    new Date().toISOString().slice(0, 10)
+    new Date().toISOString().slice(0, 10),
   );
   const [newItemForm, setNewItemForm] = useState<StockItemCreateBody>({
     name: "",
@@ -145,16 +148,17 @@ export function StockPage() {
       list = list.filter(
         (i) =>
           i.name.toLowerCase().includes(q) ||
-          (i.sku ?? "").toLowerCase().includes(q)
+          (i.sku ?? "").toLowerCase().includes(q),
       );
     }
     if (filterStockStatus) {
       list = list.filter((i) => {
         const qty = i.current_quantity ?? 0;
         const min = i.min_stock ?? 0;
+        const threshold = min * APPROACHING_THRESHOLD_PCT;
         const below = min > 0 && qty < min;
-        const approaching = min > 0 && qty >= min * 0.9 && qty < min;
-        if (filterStockStatus === "below") return below && !approaching;
+        const approaching = min > 0 && qty >= min && qty < threshold;
+        if (filterStockStatus === "below") return below;
         if (filterStockStatus === "approaching") return approaching;
         if (filterStockStatus === "below_and_approaching")
           return below || approaching;
@@ -169,7 +173,7 @@ export function StockPage() {
   const safePage = Math.min(currentPage, totalPages);
   const paginatedItems = useMemo(
     () => filteredItems.slice((safePage - 1) * pageSize, safePage * pageSize),
-    [filteredItems, safePage, pageSize]
+    [filteredItems, safePage, pageSize],
   );
 
   useEffect(() => {
@@ -190,8 +194,10 @@ export function StockPage() {
       min_stock: item.min_stock,
       base_unit: item.base_unit,
       is_active: item.is_active,
-      purchase_reference_unit_cost_with_vat: item.purchase_reference_unit_cost_with_vat,
-      purchase_reference_unit_cost_without_vat: item.purchase_reference_unit_cost_without_vat,
+      purchase_reference_unit_cost_with_vat:
+        item.purchase_reference_unit_cost_with_vat,
+      purchase_reference_unit_cost_without_vat:
+        item.purchase_reference_unit_cost_without_vat,
     });
     setSaveError(null);
   }, []);
@@ -233,7 +239,9 @@ export function StockPage() {
           unit_cost_per_base_unit_with_vat:
             r.unitCostWithVat !== "" ? Number(r.unitCostWithVat) || null : null,
           unit_cost_per_base_unit_without_vat:
-            r.unitCostWithoutVat !== "" ? Number(r.unitCostWithoutVat) || null : null,
+            r.unitCostWithoutVat !== ""
+              ? Number(r.unitCostWithoutVat) || null
+              : null,
           reference: r.reference.trim() || null,
           movement_date: movementDateIso,
         } satisfies StockMovementCreateBody);
@@ -253,7 +261,7 @@ export function StockPage() {
       await loadItems();
     } catch (e) {
       setUpdateError(
-        e instanceof Error ? e.message : "Erro ao registar movimento"
+        e instanceof Error ? e.message : "Erro ao registar movimento",
       );
     }
   }, [updateRows, updateMovementDate, loadItems]);
@@ -275,15 +283,15 @@ export function StockPage() {
   const updateUpdateRow = useCallback(
     (idx: number, patch: Partial<UpdateMovementRow>) => {
       setUpdateRows((prev) =>
-        prev.map((r, i) => (i === idx ? { ...r, ...patch } : r))
+        prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)),
       );
     },
-    []
+    [],
   );
 
   const removeUpdateRow = useCallback((idx: number) => {
     setUpdateRows((prev) =>
-      prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev
+      prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev,
     );
   }, []);
 
@@ -325,7 +333,13 @@ export function StockPage() {
     } catch (e) {
       setNewItemError(e instanceof Error ? e.message : "Erro ao criar item");
     }
-  }, [newItemForm, newItemInitialQty, newItemMovementDate, categories, loadItems]);
+  }, [
+    newItemForm,
+    newItemInitialQty,
+    newItemMovementDate,
+    categories,
+    loadItems,
+  ]);
 
   const openNewItemModal = useCallback(() => {
     setNewItemModalOpen(true);
@@ -361,7 +375,7 @@ export function StockPage() {
               setUpdateModalOpen(true);
               setUpdateError(null);
               setUpdateMovementDate(new Date().toISOString().slice(0, 10));
-            setUpdateRows([
+              setUpdateRows([
                 {
                   itemId: "",
                   quantity: 0,
@@ -454,7 +468,7 @@ export function StockPage() {
             {(
               Object.entries(STOCK_ITEM_TYPE_LABELS) as [
                 StockItemType,
-                string
+                string,
               ][]
             ).map(([k, v]) => (
               <option key={k} value={k}>
@@ -501,11 +515,11 @@ export function StockPage() {
         </span>
         <span className="flex items-center gap-2">
           <span className="inline-block h-4 w-3 rounded bg-amber-50 ring-1 ring-amber-200/50" />
-          Próximo do mínimo (ex: 9 kg de 10 kg mín.)
+          Próximo do mínimo (ex: 11 kg de 10 kg mín.)
         </span>
         <span className="flex items-center gap-2">
           <span className="inline-block h-4 w-3 rounded bg-white border border-slate-200" />
-          Stock OK (ex: 12 kg de 10 kg mín.)
+          Stock OK (ex: 13 kg de 10 kg mín.)
         </span>
       </div>
 
@@ -530,23 +544,30 @@ export function StockPage() {
                 <th className="px-4 py-3 font-medium">Tipo</th>
                 <th className="px-4 py-3 font-medium text-right">Qtd. atual</th>
                 <th className="px-4 py-3 font-medium text-right">Stock mín.</th>
-                <th className="px-4 py-3 font-medium text-right">Custo c/ IVA</th>
-                <th className="px-4 py-3 font-medium text-right">Custo s/ IVA</th>
+                <th className="px-4 py-3 font-medium text-right">
+                  Custo c/ IVA
+                </th>
+                <th className="px-4 py-3 font-medium text-right">
+                  Custo s/ IVA
+                </th>
                 <th className="px-4 py-3 font-medium">Estado</th>
-                <th className="px-4 py-3 font-medium w-20 text-center">Ações</th>
+                <th className="px-4 py-3 font-medium w-20 text-center">
+                  Ações
+                </th>
               </tr>
             </thead>
             <tbody>
               {paginatedItems.map((item) => {
                 const qty = item.current_quantity ?? 0;
                 const min = item.min_stock ?? 0;
-                const below = min > 0 && qty < min * 0.9;
-                const approaching = min > 0 && qty >= min * 0.9 && qty < min;
+                const threshold = min * APPROACHING_THRESHOLD_PCT;
+                const below = min > 0 && qty < min;
+                const approaching = min > 0 && qty >= min && qty < threshold;
                 const rowBg = below
                   ? "bg-red-50/80 hover:bg-red-100/60"
                   : approaching
-                  ? "bg-amber-50/80 hover:bg-amber-100/60"
-                  : "hover:bg-slate-50/50";
+                    ? "bg-amber-50/80 hover:bg-amber-100/60"
+                    : "hover:bg-slate-50/50";
                 return (
                   <tr
                     key={item.id}
@@ -570,12 +591,14 @@ export function StockPage() {
                       {STOCK_BASE_UNIT_LABELS[item.base_unit]}
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums text-slate-600">
-                      {item.last_purchase_unit_cost_with_vat != null && item.last_purchase_unit_cost_with_vat > 0
+                      {item.last_purchase_unit_cost_with_vat != null &&
+                      item.last_purchase_unit_cost_with_vat > 0
                         ? formatEUR(item.last_purchase_unit_cost_with_vat)
                         : "—"}
                     </td>
                     <td className="px-4 py-2 text-right tabular-nums text-slate-600">
-                      {item.last_purchase_unit_cost_without_vat != null && item.last_purchase_unit_cost_without_vat > 0
+                      {item.last_purchase_unit_cost_without_vat != null &&
+                      item.last_purchase_unit_cost_without_vat > 0
                         ? formatEUR(item.last_purchase_unit_cost_without_vat)
                         : "—"}
                     </td>
@@ -602,16 +625,16 @@ export function StockPage() {
                   </tr>
                 );
               })}
-                {paginatedItems.length === 0 && (
-                  <tr>
-                    <td
-                      colSpan={9}
-                      className="px-4 py-8 text-center text-slate-500"
-                    >
-                      Nenhum item encontrado
-                    </td>
-                  </tr>
-                )}
+              {paginatedItems.length === 0 && (
+                <tr>
+                  <td
+                    colSpan={9}
+                    className="px-4 py-8 text-center text-slate-500"
+                  >
+                    Nenhum item encontrado
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         )}
@@ -639,7 +662,7 @@ export function StockPage() {
                   ? "registos"
                   : `${(safePage - 1) * pageSize + 1}–${Math.min(
                       safePage * pageSize,
-                      totalFiltered
+                      totalFiltered,
                     )} de ${totalFiltered}`}
               </span>
             </div>
@@ -773,7 +796,7 @@ function StockEditModal({
               {(
                 Object.entries(STOCK_ITEM_TYPE_LABELS) as [
                   StockItemType,
-                  string
+                  string,
                 ][]
               ).map(([k, v]) => (
                 <option key={k} value={k}>
@@ -815,7 +838,7 @@ function StockEditModal({
               {(
                 Object.entries(STOCK_BASE_UNIT_LABELS) as [
                   StockBaseUnit,
-                  string
+                  string,
                 ][]
               ).map(([k, v]) => (
                 <option key={k} value={k}>
@@ -826,7 +849,9 @@ function StockEditModal({
           </div>
           <div>
             <label className="mb-1 block text-xs text-slate-500">
-              Custo de referência c/ IVA por {STOCK_BASE_UNIT_LABELS[form.base_unit ?? item.base_unit] ?? "un"} (€)
+              Custo de referência c/ IVA por{" "}
+              {STOCK_BASE_UNIT_LABELS[form.base_unit ?? item.base_unit] ?? "un"}{" "}
+              (€)
             </label>
             <input
               type="number"
@@ -853,7 +878,9 @@ function StockEditModal({
           </div>
           <div>
             <label className="mb-1 block text-xs text-slate-500">
-              Custo de referência s/ IVA por {STOCK_BASE_UNIT_LABELS[form.base_unit ?? item.base_unit] ?? "un"} (€)
+              Custo de referência s/ IVA por{" "}
+              {STOCK_BASE_UNIT_LABELS[form.base_unit ?? item.base_unit] ?? "un"}{" "}
+              (€)
             </label>
             <input
               type="number"
@@ -878,22 +905,34 @@ function StockEditModal({
               placeholder="Opcional"
             />
           </div>
-          {((item.last_purchase_unit_cost_with_vat != null && item.last_purchase_unit_cost_with_vat > 0) ||
-            (item.last_purchase_unit_cost_without_vat != null && item.last_purchase_unit_cost_without_vat > 0)) && (
+          {((item.last_purchase_unit_cost_with_vat != null &&
+            item.last_purchase_unit_cost_with_vat > 0) ||
+            (item.last_purchase_unit_cost_without_vat != null &&
+              item.last_purchase_unit_cost_without_vat > 0)) && (
             <div>
               <label className="mb-1 block text-xs text-slate-500">
                 Último custo de compra (só leitura)
               </label>
               <p className="rounded border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-700">
-                {item.last_purchase_unit_cost_with_vat != null && item.last_purchase_unit_cost_with_vat > 0 && (
-                  <>c/ IVA: {formatEUR(item.last_purchase_unit_cost_with_vat)}</>
-                )}
-                {item.last_purchase_unit_cost_with_vat != null && item.last_purchase_unit_cost_with_vat > 0 &&
-                 item.last_purchase_unit_cost_without_vat != null && item.last_purchase_unit_cost_without_vat > 0 && " · "}
-                {item.last_purchase_unit_cost_without_vat != null && item.last_purchase_unit_cost_without_vat > 0 && (
-                  <>s/ IVA: {formatEUR(item.last_purchase_unit_cost_without_vat)}</>
-                )}
-                {" "}/ {STOCK_BASE_UNIT_LABELS[item.base_unit]}
+                {item.last_purchase_unit_cost_with_vat != null &&
+                  item.last_purchase_unit_cost_with_vat > 0 && (
+                    <>
+                      c/ IVA: {formatEUR(item.last_purchase_unit_cost_with_vat)}
+                    </>
+                  )}
+                {item.last_purchase_unit_cost_with_vat != null &&
+                  item.last_purchase_unit_cost_with_vat > 0 &&
+                  item.last_purchase_unit_cost_without_vat != null &&
+                  item.last_purchase_unit_cost_without_vat > 0 &&
+                  " · "}
+                {item.last_purchase_unit_cost_without_vat != null &&
+                  item.last_purchase_unit_cost_without_vat > 0 && (
+                    <>
+                      s/ IVA:{" "}
+                      {formatEUR(item.last_purchase_unit_cost_without_vat)}
+                    </>
+                  )}{" "}
+                / {STOCK_BASE_UNIT_LABELS[item.base_unit]}
               </p>
             </div>
           )}
@@ -1062,11 +1101,21 @@ function UpdateStockModal({
                         const patch: Partial<UpdateMovementRow> = { itemId };
                         if (row.movementType === "purchase" && itemId) {
                           const item = items.find((i) => i.id === itemId);
-                          if (item && row.unitCostWithVat === "" && row.unitCostWithoutVat === "") {
-                            const withVat = item.last_purchase_unit_cost_with_vat ?? item.purchase_reference_unit_cost_with_vat;
-                            const withoutVat = item.last_purchase_unit_cost_without_vat ?? item.purchase_reference_unit_cost_without_vat;
-                            if (withVat != null && withVat > 0) patch.unitCostWithVat = String(withVat);
-                            if (withoutVat != null && withoutVat > 0) patch.unitCostWithoutVat = String(withoutVat);
+                          if (
+                            item &&
+                            row.unitCostWithVat === "" &&
+                            row.unitCostWithoutVat === ""
+                          ) {
+                            const withVat =
+                              item.last_purchase_unit_cost_with_vat ??
+                              item.purchase_reference_unit_cost_with_vat;
+                            const withoutVat =
+                              item.last_purchase_unit_cost_without_vat ??
+                              item.purchase_reference_unit_cost_without_vat;
+                            if (withVat != null && withVat > 0)
+                              patch.unitCostWithVat = String(withVat);
+                            if (withoutVat != null && withoutVat > 0)
+                              patch.unitCostWithoutVat = String(withoutVat);
                           }
                         }
                         updateRow(idx, patch);
@@ -1109,7 +1158,7 @@ function UpdateStockModal({
                       {(
                         Object.entries(STOCK_MOVEMENT_TYPE_LABELS) as [
                           StockMovementType,
-                          string
+                          string,
                         ][]
                       ).map(([k, v]) => (
                         <option key={k} value={k}>
@@ -1178,7 +1227,8 @@ function UpdateStockModal({
             + Adicionar item
           </button>
           <p className="text-xs text-slate-500">
-            O custo só atualiza o «último custo» do item na tabela quando o tipo for <strong>Compra</strong>.
+            O custo só atualiza o «último custo» do item na tabela quando o tipo
+            for <strong>Compra</strong>.
           </p>
         </div>
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
@@ -1298,7 +1348,7 @@ function NewItemModal({
               {(
                 Object.entries(STOCK_ITEM_TYPE_LABELS) as [
                   StockItemType,
-                  string
+                  string,
                 ][]
               ).map(([k, v]) => (
                 <option key={k} value={k}>
@@ -1322,7 +1372,7 @@ function NewItemModal({
               {(
                 Object.entries(STOCK_BASE_UNIT_LABELS) as [
                   StockBaseUnit,
-                  string
+                  string,
                 ][]
               ).map(([k, v]) => (
                 <option key={k} value={k}>
@@ -1351,7 +1401,8 @@ function NewItemModal({
           </div>
           <div>
             <label className="mb-1 block text-xs text-slate-500">
-              Custo de referência c/ IVA por {STOCK_BASE_UNIT_LABELS[form.base_unit] ?? "un"} (€)
+              Custo de referência c/ IVA por{" "}
+              {STOCK_BASE_UNIT_LABELS[form.base_unit] ?? "un"} (€)
             </label>
             <input
               type="number"
@@ -1378,7 +1429,8 @@ function NewItemModal({
           </div>
           <div>
             <label className="mb-1 block text-xs text-slate-500">
-              Custo de referência s/ IVA por {STOCK_BASE_UNIT_LABELS[form.base_unit] ?? "un"} (€)
+              Custo de referência s/ IVA por{" "}
+              {STOCK_BASE_UNIT_LABELS[form.base_unit] ?? "un"} (€)
             </label>
             <input
               type="number"

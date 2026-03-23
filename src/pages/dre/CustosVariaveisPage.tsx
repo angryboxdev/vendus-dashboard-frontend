@@ -30,6 +30,7 @@ export function CustosVariaveisPage() {
     custosVariaveis,
     loadingCustosVariaveis: loading,
     loadCustosVariaveis,
+    refreshTrigger,
   } = useDreStore();
   const data = custosVariaveis ?? EMPTY_PAYLOAD;
   const [actionError, setActionError] = useState<string | null>(null);
@@ -52,7 +53,7 @@ export function CustosVariaveisPage() {
 
   useEffect(() => {
     loadCustosVariaveis();
-  }, [loadCustosVariaveis]);
+  }, [loadCustosVariaveis, refreshTrigger]);
 
   const startEdit = useCallback((item: CustosVariaveisItem) => {
     setEditingId(item.id);

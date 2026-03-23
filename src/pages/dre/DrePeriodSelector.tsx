@@ -1,4 +1,5 @@
 import { useDrePeriod } from "./DrePeriodContext";
+import { useDreStore } from "./DreStoreContext";
 
 const MONTH_NAMES = [
   "Janeiro",
@@ -21,6 +22,18 @@ const YEARS = [
 
 export function DrePeriodSelector() {
   const { period, setYear, setMonth } = useDrePeriod();
+  const {
+    refresh,
+    loadingReceitaBruta,
+    loadingCustosFixos,
+    loadingCustosVariaveis,
+    loadingKpis,
+  } = useDreStore();
+  const loading =
+    loadingReceitaBruta ||
+    loadingCustosFixos ||
+    loadingCustosVariaveis ||
+    loadingKpis;
 
   return (
     <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-6 py-4">
@@ -51,6 +64,14 @@ export function DrePeriodSelector() {
           ))}
         </select>
       </div>
+      <button
+        type="button"
+        onClick={refresh}
+        disabled={loading}
+        className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+      >
+        {loading ? "A carregar…" : "Atualizar"}
+      </button>
     </div>
   );
 }

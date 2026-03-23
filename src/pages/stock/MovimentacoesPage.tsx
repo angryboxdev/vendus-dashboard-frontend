@@ -29,8 +29,10 @@ type MergedStockRow = {
   base_unit: string;
   type: string;
   category_name: string;
+  quantity_at_period_start: number;
   quantity_consumed: number;
   quantity_added: number;
+  quantity_result: number; // opening + added - consumed
 };
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -54,6 +56,10 @@ export function MovimentacoesPage() {
     [data?.consumption]
   );
   const additions = useMemo(() => data?.additions ?? [], [data?.additions]);
+  const openingStock = useMemo(
+    () => data?.opening_stock ?? [],
+    [data?.opening_stock]
+  );
 
   const mergedRows = useMemo((): MergedStockRow[] => {
     const map = new Map<
@@ -63,10 +69,15 @@ export function MovimentacoesPage() {
         base_unit: string;
         type: string;
         category_name: string;
+        quantity_at_period_start: number;
         quantity_consumed: number;
         quantity_added: number;
       }
     >();
+
+    const openingById = new Map(
+      openingStock.map((o) => [o.stock_item_id, o.quantity_at_period_start ?? 0])
+    );
 
     const upsert = (
       id: string,
@@ -78,11 +89,13 @@ export function MovimentacoesPage() {
       added: number
     ) => {
       const existing = map.get(id);
+      const opening = openingById.get(id) ?? 0;
       map.set(id, {
         name: existing?.name ?? name,
         base_unit: existing?.base_unit ?? base_unit,
         type: existing?.type ?? type,
         category_name: existing?.category_name ?? category_name,
+        quantity_at_period_start: existing?.quantity_at_period_start ?? opening,
         quantity_consumed: (existing?.quantity_consumed ?? 0) + consumed,
         quantity_added: (existing?.quantity_added ?? 0) + added,
       });
@@ -104,6 +117,8 @@ export function MovimentacoesPage() {
       const added = a.quantity_added ?? 0;
       if (existing) {
         existing.quantity_added += added;
+        existing.quantity_at_period_start =
+          openingById.get(a.stock_item_id) ?? existing.quantity_at_period_start;
       } else {
         upsert(
           a.stock_item_id,
@@ -120,8 +135,12 @@ export function MovimentacoesPage() {
     return Array.from(map.entries()).map(([stock_item_id, v]) => ({
       stock_item_id,
       ...v,
+      quantity_result:
+        v.quantity_at_period_start +
+        v.quantity_added -
+        v.quantity_consumed,
     }));
-  }, [consumption, additions]);
+  }, [consumption, additions, openingStock]);
 
   const filteredRows = useMemo(() => {
     let list = mergedRows;
@@ -215,7 +234,8 @@ export function MovimentacoesPage() {
 
   useEffect(() => {
     load();
-  }, [load]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- load só no mount; depois usa botão Atualizar
+  }, []);
 
   return (
     <div className="mx-auto max-w-6xl p-6">
@@ -285,6 +305,14 @@ export function MovimentacoesPage() {
               ))}
             </select>
           </div>
+          <button
+            type="button"
+            onClick={load}
+            disabled={loading}
+            className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800 disabled:opacity-60"
+          >
+            {loading ? "A carregar…" : "Atualizar"}
+          </button>
         </div>
       </div>
 
@@ -308,10 +336,16 @@ export function MovimentacoesPage() {
                   <th className="px-4 py-3 font-medium">Tipo</th>
                   <th className="px-4 py-3 font-medium">Categoria</th>
                   <th className="px-4 py-3 font-medium text-right">
+                    Inicial
+                  </th>
+                  <th className="px-4 py-3 font-medium text-right">
                     Consumido
                   </th>
                   <th className="px-4 py-3 font-medium text-right">
                     Adicionado
+                  </th>
+                  <th className="px-4 py-3 font-medium text-right">
+                    Resultado
                   </th>
                 </tr>
               </thead>
@@ -337,6 +371,11 @@ export function MovimentacoesPage() {
                         {row.category_name || "—"}
                       </td>
                       <td className="px-4 py-2 text-right tabular-nums text-slate-600">
+                        {row.quantity_at_period_start > 0
+                          ? `${formatNumber(row.quantity_at_period_start)} ${unit}`
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-slate-600">
                         {row.quantity_consumed > 0
                           ? `${formatNumber(row.quantity_consumed)} ${unit}`
                           : "—"}
@@ -346,13 +385,16 @@ export function MovimentacoesPage() {
                           ? `${formatNumber(row.quantity_added)} ${unit}`
                           : "—"}
                       </td>
+                      <td className="px-4 py-2 text-right tabular-nums font-medium text-slate-800">
+                        {formatNumber(row.quantity_result)} {unit}
+                      </td>
                     </tr>
                   );
                 })}
                 {paginatedItems.length === 0 && (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={7}
                       className="px-4 py-8 text-center text-slate-500"
                     >
                       Nenhum resultado com os filtros aplicados

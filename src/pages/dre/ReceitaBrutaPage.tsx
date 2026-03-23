@@ -29,12 +29,13 @@ export function ReceitaBrutaPage() {
     receitaBruta,
     loadingReceitaBruta: loading,
     loadReceitaBruta,
+    refreshTrigger,
   } = useDreStore();
   const data = receitaBruta ?? EMPTY_PAYLOAD;
 
   useEffect(() => {
     loadReceitaBruta();
-  }, [loadReceitaBruta]);
+  }, [loadReceitaBruta, refreshTrigger]);
 
   const totalDinheiroValor = sumValor(data.dinheiro);
   const totalDinheiroTaxa = sumTaxa(data.dinheiro);
