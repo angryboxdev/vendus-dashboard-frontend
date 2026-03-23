@@ -47,6 +47,29 @@ export type UnmatchedProductEntry = {
   qty: number;
 };
 
+export type VendusSelfConsumptionRecord = {
+  id?: string | number;
+  consumption_datetime?: string;
+  employee_name?: string;
+  total?: number;
+  observations?: string;
+  products?: Array<{ reference: string; title: string; qty: number }>;
+  [key: string]: unknown;
+};
+
+export type VendusSelfConsumptionSummary = {
+  date_start?: string;
+  date_end?: string;
+  store_id?: number | null;
+  total_spending?: number | null;
+  records_count?: number;
+  records?: VendusSelfConsumptionRecord[];
+  details_fetched?: number;
+  details_fetch_truncated?: boolean;
+  pages_fetched?: number;
+  error?: string;
+};
+
 export type IngredientConsumptionResponse = {
   period: {
     since: string;
@@ -54,14 +77,18 @@ export type IngredientConsumptionResponse = {
     timezone?: string;
   };
   consumption: IngredientConsumptionEntry[];
+  consumption_selfconsumption?: IngredientConsumptionEntry[];
   additions: StockAdditionEntry[];
   opening_stock?: OpeningStockEntry[];
   matched_products?: MatchedProductEntry[];
+  vendus_selfconsumption?: VendusSelfConsumptionSummary;
   debug?: {
     products_total: number;
     products_matched: number;
     products_unmatched: number;
     unmatched_products: UnmatchedProductEntry[];
     took_ms: number;
+    selfconsumption_lines_extracted?: number;
+    selfconsumption_mapping_skipped?: string[];
   };
 };

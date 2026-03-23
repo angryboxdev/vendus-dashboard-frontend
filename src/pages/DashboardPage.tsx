@@ -4,6 +4,7 @@ import { DebugPanel } from "../components/DebugPanel";
 import { HeaderFilters } from "../components/HeaderFilters";
 import { KpiCard } from "../components/KpiCard";
 import { ProductsTable } from "../components/ProductsTable";
+import { SelfConsumptionSection } from "../components/SelfConsumptionSection";
 import { buildOverallCategoryRows } from "../components/CategoryBreakdown/buildRows";
 import { formatEUR } from "../lib/format";
 import { useDashboardStore } from "./DashboardStoreContext";
@@ -85,6 +86,10 @@ export function DashboardPage() {
             products={data.products_overall}
             totalsGross={data.totals.gross}
           />
+        ) : null}
+
+        {data?.vendus_selfconsumption != null ? (
+          <SelfConsumptionSection data={data.vendus_selfconsumption} />
         ) : null}
 
         {data ? <DebugPanel url={url} debug={data.debug} /> : null}

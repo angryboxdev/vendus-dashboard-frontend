@@ -105,8 +105,32 @@ export type Debug = {
   };
 };
 
+export type VendusSelfConsumptionRecord = {
+  id?: string | number;
+  consumption_datetime?: string;
+  employee_name?: string;
+  total?: number;
+  observations?: string;
+  products?: Array<{ reference: string; title: string; qty: number }>;
+  [key: string]: unknown;
+};
+
+export type VendusSelfConsumptionSummary = {
+  date_start?: string;
+  date_end?: string;
+  store_id?: number | null;
+  total_spending?: number | null;
+  records_count?: number;
+  records?: VendusSelfConsumptionRecord[];
+  details_fetched?: number;
+  details_fetch_truncated?: boolean;
+  pages_fetched?: number;
+  error?: string;
+};
+
 export type MonthlySummary = {
   period: { since: string; until: string; timezone: string };
+  vendus_selfconsumption?: VendusSelfConsumptionSummary;
   source: {
     store_id: number | null;
     documents_count: number;

@@ -30,9 +30,10 @@ type MergedStockRow = {
   type: string;
   category_name: string;
   quantity_at_period_start: number;
-  quantity_consumed: number;
+  quantity_consumed: number; // vendas
+  quantity_consumed_selfconsumption: number; // autoconsumo
   quantity_added: number;
-  quantity_result: number; // opening + added - consumed
+  quantity_result: number; // opening + added - consumed - consumed_selfconsumption
 };
 
 const PAGE_SIZE_OPTIONS = [10, 20, 50, 100];
@@ -60,6 +61,10 @@ export function MovimentacoesPage() {
     () => data?.opening_stock ?? [],
     [data?.opening_stock]
   );
+  const consumptionSelf = useMemo(
+    () => data?.consumption_selfconsumption ?? [],
+    [data?.consumption_selfconsumption]
+  );
 
   const mergedRows = useMemo((): MergedStockRow[] => {
     const map = new Map<
@@ -71,6 +76,7 @@ export function MovimentacoesPage() {
         category_name: string;
         quantity_at_period_start: number;
         quantity_consumed: number;
+        quantity_consumed_selfconsumption: number;
         quantity_added: number;
       }
     >();
@@ -86,6 +92,7 @@ export function MovimentacoesPage() {
       type: string,
       category_name: string,
       consumed: number,
+      consumedSelf: number,
       added: number
     ) => {
       const existing = map.get(id);
@@ -97,6 +104,8 @@ export function MovimentacoesPage() {
         category_name: existing?.category_name ?? category_name,
         quantity_at_period_start: existing?.quantity_at_period_start ?? opening,
         quantity_consumed: (existing?.quantity_consumed ?? 0) + consumed,
+        quantity_consumed_selfconsumption:
+          (existing?.quantity_consumed_selfconsumption ?? 0) + consumedSelf,
         quantity_added: (existing?.quantity_added ?? 0) + added,
       });
     };
@@ -109,8 +118,27 @@ export function MovimentacoesPage() {
         c.type ?? "other",
         c.category_name ?? "",
         c.quantity_consumed ?? 0,
+        0,
         0
       );
+    }
+    for (const cs of consumptionSelf) {
+      const existing = map.get(cs.stock_item_id);
+      const q = cs.quantity_consumed ?? 0;
+      if (existing) {
+        existing.quantity_consumed_selfconsumption += q;
+      } else {
+        upsert(
+          cs.stock_item_id,
+          cs.name,
+          cs.base_unit,
+          cs.type ?? "other",
+          cs.category_name ?? "",
+          0,
+          q,
+          0
+        );
+      }
     }
     for (const a of additions) {
       const existing = map.get(a.stock_item_id);
@@ -127,6 +155,7 @@ export function MovimentacoesPage() {
           a.type,
           a.category_name ?? "",
           0,
+          0,
           added
         );
       }
@@ -138,9 +167,10 @@ export function MovimentacoesPage() {
       quantity_result:
         v.quantity_at_period_start +
         v.quantity_added -
-        v.quantity_consumed,
+        v.quantity_consumed -
+        v.quantity_consumed_selfconsumption,
     }));
-  }, [consumption, additions, openingStock]);
+  }, [consumption, consumptionSelf, additions, openingStock]);
 
   const filteredRows = useMemo(() => {
     let list = mergedRows;
@@ -339,7 +369,10 @@ export function MovimentacoesPage() {
                     Inicial
                   </th>
                   <th className="px-4 py-3 font-medium text-right">
-                    Consumido
+                    Consumido (vendas)
+                  </th>
+                  <th className="px-4 py-3 font-medium text-right">
+                    Consumido (autoconsumo)
                   </th>
                   <th className="px-4 py-3 font-medium text-right">
                     Adicionado
@@ -381,6 +414,11 @@ export function MovimentacoesPage() {
                           : "—"}
                       </td>
                       <td className="px-4 py-2 text-right tabular-nums text-slate-600">
+                        {row.quantity_consumed_selfconsumption > 0
+                          ? `${formatNumber(row.quantity_consumed_selfconsumption)} ${unit}`
+                          : "—"}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums text-slate-600">
                         {row.quantity_added > 0
                           ? `${formatNumber(row.quantity_added)} ${unit}`
                           : "—"}
@@ -394,7 +432,7 @@ export function MovimentacoesPage() {
                 {paginatedItems.length === 0 && (
                   <tr>
                     <td
-                      colSpan={7}
+                      colSpan={8}
                       className="px-4 py-8 text-center text-slate-500"
                     >
                       Nenhum resultado com os filtros aplicados
