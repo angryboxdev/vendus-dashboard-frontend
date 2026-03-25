@@ -9,6 +9,7 @@ import { ReceitaBrutaPage } from "./pages/dre/ReceitaBrutaPage";
 import { MovimentacoesPage } from "./pages/stock/MovimentacoesPage";
 import { PizzasPage } from "./pages/stock/PizzasPage";
 import { StockLayout } from "./pages/stock/StockLayout";
+import { StockMovementHistoryPage } from "./pages/stock/StockMovementHistoryPage";
 import { StockPage } from "./pages/stock/StockPage";
 import { Sidebar } from "./components/Sidebar";
 
@@ -38,6 +39,10 @@ export default function App() {
           />
           <Route element={<StockLayout />}>
             <Route path="/stock/movimentacoes" element={<MovimentacoesPage />} />
+            <Route
+              path="/stock/historico-movimentos"
+              element={<StockMovementHistoryPage />}
+            />
             <Route path="/stock/stock" element={<StockPage />} />
             <Route path="/stock/pizzas" element={<PizzasPage />} />
           </Route>

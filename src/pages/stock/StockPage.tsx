@@ -367,7 +367,7 @@ export function StockPage() {
   return (
     <div className="mx-auto max-w-6xl p-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-800">Stock</h2>
+        <h2 className="text-lg font-semibold text-slate-800">Itens de stock</h2>
         <div className="flex gap-3">
           <button
             type="button"

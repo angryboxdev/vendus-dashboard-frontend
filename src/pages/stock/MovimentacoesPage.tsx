@@ -54,16 +54,16 @@ export function MovimentacoesPage() {
 
   const consumption = useMemo(
     () => data?.consumption ?? [],
-    [data?.consumption]
+    [data?.consumption],
   );
   const additions = useMemo(() => data?.additions ?? [], [data?.additions]);
   const openingStock = useMemo(
     () => data?.opening_stock ?? [],
-    [data?.opening_stock]
+    [data?.opening_stock],
   );
   const consumptionSelf = useMemo(
     () => data?.consumption_selfconsumption ?? [],
-    [data?.consumption_selfconsumption]
+    [data?.consumption_selfconsumption],
   );
 
   const mergedRows = useMemo((): MergedStockRow[] => {
@@ -82,7 +82,10 @@ export function MovimentacoesPage() {
     >();
 
     const openingById = new Map(
-      openingStock.map((o) => [o.stock_item_id, o.quantity_at_period_start ?? 0])
+      openingStock.map((o) => [
+        o.stock_item_id,
+        o.quantity_at_period_start ?? 0,
+      ]),
     );
 
     const upsert = (
@@ -93,7 +96,7 @@ export function MovimentacoesPage() {
       category_name: string,
       consumed: number,
       consumedSelf: number,
-      added: number
+      added: number,
     ) => {
       const existing = map.get(id);
       const opening = openingById.get(id) ?? 0;
@@ -119,7 +122,7 @@ export function MovimentacoesPage() {
         c.category_name ?? "",
         c.quantity_consumed ?? 0,
         0,
-        0
+        0,
       );
     }
     for (const cs of consumptionSelf) {
@@ -136,7 +139,7 @@ export function MovimentacoesPage() {
           cs.category_name ?? "",
           0,
           q,
-          0
+          0,
         );
       }
     }
@@ -156,7 +159,7 @@ export function MovimentacoesPage() {
           a.category_name ?? "",
           0,
           0,
-          added
+          added,
         );
       }
     }
@@ -188,12 +191,12 @@ export function MovimentacoesPage() {
       [
         ...new Set(mergedRows.map((e) => e.category_name).filter(Boolean)),
       ].sort(),
-    [mergedRows]
+    [mergedRows],
   );
 
   const matchedProducts = useMemo(
     () => data?.matched_products ?? [],
-    [data?.matched_products]
+    [data?.matched_products],
   );
 
   const categoryTotals = useMemo(() => {
@@ -239,7 +242,7 @@ export function MovimentacoesPage() {
   const safePage = Math.min(currentPage, totalPages);
   const paginatedItems = useMemo(
     () => filteredRows.slice((safePage - 1) * pageSize, safePage * pageSize),
-    [filteredRows, safePage, pageSize]
+    [filteredRows, safePage, pageSize],
   );
 
   useEffect(() => {
@@ -271,7 +274,7 @@ export function MovimentacoesPage() {
     <div className="mx-auto max-w-6xl p-6">
       <div className="flex flex-wrap items-end justify-between gap-4">
         <h2 className="text-lg font-semibold text-slate-800">
-          Movimentações de stock
+          Balanço de stock
         </h2>
         <div className="flex flex-wrap items-end gap-4">
           <div>
@@ -306,7 +309,7 @@ export function MovimentacoesPage() {
               {(
                 Object.entries(STOCK_ITEM_TYPE_LABELS) as [
                   keyof typeof STOCK_ITEM_TYPE_LABELS,
-                  string
+                  string,
                 ][]
               ).map(([k, v]) => (
                 <option key={k} value={k}>
@@ -365,9 +368,7 @@ export function MovimentacoesPage() {
                   <th className="px-4 py-3 font-medium">Item</th>
                   <th className="px-4 py-3 font-medium">Tipo</th>
                   <th className="px-4 py-3 font-medium">Categoria</th>
-                  <th className="px-4 py-3 font-medium text-right">
-                    Inicial
-                  </th>
+                  <th className="px-4 py-3 font-medium text-right">Inicial</th>
                   <th className="px-4 py-3 font-medium text-right">
                     Consumido (vendas)
                   </th>
@@ -466,7 +467,7 @@ export function MovimentacoesPage() {
                       ? "registos"
                       : `${(safePage - 1) * pageSize + 1}–${Math.min(
                           safePage * pageSize,
-                          totalFiltered
+                          totalFiltered,
                         )} de ${totalFiltered}`}
                   </span>
                 </div>

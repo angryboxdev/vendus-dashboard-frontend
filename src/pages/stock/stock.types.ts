@@ -116,6 +116,36 @@ export type StockMovementUpdateBody = {
   reference?: string | null;
 };
 
+/** Linha em GET /api/stock/movements (lista paginada) */
+export type StockMovementListItem = {
+  id: string;
+  item_id: string;
+  item_name: string;
+  item_sku: string | null;
+  item_base_unit: StockBaseUnit | string;
+  category_id: string;
+  category_name: string;
+  type: StockMovementType;
+  quantity: number;
+  unit_cost_per_base_unit_with_vat: number | null;
+  unit_cost_per_base_unit_without_vat: number | null;
+  reason: string | null;
+  reference: string | null;
+  movement_date: string;
+  created_at: string;
+  created_by: string | null;
+};
+
+export type StockMovementsPaginatedResponse = {
+  data: StockMovementListItem[];
+  pagination: {
+    page: number;
+    page_size: number;
+    total: number;
+    total_pages: number;
+  };
+};
+
 export const STOCK_ITEM_TYPE_LABELS: Record<StockItemType, string> = {
   ingredient: "Ingrediente",
   beverage: "Bebida",
