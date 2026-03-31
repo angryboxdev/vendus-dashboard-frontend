@@ -47,16 +47,6 @@ export function CategoryBreakdown({
             </summary>
 
             <div className="bg-white px-4 pb-4">
-              {row.paymentMethods?.length > 0 && (
-                <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-lg bg-slate-50 px-3 py-2 text-xs text-slate-600">
-                  {row.paymentMethods.map((pm) => (
-                    <span key={pm.method}>
-                      <strong className="text-slate-700">{pm.method}:</strong>{" "}
-                      {formatEUR(pm.amount)}
-                    </span>
-                  ))}
-                </div>
-              )}
               {row.products.length === 0 ? (
                 <div className="pt-2 text-sm text-slate-500">{emptyText}</div>
               ) : (

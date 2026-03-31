@@ -47,35 +47,22 @@ export type ProductAgg = {
     delivery: { qty: number; gross_total: number; net_total: number };
     unknown: { qty: number; gross_total: number; net_total: number };
   };
-  payment_methods: PaymentMethodEntry[];
-};
-
-export type PaymentMethodEntry = {
-  method: "Multibanco" | "Dinheiro" | "Transferência Bancária";
-  amount: number;
-};
-
-export type PaymentMethodSummaryEntry = PaymentMethodEntry & {
-  documents_count: number;
 };
 
 export type CategoryBucket = {
   totals: AggTotals;
   products: ProductAgg[];
-  payment_methods: PaymentMethodEntry[];
 };
 
 export type ChannelReport = {
   totals: AggTotals;
   byCategory: Record<Category, CategoryBucket>;
-  payment_methods: PaymentMethodEntry[];
 };
 
 export type UnknownChannelReport = {
   totals: AggTotals;
   notes: string;
   by_category: Record<Category, CategoryBucket>;
-  payment_methods: PaymentMethodEntry[];
 };
 
 export type Totals = AggTotals & {
@@ -142,11 +129,7 @@ export type MonthlySummary = {
     delivery: ChannelReport;
     unknown: UnknownChannelReport;
   };
-  by_category_overall: Record<
-    Category,
-    { totals: AggTotals; payment_methods: PaymentMethodEntry[] }
-  >;
+  by_category_overall: Record<Category, { totals: AggTotals }>;
   products_overall: ProductAgg[];
-  payment_methods: PaymentMethodSummaryEntry[];
   debug: Debug;
 };

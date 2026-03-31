@@ -1,16 +1,10 @@
-import type {
-  AggTotals,
-  Category,
-  PaymentMethodEntry,
-  ProductAgg,
-} from "./monthlySummary";
+import type { AggTotals, Category, ProductAgg } from "./monthlySummary";
 
 export type CategoryRow = {
   key: Category;
   label: string;
   totals: AggTotals;
   products: ProductAgg[];
-  paymentMethods: PaymentMethodEntry[];
 };
 
 export type CategoryBreakdownProps = {

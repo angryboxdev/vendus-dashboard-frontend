@@ -10,15 +10,8 @@ export function buildOverallCategoryRows(data: MonthlySummary): CategoryRow[] {
     const products = data.products_overall
       .filter((p) => p.category === key)
       .sort((a, b) => b.amounts.gross_total - a.amounts.gross_total);
-    const paymentMethods = categoryData.payment_methods;
 
-    return {
-      key,
-      label,
-      totals,
-      products,
-      paymentMethods,
-    };
+    return { key, label, totals, products };
   });
 }
 
@@ -40,14 +33,7 @@ export function buildChannelCategoryRowsFromReport(
     const products = (entry?.products ?? [])
       .slice()
       .sort((a, b) => b.amounts.gross_total - a.amounts.gross_total);
-    const paymentMethods = entry?.payment_methods;
 
-    return {
-      key,
-      label,
-      totals,
-      products,
-      paymentMethods,
-    };
+    return { key, label, totals, products };
   });
 }
