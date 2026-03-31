@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 
 import { apiGet, apiPost, apiPut } from "../../lib/api";
 import { formatEUR, formatNumber } from "../../lib/format";
@@ -17,6 +18,9 @@ import {
   STOCK_ITEM_TYPE_LABELS,
   STOCK_MOVEMENT_TYPE_LABELS,
 } from "./stock.types";
+import { InvoiceImportModal } from "./invoiceImport/InvoiceImportModal";
+import type { ReviewableInvoiceLine } from "./invoiceImport/invoiceImport.types";
+import { mapInvoiceLineToNewStockItemForm } from "./invoiceImport/mapInvoiceLineToNewStockItem";
 
 const DEFAULT_CATEGORY_NAME = "Geral";
 
@@ -38,6 +42,9 @@ function buildItemsQuery(params: {
 }
 
 export function StockPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const invoiceImportId = searchParams.get("invoice_import");
+
   const [categories, setCategories] = useState<StockCategory[]>([]);
   const [items, setItems] = useState<StockItem[]>([]);
   const [loading, setLoading] = useState(true);
@@ -89,6 +96,18 @@ export function StockPage() {
   });
   const [newItemInitialQty, setNewItemInitialQty] = useState<number>(0);
   const [newItemError, setNewItemError] = useState<string | null>(null);
+  const [newItemForImportLineId, setNewItemForImportLineId] = useState<
+    string | null
+  >(null);
+  const linkStockItemToImportLineRef = useRef<
+    ((lineId: string, itemId: string) => void) | null
+  >(null);
+
+  const [invoiceImportOpen, setInvoiceImportOpen] = useState(false);
+
+  useEffect(() => {
+    if (invoiceImportId) setInvoiceImportOpen(true);
+  }, [invoiceImportId]);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -315,7 +334,9 @@ export function StockPage() {
           movement_date: movementDateIso,
         } satisfies StockMovementCreateBody);
       }
+      const importLineId = newItemForImportLineId;
       setNewItemModalOpen(false);
+      setNewItemForImportLineId(null);
       setNewItemForm({
         name: "",
         category_id: categories[0]?.id ?? "",
@@ -330,6 +351,9 @@ export function StockPage() {
       });
       setNewItemInitialQty(0);
       await loadItems();
+      if (importLineId) {
+        linkStockItemToImportLineRef.current?.(importLineId, created.id);
+      }
     } catch (e) {
       setNewItemError(e instanceof Error ? e.message : "Erro ao criar item");
     }
@@ -337,11 +361,13 @@ export function StockPage() {
     newItemForm,
     newItemInitialQty,
     newItemMovementDate,
+    newItemForImportLineId,
     categories,
     loadItems,
   ]);
 
   const openNewItemModal = useCallback(() => {
+    setNewItemForImportLineId(null);
     setNewItemModalOpen(true);
     setNewItemError(null);
     setNewItemMovementDate(new Date().toISOString().slice(0, 10));
@@ -352,6 +378,21 @@ export function StockPage() {
       }));
     }
   }, [categories]);
+
+  const handleCreateItemFromImportLine = useCallback(
+    (line: ReviewableInvoiceLine) => {
+      if (categories.length === 0) return;
+      setNewItemForImportLineId(line.line_id);
+      setNewItemError(null);
+      setNewItemMovementDate(new Date().toISOString().slice(0, 10));
+      setNewItemInitialQty(0);
+      setNewItemForm(
+        mapInvoiceLineToNewStockItemForm(line, categories[0].id),
+      );
+      setNewItemModalOpen(true);
+    },
+    [categories],
+  );
 
   const categoryName = (id: string) =>
     categories.find((c) => c.id === id)?.name ?? id;
@@ -368,7 +409,14 @@ export function StockPage() {
     <div className="mx-auto max-w-6xl p-6">
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-slate-800">Itens de stock</h2>
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={() => setInvoiceImportOpen(true)}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Importar fatura
+          </button>
           <button
             type="button"
             onClick={() => {
@@ -415,8 +463,43 @@ export function StockPage() {
         />
       )}
 
+      <InvoiceImportModal
+        open={invoiceImportOpen}
+        initialImportId={invoiceImportId}
+        stockItems={items}
+        linkStockItemToImportLineRef={linkStockItemToImportLineRef}
+        onCreateItemFromLine={handleCreateItemFromImportLine}
+        onClose={() => {
+          setInvoiceImportOpen(false);
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              next.delete("invoice_import");
+              return next;
+            },
+            { replace: true },
+          );
+        }}
+        onImportIdChange={(id) => {
+          setSearchParams(
+            (prev) => {
+              const next = new URLSearchParams(prev);
+              if (id) next.set("invoice_import", id);
+              else next.delete("invoice_import");
+              return next;
+            },
+            { replace: true },
+          );
+        }}
+      />
+
       {newItemModalOpen && (
         <NewItemModal
+          title={
+            newItemForImportLineId
+              ? "Novo item (pré-preenchido da fatura)"
+              : undefined
+          }
           form={newItemForm}
           setForm={setNewItemForm}
           initialQty={newItemInitialQty}
@@ -426,7 +509,10 @@ export function StockPage() {
           categories={categories}
           error={newItemError}
           onSubmit={submitNewItem}
-          onClose={() => setNewItemModalOpen(false)}
+          onClose={() => {
+            setNewItemModalOpen(false);
+            setNewItemForImportLineId(null);
+          }}
         />
       )}
 
@@ -1254,6 +1340,7 @@ function UpdateStockModal({
 }
 
 function NewItemModal({
+  title,
   form,
   setForm,
   initialQty,
@@ -1265,6 +1352,7 @@ function NewItemModal({
   onSubmit,
   onClose,
 }: {
+  title?: string;
   form: StockItemCreateBody;
   setForm: React.Dispatch<React.SetStateAction<StockItemCreateBody>>;
   initialQty: number;
@@ -1278,7 +1366,7 @@ function NewItemModal({
 }) {
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+      className="fixed inset-0 z-[70] flex items-center justify-center bg-black/40"
       role="dialog"
       aria-modal="true"
       aria-labelledby="new-item-title"
@@ -1288,7 +1376,7 @@ function NewItemModal({
           id="new-item-title"
           className="text-base font-semibold text-slate-800"
         >
-          Novo item
+          {title ?? "Novo item"}
         </h3>
         <div className="mt-4 space-y-3">
           <div>

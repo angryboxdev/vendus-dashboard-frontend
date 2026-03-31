@@ -270,9 +270,9 @@ export function StockMovementHistoryPage() {
               </thead>
               <tbody>
                 {rows.map((row) => {
+                  const bu = row.item_base_unit as keyof typeof STOCK_BASE_UNIT_LABELS;
                   const unit =
-                    STOCK_BASE_UNIT_LABELS[row.item_base_unit] ??
-                    row.item_base_unit;
+                    STOCK_BASE_UNIT_LABELS[bu] ?? row.item_base_unit;
                   return (
                     <tr
                       key={row.id}
