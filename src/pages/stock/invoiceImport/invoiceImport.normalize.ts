@@ -193,11 +193,13 @@ function normalizeLine(raw: unknown, index: number): InvoiceImportLine {
       x.amount,
       x.line_total_net,
     ) ?? invQ * unitPrice * (1 + (vatPct ?? 0) / 100);
+  const rawInvQ = pickNum(x.raw_invoice_quantity, x.raw_qty, x.raw_quantity);
   return {
     id,
     description: pickStr(x.description, x.desc, x.name, x.title) || "",
     invoice_quantity: invQ,
     invoice_unit: invU,
+    raw_invoice_quantity: rawInvQ,
     quantity: stockQ,
     unit: stockU,
     unit_price: unitPrice,

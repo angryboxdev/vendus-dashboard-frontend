@@ -240,6 +240,7 @@ export function InvoiceImportModal({
             stock_item_id: l.ignored ? null : l.stock_item_id,
             ignored: l.ignored,
             quantity: l.quantity,
+            stock_unit: l.unit,
           };
           if (invoiceLinePricesWereCorrected(l)) {
             return {

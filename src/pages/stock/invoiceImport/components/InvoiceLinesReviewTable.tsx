@@ -121,26 +121,37 @@ export function InvoiceLinesReviewTable({
                     {line.description}
                   </td>
                   <td className="px-2 py-2 align-top text-right tabular-nums">
-                    <input
-                      type="number"
-                      min={0}
-                      step="any"
-                      disabled={line.ignored}
-                      value={line.invoice_quantity}
-                      onChange={(e) => {
-                        const q = Number(e.target.value);
-                        const qty = Number.isFinite(q) ? q : 0;
-                        onUpdateLine(line.line_id, {
-                          invoice_quantity: qty,
-                          line_total: recomputeLineTotal(
-                            qty,
-                            line.unit_price,
-                            line.vat_rate_pct,
-                          ),
-                        });
-                      }}
-                      className="w-[4.5rem] rounded border border-slate-200 px-1 py-1 text-right tabular-nums"
-                    />
+                    <div className="flex flex-col items-end gap-0.5">
+                      <input
+                        type="number"
+                        min={0}
+                        step="any"
+                        disabled={line.ignored}
+                        value={line.invoice_quantity}
+                        onChange={(e) => {
+                          const q = Number(e.target.value);
+                          const qty = Number.isFinite(q) ? q : 0;
+                          onUpdateLine(line.line_id, {
+                            invoice_quantity: qty,
+                            line_total: recomputeLineTotal(
+                              qty,
+                              line.unit_price,
+                              line.vat_rate_pct,
+                            ),
+                          });
+                        }}
+                        className="w-[4.5rem] rounded border border-slate-200 px-1 py-1 text-right tabular-nums"
+                      />
+                      {line.raw_invoice_quantity != null &&
+                        line.raw_invoice_quantity !== line.invoice_quantity && (
+                          <span
+                            className="text-[10px] text-slate-400"
+                            title="Quantidade bruta do documento antes de conversão"
+                          >
+                            doc: {line.raw_invoice_quantity}
+                          </span>
+                        )}
+                    </div>
                   </td>
                   <td className="px-2 py-2 align-top">
                     <input

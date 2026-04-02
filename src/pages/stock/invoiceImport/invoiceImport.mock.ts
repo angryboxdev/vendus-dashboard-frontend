@@ -47,6 +47,7 @@ function buildMockLines(): InvoiceImportLine[] {
       description: "Farinha T55 / saco 25 kg",
       invoice_quantity: 1,
       invoice_unit: "PC",
+      raw_invoice_quantity: 25,
       quantity: 4,
       unit: "un",
       unit_price: 5.58,

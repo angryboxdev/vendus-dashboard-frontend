@@ -36,9 +36,15 @@ export type InvoiceImportLine = {
   invoice_quantity: number;
   /** Unidade na fatura (ex. PC, KG). */
   invoice_unit: string;
+  /**
+   * Quantidade bruta do documento antes de qualquer conversão pelo backend.
+   * Presente quando difere de `invoice_quantity` — útil para mostrar o mapping
+   * "4000 KG (doc) → 387 g (stock)".
+   */
+  raw_invoice_quantity?: number | null;
   /** Quantidade mapeada para stock (editável; vai no confirm). */
   quantity: number;
-  /** Unidade de stock / mapeamento (editável no UI; não vai no confirm). */
+  /** Unidade de stock / mapeamento (editável no UI; vai no confirm como stock_unit). */
   unit: string;
   unit_price: number;
   /** Percentagem 0–100 (ex.: 23), ou null */
@@ -96,6 +102,8 @@ export type ConfirmInvoiceImportLinePayload = {
   ignored: boolean;
   /** Quantidade de stock após mapeamento / conversão (crítico para aprendizagem). */
   quantity: number;
+  /** Unidade de stock correspondente à `quantity` enviada. */
+  stock_unit: string;
   /** P. unitário c/ IVA — opcional, só se corrigido face ao extracto. */
   unit_price?: number;
   /** IVA em % (23, não 0.23) — opcional, só se corrigido. */
@@ -125,6 +133,8 @@ export type ReviewableInvoiceLine = {
   description: string;
   invoice_quantity: number;
   invoice_unit: string;
+  /** Quantidade bruta do documento antes de conversão pelo backend (quando presente). */
+  raw_invoice_quantity?: number | null;
   quantity: number;
   unit: string;
   unit_price: number;
@@ -170,6 +180,7 @@ export function toReviewableLines(lines: InvoiceImportLine[]): ReviewableInvoice
     description: l.description,
     invoice_quantity: l.invoice_quantity,
     invoice_unit: l.invoice_unit,
+    raw_invoice_quantity: l.raw_invoice_quantity ?? null,
     quantity: l.quantity,
     unit: l.unit,
     unit_price: l.unit_price,
