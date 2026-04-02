@@ -17,12 +17,14 @@ import {
   confirmInvoiceImport,
   createInvoiceImport,
   getInvoiceImport,
+  updateInvoiceImport,
 } from "./invoiceImportApi";
 import type {
   ConfirmInvoiceImportPayload,
   ConfirmInvoiceImportResponse,
   InvoiceImportDetail,
   ReviewableInvoiceLine,
+  UpdateInvoiceImportPayload,
 } from "./invoiceImport.types";
 import {
   defaultInvoiceImportHeader,
@@ -256,6 +258,12 @@ export function InvoiceImportModal({
     [draftLines],
   );
 
+  const handleUpdateHeader = async (patch: UpdateInvoiceImportPayload) => {
+    if (!importId) return;
+    const updated = await updateInvoiceImport(importId, patch);
+    setDetail(updated);
+  };
+
   const handleConfirmApply = async () => {
     if (!importId || !validation.canConfirm) return;
     if (detail?.duplicate_warning && !overrideDuplicateAck) return;
@@ -461,7 +469,7 @@ export function InvoiceImportModal({
                   </p>
                 </div>
               )}
-              <InvoiceHeaderSummary header={detail.header} />
+              <InvoiceHeaderSummary header={detail.header} onSave={handleUpdateHeader} />
 
               {validation.errors.length > 0 && (
                 <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-900">

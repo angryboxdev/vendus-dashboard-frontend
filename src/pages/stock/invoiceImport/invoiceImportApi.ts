@@ -1,15 +1,17 @@
-import { apiGet, apiPost, apiPostFormData } from "../../../lib/api";
+import { apiGet, apiPatch, apiPost, apiPostFormData } from "../../../lib/api";
 import { normalizeInvoiceImportDetail } from "./invoiceImport.normalize";
 import type {
   ConfirmInvoiceImportPayload,
   ConfirmInvoiceImportResponse,
   CreateInvoiceImportResponse,
   InvoiceImportDetail,
+  UpdateInvoiceImportPayload,
 } from "./invoiceImport.types";
 import {
   mockConfirmInvoiceImport,
   mockCreateInvoiceImport,
   mockGetInvoiceImport,
+  mockUpdateInvoiceImport,
 } from "./invoiceImport.mock";
 
 /**
@@ -60,6 +62,20 @@ export async function getInvoiceImport(importId: string): Promise<InvoiceImportD
   if (!detail) {
     throw new Error("Resposta inválida ao carregar a importação.");
   }
+  return detail;
+}
+
+export async function updateInvoiceImport(
+  importId: string,
+  payload: UpdateInvoiceImportPayload,
+): Promise<InvoiceImportDetail> {
+  if (isInvoiceImportMockEnabled()) {
+    await delay(300);
+    return mockUpdateInvoiceImport(importId, payload);
+  }
+  const json = await apiPatch<unknown>(`${UPLOAD_PATH}/${importId}`, payload);
+  const detail = normalizeInvoiceImportDetail(json, importId);
+  if (!detail) throw new Error("Resposta inválida ao atualizar cabeçalho.");
   return detail;
 }
 

@@ -4,6 +4,7 @@ import type {
   InvoiceImportDetail,
   InvoiceImportHeader,
   InvoiceImportLine,
+  UpdateInvoiceImportPayload,
 } from "./invoiceImport.types";
 import { defaultInvoiceImportHeader } from "./invoiceImport.types";
 
@@ -240,6 +241,42 @@ export function mockGetInvoiceImport(id: string): InvoiceImportDetail {
     lines: rec.lines ?? buildMockLines(),
     filename: rec.filename,
     duplicate_warning: Boolean(rec.duplicateWarning),
+  };
+}
+
+export function mockUpdateInvoiceImport(
+  id: string,
+  payload: UpdateInvoiceImportPayload,
+): InvoiceImportDetail {
+  const rec = read(id);
+  if (!rec || rec.status !== "ready_for_review") {
+    throw new Error("A fatura não está em revisão ou não foi encontrada.");
+  }
+  const currentHeader = rec.header ?? mockHeader();
+  const updatedHeader: InvoiceImportHeader = {
+    ...currentHeader,
+    ...("supplier_name" in payload ? { supplier_name: payload.supplier_name ?? null } : {}),
+    ...("invoice_number" in payload ? { invoice_number: payload.invoice_number ?? null } : {}),
+    ...("invoice_date" in payload ? { invoice_date: payload.invoice_date ?? null } : {}),
+    ...("currency" in payload && payload.currency != null ? { currency: payload.currency } : {}),
+    ...("subtotal" in payload ? { subtotal: payload.subtotal ?? null } : {}),
+    ...("tax_total" in payload ? { tax_total: payload.tax_total ?? null } : {}),
+    ...("total" in payload ? { total: payload.total ?? null } : {}),
+  };
+  const keyChanged =
+    "supplier_name" in payload ||
+    "invoice_number" in payload ||
+    "invoice_date" in payload;
+  const duplicate_warning = keyChanged ? false : Boolean(rec.duplicateWarning);
+  const updated: MockRecord = { ...rec, header: updatedHeader, duplicateWarning: duplicate_warning };
+  write(id, updated);
+  return {
+    import_id: id,
+    status: "ready_for_review",
+    header: updatedHeader,
+    lines: rec.lines ?? buildMockLines(),
+    filename: rec.filename,
+    duplicate_warning,
   };
 }
 

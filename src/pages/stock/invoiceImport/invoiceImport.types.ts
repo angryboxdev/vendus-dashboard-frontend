@@ -141,6 +141,17 @@ export type ReviewableInvoiceLine = {
   ignored: boolean;
 };
 
+/** Payload para PATCH /api/stock/invoice-imports/:id — todos os campos opcionais. */
+export type UpdateInvoiceImportPayload = {
+  supplier_name?: string | null;
+  invoice_number?: string | null;
+  invoice_date?: string | null;
+  currency?: string;
+  subtotal?: number | null;
+  tax_total?: number | null;
+  total?: number | null;
+};
+
 export function defaultInvoiceImportHeader(): InvoiceImportHeader {
   return {
     supplier_name: null,
