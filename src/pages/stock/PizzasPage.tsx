@@ -616,18 +616,21 @@ function RecipeModal({
     if (!row) return;
     const smallQty = Number(editSmallQty) || 0;
     const largeQty = Number(editLargeQty) || 0;
-    if (row.small && smallQty > 0) {
-      onUpdateItem(row.small.id, { quantity: smallQty });
+
+    if (row.small) {
+      if (smallQty > 0) onUpdateItem(row.small.id, { quantity: smallQty });
+      else onDeleteItem(row.small.id);
+    } else if (smallQty > 0) {
+      onAddItem(row.stock_item_id, "small", smallQty);
     }
-    if (row.small && smallQty <= 0) {
-      onDeleteItem(row.small.id);
+
+    if (row.large) {
+      if (largeQty > 0) onUpdateItem(row.large.id, { quantity: largeQty });
+      else onDeleteItem(row.large.id);
+    } else if (largeQty > 0) {
+      onAddItem(row.stock_item_id, "large", largeQty);
     }
-    if (row.large && largeQty > 0) {
-      onUpdateItem(row.large.id, { quantity: largeQty });
-    }
-    if (row.large && largeQty <= 0) {
-      onDeleteItem(row.large.id);
-    }
+
     setEditingStockItemId(null);
   };
 
