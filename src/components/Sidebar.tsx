@@ -13,7 +13,7 @@ const stockNavItems = [
   { to: "/stock/movimentacoes", label: "Balanço de stock" },
   { to: "/stock/historico-movimentos", label: "Histórico de movimentos" },
   { to: "/stock/stock", label: "Itens de stock" },
-  { to: "/stock/pizzas", label: "Pizzas" },
+  { to: "/stock/pizzas", label: "Fichas Técnicas" },
 ] as const;
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>

@@ -33,13 +33,19 @@ export type PizzaRecipe = {
 export type PizzaRecipeItem = {
   id: string;
   recipe_id: string;
-  stock_item_id: string;
+  stock_item_id: string | null;
+  preparation_id: string | null;
   size: PizzaSize;
   quantity: number;
   waste_factor: number | null;
   is_optional: boolean;
   created_at?: string;
 };
+
+/** Referência a um ingrediente de receita — stock item direto ou preparo (mutuamente exclusivos). */
+export type RecipeIngredientRef =
+  | { stock_item_id: string }
+  | { preparation_id: string };
 
 export const PIZZA_CATEGORY_LABELS: Record<PizzaCategory, string> = {
   classics: "Clássicas",
