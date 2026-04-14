@@ -386,9 +386,7 @@ export function StockPage() {
       setNewItemError(null);
       setNewItemMovementDate(new Date().toISOString().slice(0, 10));
       setNewItemInitialQty(0);
-      setNewItemForm(
-        mapInvoiceLineToNewStockItemForm(line, categories[0].id),
-      );
+      setNewItemForm(mapInvoiceLineToNewStockItemForm(line, categories[0].id));
       setNewItemModalOpen(true);
     },
     [categories],
@@ -594,7 +592,6 @@ export function StockPage() {
       </div>
 
       <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-600">
-        <span className="font-medium text-slate-500">Legenda:</span>
         <span className="flex items-center gap-2">
           <span className="inline-block h-4 w-3 rounded bg-red-50 ring-1 ring-red-200/50" />
           Abaixo do mínimo (ex: 8 kg de 10 kg mín.)

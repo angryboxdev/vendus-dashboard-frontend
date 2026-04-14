@@ -3,7 +3,7 @@ export type IngredientConsumptionEntry = {
   name: string;
   base_unit: string;
   quantity_consumed: number;
-  type?: "ingredient" | "beverage" | "packaging" | "cleaning" | "other";
+  type?: "ingredient" | "other";
   category_id?: string;
   category_name?: string;
 };
@@ -12,7 +12,7 @@ export type StockAdditionEntry = {
   stock_item_id: string;
   name: string;
   base_unit: string;
-  type: "ingredient" | "beverage" | "packaging" | "cleaning" | "other";
+  type: "ingredient" | "other";
   category_id: string;
   category_name: string;
   quantity_added: number;
