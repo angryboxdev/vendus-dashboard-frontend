@@ -12,6 +12,10 @@ import { StockLayout } from "./pages/stock/StockLayout";
 import { StockMovementHistoryPage } from "./pages/stock/StockMovementHistoryPage";
 import { StockPage } from "./pages/stock/StockPage";
 import { Sidebar } from "./components/Sidebar";
+import { HrCalendarPage } from "./pages/hr/HrCalendarPage";
+import { HrEmployeeDetailPage } from "./pages/hr/HrEmployeeDetailPage";
+import { HrEmployeesPage } from "./pages/hr/HrEmployeesPage";
+import { HrLayout } from "./pages/hr/HrLayout";
 
 export default function App() {
   return (
@@ -45,6 +49,18 @@ export default function App() {
             />
             <Route path="/stock/stock" element={<StockPage />} />
             <Route path="/stock/pizzas" element={<PizzasPage />} />
+          </Route>
+          <Route
+            path="/angrybox/hr"
+            element={<Navigate to="/hr" replace />}
+          />
+          <Route element={<HrLayout />}>
+            <Route path="/hr" element={<HrEmployeesPage />} />
+            <Route path="/hr/calendar" element={<HrCalendarPage />} />
+            <Route
+              path="/hr/employees/:id"
+              element={<HrEmployeeDetailPage />}
+            />
           </Route>
         </Routes>
       </main>

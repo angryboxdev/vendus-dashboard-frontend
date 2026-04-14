@@ -16,6 +16,11 @@ const stockNavItems = [
   { to: "/stock/pizzas", label: "Fichas Técnicas" },
 ] as const;
 
+const hrNavItems = [
+  { to: "/hr", label: "Funcionários" },
+  { to: "/hr/calendar", label: "Calendário de turnos" },
+] as const;
+
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `block rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
     isActive
@@ -46,10 +51,13 @@ export function Sidebar() {
   const location = useLocation();
   const isDrePath = location.pathname.startsWith("/dre");
   const isStockPath = location.pathname.startsWith("/stock");
+  const isHrPath = location.pathname.startsWith("/hr");
   const [dreOpen, setDreOpen] = useState(false);
   const [stockOpen, setStockOpen] = useState(false);
+  const [hrOpen, setHrOpen] = useState(false);
   const dreExpanded = isDrePath || dreOpen;
   const stockExpanded = isStockPath || stockOpen;
+  const hrExpanded = isHrPath || hrOpen;
 
   return (
     <aside className="flex w-56 flex-shrink-0 flex-col border-r border-slate-200 bg-white">
@@ -101,6 +109,30 @@ export function Sidebar() {
           {stockExpanded && (
             <div className="mt-0.5 flex flex-col gap-0.5 pl-1">
               {stockNavItems.map(({ to, label }) => (
+                <NavLink key={to} to={to} className={navLinkClass}>
+                  {label}
+                </NavLink>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-0.5">
+          <button
+            type="button"
+            onClick={() => setHrOpen(!hrExpanded)}
+            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
+              isHrPath
+                ? "bg-slate-100 text-slate-900"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+            }`}
+          >
+            <span>Recursos Humanos</span>
+            <ChevronDown open={hrExpanded} />
+          </button>
+          {hrExpanded && (
+            <div className="mt-0.5 flex flex-col gap-0.5 pl-1">
+              {hrNavItems.map(({ to, label }) => (
                 <NavLink key={to} to={to} className={navLinkClass}>
                   {label}
                 </NavLink>
