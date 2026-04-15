@@ -60,9 +60,63 @@ import {
   getCivilMonthRangeIso,
   getCurrentYearMonthLisbon,
   isoDatetimeToDateInputValue,
+  parseTimeToMinutes,
 } from "./dates";
 import { Modal } from "./components/Modal";
 import { SkeletonBlock } from "./components/SkeletonBlock";
+
+function shiftPlannedMins(s: HrWorkShift): number | null {
+  const start = parseTimeToMinutes(s.startTime);
+  const end = parseTimeToMinutes(s.endTime);
+  if (start === null || end === null) return null;
+  return end - start;
+}
+
+function shiftActualMins(s: HrWorkShift): number | null {
+  const a = s.attendance;
+  if (!a?.actualStartTime || !a?.actualEndTime) return null;
+  const start = parseTimeToMinutes(a.actualStartTime);
+  const end = parseTimeToMinutes(a.actualEndTime);
+  if (start === null || end === null) return null;
+  return end - start;
+}
+
+function formatMins(mins: number): string {
+  const abs = Math.abs(mins);
+  const h = Math.floor(abs / 60);
+  const m = abs % 60;
+  if (h === 0) return `${mins < 0 ? "−" : "+"}${m}min`;
+  return `${mins < 0 ? "−" : "+"}${h}h${m > 0 ? `${m}min` : ""}`;
+}
+
+function ShiftSaldo({ shift }: { shift: HrWorkShift }) {
+  const planned = shiftPlannedMins(shift);
+  const actual = shiftActualMins(shift);
+  if (actual === null || planned === null) return <span className="text-slate-400">—</span>;
+  const diff = actual - planned;
+  if (diff === 0)
+    return <span className="text-slate-500">0</span>;
+  if (diff > 0)
+    return <span className="font-medium text-emerald-700">{formatMins(diff)}</span>;
+  return <span className="font-medium text-red-600">{formatMins(diff)}</span>;
+}
+
+function ShiftRealizado({ shift }: { shift: HrWorkShift }) {
+  const a = shift.attendance;
+  if (!a?.actualStartTime) return <span className="text-slate-400">—</span>;
+  if (!a.actualEndTime)
+    return (
+      <span className="text-slate-600">
+        {a.actualStartTime}{" "}
+        <span className="text-xs text-amber-600">em curso</span>
+      </span>
+    );
+  return (
+    <span className="text-slate-700">
+      {a.actualStartTime} – {a.actualEndTime}
+    </span>
+  );
+}
 
 const controlClass =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
@@ -795,10 +849,10 @@ export function HrEmployeeDetailPage() {
               <thead className="bg-slate-50 text-xs font-semibold text-slate-600">
                 <tr>
                   <th className="px-3 py-2">Data</th>
-                  <th className="px-3 py-2">Início</th>
-                  <th className="px-3 py-2">Fim</th>
-                  <th className="px-3 py-2">Local</th>
-                  <th className="px-3 py-2">Conferência</th>
+                  <th className="px-3 py-2">Planeado</th>
+                  <th className="px-3 py-2">Realizado</th>
+                  <th className="px-3 py-2">Saldo</th>
+                  <th className="px-3 py-2">Estado</th>
                   <th className="px-3 py-2 text-right">Ações</th>
                 </tr>
               </thead>
@@ -821,11 +875,17 @@ export function HrEmployeeDetailPage() {
                 ) : (
                   shifts.map((s) => (
                     <tr key={s.id} className="border-t border-slate-100">
-                      <td className="px-3 py-2">{formatIsoDatePt(s.workDate)}</td>
-                      <td className="px-3 py-2">{s.startTime}</td>
-                      <td className="px-3 py-2">{s.endTime}</td>
-                      <td className="px-3 py-2 text-slate-600">
-                        {s.locationOrStation ?? "—"}
+                      <td className="px-3 py-2 text-slate-700">
+                        {formatIsoDatePt(s.workDate)}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums text-slate-700">
+                        {s.startTime} – {s.endTime}
+                      </td>
+                      <td className="px-3 py-2 tabular-nums">
+                        <ShiftRealizado shift={s} />
+                      </td>
+                      <td className="px-3 py-2 tabular-nums">
+                        <ShiftSaldo shift={s} />
                       </td>
                       <td className="px-3 py-2 align-top">
                         <div className="flex flex-col gap-1">
@@ -838,16 +898,12 @@ export function HrEmployeeDetailPage() {
                               className="inline-flex w-fit max-w-[11rem] rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-900"
                               title={
                                 s.attendance
-                                  ? SHIFT_ATTENDANCE_STATUS_LABELS[
-                                      s.attendance.status
-                                    ]
+                                  ? SHIFT_ATTENDANCE_STATUS_LABELS[s.attendance.status]
                                   : undefined
                               }
                             >
                               {s.attendance
-                                ? SHIFT_ATTENDANCE_STATUS_LABELS[
-                                    s.attendance.status
-                                  ]
+                                ? SHIFT_ATTENDANCE_STATUS_LABELS[s.attendance.status]
                                 : "—"}
                             </span>
                           )}
@@ -856,9 +912,7 @@ export function HrEmployeeDetailPage() {
                             className="w-fit text-left text-xs text-indigo-700 hover:underline"
                             onClick={() => setAttendanceModal(s)}
                           >
-                            {isShiftAttendancePending(s)
-                              ? "Conferir"
-                              : "Editar conferência"}
+                            {isShiftAttendancePending(s) ? "Conferir" : "Editar"}
                           </button>
                         </div>
                       </td>
