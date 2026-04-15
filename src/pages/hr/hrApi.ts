@@ -256,3 +256,33 @@ export async function deletePayment(paymentId: string): Promise<void> {
     `${HR}/payments/${encodeURIComponent(paymentId)}`,
   );
 }
+
+// ---------- Kiosk ----------
+
+export type KioskDailyToken = { token: string; date: string };
+
+export async function fetchKioskDailyToken(): Promise<KioskDailyToken> {
+  return apiGet(`${HR}/kiosk/daily-token`);
+}
+
+export async function setEmployeeKioskPin(
+  id: string,
+  pin: string,
+): Promise<HrEmployee> {
+  return apiPatch(`${HR}/employees/${encodeURIComponent(id)}/kiosk-pin`, { pin });
+}
+
+export type KioskScanResult = {
+  action: "check_in" | "check_out";
+  employee: { id: string; fullName: string };
+  time: string;
+  shift: { startTime: string; endTime: string };
+};
+
+export async function kioskScan(body: {
+  token: string;
+  date: string;
+  pin: string;
+}): Promise<KioskScanResult> {
+  return apiPost(`${HR}/kiosk/scan`, body);
+}

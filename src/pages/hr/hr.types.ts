@@ -52,6 +52,8 @@ export type HrEmployee = {
   weeklySchedule?: WeeklySchedule | null;
   hiredAt: string | null;
   endedAt: string | null;
+  /** True se o funcionário tem um PIN de kiosk configurado. */
+  hasKioskPin?: boolean;
   createdAt: string;
   updatedAt: string;
 };

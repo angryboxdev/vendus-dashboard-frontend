@@ -16,54 +16,68 @@ import { HrCalendarPage } from "./pages/hr/HrCalendarPage";
 import { HrEmployeeDetailPage } from "./pages/hr/HrEmployeeDetailPage";
 import { HrEmployeesPage } from "./pages/hr/HrEmployeesPage";
 import { HrLayout } from "./pages/hr/HrLayout";
+import { KioskDisplayPage } from "./pages/kiosk/KioskDisplayPage";
+import { KioskCheckinPage } from "./pages/kiosk/KioskCheckinPage";
 
 export default function App() {
   return (
-    <div className="flex min-h-screen bg-slate-100">
-      <Sidebar />
-      <main className="min-w-0 flex-1 overflow-auto">
-        <Routes>
-          <Route path="/" element={<DashboardPage />} />
-          <Route
-            path="/dre"
-            element={<Navigate to="/dre/demonstrativo" replace />}
-          />
-          <Route element={<DreLayout />}>
-            <Route path="/dre/demonstrativo" element={<DemonstrativoPage />} />
-            <Route path="/dre/receita-bruta" element={<ReceitaBrutaPage />} />
-            <Route path="/dre/custos-fixos" element={<CustosFixosPage />} />
-            <Route
-              path="/dre/custos-variaveis"
-              element={<CustosVariaveisPage />}
-            />
-          </Route>
-          <Route
-            path="/stock"
-            element={<Navigate to="/stock/movimentacoes" replace />}
-          />
-          <Route element={<StockLayout />}>
-            <Route path="/stock/movimentacoes" element={<MovimentacoesPage />} />
-            <Route
-              path="/stock/historico-movimentos"
-              element={<StockMovementHistoryPage />}
-            />
-            <Route path="/stock/stock" element={<StockPage />} />
-            <Route path="/stock/pizzas" element={<PizzasPage />} />
-          </Route>
-          <Route
-            path="/angrybox/hr"
-            element={<Navigate to="/hr" replace />}
-          />
-          <Route element={<HrLayout />}>
-            <Route path="/hr" element={<HrEmployeesPage />} />
-            <Route path="/hr/calendar" element={<HrCalendarPage />} />
-            <Route
-              path="/hr/employees/:id"
-              element={<HrEmployeeDetailPage />}
-            />
-          </Route>
-        </Routes>
-      </main>
-    </div>
+    <Routes>
+      {/* Páginas standalone sem sidebar (kiosk) */}
+      <Route path="/kiosk" element={<KioskDisplayPage />} />
+      <Route path="/kiosk/checkin" element={<KioskCheckinPage />} />
+
+      {/* Layout principal com sidebar */}
+      <Route
+        path="*"
+        element={
+          <div className="flex min-h-screen bg-slate-100">
+            <Sidebar />
+            <main className="min-w-0 flex-1 overflow-auto">
+              <Routes>
+                <Route path="/" element={<DashboardPage />} />
+                <Route
+                  path="/dre"
+                  element={<Navigate to="/dre/demonstrativo" replace />}
+                />
+                <Route element={<DreLayout />}>
+                  <Route path="/dre/demonstrativo" element={<DemonstrativoPage />} />
+                  <Route path="/dre/receita-bruta" element={<ReceitaBrutaPage />} />
+                  <Route path="/dre/custos-fixos" element={<CustosFixosPage />} />
+                  <Route
+                    path="/dre/custos-variaveis"
+                    element={<CustosVariaveisPage />}
+                  />
+                </Route>
+                <Route
+                  path="/stock"
+                  element={<Navigate to="/stock/movimentacoes" replace />}
+                />
+                <Route element={<StockLayout />}>
+                  <Route path="/stock/movimentacoes" element={<MovimentacoesPage />} />
+                  <Route
+                    path="/stock/historico-movimentos"
+                    element={<StockMovementHistoryPage />}
+                  />
+                  <Route path="/stock/stock" element={<StockPage />} />
+                  <Route path="/stock/pizzas" element={<PizzasPage />} />
+                </Route>
+                <Route
+                  path="/angrybox/hr"
+                  element={<Navigate to="/hr" replace />}
+                />
+                <Route element={<HrLayout />}>
+                  <Route path="/hr" element={<HrEmployeesPage />} />
+                  <Route path="/hr/calendar" element={<HrCalendarPage />} />
+                  <Route
+                    path="/hr/employees/:id"
+                    element={<HrEmployeeDetailPage />}
+                  />
+                </Route>
+              </Routes>
+            </main>
+          </div>
+        }
+      />
+    </Routes>
   );
 }

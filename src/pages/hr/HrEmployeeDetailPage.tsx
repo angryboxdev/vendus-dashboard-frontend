@@ -22,6 +22,7 @@ import {
   patchShift,
   patchShiftAttendance,
   paymentFormValuesToApiBody,
+  setEmployeeKioskPin,
   type PatchEmployeeBody,
   type PatchShiftAttendanceBody,
 } from "./hrApi";
@@ -118,6 +119,8 @@ export function HrEmployeeDetailPage() {
     null,
   );
   const [applyMonthOpen, setApplyMonthOpen] = useState(false);
+  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [pinInput, setPinInput] = useState("");
 
   const range = useMemo(
     () => getCivilMonthRangeIso(year, month),
@@ -316,6 +319,22 @@ export function HrEmployeeDetailPage() {
       setBanner({
         type: "err",
         text: e instanceof ApiError ? e.message : "Erro ao remover pagamento.",
+      });
+    },
+  });
+
+  const setPinMut = useMutation({
+    mutationFn: (pin: string) => setEmployeeKioskPin(id, pin),
+    onSuccess: async () => {
+      await qc.invalidateQueries({ queryKey: hrQueryKeys.employee(id) });
+      setPinModalOpen(false);
+      setPinInput("");
+      setBanner({ type: "ok", text: "PIN de kiosk configurado." });
+    },
+    onError: (e: unknown) => {
+      setBanner({
+        type: "err",
+        text: e instanceof ApiError ? e.message : "Erro ao definir PIN.",
       });
     },
   });
@@ -649,6 +668,78 @@ export function HrEmployeeDetailPage() {
             </button>
           </div>
         </form>
+      ) : null}
+
+      {tab === "dados" ? (
+        <div className="mt-8 max-w-5xl rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h3 className="text-sm font-semibold text-slate-800">PIN de Kiosk</h3>
+          <p className="mt-1 text-xs text-slate-500">
+            O funcionário usa este PIN de 4 dígitos para registar o ponto através do QR code na loja.
+          </p>
+          <div className="mt-3 flex items-center gap-3">
+            {employee.hasKioskPin ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-800 ring-1 ring-emerald-200">
+                <span>●</span> PIN configurado
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 ring-1 ring-amber-200">
+                <span>○</span> PIN não configurado
+              </span>
+            )}
+            <button
+              type="button"
+              onClick={() => { setPinInput(""); setPinModalOpen(true); }}
+              className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
+            >
+              {employee.hasKioskPin ? "Alterar PIN" : "Definir PIN"}
+            </button>
+          </div>
+          {pinModalOpen ? (
+            <Modal
+              title={employee.hasKioskPin ? "Alterar PIN de Kiosk" : "Definir PIN de Kiosk"}
+              onClose={() => { setPinModalOpen(false); setPinInput(""); }}
+              footer={
+                <>
+                  <button
+                    type="button"
+                    onClick={() => { setPinModalOpen(false); setPinInput(""); }}
+                    className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    type="button"
+                    disabled={pinInput.length !== 4 || setPinMut.isPending}
+                    onClick={() => setPinMut.mutate(pinInput)}
+                    className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+                  >
+                    {setPinMut.isPending ? "A guardar…" : "Guardar PIN"}
+                  </button>
+                </>
+              }
+            >
+              <div className="space-y-3">
+                <p className="text-sm text-slate-600">
+                  Introduz um PIN de exactamente 4 dígitos para o funcionário <strong>{employee.fullName}</strong>.
+                </p>
+                <input
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={4}
+                  pattern="\d{4}"
+                  value={pinInput}
+                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  placeholder="••••"
+                  className="w-full rounded-lg border border-slate-300 px-3 py-2 text-center text-2xl tracking-[0.5em] shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  autoFocus
+                />
+                <p className="text-xs text-slate-400">
+                  Cada funcionário deve ter um PIN único. O PIN é guardado de forma segura.
+                </p>
+              </div>
+            </Modal>
+          ) : null}
+        </div>
       ) : null}
 
       {tab === "turnos" ? (
