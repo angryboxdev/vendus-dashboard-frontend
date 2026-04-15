@@ -16,6 +16,7 @@ import { HrCalendarPage } from "./pages/hr/HrCalendarPage";
 import { HrEmployeeDetailPage } from "./pages/hr/HrEmployeeDetailPage";
 import { HrEmployeesPage } from "./pages/hr/HrEmployeesPage";
 import { HrLayout } from "./pages/hr/HrLayout";
+import { HrReportPage } from "./pages/hr/HrReportPage";
 import { KioskDisplayPage } from "./pages/kiosk/KioskDisplayPage";
 import { KioskCheckinPage } from "./pages/kiosk/KioskCheckinPage";
 
@@ -68,6 +69,7 @@ export default function App() {
                 <Route element={<HrLayout />}>
                   <Route path="/hr" element={<HrEmployeesPage />} />
                   <Route path="/hr/calendar" element={<HrCalendarPage />} />
+                  <Route path="/hr/relatorio" element={<HrReportPage />} />
                   <Route
                     path="/hr/employees/:id"
                     element={<HrEmployeeDetailPage />}

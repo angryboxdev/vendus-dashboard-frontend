@@ -19,6 +19,7 @@ const stockNavItems = [
 const hrNavItems = [
   { to: "/hr", label: "Funcionários" },
   { to: "/hr/calendar", label: "Calendário de turnos" },
+  { to: "/hr/relatorio", label: "Relatório de assiduidade" },
 ] as const;
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
