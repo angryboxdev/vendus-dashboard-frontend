@@ -16,13 +16,20 @@ import { HrCalendarPage } from "./pages/hr/HrCalendarPage";
 import { HrEmployeeDetailPage } from "./pages/hr/HrEmployeeDetailPage";
 import { HrEmployeesPage } from "./pages/hr/HrEmployeesPage";
 import { HrLayout } from "./pages/hr/HrLayout";
+import { HrAuditLogPage } from "./pages/hr/HrAuditLogPage";
 import { HrReportPage } from "./pages/hr/HrReportPage";
 import { KioskDisplayPage } from "./pages/kiosk/KioskDisplayPage";
 import { KioskCheckinPage } from "./pages/kiosk/KioskCheckinPage";
+import { LoginPage } from "./pages/LoginPage";
+import { UsersPage } from "./pages/admin/UsersPage";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 export default function App() {
   return (
     <Routes>
+      {/* Página de login (pública) */}
+      <Route path="/login" element={<LoginPage />} />
+
       {/* Páginas standalone sem sidebar (kiosk) */}
       <Route path="/kiosk" element={<KioskDisplayPage />} />
       <Route path="/kiosk/checkin" element={<KioskCheckinPage />} />
@@ -31,10 +38,11 @@ export default function App() {
       <Route
         path="*"
         element={
-          <div className="flex min-h-screen bg-slate-100">
-            <Sidebar />
-            <main className="min-w-0 flex-1 overflow-auto">
-              <Routes>
+          <ProtectedRoute>
+            <div className="flex min-h-screen bg-slate-100">
+              <Sidebar />
+              <main className="min-w-0 flex-1 overflow-auto">
+                <Routes>
                 <Route path="/" element={<DashboardPage />} />
                 <Route
                   path="/dre"
@@ -70,14 +78,17 @@ export default function App() {
                   <Route path="/hr" element={<HrEmployeesPage />} />
                   <Route path="/hr/calendar" element={<HrCalendarPage />} />
                   <Route path="/hr/relatorio" element={<HrReportPage />} />
+                  <Route path="/hr/historico" element={<HrAuditLogPage />} />
                   <Route
                     path="/hr/employees/:id"
                     element={<HrEmployeeDetailPage />}
                   />
                 </Route>
+                <Route path="/admin/users" element={<UsersPage />} />
               </Routes>
             </main>
           </div>
+          </ProtectedRoute>
         }
       />
     </Routes>

@@ -55,10 +55,12 @@ import {
   finalizeWeeklySchedule,
 } from "./weeklyScheduleUtils";
 import {
+  buildMonthCalendarCells,
   dateInputValueToIsoDatetime,
   formatYearMonth,
   getCivilMonthRangeIso,
   getCurrentYearMonthLisbon,
+  getTodayLisbon,
   isoDatetimeToDateInputValue,
   parseTimeToMinutes,
 } from "./dates";
@@ -118,6 +120,8 @@ function ShiftRealizado({ shift }: { shift: HrWorkShift }) {
   );
 }
 
+const WEEKDAYS_SHORT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+
 const controlClass =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
 
@@ -175,6 +179,8 @@ export function HrEmployeeDetailPage() {
   const [applyMonthOpen, setApplyMonthOpen] = useState(false);
   const [pinModalOpen, setPinModalOpen] = useState(false);
   const [pinInput, setPinInput] = useState("");
+  const [prefillDate, setPrefillDate] = useState<string>("");
+  const todayIso = useMemo(() => getTodayLisbon(), []);
 
   const range = useMemo(
     () => getCivilMonthRangeIso(year, month),
@@ -205,6 +211,18 @@ export function HrEmployeeDetailPage() {
     queryFn: () => fetchShifts(shiftScope),
     enabled: Boolean(id) && tab === "turnos",
   });
+
+  const byDate = useMemo(() => {
+    const map = new Map<string, HrWorkShift[]>();
+    for (const s of shifts ?? []) {
+      const list = map.get(s.workDate) ?? [];
+      list.push(s);
+      map.set(s.workDate, list);
+    }
+    return map;
+  }, [shifts]);
+
+  const weeks = useMemo(() => buildMonthCalendarCells(year, month), [year, month]);
 
   const payFilters = useMemo(() => ({ year, month }) as const, [year, month]);
 
@@ -844,104 +862,123 @@ export function HrEmployeeDetailPage() {
             </button>
           </div>
 
-          <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs font-semibold text-slate-600">
-                <tr>
-                  <th className="px-3 py-2">Data</th>
-                  <th className="px-3 py-2">Planeado</th>
-                  <th className="px-3 py-2">Realizado</th>
-                  <th className="px-3 py-2">Saldo</th>
-                  <th className="px-3 py-2">Estado</th>
-                  <th className="px-3 py-2 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {shiftsLoading ? (
-                  <tr>
-                    <td colSpan={6} className="px-3 py-4">
-                      <SkeletonBlock className="h-16 w-full" />
-                    </td>
-                  </tr>
-                ) : !shifts?.length ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-3 py-6 text-center text-slate-500"
-                    >
-                      Sem turnos neste intervalo.
-                    </td>
-                  </tr>
-                ) : (
-                  shifts.map((s) => (
-                    <tr key={s.id} className="border-t border-slate-100">
-                      <td className="px-3 py-2 text-slate-700">
-                        {formatIsoDatePt(s.workDate)}
-                      </td>
-                      <td className="px-3 py-2 tabular-nums text-slate-700">
-                        {s.startTime} – {s.endTime}
-                      </td>
-                      <td className="px-3 py-2 tabular-nums">
-                        <ShiftRealizado shift={s} />
-                      </td>
-                      <td className="px-3 py-2 tabular-nums">
-                        <ShiftSaldo shift={s} />
-                      </td>
-                      <td className="px-3 py-2 align-top">
-                        <div className="flex flex-col gap-1">
-                          {isShiftAttendancePending(s) ? (
-                            <span className="inline-flex w-fit rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900">
-                              Pendente
-                            </span>
-                          ) : (
-                            <span
-                              className="inline-flex w-fit max-w-[11rem] rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-900"
-                              title={
-                                s.attendance
-                                  ? SHIFT_ATTENDANCE_STATUS_LABELS[s.attendance.status]
-                                  : undefined
-                              }
-                            >
-                              {s.attendance
-                                ? SHIFT_ATTENDANCE_STATUS_LABELS[s.attendance.status]
-                                : "—"}
-                            </span>
-                          )}
+          <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
+            {shiftsLoading ? (
+              <SkeletonBlock className="h-[420px] w-full min-w-[720px]" />
+            ) : (
+              <div className="grid min-w-[720px] grid-cols-7 gap-px bg-slate-200">
+                {WEEKDAYS_SHORT.map((d) => (
+                  <div
+                    key={d}
+                    className="bg-slate-50 px-2 py-2 text-center text-xs font-semibold text-slate-600"
+                  >
+                    {d}
+                  </div>
+                ))}
+                {weeks.flatMap((row, ri) =>
+                  row.map((cell, ci) => {
+                    if (cell.kind === "empty") {
+                      return (
+                        <div
+                          key={`e-${ri}-${ci}`}
+                          className="min-h-[110px] bg-slate-50"
+                        />
+                      );
+                    }
+                    const dayShifts = byDate.get(cell.iso) ?? [];
+                    const isToday = cell.iso === todayIso;
+                    return (
+                      <div
+                        key={cell.iso}
+                        className={`min-h-[110px] bg-white p-1.5 ${
+                          isToday ? "ring-2 ring-inset ring-indigo-400" : ""
+                        }`}
+                      >
+                        <div
+                          className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
+                            isToday
+                              ? "bg-indigo-600 text-white"
+                              : "text-slate-500"
+                          }`}
+                        >
+                          {cell.day}
+                        </div>
+
+                        {dayShifts.length === 0 ? (
                           <button
                             type="button"
-                            className="w-fit text-left text-xs text-indigo-700 hover:underline"
-                            onClick={() => setAttendanceModal(s)}
+                            onClick={() => {
+                              setPrefillDate(cell.iso);
+                              setShiftModal("create");
+                            }}
+                            className="mt-1 flex w-full items-center justify-center rounded border border-dashed border-slate-200 py-2.5 text-[10px] text-slate-400 hover:border-indigo-300 hover:text-indigo-500"
                           >
-                            {isShiftAttendancePending(s) ? "Conferir" : "Editar"}
+                            + turno
                           </button>
-                        </div>
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <button
-                          type="button"
-                          className="text-indigo-700 hover:underline"
-                          onClick={() => setShiftModal(s)}
-                        >
-                          Editar
-                        </button>
-                        {" · "}
-                        <button
-                          type="button"
-                          className="text-red-700 hover:underline"
-                          onClick={() => {
-                            if (window.confirm("Remover este turno?"))
-                              deleteShiftMut.mutate(s.id);
-                          }}
-                          disabled={deleteShiftMut.isPending}
-                        >
-                          Apagar
-                        </button>
-                      </td>
-                    </tr>
-                  ))
+                        ) : (
+                          dayShifts.map((s) => (
+                            <div key={s.id} className="mt-1">
+                              <button
+                                type="button"
+                                onClick={() => setAttendanceModal(s)}
+                                className={`w-full rounded border px-1.5 py-1 text-left text-[11px] leading-snug hover:opacity-90 ${
+                                  isShiftAttendancePending(s)
+                                    ? "border-amber-200 bg-amber-50 text-amber-900"
+                                    : "border-emerald-200 bg-emerald-50 text-slate-800"
+                                }`}
+                              >
+                                <div className="font-medium tabular-nums">
+                                  {s.startTime} – {s.endTime}
+                                </div>
+                                <div className="mt-0.5 tabular-nums">
+                                  <ShiftRealizado shift={s} />
+                                </div>
+                                <div className="mt-0.5">
+                                  <ShiftSaldo shift={s} />
+                                </div>
+                                <div className="mt-0.5">
+                                  {isShiftAttendancePending(s) ? (
+                                    <span className="text-[10px] font-medium text-amber-700">
+                                      Pendente
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-emerald-700">
+                                      {s.attendance
+                                        ? SHIFT_ATTENDANCE_STATUS_LABELS[s.attendance.status]
+                                        : "—"}
+                                    </span>
+                                  )}
+                                </div>
+                              </button>
+                              <div className="mt-0.5 flex gap-2 px-0.5">
+                                <button
+                                  type="button"
+                                  className="text-[10px] text-indigo-600 hover:underline"
+                                  onClick={() => setShiftModal(s)}
+                                >
+                                  editar
+                                </button>
+                                <button
+                                  type="button"
+                                  className="text-[10px] text-red-600 hover:underline"
+                                  disabled={deleteShiftMut.isPending}
+                                  onClick={() => {
+                                    if (window.confirm("Remover este turno?"))
+                                      deleteShiftMut.mutate(s.id);
+                                  }}
+                                >
+                                  apagar
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    );
+                  }),
                 )}
-              </tbody>
-            </table>
+              </div>
+            )}
           </div>
 
           <details className="mt-6 rounded-xl border border-slate-200 bg-white open:shadow-sm">
@@ -1132,11 +1169,12 @@ export function HrEmployeeDetailPage() {
 
       {shiftModal ? (
         <ShiftModal
-          key={shiftModal === "create" ? "create" : shiftModal.id}
+          key={shiftModal === "create" ? `create-${prefillDate}` : shiftModal.id}
           mode={shiftModal === "create" ? "create" : "edit"}
           initial={shiftModal === "create" ? null : shiftModal}
           defaultEmployeeId={id}
-          onClose={() => setShiftModal(null)}
+          defaultWorkDate={shiftModal === "create" ? prefillDate || undefined : undefined}
+          onClose={() => { setShiftModal(null); setPrefillDate(""); }}
           loading={createShiftMut.isPending || updateShiftMut.isPending}
           onSubmit={(values) => {
             if (shiftModal === "create") {
@@ -1203,6 +1241,7 @@ function ShiftModal({
   mode,
   initial,
   defaultEmployeeId,
+  defaultWorkDate,
   onClose,
   loading,
   onSubmit,
@@ -1210,6 +1249,7 @@ function ShiftModal({
   mode: "create" | "edit";
   initial: HrWorkShift | null;
   defaultEmployeeId: string;
+  defaultWorkDate?: string;
   onClose: () => void;
   loading: boolean;
   onSubmit: (v: ShiftFormValues) => void;
@@ -1232,7 +1272,7 @@ function ShiftModal({
         }
       : {
           employeeId: defaultEmployeeId,
-          workDate: getCivilMonthRangeIso(
+          workDate: defaultWorkDate ?? getCivilMonthRangeIso(
             getCurrentYearMonthLisbon().year,
             getCurrentYearMonthLisbon().month,
           ).from,

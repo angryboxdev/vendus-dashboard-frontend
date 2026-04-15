@@ -6,6 +6,9 @@ import {
   apiPost,
 } from "../../lib/api";
 import type {
+  AuditAction,
+  AuditEntityType,
+  HrAuditLog,
   HrEmployee,
   HrEmployeePayment,
   HrWorkShift,
@@ -285,4 +288,27 @@ export async function kioskScan(body: {
   pin: string;
 }): Promise<KioskScanResult> {
   return apiPost(`${HR}/kiosk/scan`, body);
+}
+
+// ---------- Audit Logs ----------
+
+export type AuditLogsParams = {
+  employeeId?: string;
+  entityType?: AuditEntityType;
+  action?: AuditAction;
+  limit?: number;
+  offset?: number;
+};
+
+export async function fetchAuditLogs(
+  params: AuditLogsParams = {},
+): Promise<{ logs: HrAuditLog[]; total: number }> {
+  const q = new URLSearchParams();
+  if (params.employeeId) q.set("employeeId", params.employeeId);
+  if (params.entityType) q.set("entityType", params.entityType);
+  if (params.action) q.set("action", params.action);
+  if (params.limit != null) q.set("limit", String(params.limit));
+  if (params.offset != null) q.set("offset", String(params.offset));
+  const qs = q.toString();
+  return apiGet(`${HR}/audit-logs${qs ? `?${qs}` : ""}`);
 }

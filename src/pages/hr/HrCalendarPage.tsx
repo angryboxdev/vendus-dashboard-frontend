@@ -1,33 +1,155 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
-import { formatIsoDateRangePt } from "../../lib/format";
 import {
+  addDaysToYmd,
   buildMonthCalendarCells,
   getCivilMonthRangeIso,
   getCurrentYearMonthLisbon,
+  getMondayOfWeek,
+  getTodayLisbon,
 } from "./dates";
 import { fetchEmployees, fetchShifts } from "./hrApi";
 import { hrQueryKeys } from "./hrQueryKeys";
 import { isShiftAttendancePending, type HrWorkShift } from "./hr.types";
 import { SkeletonBlock } from "./components/SkeletonBlock";
 
-const WEEKDAYS = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+// ---------- constants ----------
 
-function shiftKey(s: HrWorkShift): string {
-  return `${s.employeeId}-${s.startTime}-${s.endTime}-${s.id}`;
+const WEEKDAYS_SHORT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
+
+const MONTHS_SHORT = [
+  "jan", "fev", "mar", "abr", "mai", "jun",
+  "jul", "ago", "set", "out", "nov", "dez",
+];
+
+const PALETTE = [
+  { bg: "bg-indigo-100", border: "border-indigo-200", text: "text-indigo-900" },
+  { bg: "bg-violet-100", border: "border-violet-200", text: "text-violet-900" },
+  { bg: "bg-pink-100",   border: "border-pink-200",   text: "text-pink-900"   },
+  { bg: "bg-teal-100",   border: "border-teal-200",   text: "text-teal-900"   },
+  { bg: "bg-orange-100", border: "border-orange-200", text: "text-orange-900" },
+  { bg: "bg-sky-100",    border: "border-sky-200",    text: "text-sky-900"    },
+  { bg: "bg-rose-100",   border: "border-rose-200",   text: "text-rose-900"   },
+  { bg: "bg-lime-100",   border: "border-lime-200",   text: "text-lime-900"   },
+] as const;
+
+type PaletteEntry = (typeof PALETTE)[number];
+
+type ViewMode = "month" | "week";
+
+// ---------- helpers ----------
+
+function fmtDayMonth(iso: string): string {
+  const [, mo, d] = iso.split("-").map(Number);
+  return `${d} ${MONTHS_SHORT[mo - 1]}`;
 }
+
+// ---------- sub-components ----------
+
+function ShiftPill({
+  shift,
+  name,
+  color,
+}: {
+  shift: HrWorkShift;
+  name: string;
+  color: PaletteEntry;
+}) {
+  const pending = isShiftAttendancePending(shift);
+  return (
+    <div
+      title={pending ? "Conferência pendente" : "Conferência registada"}
+      className={`rounded border px-1.5 py-0.5 text-[11px] leading-snug ${color.bg} ${color.border} ${color.text}`}
+    >
+      <div className="flex items-center gap-1">
+        <span
+          className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${
+            pending ? "bg-amber-500" : "bg-emerald-500"
+          }`}
+        />
+        <span className="truncate font-medium">{name}</span>
+      </div>
+      <div className="mt-0.5 text-[10px] opacity-70">
+        {shift.startTime} – {shift.endTime}
+      </div>
+    </div>
+  );
+}
+
+function DayCell({
+  iso,
+  todayIso,
+  shifts,
+  nameById,
+  colorById,
+  tall,
+}: {
+  iso: string;
+  todayIso: string;
+  shifts: HrWorkShift[];
+  nameById: Map<string, string>;
+  colorById: Map<string, PaletteEntry>;
+  tall?: boolean;
+}) {
+  const isToday = iso === todayIso;
+  const [, , d] = iso.split("-").map(Number);
+
+  return (
+    <div
+      className={`bg-white p-2 align-top ${tall ? "min-h-[180px]" : "min-h-[100px]"} ${
+        isToday ? "ring-2 ring-inset ring-indigo-400" : ""
+      }`}
+    >
+      <div
+        className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
+          isToday
+            ? "bg-indigo-600 text-white"
+            : "text-slate-500"
+        }`}
+      >
+        {d}
+      </div>
+      {shifts.length === 0 ? (
+        <p className="mt-1 text-xs text-slate-400">—</p>
+      ) : (
+        <ul className="mt-1 space-y-1">
+          {shifts.map((s) => (
+            <li key={`${s.employeeId}-${s.id}`}>
+              <ShiftPill
+                shift={s}
+                name={nameById.get(s.employeeId) ?? s.employeeId.slice(0, 8)}
+                color={
+                  colorById.get(s.employeeId) ?? PALETTE[0]
+                }
+              />
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+// ---------- main component ----------
 
 export function HrCalendarPage() {
   const initial = getCurrentYearMonthLisbon();
+  const todayIso = useMemo(() => getTodayLisbon(), []);
+
+  const [view, setView] = useState<ViewMode>("month");
   const [year, setYear] = useState(initial.year);
   const [month, setMonth] = useState(initial.month);
+  const [weekMonday, setWeekMonday] = useState(() => getMondayOfWeek(getTodayLisbon()));
   const [employeeId, setEmployeeId] = useState<string>("");
 
-  const range = useMemo(
-    () => getCivilMonthRangeIso(year, month),
-    [year, month],
+  // Ranges
+  const monthRange = useMemo(() => getCivilMonthRangeIso(year, month), [year, month]);
+  const weekRange = useMemo(
+    () => ({ from: weekMonday, to: addDaysToYmd(weekMonday, 6) }),
+    [weekMonday],
   );
+  const range = view === "month" ? monthRange : weekRange;
 
   const shiftsParams = useMemo(
     () => ({
@@ -38,28 +160,29 @@ export function HrCalendarPage() {
     [range.from, range.to, employeeId],
   );
 
+  // Queries
   const { data: employees } = useQuery({
     queryKey: hrQueryKeys.employees({ limit: 500, offset: 0 }),
     queryFn: () => fetchEmployees({ limit: 500, offset: 0 }),
   });
 
-  const nameById = useMemo(() => {
-    const m = new Map<string, string>();
-    for (const e of employees ?? []) {
-      m.set(e.id, e.fullName);
-    }
-    return m;
-  }, [employees]);
-
-  const {
-    data: shifts,
-    isPending,
-    error,
-    refetch,
-  } = useQuery({
+  const { data: shifts, isPending, error, refetch } = useQuery({
     queryKey: hrQueryKeys.shifts(shiftsParams),
     queryFn: () => fetchShifts(shiftsParams),
   });
+
+  // Maps
+  const nameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of employees ?? []) m.set(e.id, e.fullName);
+    return m;
+  }, [employees]);
+
+  const colorById = useMemo(() => {
+    const m = new Map<string, PaletteEntry>();
+    (employees ?? []).forEach((e, i) => m.set(e.id, PALETTE[i % PALETTE.length]));
+    return m;
+  }, [employees]);
 
   const byDate = useMemo(() => {
     const map = new Map<string, HrWorkShift[]>();
@@ -74,112 +197,154 @@ export function HrCalendarPage() {
     return map;
   }, [shifts]);
 
-  const weeks = useMemo(
-    () => buildMonthCalendarCells(year, month),
-    [year, month],
+  // Month grid
+  const weeks = useMemo(() => buildMonthCalendarCells(year, month), [year, month]);
+
+  // Week days array
+  const weekDays = useMemo(
+    () => Array.from({ length: 7 }, (_, i) => addDaysToYmd(weekMonday, i)),
+    [weekMonday],
   );
 
+  // Navigation
   function prevMonth() {
-    if (month <= 1) {
-      setYear((y) => y - 1);
-      setMonth(12);
-    } else {
-      setMonth((m) => m - 1);
-    }
+    if (month <= 1) { setYear((y) => y - 1); setMonth(12); }
+    else setMonth((m) => m - 1);
   }
-
   function nextMonth() {
-    if (month >= 12) {
-      setYear((y) => y + 1);
-      setMonth(1);
-    } else {
-      setMonth((m) => m + 1);
-    }
+    if (month >= 12) { setYear((y) => y + 1); setMonth(1); }
+    else setMonth((m) => m + 1);
   }
+  function prevWeek() { setWeekMonday((w) => addDaysToYmd(w, -7)); }
+  function nextWeek() { setWeekMonday((w) => addDaysToYmd(w, 7)); }
 
-  const title = `${String(month).padStart(2, "0")} / ${year}`;
+  // Labels
+  const monthLabel = `${String(month).padStart(2, "0")} / ${year}`;
+  const weekLabel = `${fmtDayMonth(weekMonday)} – ${fmtDayMonth(addDaysToYmd(weekMonday, 6))} ${weekMonday.slice(0, 4)}`;
 
   return (
     <div className="mx-auto max-w-6xl p-6">
-      <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h2 className="text-lg font-medium text-slate-800">
-            Calendário de turnos
-          </h2>
-          <p className="text-sm text-slate-600">
-            Mês visível:{" "}
-            <span className="font-mono text-slate-800">
-              {formatIsoDateRangePt(range.from, range.to)}
-            </span>{" "}
-            (Europe/Lisbon no controlo do mês)
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-2">
+      {/* Header row */}
+      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 pb-4">
+        <h2 className="flex-1 text-xl font-semibold text-slate-900">
+          Calendário de turnos
+        </h2>
+
+        {/* View toggle */}
+        <div className="flex rounded-lg border border-slate-300 bg-white overflow-hidden text-sm">
           <button
             type="button"
-            onClick={prevMonth}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50"
+            onClick={() => setView("month")}
+            className={`px-3 py-1.5 font-medium transition-colors ${
+              view === "month"
+                ? "bg-indigo-600 text-white"
+                : "text-slate-600 hover:bg-slate-50"
+            }`}
           >
-            ← Mês anterior
+            Mês
           </button>
-          <span className="min-w-[100px] text-center text-sm font-semibold text-slate-800">
-            {title}
+          <button
+            type="button"
+            onClick={() => setView("week")}
+            className={`px-3 py-1.5 font-medium transition-colors ${
+              view === "week"
+                ? "bg-indigo-600 text-white"
+                : "text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            Semana
+          </button>
+        </div>
+
+        {/* Navigation */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={view === "month" ? prevMonth : prevWeek}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50"
+          >
+            ←
+          </button>
+          <span className="min-w-[9rem] text-center text-sm font-medium text-slate-700">
+            {view === "month" ? monthLabel : weekLabel}
           </span>
           <button
             type="button"
-            onClick={nextMonth}
-            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50"
+            onClick={view === "month" ? nextMonth : nextWeek}
+            className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm hover:bg-slate-50"
           >
-            Mês seguinte →
+            →
           </button>
         </div>
       </div>
 
-      <div className="mt-4 max-w-md">
-        <label className="block text-sm font-medium text-slate-700">
-          Filtrar por funcionário
-        </label>
-        <select
-          className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-          value={employeeId}
-          onChange={(e) => setEmployeeId(e.target.value)}
-        >
-          <option value="">Todos</option>
-          {(employees ?? []).map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.fullName}
-            </option>
-          ))}
-        </select>
+      {/* Employee filter badges */}
+      {employees && employees.length > 0 && (
+        <div className="mt-4 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setEmployeeId("")}
+            className={`rounded-full border px-3 py-0.5 text-xs font-medium transition-colors ${
+              employeeId === ""
+                ? "border-slate-700 bg-slate-700 text-white"
+                : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+            }`}
+          >
+            Todos
+          </button>
+          {employees.map((e, i) => {
+            const c = PALETTE[i % PALETTE.length];
+            const active = employeeId === e.id;
+            return (
+              <button
+                key={e.id}
+                type="button"
+                onClick={() => setEmployeeId(active ? "" : e.id)}
+                className={`inline-flex items-center gap-1 rounded-full border px-3 py-0.5 text-xs font-medium transition-all ${
+                  active
+                    ? `${c.bg} ${c.border} ${c.text} ring-2 ring-offset-1 ring-current`
+                    : `${c.bg} ${c.border} ${c.text} opacity-60 hover:opacity-100`
+                }`}
+              >
+                {e.fullName.split(" ")[0]}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Legend */}
+      <div className="mt-2 flex items-center gap-4 text-xs text-slate-500">
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-amber-500" />
+          Pendente
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          Registado
+        </span>
       </div>
 
       {error ? (
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
           {error instanceof Error ? error.message : "Erro ao carregar turnos."}{" "}
-          <button
-            type="button"
-            className="underline"
-            onClick={() => void refetch()}
-          >
+          <button type="button" className="underline" onClick={() => void refetch()}>
             Tentar outra vez
           </button>
         </div>
       ) : null}
 
-      <p className="mt-2 text-xs text-slate-500">
-        Legenda: fundo âmbar = conferência pendente; verde = conferência
-        registada.
-      </p>
-
-      <div className="mt-6 overflow-x-auto rounded-xl border border-slate-200 bg-white p-3 shadow-sm">
+      {/* Calendar grid */}
+      <div className="mt-4 overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm">
         {isPending ? (
           <SkeletonBlock className="h-[420px] w-full min-w-[720px]" />
-        ) : (
+        ) : view === "month" ? (
+          /* ---- MONTH VIEW ---- */
           <div className="grid min-w-[720px] grid-cols-7 gap-px bg-slate-200">
-            {WEEKDAYS.map((d) => (
+            {WEEKDAYS_SHORT.map((d) => (
               <div
                 key={d}
-                className="bg-slate-100 px-2 py-2 text-center text-xs font-semibold text-slate-600"
+                className="bg-slate-50 px-2 py-2 text-center text-xs font-semibold text-slate-600"
               >
                 {d}
               </div>
@@ -187,54 +352,57 @@ export function HrCalendarPage() {
             {weeks.flatMap((row, ri) =>
               row.map((cell, ci) => {
                 if (cell.kind === "empty") {
-                  return (
-                    <div
-                      key={`e-${ri}-${ci}`}
-                      className="min-h-[100px] bg-slate-50"
-                    />
-                  );
+                  return <div key={`e-${ri}-${ci}`} className="min-h-[100px] bg-slate-50" />;
                 }
-                const list = byDate.get(cell.iso) ?? [];
                 return (
-                  <div
+                  <DayCell
                     key={cell.iso}
-                    className="min-h-[100px] bg-white p-2 align-top"
-                  >
-                    <div className="text-xs font-semibold text-slate-500">
-                      {cell.day}
-                    </div>
-                    {list.length === 0 ? (
-                      <p className="mt-1 text-xs text-slate-400">—</p>
-                    ) : (
-                      <ul className="mt-1 space-y-1">
-                        {list.map((s) => (
-                          <li
-                            key={shiftKey(s)}
-                            title={
-                              isShiftAttendancePending(s)
-                                ? "Conferência pendente"
-                                : "Conferência registada"
-                            }
-                            className={`rounded border px-1.5 py-0.5 text-[11px] leading-snug text-slate-800 ${
-                              isShiftAttendancePending(s)
-                                ? "border-amber-200 bg-amber-50/90"
-                                : "border-emerald-200 bg-emerald-50/90"
-                            }`}
-                          >
-                            <span className="font-medium">
-                              {nameById.get(s.employeeId) ??
-                                s.employeeId.slice(0, 8)}
-                            </span>
-                            <br />
-                            {s.startTime} – {s.endTime}
-                          </li>
-                        ))}
-                      </ul>
-                    )}
-                  </div>
+                    iso={cell.iso}
+                    todayIso={todayIso}
+                    shifts={byDate.get(cell.iso) ?? []}
+                    nameById={nameById}
+                    colorById={colorById}
+                  />
                 );
               }),
             )}
+          </div>
+        ) : (
+          /* ---- WEEK VIEW ---- */
+          <div className="grid min-w-[720px] grid-cols-7 gap-px bg-slate-200">
+            {weekDays.map((iso, i) => {
+              const isToday = iso === todayIso;
+              const [, mo, d] = iso.split("-").map(Number);
+              return (
+                <div
+                  key={iso}
+                  className={`px-2 py-2 text-center text-xs font-semibold ${
+                    isToday
+                      ? "bg-indigo-600 text-white"
+                      : "bg-slate-50 text-slate-600"
+                  }`}
+                >
+                  <div>{WEEKDAYS_SHORT[i]}</div>
+                  <div className={`text-base font-bold ${isToday ? "text-white" : "text-slate-800"}`}>
+                    {d}
+                  </div>
+                  <div className={`text-[10px] ${isToday ? "text-indigo-200" : "text-slate-400"}`}>
+                    {MONTHS_SHORT[mo - 1]}
+                  </div>
+                </div>
+              );
+            })}
+            {weekDays.map((iso) => (
+              <DayCell
+                key={iso}
+                iso={iso}
+                todayIso={todayIso}
+                shifts={byDate.get(iso) ?? []}
+                nameById={nameById}
+                colorById={colorById}
+                tall
+              />
+            ))}
           </div>
         )}
       </div>

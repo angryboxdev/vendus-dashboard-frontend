@@ -1,3 +1,34 @@
+// ---------- Audit Log ----------
+
+export type AuditEntityType = "employee" | "shift" | "payment" | "attendance";
+
+export type AuditAction =
+  | "created"
+  | "updated"
+  | "deleted"
+  | "status_changed"
+  | "attendance_registered"
+  | "attendance_updated"
+  | "schedule_updated"
+  | "pin_set"
+  | "kiosk_checkin"
+  | "kiosk_checkout";
+
+export type HrAuditLog = {
+  id: string;
+  createdAt: string;
+  entityType: AuditEntityType;
+  entityId: string;
+  action: AuditAction;
+  actor: string | null;
+  description: string;
+  payloadBefore: unknown;
+  payloadAfter: unknown;
+  employeeId: string | null;
+};
+
+// ---------- Employee ----------
+
 export type HrEmployeeStatus = "active" | "inactive";
 
 export type JobRole = "manager" | "prep" | "service";

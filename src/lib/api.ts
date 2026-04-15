@@ -1,6 +1,14 @@
+import { supabase } from "./supabase";
+
 /** Base URL do backend (sem barra final). Em dev vazio → pedidos relativos e proxy Vite para /api. */
 export const API_BASE =
   import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? "";
+
+async function getAuthHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token;
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
 
 export class ApiError extends Error {
   readonly status: number;
@@ -31,10 +39,12 @@ async function request(
   options: { method: string; body?: string } = { method: "GET" },
 ): Promise<Response> {
   const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
+  const authHeaders = await getAuthHeaders();
+  const headers: Record<string, string> = { ...authHeaders };
+  if (options.body != null) headers["Content-Type"] = "application/json";
   const res = await fetch(url, {
     method: options.method,
-    headers:
-      options.body != null ? { "Content-Type": "application/json" } : undefined,
+    headers,
     body: options.body,
   });
   if (!res.ok) {
@@ -95,8 +105,10 @@ export async function apiPostFormData<T>(
   formData: FormData,
 ): Promise<T> {
   const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
+  const authHeaders = await getAuthHeaders();
   const res = await fetch(url, {
     method: "POST",
+    headers: authHeaders,
     body: formData,
   });
   if (!res.ok) {

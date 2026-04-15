@@ -1,6 +1,7 @@
-import { NavLink, useLocation } from "react-router-dom";
+import { NavLink, useLocation, useNavigate } from "react-router-dom";
 
 import { useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
 
 const dreNavItems = [
   { to: "/dre/demonstrativo", label: "Mapa" },
@@ -20,6 +21,7 @@ const hrNavItems = [
   { to: "/hr", label: "Funcionários" },
   { to: "/hr/calendar", label: "Calendário de turnos" },
   { to: "/hr/relatorio", label: "Relatório de assiduidade" },
+  { to: "/hr/historico", label: "Histórico de alterações" },
 ] as const;
 
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
@@ -50,15 +52,23 @@ function ChevronDown({ open }: { open: boolean }) {
 
 export function Sidebar() {
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, signOut } = useAuth();
   const isDrePath = location.pathname.startsWith("/dre");
   const isStockPath = location.pathname.startsWith("/stock");
   const isHrPath = location.pathname.startsWith("/hr");
+  const isAdminPath = location.pathname.startsWith("/admin");
   const [dreOpen, setDreOpen] = useState(false);
   const [stockOpen, setStockOpen] = useState(false);
   const [hrOpen, setHrOpen] = useState(false);
   const dreExpanded = isDrePath || dreOpen;
   const stockExpanded = isStockPath || stockOpen;
   const hrExpanded = isHrPath || hrOpen;
+
+  async function handleSignOut() {
+    await signOut();
+    navigate("/login", { replace: true });
+  }
 
   return (
     <aside className="flex w-56 flex-shrink-0 flex-col border-r border-slate-200 bg-white">
@@ -141,7 +151,32 @@ export function Sidebar() {
             </div>
           )}
         </div>
+
+        {user?.role === "admin" && (
+          <NavLink
+            to="/admin/users"
+            className={`mt-0.5 block rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+              isAdminPath
+                ? "bg-slate-100 text-slate-900"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+            }`}
+          >
+            Utilizadores
+          </NavLink>
+        )}
       </nav>
+
+      {/* Footer */}
+      <div className="border-t border-slate-200 px-3 py-3">
+        <p className="truncate text-xs text-slate-500">{user?.email}</p>
+        <button
+          type="button"
+          onClick={() => void handleSignOut()}
+          className="mt-1 w-full rounded-lg px-3 py-1.5 text-left text-sm font-medium text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+        >
+          Sair
+        </button>
+      </div>
     </aside>
   );
 }

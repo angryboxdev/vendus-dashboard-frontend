@@ -91,6 +91,36 @@ export type CalendarCell =
   | { kind: "empty" }
   | { kind: "day"; iso: string; day: number };
 
+/** Today in Europe/Lisbon as YYYY-MM-DD. */
+export function getTodayLisbon(): string {
+  const d = new Date();
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone: LISBON_TZ,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(d);
+  const y = parts.find((p) => p.type === "year")?.value ?? "";
+  const mo = parts.find((p) => p.type === "month")?.value ?? "";
+  const day = parts.find((p) => p.type === "day")?.value ?? "";
+  return `${y}-${mo}-${day}`;
+}
+
+/** Add N days to a YYYY-MM-DD string (uses UTC arithmetic to avoid DST shifts). */
+export function addDaysToYmd(iso: string, days: number): string {
+  const [y, mo, d] = iso.split("-").map(Number);
+  const dt = new Date(Date.UTC(y, mo - 1, d + days));
+  return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
+}
+
+/** Returns the Monday of the ISO week containing the given YYYY-MM-DD. */
+export function getMondayOfWeek(iso: string): string {
+  const [y, mo, d] = iso.split("-").map(Number);
+  const jsDay = new Date(Date.UTC(y, mo - 1, d)).getUTCDay(); // 0=Sun
+  const offset = (jsDay + 6) % 7; // days since Monday
+  return addDaysToYmd(iso, -offset);
+}
+
 /** Segunda-feira como primeiro dia da semana. */
 export function buildMonthCalendarCells(
   year: number,
