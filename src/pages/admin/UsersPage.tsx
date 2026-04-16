@@ -281,8 +281,80 @@ export function UsersPage() {
         )}
       </div>
 
+      {/* Legenda de permissões */}
+      <div className="mt-6">
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+          Permissões por função
+        </h3>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {/* Admin */}
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">
+                Admin
+              </span>
+            </div>
+            <ul className="space-y-1 text-xs text-slate-600">
+              <li className="flex items-start gap-1.5"><Check />Acesso total ao sistema</li>
+              <li className="flex items-start gap-1.5"><Check />Gestão de utilizadores</li>
+              <li className="flex items-start gap-1.5"><Check />RH — leitura e escrita</li>
+              <li className="flex items-start gap-1.5"><Check />Stock, DRE, Dashboard</li>
+              <li className="flex items-start gap-1.5"><Check />Configuração do kiosk</li>
+            </ul>
+          </div>
+
+          {/* Manager */}
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">
+                Manager
+              </span>
+            </div>
+            <ul className="space-y-1 text-xs text-slate-600">
+              <li className="flex items-start gap-1.5"><Check />RH — leitura e escrita</li>
+              <li className="flex items-start gap-1.5"><Check />Stock, DRE, Dashboard</li>
+              <li className="flex items-start gap-1.5"><Check />Importação de faturas</li>
+              <li className="flex items-start gap-1.5"><Cross />Gestão de utilizadores</li>
+              <li className="flex items-start gap-1.5"><Cross />Configuração do kiosk</li>
+            </ul>
+          </div>
+
+          {/* HR Viewer */}
+          <div className="rounded-xl border border-slate-200 bg-white p-4">
+            <div className="mb-2 flex items-center gap-2">
+              <span className="inline-flex items-center rounded-full bg-indigo-50 px-2.5 py-0.5 text-xs font-semibold text-indigo-700">
+                Visualizador RH
+              </span>
+            </div>
+            <ul className="space-y-1 text-xs text-slate-600">
+              <li className="flex items-start gap-1.5"><Check />RH — apenas leitura</li>
+              <li className="flex items-start gap-1.5"><Check />Histórico de alterações</li>
+              <li className="flex items-start gap-1.5"><Cross />Criar/editar registos</li>
+              <li className="flex items-start gap-1.5"><Cross />Stock, DRE, Dashboard</li>
+              <li className="flex items-start gap-1.5"><Cross />Gestão de utilizadores</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
       {creating && <CreateUserModal onClose={() => setCreating(false)} />}
       {editing && <EditUserModal user={editing} onClose={() => setEditing(null)} />}
     </div>
+  );
+}
+
+function Check() {
+  return (
+    <svg className="mt-px h-3.5 w-3.5 flex-shrink-0 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
+    </svg>
+  );
+}
+
+function Cross() {
+  return (
+    <svg className="mt-px h-3.5 w-3.5 flex-shrink-0 text-slate-300" viewBox="0 0 20 20" fill="currentColor">
+      <path fillRule="evenodd" d="M4.293 4.293a1 1 0 011.414 0L10 8.586l4.293-4.293a1 1 0 111.414 1.414L11.414 10l4.293 4.293a1 1 0 01-1.414 1.414L10 11.414l-4.293 4.293a1 1 0 01-1.414-1.414L8.586 10 4.293 5.707a1 1 0 010-1.414z" clipRule="evenodd" />
+    </svg>
   );
 }
