@@ -8,7 +8,7 @@ import {
   fetchPublicHolidays,
 } from "./hrApi";
 import { hrQueryKeys } from "./hrQueryKeys";
-import type { HrEmployee, HrLeaveRequest, HrPublicHoliday, LeaveType } from "./hr.types";
+import type { HrEmployee, HrPublicHoliday, LeaveType } from "./hr.types";
 import {
   LEAVE_TYPE_COLORS,
   LEAVE_TYPE_LABELS,

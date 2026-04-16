@@ -246,7 +246,7 @@ function LeaveFormModal({
 
 export function LeaveTab({
   employeeId,
-  employee,
+  employee: _employee,
 }: {
   employeeId: string;
   employee: HrEmployee | null;
