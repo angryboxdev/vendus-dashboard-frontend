@@ -9,9 +9,15 @@ import {
   getMondayOfWeek,
   getTodayLisbon,
 } from "./dates";
-import { fetchEmployees, fetchShifts } from "./hrApi";
+import { fetchEmployees, fetchLeaveOverview, fetchShifts } from "./hrApi";
 import { hrQueryKeys } from "./hrQueryKeys";
-import { isShiftAttendancePending, type HrWorkShift } from "./hr.types";
+import {
+  isShiftAttendancePending,
+  LEAVE_TYPE_CALENDAR_COLORS,
+  LEAVE_TYPE_LABELS,
+  type HrLeaveRequest,
+  type HrWorkShift,
+} from "./hr.types";
 import { SkeletonBlock } from "./components/SkeletonBlock";
 
 // ---------- constants ----------
@@ -77,10 +83,29 @@ function ShiftPill({
   );
 }
 
+function LeavePill({
+  leave,
+  name,
+}: {
+  leave: HrLeaveRequest;
+  name: string;
+}) {
+  return (
+    <div
+      title={LEAVE_TYPE_LABELS[leave.type]}
+      className={`rounded border px-1.5 py-0.5 text-[11px] leading-snug ${LEAVE_TYPE_CALENDAR_COLORS[leave.type]}`}
+    >
+      <div className="truncate font-medium">{name}</div>
+      <div className="mt-0.5 text-[10px] opacity-70">{LEAVE_TYPE_LABELS[leave.type]}</div>
+    </div>
+  );
+}
+
 function DayCell({
   iso,
   todayIso,
   shifts,
+  leaves,
   nameById,
   colorById,
   tall,
@@ -88,12 +113,14 @@ function DayCell({
   iso: string;
   todayIso: string;
   shifts: HrWorkShift[];
+  leaves: HrLeaveRequest[];
   nameById: Map<string, string>;
   colorById: Map<string, PaletteEntry>;
   tall?: boolean;
 }) {
   const isToday = iso === todayIso;
   const [, , d] = iso.split("-").map(Number);
+  const isEmpty = shifts.length === 0 && leaves.length === 0;
 
   return (
     <div
@@ -110,18 +137,24 @@ function DayCell({
       >
         {d}
       </div>
-      {shifts.length === 0 ? (
+      {isEmpty ? (
         <p className="mt-1 text-xs text-slate-400">—</p>
       ) : (
         <ul className="mt-1 space-y-1">
           {shifts.map((s) => (
-            <li key={`${s.employeeId}-${s.id}`}>
+            <li key={`shift-${s.id}`}>
               <ShiftPill
                 shift={s}
                 name={nameById.get(s.employeeId) ?? s.employeeId.slice(0, 8)}
-                color={
-                  colorById.get(s.employeeId) ?? PALETTE[0]
-                }
+                color={colorById.get(s.employeeId) ?? PALETTE[0]}
+              />
+            </li>
+          ))}
+          {leaves.map((l) => (
+            <li key={`leave-${l.id}-${iso}`}>
+              <LeavePill
+                leave={l}
+                name={nameById.get(l.employeeId) ?? l.employeeId.slice(0, 8)}
               />
             </li>
           ))}
@@ -171,6 +204,11 @@ export function HrCalendarPage() {
     queryFn: () => fetchShifts(shiftsParams),
   });
 
+  const { data: leaves } = useQuery({
+    queryKey: hrQueryKeys.leaveOverview(year),
+    queryFn: () => fetchLeaveOverview(year),
+  });
+
   // Maps
   const nameById = useMemo(() => {
     const m = new Map<string, string>();
@@ -196,6 +234,24 @@ export function HrCalendarPage() {
     }
     return map;
   }, [shifts]);
+
+  // Expand each leave request across its date range, filtered to visible range
+  const leavesByDate = useMemo(() => {
+    const map = new Map<string, HrLeaveRequest[]>();
+    for (const leave of leaves ?? []) {
+      let cur = leave.startDate;
+      while (cur <= leave.endDate) {
+        if (cur >= range.from && cur <= range.to) {
+          const list = map.get(cur) ?? [];
+          list.push(leave);
+          map.set(cur, list);
+        }
+        cur = addDaysToYmd(cur, 1);
+        if (cur > range.to) break;
+      }
+    }
+    return map;
+  }, [leaves, range.from, range.to]);
 
   // Month grid
   const weeks = useMemo(() => buildMonthCalendarCells(year, month), [year, month]);
@@ -314,14 +370,30 @@ export function HrCalendarPage() {
       )}
 
       {/* Legend */}
-      <div className="mt-2 flex items-center gap-4 text-xs text-slate-500">
+      <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
         <span className="flex items-center gap-1">
           <span className="h-2 w-2 rounded-full bg-amber-500" />
           Pendente
         </span>
         <span className="flex items-center gap-1">
           <span className="h-2 w-2 rounded-full bg-emerald-500" />
-          Registado
+          Conferido
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded border border-teal-200 bg-teal-50" />
+          Férias
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded border border-orange-200 bg-orange-50" />
+          Baixa médica
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded border border-blue-200 bg-blue-50" />
+          Falta justificada
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded border border-red-200 bg-red-50" />
+          Falta injustificada
         </span>
       </div>
 
@@ -354,12 +426,16 @@ export function HrCalendarPage() {
                 if (cell.kind === "empty") {
                   return <div key={`e-${ri}-${ci}`} className="min-h-[100px] bg-slate-50" />;
                 }
+                const dayLeaves = (leavesByDate.get(cell.iso) ?? []).filter(
+                  (l) => !employeeId || l.employeeId === employeeId,
+                );
                 return (
                   <DayCell
                     key={cell.iso}
                     iso={cell.iso}
                     todayIso={todayIso}
                     shifts={byDate.get(cell.iso) ?? []}
+                    leaves={dayLeaves}
                     nameById={nameById}
                     colorById={colorById}
                   />
@@ -392,17 +468,23 @@ export function HrCalendarPage() {
                 </div>
               );
             })}
-            {weekDays.map((iso) => (
-              <DayCell
-                key={iso}
-                iso={iso}
-                todayIso={todayIso}
-                shifts={byDate.get(iso) ?? []}
-                nameById={nameById}
-                colorById={colorById}
-                tall
-              />
-            ))}
+            {weekDays.map((iso) => {
+              const dayLeaves = (leavesByDate.get(iso) ?? []).filter(
+                (l) => !employeeId || l.employeeId === employeeId,
+              );
+              return (
+                <DayCell
+                  key={iso}
+                  iso={iso}
+                  todayIso={todayIso}
+                  shifts={byDate.get(iso) ?? []}
+                  leaves={dayLeaves}
+                  nameById={nameById}
+                  colorById={colorById}
+                  tall
+                />
+              );
+            })}
           </div>
         )}
       </div>

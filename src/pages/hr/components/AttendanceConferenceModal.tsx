@@ -26,7 +26,6 @@ function attendanceDefaults(shift: HrWorkShift): AttendanceFormValues {
       actualStartTime: "",
       actualEndTime: "",
       lateMinutes: "",
-      absenceReason: "",
       notes: "",
     };
   }
@@ -37,7 +36,6 @@ function attendanceDefaults(shift: HrWorkShift): AttendanceFormValues {
       : "",
     actualEndTime: a.actualEndTime ? toTimeInputValue(a.actualEndTime) : "",
     lateMinutes: a.lateMinutes != null ? String(a.lateMinutes) : "",
-    absenceReason: a.absenceReason ?? "",
     notes: a.notes ?? "",
   };
 }
@@ -46,8 +44,6 @@ const STATUS_ORDER: ShiftAttendanceStatus[] = [
   "worked_as_planned",
   "late",
   "left_early",
-  "absent_justified",
-  "absent_unjustified",
   "cancelled",
 ];
 
@@ -77,11 +73,7 @@ export function AttendanceConferenceModal({
     if (status !== "late") {
       form.setValue("lateMinutes", "");
     }
-    if (
-      status === "absent_justified" ||
-      status === "absent_unjustified" ||
-      status === "cancelled"
-    ) {
+    if (status === "cancelled") {
       form.setValue("actualStartTime", "");
       form.setValue("actualEndTime", "");
     }
@@ -92,7 +84,6 @@ export function AttendanceConferenceModal({
     status === "late" ||
     status === "left_early";
   const showLateMinutes = status === "late";
-  const showAbsenceReason = status === "absent_justified";
 
   return (
     <ModalShell
@@ -184,19 +175,6 @@ export function AttendanceConferenceModal({
               }
             />
           </div>
-        ) : null}
-
-        {showAbsenceReason ? (
-          <Field
-            label="Motivo da falta *"
-            error={form.formState.errors.absenceReason?.message}
-            input={
-              <textarea
-                className={`${controlClass} min-h-[72px]`}
-                {...form.register("absenceReason")}
-              />
-            }
-          />
         ) : null}
 
         <Field

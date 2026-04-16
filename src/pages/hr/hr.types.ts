@@ -1,3 +1,59 @@
+// ---------- Leave / Ausências ----------
+
+export type LeaveType = "vacation" | "sick_leave" | "justified" | "unjustified";
+
+export const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
+  vacation: "Férias",
+  sick_leave: "Baixa médica",
+  justified: "Falta justificada",
+  unjustified: "Falta injustificada",
+};
+
+export const LEAVE_TYPE_COLORS: Record<LeaveType, string> = {
+  vacation: "bg-teal-100 text-teal-800 ring-teal-200",
+  sick_leave: "bg-orange-100 text-orange-800 ring-orange-200",
+  justified: "bg-blue-100 text-blue-800 ring-blue-200",
+  unjustified: "bg-red-100 text-red-800 ring-red-200",
+};
+
+export const LEAVE_TYPE_CALENDAR_COLORS: Record<LeaveType, string> = {
+  vacation: "bg-teal-50 border-teal-200 text-teal-700",
+  sick_leave: "bg-orange-50 border-orange-200 text-orange-700",
+  justified: "bg-blue-50 border-blue-200 text-blue-700",
+  unjustified: "bg-red-50 border-red-200 text-red-700",
+};
+
+export type HrLeaveRequest = {
+  id: string;
+  employeeId: string;
+  type: LeaveType;
+  startDate: string;
+  endDate: string;
+  workingDays: number;
+  notes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type HrLeaveBalance = {
+  id: string;
+  employeeId: string;
+  year: number;
+  daysEntitled: number;
+  daysCarriedOver: number;
+  daysUsed: number;
+  daysRemaining: number;
+  suggestedDaysEntitled: number;
+  notes: string | null;
+};
+
+export type HrPublicHoliday = {
+  id: string;
+  date: string;
+  name: string;
+  isNational: boolean;
+};
+
 // ---------- Audit Log ----------
 
 export type AuditEntityType = "employee" | "shift" | "payment" | "attendance";
@@ -89,12 +145,11 @@ export type HrEmployee = {
   updatedAt: string;
 };
 
+/** Conferência de turno. Ausências são geridas via hr_leave_requests. */
 export type ShiftAttendanceStatus =
   | "worked_as_planned"
   | "late"
   | "left_early"
-  | "absent_justified"
-  | "absent_unjustified"
   | "cancelled";
 
 export const SHIFT_ATTENDANCE_STATUS_LABELS: Record<
@@ -104,8 +159,6 @@ export const SHIFT_ATTENDANCE_STATUS_LABELS: Record<
   worked_as_planned: "Cumpriu o planeado",
   late: "Atraso",
   left_early: "Saída antecipada",
-  absent_justified: "Falta justificada",
-  absent_unjustified: "Falta não justificada",
   cancelled: "Cancelado",
 };
 
@@ -118,7 +171,6 @@ export type HrShiftAttendance = {
   actualStartTime: string | null;
   actualEndTime: string | null;
   lateMinutes: number | null;
-  absenceReason: string | null;
   notes: string | null;
   registrationSource: RegistrationSource;
   registeredByEmployeeId: string | null;

@@ -13,8 +13,6 @@ type EmployeeStats = {
   employee: HrEmployee;
   totalShifts: number;
   worked: number;
-  absentJ: number;
-  absentNJ: number;
   cancelled: number;
   pending: number;
   attendanceRate: number | null;
@@ -37,7 +35,7 @@ function shiftDuration(start: string, end: string): number {
 function computeStats(employee: HrEmployee, shifts: HrWorkShift[]): EmployeeStats {
   const mine = shifts.filter((s) => s.employeeId === employee.id);
 
-  let worked = 0, absentJ = 0, absentNJ = 0, cancelled = 0, pending = 0;
+  let worked = 0, cancelled = 0, pending = 0;
   let lateCount = 0, totalLateMinutes = 0, leftEarlyCount = 0;
   let plannedMins = 0, actualMins = 0, balanceMins = 0;
 
@@ -51,8 +49,6 @@ function computeStats(employee: HrEmployee, shifts: HrWorkShift[]): EmployeeStat
         case "worked_as_planned": worked++; break;
         case "late":              worked++; lateCount++; totalLateMinutes += att.lateMinutes ?? 0; break;
         case "left_early":        worked++; leftEarlyCount++; break;
-        case "absent_justified":  absentJ++; break;
-        case "absent_unjustified":absentNJ++; break;
         case "cancelled":         cancelled++; break;
       }
     }
@@ -71,12 +67,11 @@ function computeStats(employee: HrEmployee, shifts: HrWorkShift[]): EmployeeStat
     }
   }
 
-  const rateDenom = worked + absentJ + absentNJ;
-  const attendanceRate = rateDenom > 0 ? Math.round((worked / rateDenom) * 100) : null;
+  const attendanceRate = worked > 0 ? Math.round((worked / (worked + pending)) * 100) : null;
 
   return {
     employee, totalShifts: mine.length,
-    worked, absentJ, absentNJ, cancelled, pending,
+    worked, cancelled, pending,
     attendanceRate, plannedMins, actualMins, balanceMins,
     lateCount, totalLateMinutes, leftEarlyCount,
   };
@@ -166,8 +161,7 @@ export function HrReportPage() {
     const totalPlanned = stats.reduce((acc, s) => acc + s.plannedMins, 0);
     const totalActual = stats.reduce((acc, s) => acc + s.actualMins, 0);
     const totalBalance = stats.reduce((acc, s) => acc + s.balanceMins, 0);
-    const totalAbsentNJ = stats.reduce((acc, s) => acc + s.absentNJ, 0);
-    return { avgRate, totalPlanned, totalActual, totalBalance, totalAbsentNJ };
+    return { avgRate, totalPlanned, totalActual, totalBalance };
   }, [stats]);
 
   const loading = empLoading || shiftsLoading;
@@ -237,9 +231,9 @@ export function HrReportPage() {
           }
         />
         <SummaryCard
-          label="Faltas não justificadas"
-          value={String(summary.totalAbsentNJ)}
-          sub={summary.totalAbsentNJ > 0 ? "requer atenção" : "sem ocorrências"}
+          label="Turnos pendentes"
+          value={String(stats.reduce((acc, s) => acc + s.pending, 0))}
+          sub="conferência em falta"
         />
       </div>
 
@@ -251,8 +245,6 @@ export function HrReportPage() {
               <th className="px-4 py-3">Funcionário</th>
               <th className="px-3 py-3 text-center">Turnos</th>
               <th className="px-3 py-3 text-center">Assiduidade</th>
-              <th className="px-3 py-3 text-center">Faltas J</th>
-              <th className="px-3 py-3 text-center">Faltas NJ</th>
               <th className="px-3 py-3 text-center">Atrasos</th>
               <th className="px-3 py-3 text-center">Horas plan.</th>
               <th className="px-3 py-3 text-center">Horas real.</th>
@@ -262,13 +254,13 @@ export function HrReportPage() {
           <tbody>
             {loading ? (
               <tr>
-                <td colSpan={9} className="px-4 py-6">
+                <td colSpan={7} className="px-4 py-6">
                   <SkeletonBlock className="h-24 w-full" />
                 </td>
               </tr>
             ) : stats.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-4 py-8 text-center text-slate-500">
+                <td colSpan={7} className="px-4 py-8 text-center text-slate-500">
                   Sem turnos registados neste período.
                 </td>
               </tr>
@@ -289,23 +281,13 @@ export function HrReportPage() {
                     )}
                   </td>
                   <td className="px-3 py-3 text-center text-xs text-slate-700">
-                    {s.worked + s.absentJ + s.absentNJ + s.pending}
+                    {s.worked + s.pending}
                     {s.cancelled > 0 && (
                       <span className="ml-1 text-slate-400">({s.cancelled} canc.)</span>
                     )}
                   </td>
                   <td className="px-3 py-3 text-center">
                     <AttendanceBadge rate={s.attendanceRate} />
-                  </td>
-                  <td className="px-3 py-3 text-center text-xs text-slate-600">
-                    {s.absentJ > 0 ? s.absentJ : <span className="text-slate-300">0</span>}
-                  </td>
-                  <td className="px-3 py-3 text-center text-xs">
-                    {s.absentNJ > 0 ? (
-                      <span className="font-semibold text-red-600">{s.absentNJ}</span>
-                    ) : (
-                      <span className="text-slate-300">0</span>
-                    )}
                   </td>
                   <td className="px-3 py-3 text-center text-xs text-slate-600">
                     {s.lateCount > 0 ? (
@@ -341,7 +323,8 @@ export function HrReportPage() {
 
       {stats.length > 0 && (
         <p className="mt-3 text-xs text-slate-400">
-          Assiduidade = presenças ÷ (presenças + faltas). Turnos pendentes e cancelados excluídos do cálculo.
+          Assiduidade = presenças ÷ (presenças + pendentes). Turnos cancelados excluídos do cálculo.
+          Ausências (férias, baixas, faltas) são geridas em Férias &amp; Ausências.
           Horas e saldo calculados apenas para turnos com entrada e saída registadas.
         </p>
       )}

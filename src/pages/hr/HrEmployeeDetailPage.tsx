@@ -66,6 +66,7 @@ import {
 } from "./dates";
 import { Modal } from "./components/Modal";
 import { SkeletonBlock } from "./components/SkeletonBlock";
+import { LeaveTab } from "./components/LeaveTab";
 
 function shiftPlannedMins(s: HrWorkShift): number | null {
   const start = parseTimeToMinutes(s.startTime);
@@ -161,7 +162,7 @@ export function HrEmployeeDetailPage() {
   const initialYm = getCurrentYearMonthLisbon();
   const [year, setYear] = useState(initialYm.year);
   const [month, setMonth] = useState(initialYm.month);
-  const [tab, setTab] = useState<"dados" | "turnos" | "pagamentos">("dados");
+  const [tab, setTab] = useState<"dados" | "turnos" | "pagamentos" | "ferias">("dados");
   const [banner, setBanner] = useState<{
     type: "ok" | "err";
     text: string;
@@ -582,6 +583,7 @@ export function HrEmployeeDetailPage() {
             ["dados", "Dados"],
             ["turnos", "Turnos"],
             ["pagamentos", "Pagamentos"],
+            ["ferias", "Férias"],
           ] as const
         ).map(([k, label]) => (
           <button
@@ -1109,6 +1111,10 @@ export function HrEmployeeDetailPage() {
             </table>
           </div>
         </div>
+      ) : null}
+
+      {tab === "ferias" && id ? (
+        <LeaveTab employeeId={id} employee={employee ?? null} />
       ) : null}
 
       {applyMonthOpen ? (

@@ -96,8 +96,6 @@ const attendanceStatusEnum = z.enum([
   "worked_as_planned",
   "late",
   "left_early",
-  "absent_justified",
-  "absent_unjustified",
   "cancelled",
 ]);
 
@@ -107,7 +105,6 @@ export const attendanceFormSchema = z
     actualStartTime: z.string(),
     actualEndTime: z.string(),
     lateMinutes: z.string(),
-    absenceReason: z.string(),
     notes: z.string(),
   })
   .superRefine((data, ctx) => {
@@ -118,13 +115,6 @@ export const attendanceFormSchema = z
         code: z.ZodIssueCode.custom,
         message: "Hora de fim real deve ser depois do início (mesmo dia)",
         path: ["actualEndTime"],
-      });
-    }
-    if (data.status === "absent_justified" && !data.absenceReason.trim()) {
-      ctx.addIssue({
-        code: z.ZodIssueCode.custom,
-        message: "Indique o motivo da falta justificada",
-        path: ["absenceReason"],
       });
     }
     const lm = data.lateMinutes.trim();

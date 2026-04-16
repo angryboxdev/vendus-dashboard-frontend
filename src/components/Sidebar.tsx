@@ -20,6 +20,7 @@ const stockNavItems = [
 const hrNavItems = [
   { to: "/hr", label: "Funcionários" },
   { to: "/hr/calendar", label: "Calendário de turnos" },
+  { to: "/hr/ferias", label: "Férias & Ausências" },
   { to: "/hr/relatorio", label: "Relatório de assiduidade" },
   { to: "/hr/historico", label: "Histórico de alterações" },
 ] as const;

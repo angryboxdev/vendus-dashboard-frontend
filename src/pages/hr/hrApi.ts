@@ -11,8 +11,12 @@ import type {
   HrAuditLog,
   HrEmployee,
   HrEmployeePayment,
+  HrLeaveBalance,
+  HrLeaveRequest,
+  HrPublicHoliday,
   HrWorkShift,
   JobRole,
+  LeaveType,
   RegistrationSource,
   ShiftAttendanceStatus,
   WeeklySchedule,
@@ -130,7 +134,6 @@ export type PatchShiftAttendanceBody = {
   actualStartTime?: string | null;
   actualEndTime?: string | null;
   lateMinutes?: number | null;
-  absenceReason?: string | null;
   notes?: string | null;
   registrationSource?: RegistrationSource;
   registeredByEmployeeId?: string | null;
@@ -156,19 +159,13 @@ export function attendanceFormValuesToPatchBody(
     if (Number.isFinite(n) && n >= 0) lateMinutes = Math.floor(n);
   }
 
-  const absentLike =
-    v.status === "absent_justified" ||
-    v.status === "absent_unjustified" ||
-    v.status === "cancelled";
+  const clearTimes = v.status === "cancelled";
 
   return {
     status: v.status,
-    actualStartTime: absentLike
-      ? null
-      : v.actualStartTime.trim() || null,
-    actualEndTime: absentLike ? null : v.actualEndTime.trim() || null,
+    actualStartTime: clearTimes ? null : v.actualStartTime.trim() || null,
+    actualEndTime: clearTimes ? null : v.actualEndTime.trim() || null,
     lateMinutes,
-    absenceReason: v.absenceReason.trim() || null,
     notes: v.notes.trim() || null,
     registrationSource: "dashboard",
     registeredByEmployeeId: null,
@@ -311,4 +308,57 @@ export async function fetchAuditLogs(
   if (params.offset != null) q.set("offset", String(params.offset));
   const qs = q.toString();
   return apiGet(`${HR}/audit-logs${qs ? `?${qs}` : ""}`);
+}
+
+// ---------- Leave / Ausências ----------
+
+export async function fetchPublicHolidays(year?: number): Promise<HrPublicHoliday[]> {
+  const qs = year != null ? `?year=${year}` : "";
+  return apiGet(`${HR}/leave/holidays${qs}`);
+}
+
+export async function fetchLeaveRequests(params: {
+  employeeId: string;
+  year?: number;
+  type?: LeaveType;
+}): Promise<HrLeaveRequest[]> {
+  const q = new URLSearchParams();
+  if (params.year != null) q.set("year", String(params.year));
+  if (params.type) q.set("type", params.type);
+  const qs = q.toString();
+  return apiGet(`${HR}/employees/${encodeURIComponent(params.employeeId)}/leave${qs ? `?${qs}` : ""}`);
+}
+
+export async function fetchLeaveOverview(year: number): Promise<HrLeaveRequest[]> {
+  return apiGet(`${HR}/leave/overview?year=${year}`);
+}
+
+export async function fetchLeaveBalance(employeeId: string, year: number): Promise<HrLeaveBalance> {
+  return apiGet(`${HR}/employees/${encodeURIComponent(employeeId)}/leave/balance?year=${year}`);
+}
+
+export async function createLeaveRequest(
+  employeeId: string,
+  body: { type: LeaveType; startDate: string; endDate: string; notes?: string | null },
+): Promise<HrLeaveRequest> {
+  return apiPost(`${HR}/employees/${encodeURIComponent(employeeId)}/leave`, body);
+}
+
+export async function updateLeaveRequest(
+  id: string,
+  body: { type?: LeaveType; startDate?: string; endDate?: string; notes?: string | null },
+): Promise<HrLeaveRequest> {
+  return apiPatch(`${HR}/leave/${encodeURIComponent(id)}`, body);
+}
+
+export async function deleteLeaveRequest(id: string): Promise<void> {
+  return apiDeleteNoContent(`${HR}/leave/${encodeURIComponent(id)}`);
+}
+
+export async function updateLeaveBalance(
+  employeeId: string,
+  year: number,
+  body: { daysEntitled?: number; daysCarriedOver?: number; notes?: string | null },
+): Promise<void> {
+  return apiPatch(`${HR}/employees/${encodeURIComponent(employeeId)}/leave/balance/${year}`, body);
 }
