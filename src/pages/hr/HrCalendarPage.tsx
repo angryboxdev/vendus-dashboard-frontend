@@ -9,7 +9,12 @@ import {
   getMondayOfWeek,
   getTodayLisbon,
 } from "./dates";
-import { fetchEmployees, fetchLeaveOverview, fetchShifts } from "./hrApi";
+import {
+  fetchEmployees,
+  fetchLeaveOverview,
+  fetchPublicHolidays,
+  fetchShifts,
+} from "./hrApi";
 import { hrQueryKeys } from "./hrQueryKeys";
 import {
   isShiftAttendancePending,
@@ -25,19 +30,29 @@ import { SkeletonBlock } from "./components/SkeletonBlock";
 const WEEKDAYS_SHORT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 
 const MONTHS_SHORT = [
-  "jan", "fev", "mar", "abr", "mai", "jun",
-  "jul", "ago", "set", "out", "nov", "dez",
+  "jan",
+  "fev",
+  "mar",
+  "abr",
+  "mai",
+  "jun",
+  "jul",
+  "ago",
+  "set",
+  "out",
+  "nov",
+  "dez",
 ];
 
 const PALETTE = [
   { bg: "bg-indigo-100", border: "border-indigo-200", text: "text-indigo-900" },
   { bg: "bg-violet-100", border: "border-violet-200", text: "text-violet-900" },
-  { bg: "bg-pink-100",   border: "border-pink-200",   text: "text-pink-900"   },
-  { bg: "bg-teal-100",   border: "border-teal-200",   text: "text-teal-900"   },
+  { bg: "bg-pink-100", border: "border-pink-200", text: "text-pink-900" },
+  { bg: "bg-teal-100", border: "border-teal-200", text: "text-teal-900" },
   { bg: "bg-orange-100", border: "border-orange-200", text: "text-orange-900" },
-  { bg: "bg-sky-100",    border: "border-sky-200",    text: "text-sky-900"    },
-  { bg: "bg-rose-100",   border: "border-rose-200",   text: "text-rose-900"   },
-  { bg: "bg-lime-100",   border: "border-lime-200",   text: "text-lime-900"   },
+  { bg: "bg-sky-100", border: "border-sky-200", text: "text-sky-900" },
+  { bg: "bg-rose-100", border: "border-rose-200", text: "text-rose-900" },
+  { bg: "bg-lime-100", border: "border-lime-200", text: "text-lime-900" },
 ] as const;
 
 type PaletteEntry = (typeof PALETTE)[number];
@@ -83,20 +98,16 @@ function ShiftPill({
   );
 }
 
-function LeavePill({
-  leave,
-  name,
-}: {
-  leave: HrLeaveRequest;
-  name: string;
-}) {
+function LeavePill({ leave, name }: { leave: HrLeaveRequest; name: string }) {
   return (
     <div
       title={LEAVE_TYPE_LABELS[leave.type]}
       className={`rounded border px-1.5 py-0.5 text-[11px] leading-snug ${LEAVE_TYPE_CALENDAR_COLORS[leave.type]}`}
     >
       <div className="truncate font-medium">{name}</div>
-      <div className="mt-0.5 text-[10px] opacity-70">{LEAVE_TYPE_LABELS[leave.type]}</div>
+      <div className="mt-0.5 text-[10px] opacity-70">
+        {LEAVE_TYPE_LABELS[leave.type]}
+      </div>
     </div>
   );
 }
@@ -108,6 +119,7 @@ function DayCell({
   leaves,
   nameById,
   colorById,
+  holidayName,
   tall,
 }: {
   iso: string;
@@ -116,26 +128,35 @@ function DayCell({
   leaves: HrLeaveRequest[];
   nameById: Map<string, string>;
   colorById: Map<string, PaletteEntry>;
+  holidayName?: string;
   tall?: boolean;
 }) {
   const isToday = iso === todayIso;
   const [, , d] = iso.split("-").map(Number);
-  const isEmpty = shifts.length === 0 && leaves.length === 0;
+  const isEmpty = shifts.length === 0 && leaves.length === 0 && !holidayName;
 
   return (
     <div
-      className={`bg-white p-2 align-top ${tall ? "min-h-[180px]" : "min-h-[100px]"} ${
-        isToday ? "ring-2 ring-inset ring-indigo-400" : ""
-      }`}
+      className={`p-2 align-top ${tall ? "min-h-[180px]" : "min-h-[100px]"} ${
+        holidayName ? "bg-amber-50" : "bg-white"
+      } ${isToday ? "ring-2 ring-inset ring-indigo-400" : ""}`}
     >
-      <div
-        className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
-          isToday
-            ? "bg-indigo-600 text-white"
-            : "text-slate-500"
-        }`}
-      >
-        {d}
+      <div className="flex items-center gap-1">
+        <div
+          className={`inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+            isToday ? "bg-indigo-600 text-white" : "text-slate-500"
+          }`}
+        >
+          {d}
+        </div>
+        {holidayName && (
+          <span
+            title={holidayName}
+            className="truncate rounded bg-amber-100 px-1 py-0.5 text-[9px] font-semibold text-amber-700"
+          >
+            {holidayName}
+          </span>
+        )}
       </div>
       {isEmpty ? (
         <p className="mt-1 text-xs text-slate-400">—</p>
@@ -173,11 +194,16 @@ export function HrCalendarPage() {
   const [view, setView] = useState<ViewMode>("month");
   const [year, setYear] = useState(initial.year);
   const [month, setMonth] = useState(initial.month);
-  const [weekMonday, setWeekMonday] = useState(() => getMondayOfWeek(getTodayLisbon()));
+  const [weekMonday, setWeekMonday] = useState(() =>
+    getMondayOfWeek(getTodayLisbon()),
+  );
   const [employeeId, setEmployeeId] = useState<string>("");
 
   // Ranges
-  const monthRange = useMemo(() => getCivilMonthRangeIso(year, month), [year, month]);
+  const monthRange = useMemo(
+    () => getCivilMonthRangeIso(year, month),
+    [year, month],
+  );
   const weekRange = useMemo(
     () => ({ from: weekMonday, to: addDaysToYmd(weekMonday, 6) }),
     [weekMonday],
@@ -199,7 +225,12 @@ export function HrCalendarPage() {
     queryFn: () => fetchEmployees({ limit: 500, offset: 0 }),
   });
 
-  const { data: shifts, isPending, error, refetch } = useQuery({
+  const {
+    data: shifts,
+    isPending,
+    error,
+    refetch,
+  } = useQuery({
     queryKey: hrQueryKeys.shifts(shiftsParams),
     queryFn: () => fetchShifts(shiftsParams),
   });
@@ -208,6 +239,18 @@ export function HrCalendarPage() {
     queryKey: hrQueryKeys.leaveOverview(year),
     queryFn: () => fetchLeaveOverview(year),
   });
+
+  const holidayYear = Number(range.from.slice(0, 4));
+  const { data: holidays } = useQuery({
+    queryKey: hrQueryKeys.publicHolidays(holidayYear),
+    queryFn: () => fetchPublicHolidays(holidayYear),
+  });
+
+  const holidaySet = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const h of holidays ?? []) m.set(h.date, h.name);
+    return m;
+  }, [holidays]);
 
   // Maps
   const nameById = useMemo(() => {
@@ -218,13 +261,16 @@ export function HrCalendarPage() {
 
   const colorById = useMemo(() => {
     const m = new Map<string, PaletteEntry>();
-    (employees ?? []).forEach((e, i) => m.set(e.id, PALETTE[i % PALETTE.length]));
+    (employees ?? []).forEach((e, i) =>
+      m.set(e.id, PALETTE[i % PALETTE.length]),
+    );
     return m;
   }, [employees]);
 
   const byDate = useMemo(() => {
     const map = new Map<string, HrWorkShift[]>();
     for (const s of shifts ?? []) {
+      if (s.attendance?.status === "cancelled") continue;
       const list = map.get(s.workDate) ?? [];
       list.push(s);
       map.set(s.workDate, list);
@@ -254,7 +300,10 @@ export function HrCalendarPage() {
   }, [leaves, range.from, range.to]);
 
   // Month grid
-  const weeks = useMemo(() => buildMonthCalendarCells(year, month), [year, month]);
+  const weeks = useMemo(
+    () => buildMonthCalendarCells(year, month),
+    [year, month],
+  );
 
   // Week days array
   const weekDays = useMemo(
@@ -264,15 +313,23 @@ export function HrCalendarPage() {
 
   // Navigation
   function prevMonth() {
-    if (month <= 1) { setYear((y) => y - 1); setMonth(12); }
-    else setMonth((m) => m - 1);
+    if (month <= 1) {
+      setYear((y) => y - 1);
+      setMonth(12);
+    } else setMonth((m) => m - 1);
   }
   function nextMonth() {
-    if (month >= 12) { setYear((y) => y + 1); setMonth(1); }
-    else setMonth((m) => m + 1);
+    if (month >= 12) {
+      setYear((y) => y + 1);
+      setMonth(1);
+    } else setMonth((m) => m + 1);
   }
-  function prevWeek() { setWeekMonday((w) => addDaysToYmd(w, -7)); }
-  function nextWeek() { setWeekMonday((w) => addDaysToYmd(w, 7)); }
+  function prevWeek() {
+    setWeekMonday((w) => addDaysToYmd(w, -7));
+  }
+  function nextWeek() {
+    setWeekMonday((w) => addDaysToYmd(w, 7));
+  }
 
   // Labels
   const monthLabel = `${String(month).padStart(2, "0")} / ${year}`;
@@ -395,12 +452,24 @@ export function HrCalendarPage() {
           <span className="h-2 w-2 rounded border border-red-200 bg-red-50" />
           Falta injustificada
         </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded border border-violet-200 bg-violet-50" />
+          Folga compensatória
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="h-2 w-2 rounded bg-amber-100" />
+          Feriado
+        </span>
       </div>
 
       {error ? (
         <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
           {error instanceof Error ? error.message : "Erro ao carregar turnos."}{" "}
-          <button type="button" className="underline" onClick={() => void refetch()}>
+          <button
+            type="button"
+            className="underline"
+            onClick={() => void refetch()}
+          >
             Tentar outra vez
           </button>
         </div>
@@ -424,7 +493,12 @@ export function HrCalendarPage() {
             {weeks.flatMap((row, ri) =>
               row.map((cell, ci) => {
                 if (cell.kind === "empty") {
-                  return <div key={`e-${ri}-${ci}`} className="min-h-[100px] bg-slate-50" />;
+                  return (
+                    <div
+                      key={`e-${ri}-${ci}`}
+                      className="min-h-[100px] bg-slate-50"
+                    />
+                  );
                 }
                 const dayLeaves = (leavesByDate.get(cell.iso) ?? []).filter(
                   (l) => !employeeId || l.employeeId === employeeId,
@@ -438,6 +512,7 @@ export function HrCalendarPage() {
                     leaves={dayLeaves}
                     nameById={nameById}
                     colorById={colorById}
+                    holidayName={holidaySet.get(cell.iso)}
                   />
                 );
               }),
@@ -459,10 +534,14 @@ export function HrCalendarPage() {
                   }`}
                 >
                   <div>{WEEKDAYS_SHORT[i]}</div>
-                  <div className={`text-base font-bold ${isToday ? "text-white" : "text-slate-800"}`}>
+                  <div
+                    className={`text-base font-bold ${isToday ? "text-white" : "text-slate-800"}`}
+                  >
                     {d}
                   </div>
-                  <div className={`text-[10px] ${isToday ? "text-indigo-200" : "text-slate-400"}`}>
+                  <div
+                    className={`text-[10px] ${isToday ? "text-indigo-200" : "text-slate-400"}`}
+                  >
                     {MONTHS_SHORT[mo - 1]}
                   </div>
                 </div>
@@ -481,6 +560,7 @@ export function HrCalendarPage() {
                   leaves={dayLeaves}
                   nameById={nameById}
                   colorById={colorById}
+                  holidayName={holidaySet.get(iso)}
                   tall
                 />
               );

@@ -30,6 +30,9 @@ export const createEmployeeSchema = z.object({
   employmentType: employmentTypeEnum,
   hiredAt: optionalDatePicker,
   endedAt: optionalDatePicker,
+  salaryType: z.enum(["fixed", "hourly"]).optional(),
+  baseSalary: z.union([z.literal(""), z.nan(), z.number().min(0, "Valor inválido")]).optional(),
+  hourlyRate: z.union([z.literal(""), z.nan(), z.number().min(0, "Valor inválido")]).optional(),
 });
 
 export type CreateEmployeeFormValues = z.infer<typeof createEmployeeSchema>;

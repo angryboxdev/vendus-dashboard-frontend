@@ -1,10 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useState } from "react";
+import React, { useMemo, useState } from "react";
 import {
   createLeaveRequest,
   deleteLeaveRequest,
   fetchLeaveBalance,
   fetchLeaveRequests,
+  fetchPublicHolidays,
+  fetchShifts,
   updateLeaveBalance,
 } from "../hrApi";
 import { hrQueryKeys } from "../hrQueryKeys";
@@ -12,7 +14,7 @@ import type { HrEmployee, HrLeaveRequest, LeaveType } from "../hr.types";
 import { LEAVE_TYPE_COLORS, LEAVE_TYPE_LABELS } from "../hr.types";
 import { getTodayLisbon } from "../dates";
 
-const LEAVE_TYPES: LeaveType[] = ["vacation", "sick_leave", "justified", "unjustified"];
+const LEAVE_TYPES: LeaveType[] = ["vacation", "sick_leave", "justified", "unjustified", "compensatory"];
 
 // ---------- Balance widget ----------
 
@@ -156,13 +158,15 @@ function BalanceWidget({
 function LeaveFormModal({
   employeeId,
   onClose,
+  initialType = "vacation",
 }: {
   employeeId: string;
   onClose: () => void;
+  initialType?: LeaveType;
 }) {
   const qc = useQueryClient();
   const today = getTodayLisbon();
-  const [type, setType] = useState<LeaveType>("vacation");
+  const [type, setType] = useState<LeaveType>(initialType);
   const [startDate, setStartDate] = useState(today);
   const [endDate, setEndDate] = useState(today);
   const [notes, setNotes] = useState("");
@@ -253,13 +257,52 @@ export function LeaveTab({
 }) {
   const today = getTodayLisbon();
   const [year, setYear] = useState(Number(today.slice(0, 4)));
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<LeaveType | false>(false);
   const qc = useQueryClient();
 
   const { data: leaves = [], isPending } = useQuery({
     queryKey: hrQueryKeys.leaveRequests(employeeId, year),
     queryFn: () => fetchLeaveRequests({ employeeId, year }),
   });
+
+  // Holidays and shifts for the year — needed for compensatory indicator
+  const { data: holidays } = useQuery({
+    queryKey: hrQueryKeys.publicHolidays(year),
+    queryFn: () => fetchPublicHolidays(year),
+  });
+
+  const { data: yearShifts } = useQuery({
+    queryKey: hrQueryKeys.shifts({ employeeId, from: `${year}-01-01`, to: `${year}-12-31` }),
+    queryFn: () => fetchShifts({ employeeId, from: `${year}-01-01`, to: `${year}-12-31` }),
+  });
+
+  const holidaySet = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const h of holidays ?? []) m.set(h.date, h.name);
+    return m;
+  }, [holidays]);
+
+  // 1 folga devida por dia de feriado trabalhado (independentemente do nº de turnos nesse dia)
+  const holidaysWorked = useMemo(() => {
+    const seen = new Set<string>();
+    const result: { date: string; name: string }[] = [];
+    for (const s of yearShifts ?? []) {
+      if (!holidaySet.has(s.workDate)) continue;
+      if (s.attendance?.status === "cancelled") continue;
+      if (seen.has(s.workDate)) continue;
+      seen.add(s.workDate);
+      result.push({ date: s.workDate, name: holidaySet.get(s.workDate)! });
+    }
+    return result;
+  }, [yearShifts, holidaySet]);
+
+  // Compensatory leaves already scheduled/taken
+  const compensatoryTaken = useMemo(
+    () => (leaves as HrLeaveRequest[]).filter((l) => l.type === "compensatory").reduce((sum, l) => sum + l.workingDays, 0),
+    [leaves],
+  );
+
+  const pendingCompensatory = Math.max(0, holidaysWorked.length - compensatoryTaken);
 
   const deleteMut = useMutation({
     mutationFn: (id: string) => deleteLeaveRequest(id),
@@ -275,6 +318,40 @@ export function LeaveTab({
       {/* Balance */}
       <BalanceWidget employeeId={employeeId} year={year} onYearChange={setYear} />
 
+      {/* Compensatory days owed */}
+      {pendingCompensatory > 0 && (
+        <div className="rounded-xl border border-violet-200 bg-violet-50 p-4">
+          <div className="flex items-start gap-3">
+            <div className="mt-0.5 flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-violet-100">
+              <svg className="h-4 w-4 text-violet-700" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
+              </svg>
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-violet-900">
+                {pendingCompensatory === 1
+                  ? "1 folga compensatória por agendar"
+                  : `${pendingCompensatory} folgas compensatórias por agendar`}
+              </p>
+              <p className="mt-0.5 text-xs text-violet-700">
+                Trabalhou em{" "}
+                {holidaysWorked.map((h) => (
+                  <span key={h.date} className="font-medium">{h.name} ({h.date})</span>
+                )).reduce<React.ReactNode[]>((acc, el, i) => i === 0 ? [el] : [...acc, ", ", el], [])}
+                .
+              </p>
+              <button
+                type="button"
+                onClick={() => setCreating("compensatory")}
+                className="mt-2 rounded-lg bg-violet-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-violet-700"
+              >
+                Registar folga compensatória
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Leave history */}
       <div className="flex items-center justify-between">
         <h3 className="text-sm font-semibold text-slate-700">
@@ -285,7 +362,7 @@ export function LeaveTab({
             </span>
           )}
         </h3>
-        <button type="button" onClick={() => setCreating(true)}
+        <button type="button" onClick={() => setCreating("vacation")}
           className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-indigo-700">
           Registar ausência
         </button>
@@ -342,7 +419,7 @@ export function LeaveTab({
       </div>
 
       {creating && (
-        <LeaveFormModal employeeId={employeeId} onClose={() => setCreating(false)} />
+        <LeaveFormModal employeeId={employeeId} initialType={creating} onClose={() => setCreating(false)} />
       )}
     </div>
   );

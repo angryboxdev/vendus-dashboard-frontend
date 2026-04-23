@@ -63,6 +63,9 @@ export type CreateEmployeeBody = {
   endedAt?: string | null;
   /** Omitir → `null` no servidor. */
   weeklySchedule?: WeeklySchedule | null;
+  baseSalary?: number | null;
+  salaryType?: "fixed" | "hourly";
+  hourlyRate?: number | null;
 };
 
 export async function createEmployee(
@@ -208,6 +211,7 @@ export type CreatePaymentBody = {
   /** Incluir quando `paymentType` é `salary`. */
   salaryPeriodYear?: number;
   salaryPeriodMonth?: number;
+  isPaid?: boolean;
 };
 
 export function paymentFormValuesToApiBody(
@@ -219,7 +223,7 @@ export function paymentFormValuesToApiBody(
     paymentType: v.paymentType,
     notes: v.notes?.trim() || null,
   };
-  if (v.paymentType === "salary") {
+  if (v.paymentType === "salary" || v.paymentType === "bonus") {
     const m = /^(\d{4})-(\d{2})$/.exec(v.salaryPeriod.trim());
     if (m) {
       body.salaryPeriodYear = Number(m[1]);

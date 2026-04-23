@@ -1,12 +1,13 @@
 // ---------- Leave / Ausências ----------
 
-export type LeaveType = "vacation" | "sick_leave" | "justified" | "unjustified";
+export type LeaveType = "vacation" | "sick_leave" | "justified" | "unjustified" | "compensatory";
 
 export const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
   vacation: "Férias",
   sick_leave: "Baixa médica",
   justified: "Falta justificada",
   unjustified: "Falta injustificada",
+  compensatory: "Folga compensatória",
 };
 
 export const LEAVE_TYPE_COLORS: Record<LeaveType, string> = {
@@ -14,6 +15,7 @@ export const LEAVE_TYPE_COLORS: Record<LeaveType, string> = {
   sick_leave: "bg-orange-100 text-orange-800 ring-orange-200",
   justified: "bg-blue-100 text-blue-800 ring-blue-200",
   unjustified: "bg-red-100 text-red-800 ring-red-200",
+  compensatory: "bg-violet-100 text-violet-800 ring-violet-200",
 };
 
 export const LEAVE_TYPE_CALENDAR_COLORS: Record<LeaveType, string> = {
@@ -21,6 +23,7 @@ export const LEAVE_TYPE_CALENDAR_COLORS: Record<LeaveType, string> = {
   sick_leave: "bg-orange-50 border-orange-200 text-orange-700",
   justified: "bg-blue-50 border-blue-200 text-blue-700",
   unjustified: "bg-red-50 border-red-200 text-red-700",
+  compensatory: "bg-violet-50 border-violet-200 text-violet-700",
 };
 
 export type HrLeaveRequest = {
@@ -139,6 +142,12 @@ export type HrEmployee = {
   weeklySchedule?: WeeklySchedule | null;
   hiredAt: string | null;
   endedAt: string | null;
+  /** Salário base mensal em EUR. Null se não definido. */
+  baseSalary?: number | null;
+  /** "fixed" = salário fixo mensal; "hourly" = pago à hora. Default: "fixed". */
+  salaryType?: "fixed" | "hourly";
+  /** Valor por hora em EUR (só quando salaryType = "hourly"). */
+  hourlyRate?: number | null;
   /** True se o funcionário tem um PIN de kiosk configurado. */
   hasKioskPin?: boolean;
   createdAt: string;
@@ -205,9 +214,10 @@ export type HrEmployeePayment = {
   paymentDate: string;
   amount: number;
   paymentType: HrPaymentType;
-  /** Calendário civil a que o salário se refere (só para `paymentType === "salary"`). Requer backend. */
-  salaryPeriodYear?: number | null;
-  salaryPeriodMonth?: number | null;
+  salaryPeriodYear: number | null;
+  salaryPeriodMonth: number | null;
+  /** True quando o pagamento foi efectivamente transferido. */
+  isPaid: boolean;
   notes: string | null;
   createdAt: string;
   updatedAt: string;
@@ -217,7 +227,7 @@ export type HrEmployeePayment = {
 export function salaryPeriodValueFromPayment(
   p: HrEmployeePayment,
 ): string {
-  if (p.paymentType !== "salary") return "";
+  if (p.paymentType !== "salary" && p.paymentType !== "bonus") return "";
   if (p.salaryPeriodYear != null && p.salaryPeriodMonth != null) {
     return `${p.salaryPeriodYear}-${String(p.salaryPeriodMonth).padStart(2, "0")}`;
   }
@@ -227,7 +237,7 @@ export function salaryPeriodValueFromPayment(
 export function formatSalaryPeriodLabel(
   p: HrEmployeePayment,
 ): string {
-  if (p.paymentType !== "salary") return "—";
+  if (p.paymentType !== "salary" && p.paymentType !== "bonus") return "—";
   if (p.salaryPeriodYear != null && p.salaryPeriodMonth != null) {
     return new Intl.DateTimeFormat("pt-PT", {
       month: "long",

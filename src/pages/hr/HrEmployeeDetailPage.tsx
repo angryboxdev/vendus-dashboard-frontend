@@ -6,7 +6,9 @@ import { useForm, useFormState, useWatch } from "react-hook-form";
 import { Link, useParams } from "react-router-dom";
 
 import { ApiError } from "../../lib/api";
-import { formatEUR, formatIsoDatePt, formatIsoDateRangePt } from "../../lib/format";
+import {
+  formatIsoDateRangePt,
+} from "../../lib/format";
 import {
   attendanceFormValuesToPatchBody,
   createEmployeePayment,
@@ -14,8 +16,9 @@ import {
   deletePayment,
   deleteShift,
   fetchEmployee,
-  fetchEmployeePayments,
   fetchEmployees,
+  fetchLeaveOverview,
+  fetchPublicHolidays,
   fetchShifts,
   patchEmployee,
   patchPayment,
@@ -38,15 +41,17 @@ import {
 import { AttendanceConferenceModal } from "./components/AttendanceConferenceModal";
 import { WeeklyScheduleEditor } from "./components/WeeklyScheduleEditor";
 import {
-  formatSalaryPeriodLabel,
   HR_EMPLOYMENT_TYPE_LABELS,
   isShiftAttendancePending,
   JOB_ROLE_LABELS,
+  LEAVE_TYPE_CALENDAR_COLORS,
+  LEAVE_TYPE_LABELS,
   normalizeEmploymentType,
   normalizeJobRole,
   salaryPeriodValueFromPayment,
   SHIFT_ATTENDANCE_STATUS_LABELS,
   type HrEmployeePayment,
+  type HrLeaveRequest,
   type HrWorkShift,
 } from "./hr.types";
 import { defaultWeeklyScheduleFor } from "./weeklySchedulePresets";
@@ -55,6 +60,7 @@ import {
   finalizeWeeklySchedule,
 } from "./weeklyScheduleUtils";
 import {
+  addDaysToYmd,
   buildMonthCalendarCells,
   dateInputValueToIsoDatetime,
   formatYearMonth,
@@ -67,6 +73,7 @@ import {
 import { Modal } from "./components/Modal";
 import { SkeletonBlock } from "./components/SkeletonBlock";
 import { LeaveTab } from "./components/LeaveTab";
+import { PaymentsTab } from "./components/PaymentsTab";
 
 function shiftPlannedMins(s: HrWorkShift): number | null {
   const start = parseTimeToMinutes(s.startTime);
@@ -95,12 +102,14 @@ function formatMins(mins: number): string {
 function ShiftSaldo({ shift }: { shift: HrWorkShift }) {
   const planned = shiftPlannedMins(shift);
   const actual = shiftActualMins(shift);
-  if (actual === null || planned === null) return <span className="text-slate-400">—</span>;
+  if (actual === null || planned === null)
+    return <span className="text-slate-400">—</span>;
   const diff = actual - planned;
-  if (diff === 0)
-    return <span className="text-slate-500">0</span>;
+  if (diff === 0) return <span className="text-slate-500">0</span>;
   if (diff > 0)
-    return <span className="font-medium text-emerald-700">{formatMins(diff)}</span>;
+    return (
+      <span className="font-medium text-emerald-700">{formatMins(diff)}</span>
+    );
   return <span className="font-medium text-red-600">{formatMins(diff)}</span>;
 }
 
@@ -126,12 +135,6 @@ const WEEKDAYS_SHORT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"];
 const controlClass =
   "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
 
-const paymentLabels: Record<HrEmployeePayment["paymentType"], string> = {
-  salary: "Salário",
-  bonus: "Bónus",
-  deduction: "Desconto",
-  other: "Outro",
-};
 
 function toPatchEmployeeBody(v: EmployeeEditFormValues): PatchEmployeeBody {
   const hired =
@@ -152,6 +155,9 @@ function toPatchEmployeeBody(v: EmployeeEditFormValues): PatchEmployeeBody {
     employmentType: v.employmentType,
     hiredAt: hired,
     endedAt: ended,
+    salaryType: v.salaryType ?? "fixed",
+    baseSalary: !v.baseSalary || typeof v.baseSalary !== "number" || isNaN(v.baseSalary) ? null : v.baseSalary,
+    hourlyRate: !v.hourlyRate || typeof v.hourlyRate !== "number" || isNaN(v.hourlyRate) ? null : v.hourlyRate,
   };
 }
 
@@ -162,7 +168,9 @@ export function HrEmployeeDetailPage() {
   const initialYm = getCurrentYearMonthLisbon();
   const [year, setYear] = useState(initialYm.year);
   const [month, setMonth] = useState(initialYm.month);
-  const [tab, setTab] = useState<"dados" | "turnos" | "pagamentos" | "ferias">("dados");
+  const [tab, setTab] = useState<"dados" | "turnos" | "pagamentos" | "ferias">(
+    "dados",
+  );
   const [banner, setBanner] = useState<{
     type: "ok" | "err";
     text: string;
@@ -223,23 +231,54 @@ export function HrEmployeeDetailPage() {
     return map;
   }, [shifts]);
 
-  const weeks = useMemo(() => buildMonthCalendarCells(year, month), [year, month]);
+  const weeks = useMemo(
+    () => buildMonthCalendarCells(year, month),
+    [year, month],
+  );
 
-  const payFilters = useMemo(() => ({ year, month }) as const, [year, month]);
-
-  const { data: payments, isPending: paysLoading } = useQuery({
-    queryKey: hrQueryKeys.payments(id, payFilters),
-    queryFn: () => fetchEmployeePayments(id, payFilters),
-    enabled: Boolean(id) && tab === "pagamentos",
+  const { data: holidays } = useQuery({
+    queryKey: hrQueryKeys.publicHolidays(year),
+    queryFn: () => fetchPublicHolidays(year),
+    enabled: tab === "turnos",
   });
+
+  const holidaySet = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const h of holidays ?? []) m.set(h.date, h.name);
+    return m;
+  }, [holidays]);
+
+  const { data: leaves } = useQuery({
+    queryKey: hrQueryKeys.leaveOverview(year),
+    queryFn: () => fetchLeaveOverview(year),
+    enabled: tab === "turnos",
+  });
+
+  const leavesByDate = useMemo(() => {
+    const map = new Map<string, HrLeaveRequest[]>();
+    for (const leave of leaves ?? []) {
+      if (leave.employeeId !== id) continue;
+      let cur = leave.startDate;
+      while (cur <= leave.endDate) {
+        if (cur >= range.from && cur <= range.to) {
+          const list = map.get(cur) ?? [];
+          list.push(leave);
+          map.set(cur, list);
+        }
+        cur = addDaysToYmd(cur, 1);
+        if (cur > range.to) break;
+      }
+    }
+    return map;
+  }, [leaves, id, range.from, range.to]);
+
 
   const patchMut = useMutation({
     mutationFn: (body: PatchEmployeeBody) => patchEmployee(id, body),
     onSuccess: async (_data, body) => {
       await qc.invalidateQueries({ queryKey: hrQueryKeys.root });
       const keys = body ? Object.keys(body) : [];
-      const onlySchedule =
-        keys.length === 1 && keys[0] === "weeklySchedule";
+      const onlySchedule = keys.length === 1 && keys[0] === "weeklySchedule";
       setBanner({
         type: "ok",
         text: onlySchedule ? "Escala atualizada." : "Dados atualizados.",
@@ -319,10 +358,8 @@ export function HrEmployeeDetailPage() {
   });
 
   const attendancePatchMut = useMutation({
-    mutationFn: (p: {
-      shiftId: string;
-      body: PatchShiftAttendanceBody;
-    }) => patchShiftAttendance(p.shiftId, p.body),
+    mutationFn: (p: { shiftId: string; body: PatchShiftAttendanceBody }) =>
+      patchShiftAttendance(p.shiftId, p.body),
     onSuccess: async (updated) => {
       qc.setQueryData(
         hrQueryKeys.shifts(shiftScope),
@@ -480,6 +517,7 @@ export function HrEmployeeDetailPage() {
   });
 
   const { dirtyFields } = useFormState({ control: editForm.control });
+  const editSalaryType = useWatch({ control: editForm.control, name: "salaryType" }) ?? "fixed";
 
   useEffect(() => {
     if (!employee) return;
@@ -493,6 +531,9 @@ export function HrEmployeeDetailPage() {
       employmentType: normalizeEmploymentType(employee.employmentType),
       hiredAt: isoDatetimeToDateInputValue(employee.hiredAt),
       endedAt: isoDatetimeToDateInputValue(employee.endedAt),
+      salaryType: employee.salaryType ?? "fixed",
+      baseSalary: employee.baseSalary ?? "",
+      hourlyRate: employee.hourlyRate ?? "",
     });
   }, [employee, editForm]);
 
@@ -583,7 +624,7 @@ export function HrEmployeeDetailPage() {
             ["dados", "Dados"],
             ["turnos", "Turnos"],
             ["pagamentos", "Pagamentos"],
-            ["ferias", "Férias"],
+            ["ferias", "Férias & Ausências"],
           ] as const
         ).map(([k, label]) => (
           <button
@@ -719,6 +760,50 @@ export function HrEmployeeDetailPage() {
               />
             }
           />
+          <Field
+            label="Tipo de remuneração"
+            error={editForm.formState.errors.salaryType?.message}
+            unsavedChange={Boolean(dirtyFields.salaryType)}
+            input={
+              <select className={controlClass} {...editForm.register("salaryType")}>
+                <option value="fixed">Salário fixo mensal</option>
+                <option value="hourly">Por horas trabalhadas</option>
+              </select>
+            }
+          />
+          {editSalaryType === "fixed" ? (
+            <Field
+              label="Salário base (€/mês)"
+              error={editForm.formState.errors.baseSalary?.message}
+              unsavedChange={Boolean(dirtyFields.baseSalary)}
+              input={
+                <input
+                  className={controlClass}
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  placeholder="ex: 1081.27"
+                  {...editForm.register("baseSalary", { valueAsNumber: true })}
+                />
+              }
+            />
+          ) : (
+            <Field
+              label="Valor por hora (€/hora)"
+              error={editForm.formState.errors.hourlyRate?.message}
+              unsavedChange={Boolean(dirtyFields.hourlyRate)}
+              input={
+                <input
+                  className={controlClass}
+                  type="number"
+                  min={0}
+                  step={0.01}
+                  placeholder="ex: 5.31"
+                  {...editForm.register("hourlyRate", { valueAsNumber: true })}
+                />
+              }
+            />
+          )}
           <div className="md:col-span-2">
             <Field
               label="Notas"
@@ -748,7 +833,8 @@ export function HrEmployeeDetailPage() {
         <div className="mt-8 max-w-5xl rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h3 className="text-sm font-semibold text-slate-800">PIN de Kiosk</h3>
           <p className="mt-1 text-xs text-slate-500">
-            O funcionário usa este PIN de 4 dígitos para registar o ponto através do QR code na loja.
+            O funcionário usa este PIN de 4 dígitos para registar o ponto
+            através do QR code na loja.
           </p>
           <div className="mt-3 flex items-center gap-3">
             {employee.hasKioskPin ? (
@@ -762,7 +848,10 @@ export function HrEmployeeDetailPage() {
             )}
             <button
               type="button"
-              onClick={() => { setPinInput(""); setPinModalOpen(true); }}
+              onClick={() => {
+                setPinInput("");
+                setPinModalOpen(true);
+              }}
               className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
             >
               {employee.hasKioskPin ? "Alterar PIN" : "Definir PIN"}
@@ -770,13 +859,23 @@ export function HrEmployeeDetailPage() {
           </div>
           {pinModalOpen ? (
             <Modal
-              title={employee.hasKioskPin ? "Alterar PIN de Kiosk" : "Definir PIN de Kiosk"}
-              onClose={() => { setPinModalOpen(false); setPinInput(""); }}
+              title={
+                employee.hasKioskPin
+                  ? "Alterar PIN de Kiosk"
+                  : "Definir PIN de Kiosk"
+              }
+              onClose={() => {
+                setPinModalOpen(false);
+                setPinInput("");
+              }}
               footer={
                 <>
                   <button
                     type="button"
-                    onClick={() => { setPinModalOpen(false); setPinInput(""); }}
+                    onClick={() => {
+                      setPinModalOpen(false);
+                      setPinInput("");
+                    }}
                     className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
                   >
                     Cancelar
@@ -794,7 +893,8 @@ export function HrEmployeeDetailPage() {
             >
               <div className="space-y-3">
                 <p className="text-sm text-slate-600">
-                  Introduz um PIN de exactamente 4 dígitos para o funcionário <strong>{employee.fullName}</strong>.
+                  Introduz um PIN de exactamente 4 dígitos para o funcionário{" "}
+                  <strong>{employee.fullName}</strong>.
                 </p>
                 <input
                   type="password"
@@ -802,13 +902,16 @@ export function HrEmployeeDetailPage() {
                   maxLength={4}
                   pattern="\d{4}"
                   value={pinInput}
-                  onChange={(e) => setPinInput(e.target.value.replace(/\D/g, "").slice(0, 4))}
+                  onChange={(e) =>
+                    setPinInput(e.target.value.replace(/\D/g, "").slice(0, 4))
+                  }
                   placeholder="••••"
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-center text-2xl tracking-[0.5em] shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                   autoFocus
                 />
                 <p className="text-xs text-slate-400">
-                  Cada funcionário deve ter um PIN único. O PIN é guardado de forma segura.
+                  Cada funcionário deve ter um PIN único. O PIN é guardado de
+                  forma segura.
                 </p>
               </div>
             </Modal>
@@ -889,23 +992,43 @@ export function HrEmployeeDetailPage() {
                     }
                     const dayShifts = byDate.get(cell.iso) ?? [];
                     const isToday = cell.iso === todayIso;
+                    const holidayName = holidaySet.get(cell.iso);
                     return (
                       <div
                         key={cell.iso}
-                        className={`min-h-[110px] bg-white p-1.5 ${
-                          isToday ? "ring-2 ring-inset ring-indigo-400" : ""
-                        }`}
+                        className={`min-h-[110px] p-1.5 ${
+                          holidayName ? "bg-amber-50" : "bg-white"
+                        } ${isToday ? "ring-2 ring-inset ring-indigo-400" : ""}`}
                       >
-                        <div
-                          className={`inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-semibold ${
-                            isToday
-                              ? "bg-indigo-600 text-white"
-                              : "text-slate-500"
-                          }`}
-                        >
-                          {cell.day}
+                        <div className="flex items-center gap-1">
+                          <div
+                            className={`inline-flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full text-xs font-semibold ${
+                              isToday
+                                ? "bg-indigo-600 text-white"
+                                : "text-slate-500"
+                            }`}
+                          >
+                            {cell.day}
+                          </div>
+                          {holidayName && (
+                            <span
+                              title={holidayName}
+                              className="truncate rounded bg-amber-100 px-1 py-0.5 text-[9px] font-semibold text-amber-700"
+                            >
+                              {holidayName}
+                            </span>
+                          )}
                         </div>
 
+                        {leavesByDate.get(cell.iso)?.map((leave) => (
+                          <div
+                            key={`leave-${leave.id}`}
+                            title={LEAVE_TYPE_LABELS[leave.type]}
+                            className={`mt-1 rounded border px-1.5 py-0.5 text-[11px] leading-snug ${LEAVE_TYPE_CALENDAR_COLORS[leave.type]}`}
+                          >
+                            {LEAVE_TYPE_LABELS[leave.type]}
+                          </div>
+                        ))}
                         {dayShifts.length === 0 ? (
                           <button
                             type="button"
@@ -918,35 +1041,56 @@ export function HrEmployeeDetailPage() {
                             + turno
                           </button>
                         ) : (
-                          dayShifts.map((s) => (
+                          dayShifts.map((s, sIdx) => (
                             <div key={s.id} className="mt-1">
+                              {holidaySet.has(cell.iso) &&
+                                s.attendance?.status !== "cancelled" &&
+                                sIdx === 0 && (
+                                  <div className="mb-0.5 rounded bg-violet-100 px-1 py-0.5 text-[9px] font-semibold text-violet-700">
+                                    Folga devida
+                                  </div>
+                                )}
                               <button
                                 type="button"
                                 onClick={() => setAttendanceModal(s)}
                                 className={`w-full rounded border px-1.5 py-1 text-left text-[11px] leading-snug hover:opacity-90 ${
-                                  isShiftAttendancePending(s)
-                                    ? "border-amber-200 bg-amber-50 text-amber-900"
-                                    : "border-emerald-200 bg-emerald-50 text-slate-800"
+                                  s.attendance?.status === "cancelled"
+                                    ? "border-slate-200 bg-slate-50 text-slate-400"
+                                    : isShiftAttendancePending(s)
+                                      ? "border-amber-200 bg-amber-50 text-amber-900"
+                                      : "border-emerald-200 bg-emerald-50 text-slate-800"
                                 }`}
                               >
-                                <div className="font-medium tabular-nums">
+                                <div
+                                  className={`font-medium tabular-nums ${s.attendance?.status === "cancelled" ? "line-through" : ""}`}
+                                >
                                   {s.startTime} – {s.endTime}
                                 </div>
-                                <div className="mt-0.5 tabular-nums">
-                                  <ShiftRealizado shift={s} />
-                                </div>
+                                {s.attendance?.status !== "cancelled" && (
+                                  <>
+                                    <div className="mt-0.5 tabular-nums">
+                                      <ShiftRealizado shift={s} />
+                                    </div>
+                                    <div className="mt-0.5">
+                                      <ShiftSaldo shift={s} />
+                                    </div>
+                                  </>
+                                )}
                                 <div className="mt-0.5">
-                                  <ShiftSaldo shift={s} />
-                                </div>
-                                <div className="mt-0.5">
-                                  {isShiftAttendancePending(s) ? (
+                                  {s.attendance?.status === "cancelled" ? (
+                                    <span className="text-[10px] font-medium text-slate-400">
+                                      Cancelado
+                                    </span>
+                                  ) : isShiftAttendancePending(s) ? (
                                     <span className="text-[10px] font-medium text-amber-700">
                                       Pendente
                                     </span>
                                   ) : (
                                     <span className="text-[10px] text-emerald-700">
                                       {s.attendance
-                                        ? SHIFT_ATTENDANCE_STATUS_LABELS[s.attendance.status]
+                                        ? SHIFT_ATTENDANCE_STATUS_LABELS[
+                                            s.attendance.status
+                                          ]
                                         : "—"}
                                     </span>
                                   )}
@@ -1010,107 +1154,16 @@ export function HrEmployeeDetailPage() {
         </div>
       ) : null}
 
-      {tab === "pagamentos" ? (
-        <div className="mt-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={prevMonth}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50"
-            >
-              ←
-            </button>
-            <span className="text-sm font-semibold text-slate-800">
-              {monthTitle}
-            </span>
-            <button
-              type="button"
-              onClick={nextMonth}
-              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm hover:bg-slate-50"
-            >
-              →
-            </button>
-            <button
-              type="button"
-              onClick={() => setPayModal("create")}
-              className="ml-auto rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-            >
-              Novo pagamento
-            </button>
-          </div>
-
-          <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white">
-            <table className="min-w-full text-left text-sm">
-              <thead className="bg-slate-50 text-xs font-semibold text-slate-600">
-                <tr>
-                  <th className="px-3 py-2">Data</th>
-                  <th className="px-3 py-2">Tipo</th>
-                  <th className="px-3 py-2">Mês ref. (salário)</th>
-                  <th className="px-3 py-2">Valor</th>
-                  <th className="px-3 py-2">Notas</th>
-                  <th className="px-3 py-2 text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody>
-                {paysLoading ? (
-                  <tr>
-                    <td colSpan={6} className="px-3 py-4">
-                      <SkeletonBlock className="h-16 w-full" />
-                    </td>
-                  </tr>
-                ) : !payments?.length ? (
-                  <tr>
-                    <td
-                      colSpan={6}
-                      className="px-3 py-6 text-center text-slate-500"
-                    >
-                      Sem pagamentos neste mês civil.
-                    </td>
-                  </tr>
-                ) : (
-                  payments.map((p) => (
-                    <tr key={p.id} className="border-t border-slate-100">
-                      <td className="px-3 py-2">
-                        {formatIsoDatePt(p.paymentDate)}
-                      </td>
-                      <td className="px-3 py-2">
-                        {paymentLabels[p.paymentType]}
-                      </td>
-                      <td className="px-3 py-2 text-slate-700">
-                        {formatSalaryPeriodLabel(p)}
-                      </td>
-                      <td className="px-3 py-2">{formatEUR(p.amount)}</td>
-                      <td className="px-3 py-2 text-slate-600">
-                        {p.notes ?? "—"}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <button
-                          type="button"
-                          className="text-indigo-700 hover:underline"
-                          onClick={() => setPayModal(p)}
-                        >
-                          Editar
-                        </button>
-                        {" · "}
-                        <button
-                          type="button"
-                          className="text-red-700 hover:underline"
-                          onClick={() => {
-                            if (window.confirm("Remover este pagamento?"))
-                              deletePayMut.mutate(p.id);
-                          }}
-                          disabled={deletePayMut.isPending}
-                        >
-                          Apagar
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+      {tab === "pagamentos" && id ? (
+        <PaymentsTab
+          employeeId={id}
+          employee={employee ?? null}
+          onCreatePayment={() => setPayModal("create")}
+          onEditPayment={(p) => setPayModal(p)}
+          onDeletePayment={(p) => {
+            if (window.confirm("Remover este pagamento?")) deletePayMut.mutate(p.id);
+          }}
+        />
       ) : null}
 
       {tab === "ferias" && id ? (
@@ -1145,14 +1198,15 @@ export function HrEmployeeDetailPage() {
         >
           <p className="text-sm text-slate-700">
             No mês <strong>{monthTitle}</strong> serão criados{" "}
-            <strong>{applyPreviewBodies.length}</strong> turno(s) novo(s) a partir
-            da escala base (turnos já existentes no mesmo dia e horas são
+            <strong>{applyPreviewBodies.length}</strong> turno(s) novo(s) a
+            partir da escala base (turnos já existentes no mesmo dia e horas são
             ignorados).
           </p>
           {applyPreviewBodies.length === 0 ? (
             <p className="mt-2 text-sm text-amber-800">
               Não há turnos em falta: já existem para este mês ou a escala não
-              cobre estes dias. Ajuste a escala base (secção abaixo) se precisar.
+              cobre estes dias. Ajuste a escala base (secção abaixo) se
+              precisar.
             </p>
           ) : null}
         </Modal>
@@ -1175,12 +1229,19 @@ export function HrEmployeeDetailPage() {
 
       {shiftModal ? (
         <ShiftModal
-          key={shiftModal === "create" ? `create-${prefillDate}` : shiftModal.id}
+          key={
+            shiftModal === "create" ? `create-${prefillDate}` : shiftModal.id
+          }
           mode={shiftModal === "create" ? "create" : "edit"}
           initial={shiftModal === "create" ? null : shiftModal}
           defaultEmployeeId={id}
-          defaultWorkDate={shiftModal === "create" ? prefillDate || undefined : undefined}
-          onClose={() => { setShiftModal(null); setPrefillDate(""); }}
+          defaultWorkDate={
+            shiftModal === "create" ? prefillDate || undefined : undefined
+          }
+          onClose={() => {
+            setShiftModal(null);
+            setPrefillDate("");
+          }}
           loading={createShiftMut.isPending || updateShiftMut.isPending}
           onSubmit={(values) => {
             if (shiftModal === "create") {
@@ -1278,10 +1339,12 @@ function ShiftModal({
         }
       : {
           employeeId: defaultEmployeeId,
-          workDate: defaultWorkDate ?? getCivilMonthRangeIso(
-            getCurrentYearMonthLisbon().year,
-            getCurrentYearMonthLisbon().month,
-          ).from,
+          workDate:
+            defaultWorkDate ??
+            getCivilMonthRangeIso(
+              getCurrentYearMonthLisbon().year,
+              getCurrentYearMonthLisbon().month,
+            ).from,
           startTime: "09:00",
           endTime: "17:00",
           locationOrStation: "",
@@ -1500,9 +1563,9 @@ function PaymentModal({
             </select>
           }
         />
-        {paymentType === "salary" ? (
+        {(paymentType === "salary" || paymentType === "bonus") ? (
           <Field
-            label="Salário referente a *"
+            label={paymentType === "salary" ? "Salário referente a *" : "Mês de referência"}
             error={form.formState.errors.salaryPeriod?.message}
             input={
               <input

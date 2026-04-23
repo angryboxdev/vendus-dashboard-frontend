@@ -23,8 +23,8 @@ function attendanceDefaults(shift: HrWorkShift): AttendanceFormValues {
   if (!a) {
     return {
       status: "worked_as_planned",
-      actualStartTime: "",
-      actualEndTime: "",
+      actualStartTime: shift.startTime ?? "",
+      actualEndTime: shift.endTime ?? "",
       lateMinutes: "",
       notes: "",
     };
