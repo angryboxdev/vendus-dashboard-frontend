@@ -226,11 +226,6 @@ export function PaymentsTab({
   }
 
   const range = useMemo(() => getCivilMonthRangeIso(year, month), [year, month]);
-  const prevRange = useMemo(() => {
-    const p = prevYearMonth(year, month);
-    return getCivilMonthRangeIso(p.year, p.month);
-  }, [year, month]);
-
   const payFilters = useMemo<ListPaymentsParams>(() => ({ year, month }), [year, month]);
   const prevPayFilters = useMemo<ListPaymentsParams>(() => {
     const p = prevYearMonth(year, month);
