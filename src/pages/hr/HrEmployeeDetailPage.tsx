@@ -6,6 +6,7 @@ import { useForm, useFormState, useWatch } from "react-hook-form";
 import { Link, useParams } from "react-router-dom";
 
 import { ApiError } from "../../lib/api";
+import { exportEmployeeSchedulePdf } from "../../utils/schedulePdf";
 import {
   formatIsoDateRangePt,
 } from "../../lib/format";
@@ -957,6 +958,21 @@ export function HrEmployeeDetailPage() {
               }
             >
               Aplicar escala ao mês
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                exportEmployeeSchedulePdf({
+                  year,
+                  month,
+                  employee,
+                  shifts: shifts ?? [],
+                  leaves: leaves ?? [],
+                })
+              }
+              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Exportar PDF
             </button>
             <button
               type="button"

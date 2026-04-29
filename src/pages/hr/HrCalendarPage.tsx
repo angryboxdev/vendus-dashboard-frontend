@@ -1,6 +1,8 @@
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 
+import { exportGeneralSchedulePdf } from "../../utils/schedulePdf";
+
 import {
   addDaysToYmd,
   buildMonthCalendarCells,
@@ -389,6 +391,22 @@ export function HrCalendarPage() {
             →
           </button>
         </div>
+
+        <button
+          type="button"
+          onClick={() =>
+            exportGeneralSchedulePdf({
+              year,
+              month,
+              shifts: shifts ?? [],
+              leaves: leaves ?? [],
+              employees: employees ?? [],
+            })
+          }
+          className="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
+        >
+          Exportar PDF
+        </button>
       </div>
 
       {/* Employee filter badges */}
