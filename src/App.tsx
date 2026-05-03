@@ -23,6 +23,7 @@ import { KioskDisplayPage } from "./pages/kiosk/KioskDisplayPage";
 import { KioskCheckinPage } from "./pages/kiosk/KioskCheckinPage";
 import { LoginPage } from "./pages/LoginPage";
 import { UsersPage } from "./pages/admin/UsersPage";
+import { PrintOrdersPage } from "./pages/orders/PrintOrdersPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 
 export default function App() {
@@ -34,6 +35,16 @@ export default function App() {
       {/* Páginas standalone sem sidebar (kiosk) */}
       <Route path="/kiosk" element={<KioskDisplayPage />} />
       <Route path="/kiosk/checkin" element={<KioskCheckinPage />} />
+
+      {/* Impressão de pedidos — standalone com auth */}
+      <Route
+        path="/print-orders"
+        element={
+          <ProtectedRoute>
+            <PrintOrdersPage />
+          </ProtectedRoute>
+        }
+      />
 
       {/* Layout principal com sidebar */}
       <Route
