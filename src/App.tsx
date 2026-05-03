@@ -36,15 +36,8 @@ export default function App() {
       <Route path="/kiosk" element={<KioskDisplayPage />} />
       <Route path="/kiosk/checkin" element={<KioskCheckinPage />} />
 
-      {/* Impressão de pedidos — standalone com auth */}
-      <Route
-        path="/print-orders"
-        element={
-          <ProtectedRoute>
-            <PrintOrdersPage />
-          </ProtectedRoute>
-        }
-      />
+      {/* Impressão de pedidos — standalone sem auth (uso interno cozinha) */}
+      <Route path="/print-orders" element={<PrintOrdersPage />} />
 
       {/* Layout principal com sidebar */}
       <Route
