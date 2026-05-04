@@ -52,11 +52,15 @@ export function AttendanceConferenceModal({
   onClose,
   loading,
   onSubmit,
+  onDelete,
+  deleteLoading,
 }: {
   shift: HrWorkShift;
   onClose: () => void;
   loading: boolean;
   onSubmit: (values: AttendanceFormValues) => void;
+  onDelete?: () => void;
+  deleteLoading?: boolean;
 }) {
   const form = useForm<AttendanceFormValues>({
     resolver: zodResolver(attendanceFormSchema),
@@ -90,22 +94,36 @@ export function AttendanceConferenceModal({
       title="Conferência de turno"
       onClose={onClose}
       footer={
-        <div className="flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            form="attendance-form"
-            disabled={loading}
-            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {loading ? "A guardar…" : "Guardar conferência"}
-          </button>
+        <div className="flex items-center justify-between gap-2">
+          <div>
+            {onDelete && shift.attendance ? (
+              <button
+                type="button"
+                onClick={onDelete}
+                disabled={deleteLoading || loading}
+                className="rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+              >
+                {deleteLoading ? "A apagar…" : "Apagar conferência"}
+              </button>
+            ) : null}
+          </div>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-lg px-3 py-2 text-sm text-slate-700 hover:bg-slate-100"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              form="attendance-form"
+              disabled={loading || deleteLoading}
+              className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {loading ? "A guardar…" : "Guardar conferência"}
+            </button>
+          </div>
         </div>
       }
     >

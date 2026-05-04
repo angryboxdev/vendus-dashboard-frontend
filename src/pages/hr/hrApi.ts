@@ -152,6 +152,10 @@ export async function patchShiftAttendance(
   );
 }
 
+export async function deleteShiftAttendance(shiftId: string): Promise<HrWorkShift> {
+  return apiDeleteJson(`${HR}/shifts/${encodeURIComponent(shiftId)}/attendance`);
+}
+
 export function attendanceFormValuesToPatchBody(
   v: AttendanceFormValues,
 ): PatchShiftAttendanceBody {

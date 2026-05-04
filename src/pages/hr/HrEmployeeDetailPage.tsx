@@ -16,6 +16,7 @@ import {
   createShift,
   deletePayment,
   deleteShift,
+  deleteShiftAttendance,
   fetchEmployee,
   fetchEmployees,
   fetchLeaveOverview,
@@ -378,6 +379,28 @@ export function HrEmployeeDetailPage() {
         type: "err",
         text:
           e instanceof ApiError ? e.message : "Erro ao guardar conferência.",
+      });
+    },
+  });
+
+  const attendanceDeleteMut = useMutation({
+    mutationFn: (shiftId: string) => deleteShiftAttendance(shiftId),
+    onSuccess: async (updated) => {
+      qc.setQueryData(
+        hrQueryKeys.shifts(shiftScope),
+        (old: HrWorkShift[] | undefined) => {
+          if (!old) return [updated];
+          return old.map((x) => (x.id === updated.id ? updated : x));
+        },
+      );
+      await qc.invalidateQueries({ queryKey: hrQueryKeys.root });
+      setAttendanceModal(null);
+      setBanner({ type: "ok", text: "Conferência apagada." });
+    },
+    onError: (e: unknown) => {
+      setBanner({
+        type: "err",
+        text: e instanceof ApiError ? e.message : "Erro ao apagar conferência.",
       });
     },
   });
@@ -1233,6 +1256,7 @@ export function HrEmployeeDetailPage() {
           key={attendanceModal.id}
           shift={attendanceModal}
           loading={attendancePatchMut.isPending}
+          deleteLoading={attendanceDeleteMut.isPending}
           onClose={() => setAttendanceModal(null)}
           onSubmit={(values) =>
             attendancePatchMut.mutate({
@@ -1240,6 +1264,7 @@ export function HrEmployeeDetailPage() {
               body: attendanceFormValuesToPatchBody(values),
             })
           }
+          onDelete={() => attendanceDeleteMut.mutate(attendanceModal.id)}
         />
       ) : null}
 
