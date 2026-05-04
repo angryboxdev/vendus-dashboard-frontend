@@ -389,7 +389,7 @@ export function PrintOrdersPage() {
         .ticket-channel { display: flex; align-items: center; justify-content: center; gap: 4px; padding: 5px 0; margin: 2px 0; }
         .ticket-channel-label { font-size: 16px; font-weight: bold; letter-spacing: 1px; }
         .ticket-channel-emoji { font-size: 14px; }
-        .ticket-channel-delivery { background: #000; color: #fff; }
+        .ticket-channel-delivery { background: #fff; color: #000; border: 2px solid #000; }
         .ticket-channel-restaurant { background: #fff; color: #000; border: 2px solid #000; }
         .ticket-channel-takeaway { background: #fff; color: #000; border: 2px dashed #000; }
         .ticket-channel-unknown { background: #eee; color: #555; }
