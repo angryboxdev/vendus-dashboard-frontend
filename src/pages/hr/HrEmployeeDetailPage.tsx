@@ -17,6 +17,7 @@ import {
   deletePayment,
   deleteShift,
   deleteShiftAttendance,
+  fetchAuditLogs,
   fetchEmployee,
   fetchEmployees,
   fetchLeaveOverview,
@@ -41,6 +42,7 @@ import {
   type ShiftFormValues,
 } from "./hrSchemas";
 import { AttendanceConferenceModal } from "./components/AttendanceConferenceModal";
+import { DocumentsTab } from "./components/DocumentsTab";
 import { WeeklyScheduleEditor } from "./components/WeeklyScheduleEditor";
 import {
   HR_EMPLOYMENT_TYPE_LABELS,
@@ -52,6 +54,7 @@ import {
   normalizeJobRole,
   salaryPeriodValueFromPayment,
   SHIFT_ATTENDANCE_STATUS_LABELS,
+  type HrAuditLog,
   type HrEmployeePayment,
   type HrLeaveRequest,
   type HrWorkShift,
@@ -170,7 +173,7 @@ export function HrEmployeeDetailPage() {
   const initialYm = getCurrentYearMonthLisbon();
   const [year, setYear] = useState(initialYm.year);
   const [month, setMonth] = useState(initialYm.month);
-  const [tab, setTab] = useState<"dados" | "turnos" | "pagamentos" | "ferias">(
+  const [tab, setTab] = useState<"dados" | "turnos" | "pagamentos" | "ferias" | "contrato" | "documentos">(
     "dados",
   );
   const [banner, setBanner] = useState<{
@@ -221,6 +224,12 @@ export function HrEmployeeDetailPage() {
     queryKey: hrQueryKeys.shifts(shiftScope),
     queryFn: () => fetchShifts(shiftScope),
     enabled: Boolean(id) && tab === "turnos",
+  });
+
+  const { data: contractHistory, isPending: contractHistoryLoading } = useQuery({
+    queryKey: ["hr", "contract-history", id],
+    queryFn: () => fetchAuditLogs({ employeeId: id, action: "contract_changed", limit: 50 }),
+    enabled: Boolean(id) && tab === "contrato",
   });
 
   const byDate = useMemo(() => {
@@ -649,6 +658,8 @@ export function HrEmployeeDetailPage() {
             ["turnos", "Turnos"],
             ["pagamentos", "Pagamentos"],
             ["ferias", "Férias & Ausências"],
+            ["documentos", "Documentos"],
+            ["contrato", "Histórico Contratual"],
           ] as const
         ).map(([k, label]) => (
           <button
@@ -1209,6 +1220,17 @@ export function HrEmployeeDetailPage() {
         <LeaveTab employeeId={id} employee={employee ?? null} />
       ) : null}
 
+      {tab === "documentos" && id ? (
+        <DocumentsTab employeeId={id} />
+      ) : null}
+
+      {tab === "contrato" ? (
+        <ContractHistoryTab
+          logs={contractHistory?.logs ?? []}
+          loading={contractHistoryLoading}
+        />
+      ) : null}
+
       {applyMonthOpen ? (
         <Modal
           title="Aplicar escala ao mês"
@@ -1629,5 +1651,91 @@ function PaymentModal({
         />
       </form>
     </Modal>
+  );
+}
+
+// ---------- Contract History Tab ----------
+
+type ContractSnapshot = {
+  baseSalary?: number | null;
+  hourlyRate?: number | null;
+  salaryType?: string;
+  employmentType?: string;
+  hiredAt?: string | null;
+  endedAt?: string | null;
+  jobRole?: string;
+};
+
+const CONTRACT_FIELD_LABELS: Record<keyof ContractSnapshot, string> = {
+  baseSalary: "Salário base",
+  hourlyRate: "Valor/hora",
+  salaryType: "Tipo de salário",
+  employmentType: "Tipo de contrato",
+  hiredAt: "Data de início",
+  endedAt: "Data de fim",
+  jobRole: "Função",
+};
+
+function formatContractValue(key: keyof ContractSnapshot, val: unknown): string {
+  if (val == null) return "—";
+  if (key === "baseSalary" || key === "hourlyRate") return `€${Number(val).toFixed(2)}`;
+  if (key === "salaryType") return val === "hourly" ? "À hora" : "Mensal fixo";
+  if (key === "employmentType") return HR_EMPLOYMENT_TYPE_LABELS[val as keyof typeof HR_EMPLOYMENT_TYPE_LABELS] ?? String(val);
+  if (key === "jobRole") return JOB_ROLE_LABELS[val as keyof typeof JOB_ROLE_LABELS] ?? String(val);
+  if (key === "hiredAt" || key === "endedAt") {
+    const d = new Date(String(val));
+    return isNaN(d.getTime()) ? String(val) : d.toLocaleDateString("pt-PT");
+  }
+  return String(val);
+}
+
+function ContractHistoryTab({ logs, loading }: { logs: HrAuditLog[]; loading: boolean }) {
+  if (loading) return <p className="mt-6 text-sm text-slate-500">A carregar…</p>;
+  if (logs.length === 0) {
+    return (
+      <div className="mt-6 rounded-xl border border-slate-200 bg-white px-6 py-8 text-center text-sm text-slate-500">
+        Sem alterações contratuais registadas.
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-6 space-y-3">
+      {logs.map((log) => {
+        const before = (log.payloadBefore ?? {}) as ContractSnapshot;
+        const after = (log.payloadAfter ?? {}) as ContractSnapshot;
+        const changedFields = (Object.keys(CONTRACT_FIELD_LABELS) as (keyof ContractSnapshot)[]).filter(
+          (k) => JSON.stringify(before[k]) !== JSON.stringify(after[k])
+        );
+        const date = new Date(log.createdAt);
+        const dateStr = isNaN(date.getTime())
+          ? log.createdAt
+          : date.toLocaleDateString("pt-PT", { day: "2-digit", month: "short", year: "numeric" }) +
+            " " + date.toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" });
+
+        return (
+          <div key={log.id} className="rounded-xl border border-slate-200 bg-white px-4 py-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <span className="text-xs text-slate-500">{dateStr}</span>
+              {log.actor ? (
+                <span className="text-xs text-slate-400">por {log.actor}</span>
+              ) : null}
+            </div>
+            <div className="space-y-1">
+              {changedFields.map((k) => (
+                <div key={k} className="grid grid-cols-[120px_1fr_1fr] gap-2 text-sm">
+                  <span className="font-medium text-slate-700">{CONTRACT_FIELD_LABELS[k]}</span>
+                  <span className="text-slate-500 line-through">{formatContractValue(k, before[k])}</span>
+                  <span className="font-medium text-slate-900">→ {formatContractValue(k, after[k])}</span>
+                </div>
+              ))}
+              {changedFields.length === 0 && (
+                <p className="text-sm text-slate-400">{log.description}</p>
+              )}
+            </div>
+          </div>
+        );
+      })}
+    </div>
   );
 }

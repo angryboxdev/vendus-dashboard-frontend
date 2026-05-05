@@ -28,6 +28,8 @@ const ACTION_STYLES: Record<
   status_changed:         { label: "estado",       cls: "bg-orange-100 text-orange-800 ring-orange-200" },
   attendance_registered:  { label: "conferência",  cls: "bg-indigo-100 text-indigo-800 ring-indigo-200" },
   attendance_updated:     { label: "conf. editada",cls: "bg-indigo-100 text-indigo-800 ring-indigo-200" },
+  attendance_deleted:     { label: "conf. apagada",cls: "bg-red-100 text-red-800 ring-red-200" },
+  contract_changed:       { label: "contrato",     cls: "bg-amber-100 text-amber-800 ring-amber-200" },
   schedule_updated:       { label: "escala",       cls: "bg-violet-100 text-violet-800 ring-violet-200" },
   pin_set:                { label: "PIN",          cls: "bg-slate-100 text-slate-700 ring-slate-200" },
   kiosk_checkin:          { label: "entrada kiosk",cls: "bg-teal-100 text-teal-800 ring-teal-200" },

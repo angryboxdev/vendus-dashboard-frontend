@@ -4,6 +4,7 @@ import {
   apiGet,
   apiPatch,
   apiPost,
+  apiPostFormData,
 } from "../../lib/api";
 import type {
   AuditAction,
@@ -316,6 +317,53 @@ export async function fetchAuditLogs(
   if (params.offset != null) q.set("offset", String(params.offset));
   const qs = q.toString();
   return apiGet(`${HR}/audit-logs${qs ? `?${qs}` : ""}`);
+}
+
+export type ExpiringContract = HrEmployee & { daysRemaining: number };
+
+export async function fetchExpiringContracts(days = 30): Promise<ExpiringContract[]> {
+  return apiGet(`${HR}/employees/expiring-contracts?days=${days}`);
+}
+
+// ---------- Documents ----------
+
+export type DocumentType = "contract" | "id_card" | "nif" | "iban" | "other";
+
+export type HrEmployeeDocument = {
+  id: string;
+  employeeId: string;
+  documentType: DocumentType;
+  fileName: string;
+  storagePath: string;
+  uploadedAt: string;
+};
+
+export async function fetchDocuments(employeeId: string): Promise<HrEmployeeDocument[]> {
+  return apiGet(`${HR}/employees/${encodeURIComponent(employeeId)}/documents`);
+}
+
+export async function uploadDocument(
+  employeeId: string,
+  documentType: DocumentType,
+  file: File,
+): Promise<HrEmployeeDocument> {
+  const formData = new FormData();
+  formData.append("file", file);
+  formData.append("document_type", documentType);
+  return apiPostFormData(`${HR}/employees/${encodeURIComponent(employeeId)}/documents`, formData);
+}
+
+export async function getDocumentDownloadUrl(employeeId: string, docId: string): Promise<string> {
+  const res = await apiGet<{ url: string }>(
+    `${HR}/employees/${encodeURIComponent(employeeId)}/documents/${encodeURIComponent(docId)}/download-url`,
+  );
+  return res.url;
+}
+
+export async function deleteDocument(employeeId: string, docId: string): Promise<void> {
+  await apiDeleteNoContent(
+    `${HR}/employees/${encodeURIComponent(employeeId)}/documents/${encodeURIComponent(docId)}`,
+  );
 }
 
 // ---------- Leave / Ausências ----------

@@ -68,7 +68,9 @@ export type AuditAction =
   | "status_changed"
   | "attendance_registered"
   | "attendance_updated"
+  | "attendance_deleted"
   | "schedule_updated"
+  | "contract_changed"
   | "pin_set"
   | "kiosk_checkin"
   | "kiosk_checkout";

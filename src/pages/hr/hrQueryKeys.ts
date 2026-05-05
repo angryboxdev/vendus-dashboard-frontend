@@ -19,4 +19,6 @@ export const hrQueryKeys = {
     [...hrQueryKeys.root, "leave-overview", year] as const,
   leaveBalance: (employeeId: string, year: number) =>
     [...hrQueryKeys.root, "leave-balance", employeeId, year] as const,
+  documents: (employeeId: string) =>
+    [...hrQueryKeys.root, "documents", employeeId] as const,
 };
