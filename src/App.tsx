@@ -21,6 +21,8 @@ import { HrLeavePage } from "./pages/hr/HrLeavePage";
 import { HrReportPage } from "./pages/hr/HrReportPage";
 import { KioskDisplayPage } from "./pages/kiosk/KioskDisplayPage";
 import { KioskCheckinPage } from "./pages/kiosk/KioskCheckinPage";
+import { CashClosingPage } from "./pages/cashClosing/CashClosingPage";
+import { CashClosingsHubPage } from "./pages/cashClosing/CashClosingsHubPage";
 import { LoginPage } from "./pages/LoginPage";
 import { UsersPage } from "./pages/admin/UsersPage";
 import { PrintOrdersPage } from "./pages/orders/PrintOrdersPage";
@@ -38,6 +40,9 @@ export default function App() {
 
       {/* Impressão de pedidos — standalone sem auth (uso interno cozinha) */}
       <Route path="/print-orders" element={<PrintOrdersPage />} />
+
+      {/* Fecho de caixa — standalone sem auth */}
+      <Route path="/fecho" element={<CashClosingPage />} />
 
       {/* Layout principal com sidebar */}
       <Route
@@ -90,6 +95,7 @@ export default function App() {
                     element={<HrEmployeeDetailPage />}
                   />
                 </Route>
+                <Route path="/cash-closings" element={<CashClosingsHubPage />} />
                 <Route path="/admin/users" element={<UsersPage />} />
               </Routes>
             </main>

@@ -153,6 +153,10 @@ export function Sidebar() {
           )}
         </div>
 
+        <NavLink to="/cash-closings" className={navLinkClass}>
+          Fechos de Caixa
+        </NavLink>
+
         {user?.role === "admin" && (
           <NavLink
             to="/admin/users"
