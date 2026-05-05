@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost, API_BASE } from "../../lib/api";
+import { apiGet, apiPatch, API_BASE } from "../../lib/api";
 
 const BASE = "/api/cash-closings";
 
