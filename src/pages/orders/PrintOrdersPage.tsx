@@ -240,9 +240,13 @@ function PrintModal({
   onClose,
 }: {
   doc: VendusOrderDetail;
-  onPrint: () => void;
+  onPrint: (withSecondPage: boolean) => void;
   onClose: () => void;
 }) {
+  const isDelivery =
+    doc.channel === "delivery" || doc.channel === "take_away";
+  const [secondPage, setSecondPage] = useState(false);
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4">
       {/* Preview card */}
@@ -265,6 +269,19 @@ function PrintModal({
           </div>
         </div>
 
+        {/* Second page option — only for delivery/take_away */}
+        {isDelivery && (
+          <label className="flex cursor-pointer items-center gap-3 border-t border-slate-200 px-4 py-3">
+            <input
+              type="checkbox"
+              checked={secondPage}
+              onChange={(e) => setSecondPage(e.target.checked)}
+              className="h-4 w-4 rounded border-slate-300 accent-slate-800"
+            />
+            <span className="text-sm text-slate-700">Imprimir etiqueta de saco (2ª página)</span>
+          </label>
+        )}
+
         <div className="flex gap-3 border-t border-slate-200 p-4">
           <button
             type="button"
@@ -275,7 +292,7 @@ function PrintModal({
           </button>
           <button
             type="button"
-            onClick={onPrint}
+            onClick={() => onPrint(secondPage)}
             className="flex-1 rounded-lg bg-slate-900 py-2 text-sm font-semibold text-white hover:bg-slate-700"
           >
             🖨 Imprimir
@@ -301,6 +318,7 @@ export function PrintOrdersPage() {
     null,
   );
   const [printedIds, setPrintedIds] = useState<Set<string>>(loadPrinted);
+  const [printSecondPage, setPrintSecondPage] = useState(false);
   const prevIdsRef = useRef<Set<string>>(new Set());
 
   const {
@@ -339,10 +357,15 @@ export function PrintOrdersPage() {
     }
   }
 
-  function doPrint() {
-    window.print();
-    if (printDoc) markPrinted(String(printDoc.id));
-    setPrintDoc(null);
+  function doPrint(withSecondPage: boolean) {
+    setPrintSecondPage(withSecondPage);
+    // defer print so React re-renders the DOM before window.print() reads it
+    setTimeout(() => {
+      window.print();
+      if (printDoc) markPrinted(String(printDoc.id));
+      setPrintDoc(null);
+      setPrintSecondPage(false);
+    }, 0);
   }
 
   const lastRefresh = dataUpdatedAt
@@ -404,8 +427,7 @@ export function PrintOrdersPage() {
           <PrintTicket doc={printDoc} />
         </div>
       )}
-      {(printDoc?.channel === "delivery" ||
-        printDoc?.channel === "take_away") && (
+      {printDoc && printSecondPage && (
         <div id="print-page-2">
           <DeliveryLabel doc={printDoc} />
         </div>
@@ -528,7 +550,7 @@ export function PrintOrdersPage() {
       {printDoc && (
         <PrintModal
           doc={printDoc}
-          onPrint={doPrint}
+          onPrint={(withSecondPage) => doPrint(withSecondPage)}
           onClose={() => setPrintDoc(null)}
         />
       )}
