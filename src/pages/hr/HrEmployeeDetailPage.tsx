@@ -551,6 +551,20 @@ export function HrEmployeeDetailPage() {
 
   const { dirtyFields } = useFormState({ control: editForm.control });
   const editSalaryType = useWatch({ control: editForm.control, name: "salaryType" }) ?? "fixed";
+  const editBaseSalary = useWatch({ control: editForm.control, name: "baseSalary" });
+  const editHourlyRate = useWatch({ control: editForm.control, name: "hourlyRate" });
+
+  const salaryHints = (() => {
+    if (editSalaryType === "fixed") {
+      const v = typeof editBaseSalary === "number" && !isNaN(editBaseSalary) ? editBaseSalary : null;
+      if (!v) return null;
+      return { hourly: v / 176, daily: v / 22 };
+    } else {
+      const v = typeof editHourlyRate === "number" && !isNaN(editHourlyRate) ? editHourlyRate : null;
+      if (!v) return null;
+      return { hourly: v, daily: v * 8 };
+    }
+  })();
 
   useEffect(() => {
     if (!employee) return;
@@ -812,14 +826,24 @@ export function HrEmployeeDetailPage() {
               error={editForm.formState.errors.baseSalary?.message}
               unsavedChange={Boolean(dirtyFields.baseSalary)}
               input={
-                <input
-                  className={controlClass}
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  placeholder="ex: 1081.27"
-                  {...editForm.register("baseSalary", { valueAsNumber: true })}
-                />
+                <>
+                  <input
+                    className={controlClass}
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    placeholder="ex: 1081.27"
+                    {...editForm.register("baseSalary", { valueAsNumber: true })}
+                  />
+                  {salaryHints && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      ≈ <span className="font-medium">€{salaryHints.daily.toFixed(2)}/dia</span>
+                      {" · "}
+                      <span className="font-medium">€{salaryHints.hourly.toFixed(2)}/hora</span>
+                      <span className="ml-1 text-slate-400">(22 dias · 8h/dia)</span>
+                    </p>
+                  )}
+                </>
               }
             />
           ) : (
@@ -828,14 +852,22 @@ export function HrEmployeeDetailPage() {
               error={editForm.formState.errors.hourlyRate?.message}
               unsavedChange={Boolean(dirtyFields.hourlyRate)}
               input={
-                <input
-                  className={controlClass}
-                  type="number"
-                  min={0}
-                  step={0.01}
-                  placeholder="ex: 5.31"
-                  {...editForm.register("hourlyRate", { valueAsNumber: true })}
-                />
+                <>
+                  <input
+                    className={controlClass}
+                    type="number"
+                    min={0}
+                    step={0.01}
+                    placeholder="ex: 5.31"
+                    {...editForm.register("hourlyRate", { valueAsNumber: true })}
+                  />
+                  {salaryHints && (
+                    <p className="mt-1 text-xs text-slate-500">
+                      ≈ <span className="font-medium">€{salaryHints.daily.toFixed(2)}/dia</span>
+                      <span className="ml-1 text-slate-400">(8h/dia)</span>
+                    </p>
+                  )}
+                </>
               }
             />
           )}

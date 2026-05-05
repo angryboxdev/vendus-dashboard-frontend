@@ -6,9 +6,10 @@ import {
   fetchEmployees,
   fetchLeaveOverview,
   fetchPublicHolidays,
+  updateLeaveRequest,
 } from "./hrApi";
 import { hrQueryKeys } from "./hrQueryKeys";
-import type { HrEmployee, HrPublicHoliday, LeaveType } from "./hr.types";
+import type { HrEmployee, HrLeaveRequest, HrPublicHoliday, LeaveType } from "./hr.types";
 import {
   LEAVE_TYPE_COLORS,
   LEAVE_TYPE_LABELS,
@@ -83,21 +84,26 @@ function LegalLegend() {
 
 function LeaveFormModal({
   employees,
+  initialData,
   onClose,
 }: {
   employees: HrEmployee[];
+  initialData?: HrLeaveRequest;
   onClose: () => void;
 }) {
   const qc = useQueryClient();
   const today = getTodayLisbon();
-  const [employeeId, setEmployeeId] = useState(employees[0]?.id ?? "");
-  const [type, setType] = useState<LeaveType>("vacation");
-  const [startDate, setStartDate] = useState(today);
-  const [endDate, setEndDate] = useState(today);
-  const [notes, setNotes] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const isEdit = initialData != null;
 
-  const mutation = useMutation({
+  const [employeeId, setEmployeeId] = useState(initialData?.employeeId ?? employees[0]?.id ?? "");
+  const [type, setType] = useState<LeaveType>(initialData?.type ?? "vacation");
+  const [startDate, setStartDate] = useState(initialData?.startDate ?? today);
+  const [endDate, setEndDate] = useState(initialData?.endDate ?? today);
+  const [notes, setNotes] = useState(initialData?.notes ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const createMutation = useMutation({
     mutationFn: () =>
       createLeaveRequest(employeeId, { type, startDate, endDate, notes: notes || null }),
     onSuccess: () => {
@@ -107,53 +113,72 @@ function LeaveFormModal({
     onError: (e) => setError(e instanceof Error ? e.message : "Erro"),
   });
 
+  const editMutation = useMutation({
+    mutationFn: () =>
+      updateLeaveRequest(initialData!.id, { type, startDate, endDate, notes: notes || null }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: hrQueryKeys.root });
+      setSuccess(true);
+      setTimeout(onClose, 800);
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : "Erro"),
+  });
+
+  const mutation = isEdit ? editMutation : createMutation;
+
+  const inputCls = "w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500";
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-        <h3 className="text-base font-semibold text-slate-900">Registar ausência</h3>
+        <h3 className="text-base font-semibold text-slate-900">
+          {isEdit ? "Editar ausência" : "Registar ausência"}
+        </h3>
         <div className="mt-4 flex flex-col gap-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Funcionário</label>
-            <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
-              {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.fullName}</option>)}
-            </select>
+            {isEdit ? (
+              <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700">
+                {employees.find((e) => e.id === employeeId)?.fullName ?? employeeId}
+              </p>
+            ) : (
+              <select value={employeeId} onChange={(e) => setEmployeeId(e.target.value)} className={inputCls}>
+                {employees.map((emp) => <option key={emp.id} value={emp.id}>{emp.fullName}</option>)}
+              </select>
+            )}
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Tipo</label>
-            <select value={type} onChange={(e) => setType(e.target.value as LeaveType)}
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500">
+            <select value={type} onChange={(e) => setType(e.target.value as LeaveType)} className={inputCls}>
               {LEAVE_TYPES.map((t) => <option key={t} value={t}>{LEAVE_TYPE_LABELS[t]}</option>)}
             </select>
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Início</label>
-              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+              <input type="date" value={startDate} onChange={(e) => setStartDate(e.target.value)} className={inputCls} />
             </div>
             <div>
               <label className="mb-1 block text-xs font-medium text-slate-700">Fim</label>
-              <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)}
-                className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+              <input type="date" value={endDate} min={startDate} onChange={(e) => setEndDate(e.target.value)} className={inputCls} />
             </div>
           </div>
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Notas</label>
-            <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Opcional"
-              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
+            <input type="text" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="Opcional" className={inputCls} />
           </div>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          {success && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Ausência atualizada com sucesso.</p>}
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" onClick={onClose}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Cancelar
           </button>
-          <button type="button" disabled={mutation.isPending || !employeeId}
+          <button type="button" disabled={mutation.isPending || !employeeId || success}
             onClick={() => mutation.mutate()}
             className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
-            {mutation.isPending ? "A guardar…" : "Registar"}
+            {mutation.isPending ? "A guardar…" : isEdit ? "Guardar alterações" : "Registar"}
           </button>
         </div>
       </div>
@@ -177,6 +202,7 @@ export function HrLeavePage() {
   const [filterType, setFilterType] = useState<LeaveType | "">("");
   const [filterEmployee, setFilterEmployee] = useState("");
   const [creating, setCreating] = useState(false);
+  const [editing, setEditing] = useState<HrLeaveRequest | null>(null);
   const qc = useQueryClient();
 
   const { data: employees } = useQuery({
@@ -399,16 +425,25 @@ export function HrLeavePage() {
                     <td className="px-4 py-3 tabular-nums text-slate-600">{l.workingDays}</td>
                     <td className="px-4 py-3 text-slate-500">{l.notes ?? "—"}</td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        type="button"
-                        disabled={deleteMutation.isPending}
-                        onClick={() => {
-                          if (confirm("Remover este registo?")) deleteMutation.mutate(l.id);
-                        }}
-                        className="text-red-500 hover:underline disabled:opacity-50"
-                      >
-                        Remover
-                      </button>
+                      <div className="flex items-center justify-end gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setEditing(l)}
+                          className="text-indigo-600 hover:underline"
+                        >
+                          Editar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deleteMutation.isPending}
+                          onClick={() => {
+                            if (confirm("Remover este registo?")) deleteMutation.mutate(l.id);
+                          }}
+                          className="text-red-500 hover:underline disabled:opacity-50"
+                        >
+                          Remover
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -420,6 +455,9 @@ export function HrLeavePage() {
 
       {creating && (
         <LeaveFormModal employees={employees ?? []} onClose={() => setCreating(false)} />
+      )}
+      {editing && (
+        <LeaveFormModal employees={employees ?? []} initialData={editing} onClose={() => setEditing(null)} />
       )}
     </div>
   );

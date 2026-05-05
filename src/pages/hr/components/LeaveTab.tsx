@@ -8,6 +8,7 @@ import {
   fetchPublicHolidays,
   fetchShifts,
   updateLeaveBalance,
+  updateLeaveRequest,
 } from "../hrApi";
 import { hrQueryKeys } from "../hrQueryKeys";
 import type { HrEmployee, HrLeaveRequest, LeaveType } from "../hr.types";
@@ -159,20 +160,25 @@ function LeaveFormModal({
   employeeId,
   onClose,
   initialType = "vacation",
+  initialData,
 }: {
   employeeId: string;
   onClose: () => void;
   initialType?: LeaveType;
+  initialData?: HrLeaveRequest;
 }) {
   const qc = useQueryClient();
   const today = getTodayLisbon();
-  const [type, setType] = useState<LeaveType>(initialType);
-  const [startDate, setStartDate] = useState(today);
-  const [endDate, setEndDate] = useState(today);
-  const [notes, setNotes] = useState("");
-  const [error, setError] = useState<string | null>(null);
+  const isEdit = initialData != null;
 
-  const mutation = useMutation({
+  const [type, setType] = useState<LeaveType>(initialData?.type ?? initialType);
+  const [startDate, setStartDate] = useState(initialData?.startDate ?? today);
+  const [endDate, setEndDate] = useState(initialData?.endDate ?? today);
+  const [notes, setNotes] = useState(initialData?.notes ?? "");
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+
+  const createMutation = useMutation({
     mutationFn: () =>
       createLeaveRequest(employeeId, { type, startDate, endDate, notes: notes || null }),
     onSuccess: () => {
@@ -182,6 +188,19 @@ function LeaveFormModal({
     onError: (e) => setError(e instanceof Error ? e.message : "Erro"),
   });
 
+  const editMutation = useMutation({
+    mutationFn: () =>
+      updateLeaveRequest(initialData!.id, { type, startDate, endDate, notes: notes || null }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: hrQueryKeys.root });
+      setSuccess(true);
+      setTimeout(onClose, 800);
+    },
+    onError: (e) => setError(e instanceof Error ? e.message : "Erro"),
+  });
+
+  const mutation = isEdit ? editMutation : createMutation;
+
   // Extra legal hint when registering sick leave
   const showSickNote = type === "sick_leave";
   const showUnjustifiedNote = type === "unjustified";
@@ -189,7 +208,9 @@ function LeaveFormModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl">
-        <h3 className="text-base font-semibold text-slate-900">Registar ausência</h3>
+        <h3 className="text-base font-semibold text-slate-900">
+          {isEdit ? "Editar ausência" : "Registar ausência"}
+        </h3>
         <div className="mt-4 flex flex-col gap-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-slate-700">Tipo</label>
@@ -230,15 +251,16 @@ function LeaveFormModal({
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
           </div>
           {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+          {success && <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700">Ausência atualizada com sucesso.</p>}
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" onClick={onClose}
             className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50">
             Cancelar
           </button>
-          <button type="button" disabled={mutation.isPending} onClick={() => mutation.mutate()}
+          <button type="button" disabled={mutation.isPending || success} onClick={() => mutation.mutate()}
             className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">
-            {mutation.isPending ? "A guardar…" : "Registar"}
+            {mutation.isPending ? "A guardar…" : isEdit ? "Guardar alterações" : "Registar"}
           </button>
         </div>
       </div>
@@ -258,6 +280,7 @@ export function LeaveTab({
   const today = getTodayLisbon();
   const [year, setYear] = useState(Number(today.slice(0, 4)));
   const [creating, setCreating] = useState<LeaveType | false>(false);
+  const [editing, setEditing] = useState<HrLeaveRequest | null>(null);
   const qc = useQueryClient();
 
   const { data: leaves = [], isPending } = useQuery({
@@ -400,16 +423,25 @@ export function LeaveTab({
                   <td className="px-4 py-3 tabular-nums text-slate-600">{l.workingDays}</td>
                   <td className="px-4 py-3 text-slate-500">{l.notes ?? "—"}</td>
                   <td className="px-4 py-3 text-right">
-                    <button
-                      type="button"
-                      disabled={deleteMut.isPending}
-                      onClick={() => {
-                        if (confirm("Remover este registo?")) deleteMut.mutate(l.id);
-                      }}
-                      className="text-red-500 hover:underline disabled:opacity-50"
-                    >
-                      Remover
-                    </button>
+                    <div className="flex items-center justify-end gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setEditing(l)}
+                        className="text-indigo-600 hover:underline"
+                      >
+                        Editar
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deleteMut.isPending}
+                        onClick={() => {
+                          if (confirm("Remover este registo?")) deleteMut.mutate(l.id);
+                        }}
+                        className="text-red-500 hover:underline disabled:opacity-50"
+                      >
+                        Remover
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -420,6 +452,9 @@ export function LeaveTab({
 
       {creating && (
         <LeaveFormModal employeeId={employeeId} initialType={creating} onClose={() => setCreating(false)} />
+      )}
+      {editing && (
+        <LeaveFormModal employeeId={employeeId} initialData={editing} onClose={() => setEditing(null)} />
       )}
     </div>
   );

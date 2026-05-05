@@ -269,6 +269,14 @@ export function HrCalendarPage() {
     return m;
   }, [employees]);
 
+  const employeeIdsWithShifts = useMemo(() => {
+    const s = new Set<string>();
+    for (const shift of shifts ?? []) {
+      if (shift.attendance?.status !== "cancelled") s.add(shift.employeeId);
+    }
+    return s;
+  }, [shifts]);
+
   const byDate = useMemo(() => {
     const map = new Map<string, HrWorkShift[]>();
     for (const s of shifts ?? []) {
@@ -423,8 +431,8 @@ export function HrCalendarPage() {
           >
             Todos
           </button>
-          {employees.map((e, i) => {
-            const c = PALETTE[i % PALETTE.length];
+          {employees.filter((e) => employeeIdsWithShifts.has(e.id)).map((e, i) => {
+            const c = colorById.get(e.id) ?? PALETTE[i % PALETTE.length];
             const active = employeeId === e.id;
             return (
               <button
