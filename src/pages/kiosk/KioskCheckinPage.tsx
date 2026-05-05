@@ -32,6 +32,7 @@ function PinDots({ count }: { count: number }) {
 }
 
 export function KioskCheckinPage() {
+  useEffect(() => { document.title = "Registo de Ponto · Angry Box"; }, []);
   const [params] = useSearchParams();
   const token = params.get("token") ?? "";
   const date = params.get("date") ?? "";

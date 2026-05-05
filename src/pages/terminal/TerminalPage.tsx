@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 
 const APPS = [
@@ -41,6 +42,7 @@ const APPS = [
 
 export function TerminalPage() {
   const navigate = useNavigate();
+  useEffect(() => { document.title = "Angry Box"; }, []);
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-slate-900 px-6 py-12">

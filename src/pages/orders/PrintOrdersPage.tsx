@@ -310,6 +310,7 @@ const PER_PAGE_OPTIONS = [10, 25, 50, 100];
 const KITCHEN_TYPES = ["FS", "FT", "FR", "DC", "EC"];
 
 export function PrintOrdersPage() {
+  useEffect(() => { document.title = "Pedidos de Cozinha · Angry Box"; }, []);
   const [type, setType] = useState("FS");
   const [date, setDate] = useState(todayIso);
   const [perPage, setPerPage] = useState(10);

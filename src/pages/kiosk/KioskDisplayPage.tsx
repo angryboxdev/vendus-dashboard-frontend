@@ -25,6 +25,7 @@ function msUntilMidnightLisbon(): number {
 }
 
 export function KioskDisplayPage() {
+  useEffect(() => { document.title = "Registo de Ponto · Angry Box"; }, []);
   const [state, setState] = useState<TokenState>({ status: "loading" });
 
   async function loadToken() {

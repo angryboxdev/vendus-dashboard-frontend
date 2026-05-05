@@ -135,6 +135,7 @@ const INITIAL_FORM: FormData = {
 // ---------- Main component ----------
 
 export function CashClosingPage() {
+  useEffect(() => { document.title = "Fecho de Caixa · Angry Box"; }, []);
   const [step, setStep] = useState<Step>("pin");
   const [form, setForm] = useState<FormData>(INITIAL_FORM);
   const [loading, setLoading] = useState(false);
