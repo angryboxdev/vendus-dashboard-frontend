@@ -23,6 +23,7 @@ import { KioskDisplayPage } from "./pages/kiosk/KioskDisplayPage";
 import { KioskCheckinPage } from "./pages/kiosk/KioskCheckinPage";
 import { CashClosingPage } from "./pages/cashClosing/CashClosingPage";
 import { CashClosingsHubPage } from "./pages/cashClosing/CashClosingsHubPage";
+import { TerminalPage } from "./pages/terminal/TerminalPage";
 import { LoginPage } from "./pages/LoginPage";
 import { UsersPage } from "./pages/admin/UsersPage";
 import { PrintOrdersPage } from "./pages/orders/PrintOrdersPage";
@@ -40,6 +41,9 @@ export default function App() {
 
       {/* Impressão de pedidos — standalone sem auth (uso interno cozinha) */}
       <Route path="/print-orders" element={<PrintOrdersPage />} />
+
+      {/* Terminal — launcher standalone para funcionários */}
+      <Route path="/terminal" element={<TerminalPage />} />
 
       {/* Fecho de caixa — standalone sem auth */}
       <Route path="/fecho" element={<CashClosingPage />} />
