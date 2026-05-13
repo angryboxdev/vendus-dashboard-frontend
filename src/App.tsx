@@ -3,6 +3,7 @@ import { Navigate, Route, Routes } from "react-router-dom";
 import { CustosFixosPage } from "./pages/dre/CustosFixosPage";
 import { CustosVariaveisPage } from "./pages/dre/CustosVariaveisPage";
 import { DashboardPage } from "./pages/DashboardPage";
+import { AnalyticsDashboardPage } from "./pages/AnalyticsDashboardPage";
 import { DemonstrativoPage } from "./pages/dre/DemonstrativoPage";
 import { DreLayout } from "./pages/dre/DreLayout";
 import { ReceitaBrutaPage } from "./pages/dre/ReceitaBrutaPage";
@@ -57,7 +58,8 @@ export default function App() {
               <Sidebar />
               <main className="min-w-0 flex-1 overflow-auto">
                 <Routes>
-                <Route path="/" element={<DashboardPage />} />
+                <Route path="/" element={<AnalyticsDashboardPage />} />
+                <Route path="/analytics" element={<DashboardPage />} />
                 <Route
                   path="/dre"
                   element={<Navigate to="/dre/demonstrativo" replace />}

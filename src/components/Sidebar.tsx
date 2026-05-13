@@ -80,6 +80,9 @@ export function Sidebar() {
         <NavLink to="/" end className={navLinkClass}>
           Dashboard
         </NavLink>
+        <NavLink to="/analytics" className={navLinkClass}>
+          Vendus Analytics
+        </NavLink>
 
         <div className="mt-0.5">
           <button
