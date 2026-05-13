@@ -46,16 +46,36 @@ function nextYearMonth(year: number, month: number) {
   return { year, month: month + 1 };
 }
 
-/** Calcula minutos extra: actualEndTime − endTime se positivo. */
-function overtimeMinutes(
+/**
+ * Saldo líquido de minutos num turno (pode ser negativo).
+ * Se houver actualStartTime + actualEndTime: (real_trabalhado) − (planeado).
+ * Se só houver actualEndTime: actualEnd − plannedEnd (fallback).
+ */
+function netShiftMinutes(
+  plannedStart: string,
   plannedEnd: string,
+  actualStart: string | null,
   actualEnd: string | null,
 ): number {
-  if (!actualEnd) return 0;
-  const planned = parseTimeToMinutes(plannedEnd);
-  const actual = parseTimeToMinutes(actualEnd);
-  if (planned == null || actual == null) return 0;
-  return Math.max(0, actual - planned);
+  const plannedS = parseTimeToMinutes(plannedStart);
+  const plannedE = parseTimeToMinutes(plannedEnd);
+  if (plannedS == null || plannedE == null) return 0;
+  const plannedWorked = plannedE - plannedS;
+
+  if (actualStart && actualEnd) {
+    const actualS = parseTimeToMinutes(actualStart);
+    const actualE = parseTimeToMinutes(actualEnd);
+    if (actualS == null || actualE == null) return 0;
+    return (actualE - actualS) - plannedWorked;
+  }
+
+  if (actualEnd) {
+    const actualE = parseTimeToMinutes(actualEnd);
+    if (actualE == null) return 0;
+    return actualE - plannedE;
+  }
+
+  return 0;
 }
 
 function fmtMinutes(mins: number): string {
@@ -182,11 +202,17 @@ function SummaryCards({
           </p>
         </div>
       )}
-      {salaryType === "fixed" && overtimeMins > 0 && (
-        <div className="col-span-2 rounded-xl border border-amber-200 bg-amber-50 p-3 sm:col-span-4">
-          <p className="text-xs font-medium text-amber-800">
-            Horas extra este mês: <span className="font-bold">{fmtMinutes(overtimeMins)}</span>
-            {" "}— verifique se há bónus ou compensação a registar.
+      {salaryType === "fixed" && overtimeMins !== 0 && (
+        <div className={`col-span-2 rounded-xl border p-3 sm:col-span-4 ${
+          overtimeMins > 0
+            ? "border-amber-200 bg-amber-50"
+            : "border-red-200 bg-red-50"
+        }`}>
+          <p className={`text-xs font-medium ${overtimeMins > 0 ? "text-amber-800" : "text-red-700"}`}>
+            {overtimeMins > 0
+              ? <>Horas extra este mês: <span className="font-bold">{fmtMinutes(overtimeMins)}</span> — verifique se há bónus ou compensação a registar.</>
+              : <>Horas em falta este mês: <span className="font-bold">{fmtMinutes(Math.abs(overtimeMins))}</span> — verifique se há desconto a aplicar.</>
+            }
           </p>
         </div>
       )}
@@ -200,12 +226,14 @@ export function PaymentsTab({
   employeeId,
   employee,
   onCreatePayment,
+  onCreateDeduction,
   onEditPayment,
   onDeletePayment,
 }: {
   employeeId: string;
   employee: HrEmployee | null;
   onCreatePayment: () => void;
+  onCreateDeduction: () => void;
   onEditPayment: (p: HrEmployeePayment) => void;
   onDeletePayment: (p: HrEmployeePayment) => void;
 }) {
@@ -266,7 +294,12 @@ export function PaymentsTab({
   const totalOvertimeMins = useMemo(
     () => shifts.reduce((sum, s) => {
       if (s.attendance?.status === "cancelled" || !s.attendance) return sum;
-      return sum + overtimeMinutes(s.endTime, s.attendance.actualEndTime);
+      return sum + netShiftMinutes(
+        s.startTime,
+        s.endTime,
+        s.attendance.actualStartTime,
+        s.attendance.actualEndTime,
+      );
     }, 0),
     [shifts],
   );
@@ -302,6 +335,10 @@ export function PaymentsTab({
               Exportar CSV
             </button>
           )}
+          <button type="button" onClick={onCreateDeduction}
+            className="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50">
+            Novo desconto
+          </button>
           <button type="button" onClick={onCreatePayment}
             className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700">
             Novo pagamento

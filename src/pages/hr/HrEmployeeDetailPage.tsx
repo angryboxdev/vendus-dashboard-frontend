@@ -57,6 +57,7 @@ import {
   type HrAuditLog,
   type HrEmployeePayment,
   type HrLeaveRequest,
+  type HrPaymentType,
   type HrWorkShift,
 } from "./hr.types";
 import { defaultWeeklyScheduleFor } from "./weeklySchedulePresets";
@@ -187,7 +188,7 @@ export function HrEmployeeDetailPage() {
   const [attendanceModal, setAttendanceModal] = useState<HrWorkShift | null>(
     null,
   );
-  const [payModal, setPayModal] = useState<"create" | HrEmployeePayment | null>(
+  const [payModal, setPayModal] = useState<"create" | "create-deduction" | HrEmployeePayment | null>(
     null,
   );
   const [applyMonthOpen, setApplyMonthOpen] = useState(false);
@@ -1241,6 +1242,7 @@ export function HrEmployeeDetailPage() {
           employeeId={id}
           employee={employee ?? null}
           onCreatePayment={() => setPayModal("create")}
+          onCreateDeduction={() => setPayModal("create-deduction")}
           onEditPayment={(p) => setPayModal(p)}
           onDeletePayment={(p) => {
             if (window.confirm("Remover este pagamento?")) deletePayMut.mutate(p.id);
@@ -1350,9 +1352,10 @@ export function HrEmployeeDetailPage() {
 
       {payModal ? (
         <PaymentModal
-          key={payModal === "create" ? "create" : payModal.id}
-          mode={payModal === "create" ? "create" : "edit"}
-          initial={payModal === "create" ? null : payModal}
+          key={payModal === "create" || payModal === "create-deduction" ? payModal : payModal.id}
+          mode={payModal === "create" || payModal === "create-deduction" ? "create" : "edit"}
+          defaultPaymentType={payModal === "create-deduction" ? "deduction" : undefined}
+          initial={payModal === "create" || payModal === "create-deduction" ? null : payModal}
           onClose={() => setPayModal(null)}
           loading={createPayMut.isPending || updatePayMut.isPending}
           onSubmit={(values) => {
@@ -1553,12 +1556,14 @@ function ShiftModal({
 function PaymentModal({
   mode,
   initial,
+  defaultPaymentType,
   onClose,
   loading,
   onSubmit,
 }: {
   mode: "create" | "edit";
   initial: HrEmployeePayment | null;
+  defaultPaymentType?: HrPaymentType;
   onClose: () => void;
   loading: boolean;
   onSubmit: (v: PaymentFormValues) => void;
@@ -1580,7 +1585,7 @@ function PaymentModal({
       : {
           paymentDate: getCivilMonthRangeIso(ymNow.year, ymNow.month).from,
           amount: 0,
-          paymentType: "salary",
+          paymentType: defaultPaymentType ?? "salary",
           notes: "",
           salaryPeriod: defaultSalaryPeriod,
         },
@@ -1593,7 +1598,7 @@ function PaymentModal({
 
   return (
     <Modal
-      title={mode === "create" ? "Novo pagamento" : "Editar pagamento"}
+      title={mode === "create" ? (paymentType === "deduction" ? "Novo desconto" : "Novo pagamento") : "Editar pagamento"}
       onClose={onClose}
       footer={
         <div className="flex justify-end gap-2">
@@ -1658,7 +1663,7 @@ function PaymentModal({
             </select>
           }
         />
-        {(paymentType === "salary" || paymentType === "bonus") ? (
+        {(paymentType === "salary" || paymentType === "bonus" || paymentType === "deduction") ? (
           <Field
             label={paymentType === "salary" ? "Salário referente a *" : "Mês de referência"}
             error={form.formState.errors.salaryPeriod?.message}
@@ -1672,11 +1677,12 @@ function PaymentModal({
           />
         ) : null}
         <Field
-          label="Notas"
+          label={paymentType === "deduction" ? "Descrição" : "Notas"}
           error={form.formState.errors.notes?.message}
           input={
             <textarea
               className={`${controlClassModal} min-h-[72px]`}
+              placeholder={paymentType === "deduction" ? "ex: Falta dia 5, Adiantamento de maio…" : ""}
               {...form.register("notes")}
             />
           }

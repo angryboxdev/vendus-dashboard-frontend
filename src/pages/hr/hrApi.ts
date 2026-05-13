@@ -228,7 +228,7 @@ export function paymentFormValuesToApiBody(
     paymentType: v.paymentType,
     notes: v.notes?.trim() || null,
   };
-  if (v.paymentType === "salary" || v.paymentType === "bonus") {
+  if (v.paymentType === "salary" || v.paymentType === "bonus" || v.paymentType === "deduction") {
     const m = /^(\d{4})-(\d{2})$/.exec(v.salaryPeriod.trim());
     if (m) {
       body.salaryPeriodYear = Number(m[1]);
