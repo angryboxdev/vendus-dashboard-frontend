@@ -760,20 +760,18 @@ export function HrEmployeeDetailPage() {
               />
             }
           />
-          <div className="md:col-span-2">
-            <Field
-              label="Morada"
-              error={editForm.formState.errors.address?.message}
-              unsavedChange={Boolean(dirtyFields.address)}
-              input={
-                <input
-                  className={controlClass}
-                  placeholder="ex: Rua Example 123, 1000-001 Lisboa"
-                  {...editForm.register("address")}
-                />
-              }
-            />
-          </div>
+          <Field
+            label="Morada"
+            error={editForm.formState.errors.address?.message}
+            unsavedChange={Boolean(dirtyFields.address)}
+            input={
+              <input
+                className={controlClass}
+                placeholder="ex: Rua Example 123, 1000-001 Lisboa"
+                {...editForm.register("address")}
+              />
+            }
+          />
           <Field
             label="Estado"
             error={editForm.formState.errors.status?.message}
@@ -1403,7 +1401,7 @@ export function HrEmployeeDetailPage() {
           onClose={() => setPayModal(null)}
           loading={createPayMut.isPending || updatePayMut.isPending}
           onSubmit={(values) => {
-            if (payModal === "create") {
+            if (payModal === "create" || payModal === "create-deduction") {
               createPayMut.mutate({ employeeId: id, values });
             } else {
               updatePayMut.mutate({ pid: payModal.id, values });

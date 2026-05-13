@@ -67,6 +67,9 @@ export type CreateEmployeeBody = {
   baseSalary?: number | null;
   salaryType?: "fixed" | "hourly";
   hourlyRate?: number | null;
+  nif?: string | null;
+  iban?: string | null;
+  address?: string | null;
 };
 
 export async function createEmployee(
