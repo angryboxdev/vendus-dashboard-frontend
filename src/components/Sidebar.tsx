@@ -51,7 +51,24 @@ function ChevronDown({ open }: { open: boolean }) {
   );
 }
 
-export function Sidebar() {
+function HamburgerIcon() {
+  return (
+    <svg
+      className="h-5 w-5 text-slate-600"
+      viewBox="0 0 20 20"
+      fill="currentColor"
+      aria-hidden="true"
+    >
+      <path
+        fillRule="evenodd"
+        d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 5A.75.75 0 012.75 9h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 9.75zm0 5a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z"
+        clipRule="evenodd"
+      />
+    </svg>
+  );
+}
+
+function SidebarContent({ onNavClick }: { onNavClick: () => void }) {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, signOut } = useAuth();
@@ -72,15 +89,15 @@ export function Sidebar() {
   }
 
   return (
-    <aside className="flex w-56 flex-shrink-0 flex-col border-r border-slate-200 bg-white">
+    <>
       <div className="p-4">
         <h1 className="text-lg font-semibold text-slate-800">Angry Box Hub</h1>
       </div>
       <nav className="flex flex-1 flex-col gap-0.5 px-3 pb-4">
-        <NavLink to="/" end className={navLinkClass}>
+        <NavLink to="/" end className={navLinkClass} onClick={onNavClick}>
           Dashboard
         </NavLink>
-        <NavLink to="/analytics" className={navLinkClass}>
+        <NavLink to="/analytics" className={navLinkClass} onClick={onNavClick}>
           Vendus Analytics
         </NavLink>
 
@@ -100,7 +117,7 @@ export function Sidebar() {
           {dreExpanded && (
             <div className="mt-0.5 flex flex-col gap-0.5 pl-1">
               {dreNavItems.map(({ to, label }) => (
-                <NavLink key={to} to={to} className={navLinkClass}>
+                <NavLink key={to} to={to} className={navLinkClass} onClick={onNavClick}>
                   {label}
                 </NavLink>
               ))}
@@ -124,7 +141,7 @@ export function Sidebar() {
           {stockExpanded && (
             <div className="mt-0.5 flex flex-col gap-0.5 pl-1">
               {stockNavItems.map(({ to, label }) => (
-                <NavLink key={to} to={to} className={navLinkClass}>
+                <NavLink key={to} to={to} className={navLinkClass} onClick={onNavClick}>
                   {label}
                 </NavLink>
               ))}
@@ -148,7 +165,7 @@ export function Sidebar() {
           {hrExpanded && (
             <div className="mt-0.5 flex flex-col gap-0.5 pl-1">
               {hrNavItems.map(({ to, label }) => (
-                <NavLink key={to} to={to} className={navLinkClass}>
+                <NavLink key={to} to={to} className={navLinkClass} onClick={onNavClick}>
                   {label}
                 </NavLink>
               ))}
@@ -156,13 +173,14 @@ export function Sidebar() {
           )}
         </div>
 
-        <NavLink to="/cash-closings" className={navLinkClass}>
+        <NavLink to="/cash-closings" className={navLinkClass} onClick={onNavClick}>
           Fechos de Caixa
         </NavLink>
 
         {user?.role === "admin" && (
           <NavLink
             to="/admin/users"
+            onClick={onNavClick}
             className={`mt-0.5 block rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
               isAdminPath
                 ? "bg-slate-100 text-slate-900"
@@ -185,6 +203,54 @@ export function Sidebar() {
           Sair
         </button>
       </div>
-    </aside>
+    </>
+  );
+}
+
+export function Sidebar() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  function closeMobile() {
+    setMobileOpen(false);
+  }
+
+  return (
+    <>
+      {/* Desktop sidebar */}
+      <aside className="hidden md:flex w-56 flex-shrink-0 flex-col border-r border-slate-200 bg-white">
+        <SidebarContent onNavClick={() => {}} />
+      </aside>
+
+      {/* Mobile top bar */}
+      <div className="fixed top-0 inset-x-0 z-30 flex h-12 items-center gap-3 border-b border-slate-200 bg-white px-4 md:hidden">
+        <button
+          type="button"
+          onClick={() => setMobileOpen(true)}
+          className="rounded-lg p-1 hover:bg-slate-100"
+          aria-label="Abrir menu"
+        >
+          <HamburgerIcon />
+        </button>
+        <span className="text-base font-semibold text-slate-800">Angry Box Hub</span>
+      </div>
+
+      {/* Mobile overlay */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black/30 md:hidden"
+          onClick={closeMobile}
+          aria-hidden="true"
+        />
+      )}
+
+      {/* Mobile drawer */}
+      <aside
+        className={`fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r border-slate-200 bg-white transition-transform duration-200 md:hidden ${
+          mobileOpen ? "translate-x-0" : "-translate-x-full"
+        }`}
+      >
+        <SidebarContent onNavClick={closeMobile} />
+      </aside>
+    </>
   );
 }

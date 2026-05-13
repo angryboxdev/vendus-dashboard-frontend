@@ -56,7 +56,7 @@ export default function App() {
           <ProtectedRoute>
             <div className="flex min-h-screen bg-slate-100">
               <Sidebar />
-              <main className="min-w-0 flex-1 overflow-auto">
+              <main className="min-w-0 flex-1 overflow-auto pt-12 md:pt-0">
                 <Routes>
                 <Route path="/" element={<AnalyticsDashboardPage />} />
                 <Route path="/analytics" element={<DashboardPage />} />

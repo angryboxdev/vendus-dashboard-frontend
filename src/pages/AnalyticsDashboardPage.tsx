@@ -241,7 +241,7 @@ function KpiCardSkeleton({ title, badgeLabel, variant }: { title: string; badgeL
         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.badge} opacity-50`}>{badgeLabel}</span>
       </div>
       <div className="animate-pulse space-y-2">
-        <div className="h-8 bg-slate-100 rounded w-2/3" />
+        <div className="h-7 bg-slate-100 rounded w-2/3" />
         <div className="h-3 bg-slate-100 rounded w-full" />
       </div>
       <div className="h-1.5 w-full rounded-full bg-slate-100 animate-pulse" />
@@ -267,16 +267,16 @@ function KpiCard({
   const s = variantStyles[variant];
   return (
     <div className={`rounded-2xl border border-slate-200 bg-white p-5 flex flex-col gap-3 shadow-sm ${footerAlert ? "ring-2 ring-red-300" : ""}`}>
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <span className={`w-2.5 h-2.5 rounded-full ${s.dot}`} />
-          <span className="text-sm font-semibold text-slate-700">{title}</span>
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <span className={`w-2.5 h-2.5 rounded-full ${s.dot} flex-shrink-0`} />
+          <span className="text-sm font-semibold text-slate-700 truncate">{title}</span>
           {tooltip && <TooltipIcon text={tooltip} />}
         </div>
         <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${s.badge}`}>{badgeLabel}</span>
       </div>
       <div>
-        <p className="text-3xl font-bold text-slate-900 tracking-tight">{value}</p>
+        <p className="text-2xl font-bold text-slate-900 tracking-tight">{value}</p>
         <p className="text-xs text-slate-500 mt-1">{subtitle}</p>
       </div>
       {comparison !== undefined && <ComparisonLine comparison={comparison ?? null} />}
@@ -400,7 +400,7 @@ export function AnalyticsDashboardPage() {
 
   return (
     <div className="min-h-full bg-slate-50">
-      <div className="mx-auto max-w-6xl p-6 flex flex-col gap-6">
+      <div className="mx-auto max-w-7xl p-4 flex flex-col gap-4">
 
         {/* Header */}
         <div className="flex flex-wrap items-start justify-between gap-4">
@@ -453,14 +453,23 @@ export function AnalyticsDashboardPage() {
           </div>
         )}
 
-        {/* Initial skeleton */}
+        {/* Initial skeleton — espelha o layout real: 2 linhas de 4 cards */}
         {loadingCurrent && !c && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-            {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="rounded-2xl border border-slate-200 bg-white p-5 h-44 animate-pulse">
-                <div className="h-3 bg-slate-100 rounded w-1/2 mb-3" />
-                <div className="h-8 bg-slate-100 rounded w-2/3 mb-2" />
-                <div className="h-2 bg-slate-100 rounded w-full mt-auto" />
+          <div className="flex flex-col gap-4">
+            {[4, 4].map((cols, row) => (
+              <div key={row} className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                {Array.from({ length: cols }).map((_, i) => (
+                  <div key={i} className="rounded-2xl border border-slate-200 bg-white p-5 h-40 animate-pulse flex flex-col gap-3">
+                    <div className="flex justify-between">
+                      <div className="h-3 bg-slate-100 rounded w-1/2" />
+                      <div className="h-3 bg-slate-100 rounded w-1/6" />
+                    </div>
+                    <div className="h-7 bg-slate-100 rounded w-2/3" />
+                    <div className="h-2.5 bg-slate-100 rounded w-full" />
+                    <div className="h-1.5 bg-slate-100 rounded w-full mt-auto" />
+                    <div className="h-2.5 bg-slate-100 rounded w-3/4" />
+                  </div>
+                ))}
               </div>
             ))}
           </div>
@@ -487,8 +496,8 @@ export function AnalyticsDashboardPage() {
               </div>
             </div>
 
-            {/* KPI cards — linha 1 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* KPI cards — linha 1: dados rápidos */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {c.today ? (
                 <KpiCard
                   title="Faturação hoje"
@@ -498,12 +507,7 @@ export function AnalyticsDashboardPage() {
                   subtitle="Valor bruto registado no dia atual"
                   comparison={todayWeekdayComparison}
                   progressPct={c.today.vs_daily_avg_pct > 0 ? Math.min(c.today.vs_daily_avg_pct, 100) : 0}
-                  footerLabel={
-                    c.today.vs_daily_avg_pct >= 0
-                      ? `+${c.today.vs_daily_avg_pct.toFixed(1).replace(".", ",")}% vs. média diária`
-                      : `${c.today.vs_daily_avg_pct.toFixed(1).replace(".", ",")}% vs. média diária`
-                  }
-                  footerAlert={c.today.is_below_threshold}
+                  footerLabel={`${c.today.documents_count} documento${c.today.documents_count !== 1 ? "s" : ""} hoje`}
                 />
               ) : (
                 <KpiCard
@@ -537,10 +541,7 @@ export function AnalyticsDashboardPage() {
                 progressPct={100}
                 footerLabel="Base para projeção do mês"
               />
-            </div>
 
-            {/* KPI cards — linha 2 */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               <KpiCard
                 title="Faturação esperada"
                 badgeLabel="Prev."
@@ -551,7 +552,10 @@ export function AnalyticsDashboardPage() {
                 footerLabel={`Estimativa: média diária × ${c.month.days_in_month} dias`}
                 tooltip={`Projeção calculada com a fórmula simples: média diária (${formatEUR(c.month.daily_avg)}) × total de dias do mês (${c.month.days_in_month}). Pressupõe que todos os dias restantes têm o mesmo volume médio.`}
               />
+            </div>
 
+            {/* KPI cards — linha 2: dados lentos + ticket */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {histLoading ? (
                 <KpiCardSkeleton title="Faturação anual" badgeLabel="Ano" variant="blue" />
               ) : historical ? (
@@ -584,42 +588,21 @@ export function AnalyticsDashboardPage() {
               ) : (
                 <KpiCard title="Faturação total" badgeLabel="Total" variant="indigo" value="—" subtitle="Indisponível" footerLabel="" />
               )}
-            </div>
 
-            {/* Ticket médio + leitura rápida */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm flex flex-col gap-2">
-                <div className="flex items-center gap-1.5">
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
-                  <span className="text-sm font-semibold text-slate-700">Ticket médio</span>
-                </div>
-                <div>
-                  <p className="text-3xl font-bold text-slate-900">{formatEUR(c.month.avg_ticket)}</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Faturação ÷ {c.month.documents_count} documentos{c.today ? " (exc. hoje)" : ""}
-                  </p>
-                </div>
-                <ComparisonLine comparison={avgTicketComparison ?? null} />
-              </div>
-
-              <div className="sm:col-span-2 rounded-2xl border border-green-200 bg-green-50 p-5 shadow-sm flex items-center gap-3">
-                <span className="w-2.5 h-2.5 rounded-full bg-green-500 flex-shrink-0" />
-                <div className="text-sm text-slate-700">
-                  <span className="font-semibold text-green-700">Leitura rápida</span>
-                  {" — "}
-                  Média diária de {formatEUR(c.month.daily_avg)}
-                  {c.today && c.today.is_below_threshold && (
-                    <span className="ml-1 text-red-600 font-medium">
-                      • Alerta: hoje está {formatPct(Math.abs(c.today.vs_daily_avg_pct), false)} abaixo da média
-                    </span>
-                  )}
-                  {(!c.today || !c.today.is_below_threshold) && (
-                    <span className="ml-1 text-slate-500">
-                      ; projeção mensal de {formatEUR(c.month.expected_gross)}
-                    </span>
-                  )}
-                </div>
-              </div>
+              {histLoading ? (
+                <KpiCardSkeleton title="Ticket médio" badgeLabel="Ticket" variant="green" />
+              ) : (
+                <KpiCard
+                  title="Ticket médio"
+                  badgeLabel="Ticket"
+                  variant="green"
+                  value={formatEUR(c.month.avg_ticket)}
+                  subtitle={`Faturação ÷ ${c.month.documents_count} documentos${c.today ? " (exc. hoje)" : ""}`}
+                  comparison={avgTicketComparison}
+                  progressPct={undefined}
+                  footerLabel="Valor médio por documento"
+                />
+              )}
             </div>
 
             {/* Gráficos */}
@@ -632,22 +615,24 @@ export function AnalyticsDashboardPage() {
                 {c.by_weekday.every((d) => d.gross === 0) ? (
                   <p className="text-sm text-slate-400 text-center py-8">Sem dados para o período</p>
                 ) : (
-                  <>
-                    <BarChart
-                      data={c.by_weekday as unknown as Array<Record<string, unknown>>}
-                      valueKey="avg_gross"
-                      labelKey="label"
-                      color="bg-purple-400"
-                    />
-                    <div className="mt-3 grid grid-cols-7 gap-1">
-                      {c.by_weekday.map((d) => (
-                        <div key={d.weekday} className="text-center">
-                          <p className="text-[10px] font-semibold text-slate-700">{formatEUR(d.avg_gross)}</p>
-                          <p className="text-[9px] text-slate-400">{d.days_count}d</p>
-                        </div>
-                      ))}
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[380px]">
+                      <BarChart
+                        data={c.by_weekday as unknown as Array<Record<string, unknown>>}
+                        valueKey="avg_gross"
+                        labelKey="label"
+                        color="bg-purple-400"
+                      />
+                      <div className="mt-3 grid grid-cols-7 gap-1">
+                        {c.by_weekday.map((d) => (
+                          <div key={d.weekday} className="text-center">
+                            <p className="text-[10px] font-semibold text-slate-700">{formatEUR(d.avg_gross)}</p>
+                            <p className="text-[9px] text-slate-400">{d.days_count}d</p>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                  </>
+                  </div>
                 )}
               </div>
 
@@ -665,30 +650,32 @@ export function AnalyticsDashboardPage() {
                 {histLoading ? (
                   <BarChartSkeleton bars={6} />
                 ) : historical ? (
-                  <>
-                    <BarChart
-                      data={historical.monthly_growth as unknown as Array<Record<string, unknown>>}
-                      valueKey="gross"
-                      labelKey="label"
-                      color="bg-blue-400"
-                    />
-                    <div className="mt-3 grid gap-1" style={{ gridTemplateColumns: `repeat(${historical.monthly_growth.length}, 1fr)` }}>
-                      {historical.monthly_growth.map((d, i) => {
-                        const prev = i > 0 ? historical.monthly_growth[i - 1].gross : null;
-                        const growthPct = prev !== null && prev > 0 ? ((d.gross - prev) / prev) * 100 : null;
-                        return (
-                          <div key={i} className="text-center">
-                            <p className="text-[10px] font-semibold text-slate-700">{formatEUR(d.gross)}</p>
-                            {growthPct !== null && (
-                              <p className={`text-[9px] font-medium ${growthPct >= 0 ? "text-green-600" : "text-red-500"}`}>
-                                {formatPct(growthPct)}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
+                  <div className="overflow-x-auto">
+                    <div className="min-w-[380px]">
+                      <BarChart
+                        data={historical.monthly_growth as unknown as Array<Record<string, unknown>>}
+                        valueKey="gross"
+                        labelKey="label"
+                        color="bg-blue-400"
+                      />
+                      <div className="mt-3 grid gap-1" style={{ gridTemplateColumns: `repeat(${historical.monthly_growth.length}, 1fr)` }}>
+                        {historical.monthly_growth.map((d, i) => {
+                          const prev = i > 0 ? historical.monthly_growth[i - 1].gross : null;
+                          const growthPct = prev !== null && prev > 0 ? ((d.gross - prev) / prev) * 100 : null;
+                          return (
+                            <div key={i} className="text-center">
+                              <p className="text-[10px] font-semibold text-slate-700">{formatEUR(d.gross)}</p>
+                              {growthPct !== null && (
+                                <p className={`text-[9px] font-medium ${growthPct >= 0 ? "text-green-600" : "text-red-500"}`}>
+                                  {formatPct(growthPct)}
+                                </p>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </>
+                  </div>
                 ) : null}
               </div>
             </div>
