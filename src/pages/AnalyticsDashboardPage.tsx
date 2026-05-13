@@ -477,25 +477,6 @@ export function AnalyticsDashboardPage() {
 
         {c && (
           <div className={`space-y-6 ${loadingCurrent ? "opacity-40 pointer-events-none transition-opacity duration-200" : "transition-opacity duration-200"}`}>
-            {/* Resumo executivo */}
-            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-bold text-slate-800">Resumo executivo</h2>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Período: {formatDatePt(c.period.from)} a {formatDatePt(c.period.to)}
-                    {" "}• {c.period.documents_count} documentos
-                  </p>
-                </div>
-                <div className="flex flex-wrap items-center gap-3 text-xs">
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-blue-500" />Atual</span>
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-yellow-400" />Projetado</span>
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-green-500" />Média</span>
-                  <span className="flex items-center gap-1.5"><span className="w-2 h-2 rounded-full bg-indigo-500" />Histórico</span>
-                </div>
-              </div>
-            </div>
-
             {/* KPI cards — linha 1: dados rápidos */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {c.today ? (
@@ -550,7 +531,7 @@ export function AnalyticsDashboardPage() {
                 subtitle={`Projeção para o final de ${MONTH_NAMES[c.period.month - 1]}`}
                 progressPct={c.month.pct_of_expected}
                 footerLabel={`Estimativa: média diária × ${c.month.days_in_month} dias`}
-                tooltip={`Projeção calculada com a fórmula simples: média diária (${formatEUR(c.month.daily_avg)}) × total de dias do mês (${c.month.days_in_month}). Pressupõe que todos os dias restantes têm o mesmo volume médio.`}
+                tooltip={`Projeção ponderada por dia da semana: sábados e domingos valem 2× um dia útil. Regra: acumulado ÷ peso dos dias decorridos × peso total do mês. Exemplo: um mês com 20 dias úteis e 8 fins de semana tem peso total de 36 (20×1 + 8×2).`}
               />
             </div>
 
