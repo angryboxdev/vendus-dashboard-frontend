@@ -164,6 +164,9 @@ function toPatchEmployeeBody(v: EmployeeEditFormValues): PatchEmployeeBody {
     salaryType: v.salaryType ?? "fixed",
     baseSalary: !v.baseSalary || typeof v.baseSalary !== "number" || isNaN(v.baseSalary) ? null : v.baseSalary,
     hourlyRate: !v.hourlyRate || typeof v.hourlyRate !== "number" || isNaN(v.hourlyRate) ? null : v.hourlyRate,
+    nif: v.nif?.trim() || null,
+    iban: v.iban?.trim() || null,
+    address: v.address?.trim() || null,
   };
 }
 
@@ -582,6 +585,9 @@ export function HrEmployeeDetailPage() {
       salaryType: employee.salaryType ?? "fixed",
       baseSalary: employee.baseSalary ?? "",
       hourlyRate: employee.hourlyRate ?? "",
+      nif: employee.nif ?? "",
+      iban: employee.iban ?? "",
+      address: employee.address ?? "",
     });
   }, [employee, editForm]);
 
@@ -730,6 +736,44 @@ export function HrEmployeeDetailPage() {
               <input className={controlClass} {...editForm.register("phone")} />
             }
           />
+          <Field
+            label="NIF"
+            error={editForm.formState.errors.nif?.message}
+            unsavedChange={Boolean(dirtyFields.nif)}
+            input={
+              <input
+                className={controlClass}
+                placeholder="ex: 123456789"
+                {...editForm.register("nif")}
+              />
+            }
+          />
+          <Field
+            label="IBAN"
+            error={editForm.formState.errors.iban?.message}
+            unsavedChange={Boolean(dirtyFields.iban)}
+            input={
+              <input
+                className={controlClass}
+                placeholder="ex: PT50 0000 0000 0000 0000 0000 0"
+                {...editForm.register("iban")}
+              />
+            }
+          />
+          <div className="md:col-span-2">
+            <Field
+              label="Morada"
+              error={editForm.formState.errors.address?.message}
+              unsavedChange={Boolean(dirtyFields.address)}
+              input={
+                <input
+                  className={controlClass}
+                  placeholder="ex: Rua Example 123, 1000-001 Lisboa"
+                  {...editForm.register("address")}
+                />
+              }
+            />
+          </div>
           <Field
             label="Estado"
             error={editForm.formState.errors.status?.message}
