@@ -167,6 +167,12 @@ function toPatchEmployeeBody(v: EmployeeEditFormValues): PatchEmployeeBody {
     nif: v.nif?.trim() || null,
     iban: v.iban?.trim() || null,
     address: v.address?.trim() || null,
+    birthDate: v.birthDate?.trim() || null,
+    socialSecurityNumber: v.socialSecurityNumber?.trim() || null,
+    idCardNumber: v.idCardNumber?.trim() || null,
+    nationality: v.nationality?.trim() || null,
+    emergencyContactName: v.emergencyContactName?.trim() || null,
+    emergencyContactPhone: v.emergencyContactPhone?.trim() || null,
   };
 }
 
@@ -588,6 +594,12 @@ export function HrEmployeeDetailPage() {
       nif: employee.nif ?? "",
       iban: employee.iban ?? "",
       address: employee.address ?? "",
+      birthDate: employee.birthDate ?? "",
+      socialSecurityNumber: employee.socialSecurityNumber ?? "",
+      idCardNumber: employee.idCardNumber ?? "",
+      nationality: employee.nationality ?? "",
+      emergencyContactName: employee.emergencyContactName ?? "",
+      emergencyContactPhone: employee.emergencyContactPhone ?? "",
     });
   }, [employee, editForm]);
 
@@ -773,6 +785,78 @@ export function HrEmployeeDetailPage() {
             }
           />
           <Field
+            label="Data de nascimento"
+            error={editForm.formState.errors.birthDate?.message}
+            unsavedChange={Boolean(dirtyFields.birthDate)}
+            input={
+              <input
+                type="date"
+                className={controlClass}
+                {...editForm.register("birthDate")}
+              />
+            }
+          />
+          <Field
+            label="Nacionalidade"
+            error={editForm.formState.errors.nationality?.message}
+            unsavedChange={Boolean(dirtyFields.nationality)}
+            input={
+              <input
+                className={controlClass}
+                placeholder="ex: Portuguesa"
+                {...editForm.register("nationality")}
+              />
+            }
+          />
+          <Field
+            label="Nº Segurança Social"
+            error={editForm.formState.errors.socialSecurityNumber?.message}
+            unsavedChange={Boolean(dirtyFields.socialSecurityNumber)}
+            input={
+              <input
+                className={controlClass}
+                placeholder="ex: 12345678901"
+                {...editForm.register("socialSecurityNumber")}
+              />
+            }
+          />
+          <Field
+            label="Nº Cartão de Cidadão"
+            error={editForm.formState.errors.idCardNumber?.message}
+            unsavedChange={Boolean(dirtyFields.idCardNumber)}
+            input={
+              <input
+                className={controlClass}
+                placeholder="ex: 12345678 9 ZZ0"
+                {...editForm.register("idCardNumber")}
+              />
+            }
+          />
+          <Field
+            label="Contacto de emergência"
+            error={editForm.formState.errors.emergencyContactName?.message}
+            unsavedChange={Boolean(dirtyFields.emergencyContactName)}
+            input={
+              <input
+                className={controlClass}
+                placeholder="Nome e relação"
+                {...editForm.register("emergencyContactName")}
+              />
+            }
+          />
+          <Field
+            label="Telemóvel de emergência"
+            error={editForm.formState.errors.emergencyContactPhone?.message}
+            unsavedChange={Boolean(dirtyFields.emergencyContactPhone)}
+            input={
+              <input
+                className={controlClass}
+                placeholder="ex: +351 912 345 678"
+                {...editForm.register("emergencyContactPhone")}
+              />
+            }
+          />
+          <Field
             label="Estado"
             error={editForm.formState.errors.status?.message}
             unsavedChange={Boolean(dirtyFields.status)}
@@ -927,7 +1011,7 @@ export function HrEmployeeDetailPage() {
               }
             />
           </div>
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 flex flex-wrap items-center gap-3">
             <button
               type="submit"
               disabled={patchMut.isPending}

@@ -152,12 +152,15 @@ export type HrEmployee = {
   hourlyRate?: number | null;
   /** True se o funcionário tem um PIN de kiosk configurado. */
   hasKioskPin?: boolean;
-  /** NIF português (9 dígitos). Null se não definido. */
   nif?: string | null;
-  /** IBAN para pagamentos. Null se não definido. */
   iban?: string | null;
-  /** Morada completa. Null se não definida. */
   address?: string | null;
+  birthDate?: string | null;
+  socialSecurityNumber?: string | null;
+  idCardNumber?: string | null;
+  nationality?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
   createdAt: string;
   updatedAt: string;
 };

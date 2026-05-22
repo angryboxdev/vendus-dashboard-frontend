@@ -70,6 +70,12 @@ export type CreateEmployeeBody = {
   nif?: string | null;
   iban?: string | null;
   address?: string | null;
+  birthDate?: string | null;
+  socialSecurityNumber?: string | null;
+  idCardNumber?: string | null;
+  nationality?: string | null;
+  emergencyContactName?: string | null;
+  emergencyContactPhone?: string | null;
 };
 
 export async function createEmployee(

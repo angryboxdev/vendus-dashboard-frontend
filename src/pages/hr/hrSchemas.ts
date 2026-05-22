@@ -36,6 +36,12 @@ export const createEmployeeSchema = z.object({
   nif: z.string().optional().or(z.literal("")),
   iban: z.string().optional().or(z.literal("")),
   address: z.string().optional().or(z.literal("")),
+  birthDate: optionalDatePicker,
+  socialSecurityNumber: z.string().optional().or(z.literal("")),
+  idCardNumber: z.string().optional().or(z.literal("")),
+  nationality: z.string().optional().or(z.literal("")),
+  emergencyContactName: z.string().optional().or(z.literal("")),
+  emergencyContactPhone: z.string().optional().or(z.literal("")),
 });
 
 export type CreateEmployeeFormValues = z.infer<typeof createEmployeeSchema>;

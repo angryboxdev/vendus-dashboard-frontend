@@ -26,6 +26,7 @@ import { defaultWeeklyScheduleFor } from "./weeklySchedulePresets";
 import { finalizeWeeklySchedule } from "./weeklyScheduleUtils";
 import { Modal } from "./components/Modal";
 import { SkeletonBlock } from "./components/SkeletonBlock";
+import { printOnboardingForm } from "../../utils/onboardingPdf";
 
 function mapFormToCreateBody(v: CreateEmployeeFormValues): CreateEmployeeBody {
   const body: CreateEmployeeBody = {
@@ -138,13 +139,22 @@ export function HrEmployeesPage() {
             Pesquisa local e filtro por estado.
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setCreateOpen(true)}
-          className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
-        >
-          Novo funcionário
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => void printOnboardingForm()}
+            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+          >
+            Imprimir ficha de admissão
+          </button>
+          <button
+            type="button"
+            onClick={() => setCreateOpen(true)}
+            className="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+          >
+            Novo funcionário
+          </button>
+        </div>
       </div>
 
       <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
