@@ -365,6 +365,91 @@ function ProfileTab({ customer }: { customer: CrmCustomerEnriched }) {
   );
 }
 
+function FollowUpCard({ customer }: { customer: CrmCustomerEnriched }) {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [date, setDate] = useState(customer.manualFollowupDate ?? "");
+
+  const mutation = useMutation({
+    mutationFn: (manualFollowupDate: string | null) =>
+      patchCustomer(customer.id, { manualFollowupDate }),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: crmQueryKeys.customer(customer.id) });
+      void qc.invalidateQueries({ queryKey: crmQueryKeys.dashboard() });
+      setEditing(false);
+    },
+  });
+
+  const fu = customer.nextFollowUp;
+  const showFu = fu && !fu.scriptCode.startsWith("→") && fu.scriptCode !== "dormir";
+
+  return (
+    <div className={`mt-4 rounded-xl border px-4 py-3 ${
+      !showFu ? "border-slate-200 bg-slate-50"
+      : fu.isOverdue ? "border-red-200 bg-red-50"
+      : fu.daysUntil === 0 ? "border-amber-200 bg-amber-50"
+      : "border-slate-200 bg-slate-50"
+    }`}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <p className="text-xs font-medium text-slate-600 mb-0.5">Próximo follow-up</p>
+          {showFu ? (
+            <>
+              <p className="text-sm font-medium text-slate-900">
+                {fu.scriptCode} ·{" "}
+                {new Date(fu.date + "T12:00:00Z").toLocaleDateString("pt-PT", {
+                  weekday: "long", day: "numeric", month: "long",
+                })}
+                {customer.manualFollowupDate && (
+                  <span className="ml-1.5 rounded bg-blue-100 px-1.5 py-0.5 text-xs font-medium text-blue-700">manual</span>
+                )}
+              </p>
+              <p className="text-xs text-slate-500 mt-0.5">{fu.reason}</p>
+            </>
+          ) : (
+            <p className="text-sm text-slate-400">Sem follow-up calculado</p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => { setDate(customer.manualFollowupDate ?? ""); setEditing(!editing); }}
+          className="shrink-0 rounded-lg border border-slate-300 px-2.5 py-1.5 text-xs font-medium text-slate-600 hover:bg-white"
+        >
+          {editing ? "Fechar" : customer.manualFollowupDate ? "Alterar" : "Definir data"}
+        </button>
+      </div>
+
+      {editing && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-200 pt-3">
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm focus:outline-none"
+          />
+          <button
+            type="button"
+            disabled={!date || mutation.isPending}
+            onClick={() => mutation.mutate(date)}
+            className="rounded-lg bg-slate-800 px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {mutation.isPending ? "..." : "Guardar"}
+          </button>
+          {customer.manualFollowupDate && (
+            <button
+              type="button"
+              onClick={() => mutation.mutate(null)}
+              className="rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+            >
+              Remover data manual
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function CrmCustomerDetailPage() {
   const { id } = useParams<{ id: string }>();
   const [activeTab, setActiveTab] = useState<Tab>("perfil");
@@ -435,36 +520,7 @@ export function CrmCustomerDetailPage() {
         </div>
 
         {/* Next follow-up */}
-        {customer.nextFollowUp &&
-          !customer.nextFollowUp.scriptCode.startsWith("→") &&
-          customer.nextFollowUp.scriptCode !== "dormir" && (
-            <div
-              className={`mt-4 rounded-lg border px-4 py-3 ${
-                customer.nextFollowUp.isOverdue
-                  ? "border-red-200 bg-red-50"
-                  : customer.nextFollowUp.daysUntil === 0
-                    ? "border-amber-200 bg-amber-50"
-                    : "border-slate-200 bg-slate-50"
-              }`}
-            >
-              <p className="text-xs font-medium text-slate-600 mb-0.5">
-                Próximo follow-up
-              </p>
-              <p className="text-sm font-medium text-slate-900">
-                {customer.nextFollowUp.scriptCode} ·{" "}
-                {new Date(
-                  customer.nextFollowUp.date + "T12:00:00Z",
-                ).toLocaleDateString("pt-PT", {
-                  weekday: "long",
-                  day: "numeric",
-                  month: "long",
-                })}
-              </p>
-              <p className="text-xs text-slate-500 mt-0.5">
-                {customer.nextFollowUp.reason}
-              </p>
-            </div>
-          )}
+        <FollowUpCard customer={customer} />
 
         {/* Metrics */}
         <div className="mt-4 grid grid-cols-2 gap-4 sm:grid-cols-4">

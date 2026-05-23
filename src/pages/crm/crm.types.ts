@@ -33,6 +33,7 @@ export type CrmCustomer = {
   inactive: boolean;
   referredBy: string | null;
   seg07Path: CrmSeg07Path | null;
+  manualFollowupDate: string | null;
   registeredAt: string;
   createdAt: string;
   updatedAt: string;

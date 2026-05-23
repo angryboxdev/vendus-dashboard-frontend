@@ -89,7 +89,7 @@ export async function createCustomer(
 
 export async function patchCustomer(
   id: string,
-  body: Partial<CreateCustomerBody> & { inactive?: boolean },
+  body: Partial<CreateCustomerBody> & { inactive?: boolean; manualFollowupDate?: string | null },
 ): Promise<CrmCustomer> {
   return apiPatch(`${CRM}/customers/${encodeURIComponent(id)}`, body);
 }
