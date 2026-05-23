@@ -1,10 +1,10 @@
 import { NavLink, Outlet } from "react-router-dom";
 
-const navItems = [
+const navItems: { to: string; label: string; end?: boolean }[] = [
   { to: "/crm", label: "Dashboard", end: true },
   { to: "/crm/customers", label: "Clientes" },
   { to: "/crm/parameters", label: "Parâmetros" },
-] as const;
+];
 
 const tabClass = ({ isActive }: { isActive: boolean }) =>
   `px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
