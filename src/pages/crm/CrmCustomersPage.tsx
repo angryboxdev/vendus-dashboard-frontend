@@ -1,11 +1,191 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
-import { Link, useSearchParams } from "react-router-dom";
-import { fetchCustomersEnriched } from "./crmApi";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { createCustomer, fetchCustomersEnriched, type CreateCustomerBody } from "./crmApi";
 import { crmQueryKeys } from "./crmQueryKeys";
 import { SegmentBadge } from "./components/SegmentBadge";
 import { ContactModal } from "./components/ContactModal";
 import type { CrmCustomerEnriched, CrmSegment } from "./crm.types";
+
+// ─── Modal novo cliente ────────────────────────────────────────────────────────
+
+const CHANNELS = ["WhatsApp", "Email", "SMS"] as const;
+const HOW_FOUND = ["Instagram", "TikTok", "Passou", "Indicação", "Evento", "Outro"] as const;
+
+function CreateCustomerModal({ onClose }: { onClose: () => void }) {
+  const queryClient = useQueryClient();
+  const navigate = useNavigate();
+  const [form, setForm] = useState<CreateCustomerBody>({
+    firstName: "",
+    lastName: "",
+    phone: "",
+    email: "",
+    preferredChannel: "WhatsApp",
+    birthday: "",
+    howFound: "",
+    optIn: "Pendente",
+    notes: "",
+  });
+
+  const mutation = useMutation({
+    mutationFn: createCustomer,
+    onSuccess: (customer) => {
+      queryClient.invalidateQueries({ queryKey: crmQueryKeys.root });
+      navigate(`/crm/customers/${customer.id}`);
+    },
+  });
+
+  function set(key: keyof CreateCustomerBody, value: string | null) {
+    setForm((prev) => ({ ...prev, [key]: value || null }));
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.firstName.trim()) return;
+    mutation.mutate({
+      ...form,
+      firstName: form.firstName.trim(),
+      lastName: form.lastName?.trim() || null,
+      phone: form.phone?.trim() || null,
+      email: form.email?.trim() || null,
+      birthday: form.birthday || null,
+      howFound: (form.howFound || null) as CreateCustomerBody["howFound"],
+      notes: form.notes?.trim() || null,
+    });
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 px-0 sm:px-4" onClick={onClose}>
+      <div
+        className="w-full sm:max-w-lg bg-white rounded-t-2xl sm:rounded-xl shadow-xl max-h-[90vh] overflow-y-auto"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between px-5 py-4 border-b border-slate-100">
+          <h2 className="text-base font-semibold text-slate-800">Novo cliente</h2>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-600 text-xl leading-none">&times;</button>
+        </div>
+        <form onSubmit={handleSubmit} className="px-5 py-4 space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-xs text-slate-500 mb-1">Nome *</label>
+              <input
+                type="text"
+                required
+                value={form.firstName ?? ""}
+                onChange={(e) => set("firstName", e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:border-slate-400"
+                placeholder="Nome"
+              />
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-xs text-slate-500 mb-1">Apelido</label>
+              <input
+                type="text"
+                value={form.lastName ?? ""}
+                onChange={(e) => set("lastName", e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:border-slate-400"
+                placeholder="Apelido"
+              />
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-xs text-slate-500 mb-1">Telefone</label>
+              <input
+                type="tel"
+                value={form.phone ?? ""}
+                onChange={(e) => set("phone", e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:border-slate-400"
+                placeholder="+351 9XX XXX XXX"
+              />
+            </div>
+            <div className="col-span-2 sm:col-span-1">
+              <label className="block text-xs text-slate-500 mb-1">Email</label>
+              <input
+                type="email"
+                value={form.email ?? ""}
+                onChange={(e) => set("email", e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:border-slate-400"
+                placeholder="email@exemplo.com"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Canal preferido</label>
+              <select
+                value={form.preferredChannel ?? "WhatsApp"}
+                onChange={(e) => set("preferredChannel", e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none"
+              >
+                {CHANNELS.map((c) => <option key={c}>{c}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Opt-in</label>
+              <select
+                value={form.optIn ?? "Pendente"}
+                onChange={(e) => set("optIn", e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none"
+              >
+                <option value="Pendente">Pendente</option>
+                <option value="Sim">Sim</option>
+                <option value="Não">Não</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Data de nascimento</label>
+              <input
+                type="date"
+                value={form.birthday ?? ""}
+                onChange={(e) => set("birthday", e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none"
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-slate-500 mb-1">Como conheceu</label>
+              <select
+                value={form.howFound ?? ""}
+                onChange={(e) => set("howFound", e.target.value)}
+                className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none"
+              >
+                <option value="">—</option>
+                {HOW_FOUND.map((h) => <option key={h}>{h}</option>)}
+              </select>
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-slate-500 mb-1">Notas</label>
+              <textarea
+                value={form.notes ?? ""}
+                onChange={(e) => set("notes", e.target.value)}
+                rows={3}
+                className="w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm focus:outline-none focus:border-slate-400 resize-none"
+                placeholder="Observações sobre o cliente..."
+              />
+            </div>
+          </div>
+
+          {mutation.isError && (
+            <p className="text-xs text-red-600">Erro ao criar cliente. Tenta novamente.</p>
+          )}
+
+          <div className="flex gap-2 pt-1 pb-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm font-medium text-slate-600"
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={mutation.isPending || !form.firstName?.trim()}
+              className="flex-1 rounded-xl bg-slate-800 px-4 py-3 text-sm font-medium text-white disabled:opacity-50"
+            >
+              {mutation.isPending ? "A criar..." : "Criar cliente"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
 
 const SEGMENTS: CrmSegment[] = [
   "SEG-01", "SEG-02", "SEG-03", "SEG-04",
@@ -176,6 +356,7 @@ export function CrmCustomersPage() {
   const [search, setSearch] = useState(searchParams.get("search") ?? "");
   const [debouncedSearch, setDebouncedSearch] = useState(search);
   const [contactTarget, setContactTarget] = useState<CrmCustomerEnriched | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
 
   const segment = searchParams.get("segment") ?? "";
   const channel = searchParams.get("channel") ?? "";
@@ -212,11 +393,22 @@ export function CrmCustomersPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 sm:px-6 py-4 sm:py-6">
-      <Filters
-        search={search} setSearch={setSearch}
-        segment={segment} channel={channel} optIn={optIn}
-        showInactive={showInactive} setFilter={setFilter}
-      />
+      <div className="flex items-start gap-2">
+        <div className="flex-1">
+          <Filters
+            search={search} setSearch={setSearch}
+            segment={segment} channel={channel} optIn={optIn}
+            showInactive={showInactive} setFilter={setFilter}
+          />
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowCreate(true)}
+          className="shrink-0 rounded-xl bg-slate-800 px-4 py-3 text-sm font-medium text-white active:bg-slate-700"
+        >
+          + Novo
+        </button>
+      </div>
 
       <p className="mb-2 text-xs text-slate-500">
         {isLoading ? "A carregar..." : `${customers.length} clientes`}
@@ -288,6 +480,10 @@ export function CrmCustomersPage() {
 
       {contactTarget && (
         <ContactModal customer={contactTarget} onClose={() => setContactTarget(null)} />
+      )}
+
+      {showCreate && (
+        <CreateCustomerModal onClose={() => setShowCreate(false)} />
       )}
     </div>
   );
