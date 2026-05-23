@@ -10,9 +10,9 @@ import {
   type CreateOrderBody,
 } from "./crmApi";
 import { crmQueryKeys } from "./crmQueryKeys";
+import type { CrmContact, CrmCustomerEnriched, CrmOrder } from "./crm.types";
 import { SegmentBadge } from "./components/SegmentBadge";
 import { ContactModal } from "./components/ContactModal";
-import type { CrmContact, CrmOrder } from "./crm.types";
 
 type Tab = "perfil" | "pedidos" | "contactos";
 
@@ -252,11 +252,7 @@ function ContactsTab({ customerId }: { customerId: string }) {
   );
 }
 
-function ProfileTab({
-  customer,
-}: {
-  customer: ReturnType<typeof useQuery>["data"] & { id: string };
-}) {
+function ProfileTab({ customer }: { customer: CrmCustomerEnriched }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
   const [notes, setNotes] = useState(customer.notes ?? "");
