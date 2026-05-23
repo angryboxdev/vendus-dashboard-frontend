@@ -138,9 +138,9 @@ export function ContactModal({ customer, onClose }: Props) {
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="w-full max-w-2xl rounded-xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 sm:p-4">
+      <div className="w-full sm:max-w-2xl rounded-t-2xl sm:rounded-xl bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-4 sm:px-6 py-4">
           <div>
             <h2 className="text-base font-semibold text-slate-900">
               Registar Contacto
@@ -161,7 +161,7 @@ export function ContactModal({ customer, onClose }: Props) {
         </div>
 
         <form onSubmit={handleSubmit}>
-          <div className="max-h-[70vh] overflow-y-auto px-6 py-4 space-y-4">
+          <div className="max-h-[70vh] overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
             {/* Direction + Channel */}
             <div className="grid grid-cols-2 gap-4">
               <div>
@@ -324,7 +324,7 @@ export function ContactModal({ customer, onClose }: Props) {
                       onClick={() =>
                         toggleTag(tag, isExisting ? "remove" : "add")
                       }
-                      className={`rounded-full border px-2 py-0.5 text-xs transition-colors ${
+                      className={`rounded-full border px-3 py-1.5 text-xs transition-colors ${
                         isAdd
                           ? "border-green-600 bg-green-100 text-green-700"
                           : isRem
@@ -349,7 +349,7 @@ export function ContactModal({ customer, onClose }: Props) {
             </p>
           )}
 
-          <div className="flex gap-3 border-t border-slate-200 px-6 py-4">
+          <div className="flex gap-3 border-t border-slate-200 px-4 sm:px-6 py-4 pb-safe">
             <button
               type="button"
               onClick={onClose}

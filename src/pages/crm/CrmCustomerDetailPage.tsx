@@ -400,7 +400,7 @@ export function CrmCustomerDetailPage() {
   ];
 
   return (
-    <div className="mx-auto max-w-4xl px-6 py-6">
+    <div className="mx-auto max-w-4xl px-4 sm:px-6 py-4 sm:py-6">
       {/* Back */}
       <Link
         to="/crm/customers"
@@ -410,7 +410,7 @@ export function CrmCustomerDetailPage() {
       </Link>
 
       {/* Header */}
-      <div className="rounded-xl border border-slate-200 bg-white p-6 mb-6">
+      <div className="rounded-xl border border-slate-200 bg-white p-4 sm:p-6 mb-4 sm:mb-6">
         <div className="flex items-start justify-between gap-4 flex-wrap">
           <div>
             <h1 className="text-xl font-semibold text-slate-900">
@@ -428,7 +428,7 @@ export function CrmCustomerDetailPage() {
           <button
             type="button"
             onClick={() => setShowContact(true)}
-            className="rounded-lg bg-slate-800 px-4 py-2 text-sm font-medium text-white hover:bg-slate-700"
+            className="w-full sm:w-auto rounded-xl bg-slate-800 px-4 py-3 text-sm font-medium text-white active:bg-slate-700"
           >
             Registar contacto
           </button>
@@ -496,14 +496,14 @@ export function CrmCustomerDetailPage() {
       </div>
 
       {/* Tabs */}
-      <div className="border-b border-slate-200 mb-4">
-        <div className="flex gap-1">
+      <div className="border-b border-slate-200 mb-4 overflow-x-auto scrollbar-none">
+        <div className="flex gap-1 min-w-max">
           {tabs.map(({ key, label }) => (
             <button
               key={key}
               type="button"
               onClick={() => setActiveTab(key)}
-              className={`px-4 py-2 text-sm font-medium border-b-2 transition-colors ${
+              className={`whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === key
                   ? "border-slate-900 text-slate-900"
                   : "border-transparent text-slate-500 hover:text-slate-700"
