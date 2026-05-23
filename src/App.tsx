@@ -29,6 +29,11 @@ import { LoginPage } from "./pages/LoginPage";
 import { UsersPage } from "./pages/admin/UsersPage";
 import { PrintOrdersPage } from "./pages/orders/PrintOrdersPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
+import { CrmLayout } from "./pages/crm/CrmLayout";
+import { CrmDashboardPage } from "./pages/crm/CrmDashboardPage";
+import { CrmCustomersPage } from "./pages/crm/CrmCustomersPage";
+import { CrmCustomerDetailPage } from "./pages/crm/CrmCustomerDetailPage";
+import { CrmParametersPage } from "./pages/crm/CrmParametersPage";
 
 export default function App() {
   return (
@@ -100,6 +105,15 @@ export default function App() {
                     path="/hr/employees/:id"
                     element={<HrEmployeeDetailPage />}
                   />
+                </Route>
+                <Route element={<CrmLayout />}>
+                  <Route path="/crm" element={<CrmDashboardPage />} />
+                  <Route path="/crm/customers" element={<CrmCustomersPage />} />
+                  <Route
+                    path="/crm/customers/:id"
+                    element={<CrmCustomerDetailPage />}
+                  />
+                  <Route path="/crm/parameters" element={<CrmParametersPage />} />
                 </Route>
                 <Route path="/cash-closings" element={<CashClosingsHubPage />} />
                 <Route path="/admin/users" element={<UsersPage />} />

@@ -314,6 +314,7 @@ export function UsersPage() {
               <li className="flex items-start gap-1.5"><Check />RH — leitura e escrita</li>
               <li className="flex items-start gap-1.5"><Check />Stock, DRE, Dashboard</li>
               <li className="flex items-start gap-1.5"><Check />Importação de faturas</li>
+              <li className="flex items-start gap-1.5"><Check />CRM</li>
               <li className="flex items-start gap-1.5"><Cross />Gestão de utilizadores</li>
               <li className="flex items-start gap-1.5"><Cross />Configuração do kiosk</li>
             </ul>

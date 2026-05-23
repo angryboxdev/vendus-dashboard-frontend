@@ -25,6 +25,12 @@ const hrNavItems = [
   { to: "/hr/historico", label: "Histórico de alterações" },
 ] as const;
 
+const crmNavItems = [
+  { to: "/crm", label: "Dashboard" },
+  { to: "/crm/customers", label: "Clientes" },
+  { to: "/crm/parameters", label: "Parâmetros" },
+] as const;
+
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   `block rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
     isActive
@@ -75,13 +81,16 @@ function SidebarContent({ onNavClick }: { onNavClick: () => void }) {
   const isDrePath = location.pathname.startsWith("/dre");
   const isStockPath = location.pathname.startsWith("/stock");
   const isHrPath = location.pathname.startsWith("/hr");
+  const isCrmPath = location.pathname.startsWith("/crm");
   const isAdminPath = location.pathname.startsWith("/admin");
   const [dreOpen, setDreOpen] = useState(false);
   const [stockOpen, setStockOpen] = useState(false);
   const [hrOpen, setHrOpen] = useState(false);
+  const [crmOpen, setCrmOpen] = useState(false);
   const dreExpanded = isDrePath || dreOpen;
   const stockExpanded = isStockPath || stockOpen;
   const hrExpanded = isHrPath || hrOpen;
+  const crmExpanded = isCrmPath || crmOpen;
 
   async function handleSignOut() {
     await signOut();
@@ -166,6 +175,30 @@ function SidebarContent({ onNavClick }: { onNavClick: () => void }) {
             <div className="mt-0.5 flex flex-col gap-0.5 pl-1">
               {hrNavItems.map(({ to, label }) => (
                 <NavLink key={to} to={to} className={navLinkClass} onClick={onNavClick}>
+                  {label}
+                </NavLink>
+              ))}
+            </div>
+          )}
+        </div>
+
+        <div className="mt-0.5">
+          <button
+            type="button"
+            onClick={() => setCrmOpen(!crmExpanded)}
+            className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm font-medium transition-colors ${
+              isCrmPath
+                ? "bg-slate-100 text-slate-900"
+                : "text-slate-600 hover:bg-slate-50 hover:text-slate-800"
+            }`}
+          >
+            <span>CRM</span>
+            <ChevronDown open={crmExpanded} />
+          </button>
+          {crmExpanded && (
+            <div className="mt-0.5 flex flex-col gap-0.5 pl-1">
+              {crmNavItems.map(({ to, label }) => (
+                <NavLink key={to} to={to} end={to === "/crm"} className={navLinkClass} onClick={onNavClick}>
                   {label}
                 </NavLink>
               ))}
