@@ -228,17 +228,17 @@ function ContactsTab({ customerId }: { customerId: string }) {
               {c.notes && (
                 <p className="mt-0.5 text-xs text-slate-500">{c.notes}</p>
               )}
+            </div>
+            <div className="shrink-0 text-right">
               {c.tagsAdded?.length > 0 && (
-                <div className="mt-1.5 flex flex-wrap gap-1">
+                <div className="mb-1 flex flex-wrap justify-end gap-1">
                   {c.tagsAdded.map((t) => (
                     <span key={t} className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
-                      +{t}
+                      {t}
                     </span>
                   ))}
                 </div>
               )}
-            </div>
-            <div className="shrink-0 text-right">
               <p className="text-xs text-slate-400">{formatDateTime(c.contactedAt)}</p>
             </div>
           </div>
