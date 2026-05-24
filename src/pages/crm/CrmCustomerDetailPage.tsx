@@ -439,19 +439,21 @@ function FollowUpCard({ customer }: { customer: CrmCustomerEnriched }) {
   });
 
   const fu = customer.nextFollowUp;
-  const showFu = fu && !fu.scriptCode.startsWith("→") && fu.scriptCode !== "dormir";
+  const isTransition = fu?.scriptCode.startsWith("→");
+  const isSleep = fu?.scriptCode === "dormir";
+  const isActionable = fu && !isTransition && !isSleep;
 
   return (
     <div className={`mt-4 rounded-xl border px-4 py-3 ${
-      !showFu ? "border-slate-200 bg-slate-50"
-      : fu.isOverdue ? "border-red-200 bg-red-50"
-      : fu.daysUntil === 0 ? "border-amber-200 bg-amber-50"
+      !fu ? "border-slate-200 bg-slate-50"
+      : isActionable && fu.isOverdue ? "border-red-200 bg-red-50"
+      : isActionable && fu.daysUntil === 0 ? "border-amber-200 bg-amber-50"
       : "border-slate-200 bg-slate-50"
     }`}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
           <p className="text-xs font-medium text-slate-600 mb-0.5">Próximo follow-up</p>
-          {showFu ? (
+          {isActionable ? (
             <>
               <p className="text-sm font-medium text-slate-900">
                 {fu.scriptCode} ·{" "}
@@ -464,6 +466,18 @@ function FollowUpCard({ customer }: { customer: CrmCustomerEnriched }) {
               </p>
               <p className="text-xs text-slate-500 mt-0.5">{fu.reason}</p>
             </>
+          ) : isTransition ? (
+            <>
+              <p className="text-sm text-slate-500 italic">
+                {fu.scriptCode} ·{" "}
+                {new Date(fu.date + "T12:00:00Z").toLocaleDateString("pt-PT", {
+                  day: "numeric", month: "long",
+                })}
+              </p>
+              <p className="text-xs text-slate-400 mt-0.5">{fu.reason}</p>
+            </>
+          ) : isSleep ? (
+            <p className="text-sm text-slate-400 italic">Sem contacto — marcar como inativo</p>
           ) : (
             <p className="text-sm text-slate-400">Sem follow-up calculado</p>
           )}
