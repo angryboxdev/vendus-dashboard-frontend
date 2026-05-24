@@ -239,18 +239,20 @@ function ContactsTab({ customerId }: { customerId: string }) {
               )}
             </div>
             <div className="shrink-0 text-right">
-              <span
-                className={`rounded px-1.5 py-0.5 text-xs font-medium ${
-                  c.status === "Respondeu"
-                    ? "bg-green-100 text-green-700"
-                    : c.status === "Recusou"
-                      ? "bg-red-100 text-red-700"
-                      : "bg-slate-100 text-slate-600"
-                }`}
-              >
-                {c.status}
-              </span>
-              <p className="mt-1 text-xs text-slate-400">
+              {c.direction === "Enviado" && c.status && (
+                <span
+                  className={`rounded px-1.5 py-0.5 text-xs font-medium ${
+                    c.status === "Respondeu"
+                      ? "bg-green-100 text-green-700"
+                      : c.status === "Recusou"
+                        ? "bg-red-100 text-red-700"
+                        : "bg-slate-100 text-slate-600"
+                  }`}
+                >
+                  {c.status}
+                </span>
+              )}
+              <p className={`text-xs text-slate-400 ${c.direction === "Enviado" && c.status ? "mt-1" : ""}`}>
                 {formatDateTime(c.contactedAt)}
               </p>
             </div>
