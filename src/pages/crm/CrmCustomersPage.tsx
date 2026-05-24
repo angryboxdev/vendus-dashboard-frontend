@@ -261,18 +261,19 @@ function CustomerCard({
 // ─── Filtros ──────────────────────────────────────────────────────────────────
 
 function Filters({
-  search, setSearch, segment, channel, optIn, showInactive, setFilter,
+  search, setSearch, segment, channel, optIn, tag, showInactive, setFilter,
 }: {
   search: string;
   setSearch: (v: string) => void;
   segment: string;
   channel: string;
   optIn: string;
+  tag: string;
   showInactive: boolean;
   setFilter: (key: string, value: string) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const activeFilters = [segment, channel, optIn, showInactive ? "inativos" : ""].filter(Boolean).length;
+  const activeFilters = [segment, channel, optIn, tag, showInactive ? "inativos" : ""].filter(Boolean).length;
 
   return (
     <div className="mb-4 space-y-2">
@@ -305,7 +306,7 @@ function Filters({
 
       {/* Filtros expandidos */}
       {open && (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
           <select
             value={segment}
             onChange={(e) => setFilter("segment", e.target.value)}
@@ -334,6 +335,13 @@ function Filters({
             <option value="Pendente">Pendente</option>
             <option value="Não">Não</option>
           </select>
+          <input
+            type="text"
+            value={tag}
+            onChange={(e) => setFilter("tag", e.target.value)}
+            placeholder="Tag (ex: reclamou)"
+            className="rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm focus:outline-none"
+          />
           <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-600">
             <input
               type="checkbox"
@@ -361,6 +369,7 @@ export function CrmCustomersPage() {
   const segment = searchParams.get("segment") ?? "";
   const channel = searchParams.get("channel") ?? "";
   const optIn = searchParams.get("optIn") ?? "";
+  const tag = searchParams.get("tag") ?? "";
   const showInactive = searchParams.get("inactive") === "true";
 
   useEffect(() => {
@@ -372,6 +381,7 @@ export function CrmCustomersPage() {
     ...(segment ? { segment } : {}),
     ...(channel ? { channel } : {}),
     ...(optIn ? { optIn } : {}),
+    ...(tag ? { tag } : {}),
     ...(debouncedSearch ? { search: debouncedSearch } : {}),
     ...(showInactive ? { inactive: true } : {}),
   };
@@ -398,7 +408,7 @@ export function CrmCustomersPage() {
           <Filters
             search={search} setSearch={setSearch}
             segment={segment} channel={channel} optIn={optIn}
-            showInactive={showInactive} setFilter={setFilter}
+            tag={tag} showInactive={showInactive} setFilter={setFilter}
           />
         </div>
         <button
