@@ -173,8 +173,8 @@ export type CreateContactBody = {
   status: "Sem resposta" | "Respondeu" | "Recusou";
   response?: string | null;
   notes?: string | null;
-  tagsAdded?: string[];
-  tagsRemoved?: string[];
+  tagsToAdd?: string[];
+  tagsToRemove?: string[];
 };
 
 export async function createContact(

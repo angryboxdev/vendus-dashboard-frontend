@@ -132,8 +132,8 @@ export function ContactModal({ customer, onClose }: Props) {
       status: direction === "Recebido" ? "Respondeu" : "Sem resposta",
       response: response.trim() || null,
       notes: notes.trim() || null,
-      tagsAdded,
-      tagsRemoved,
+      tagsToAdd: tagsAdded,
+      tagsToRemove: tagsRemoved,
     });
   }
 
