@@ -469,12 +469,12 @@ function FollowUpCard({ customer }: { customer: CrmCustomerEnriched }) {
           ) : isTransition ? (
             <>
               <p className="text-sm text-slate-500 italic">
-                {fu.scriptCode} ·{" "}
-                {new Date(fu.date + "T12:00:00Z").toLocaleDateString("pt-PT", {
+                {fu!.scriptCode} ·{" "}
+                {new Date(fu!.date + "T12:00:00Z").toLocaleDateString("pt-PT", {
                   day: "numeric", month: "long",
                 })}
               </p>
-              <p className="text-xs text-slate-400 mt-0.5">{fu.reason}</p>
+              <p className="text-xs text-slate-400 mt-0.5">{fu!.reason}</p>
             </>
           ) : isSleep ? (
             <p className="text-sm text-slate-400 italic">Sem contacto — marcar como inativo</p>
