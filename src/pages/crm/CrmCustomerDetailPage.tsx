@@ -7,8 +7,10 @@ import {
   fetchOrders,
   fetchContacts,
   patchCustomer,
+  updateCustomerTags,
   type CreateOrderBody,
 } from "./crmApi";
+import { ALL_TAGS } from "./crmTags";
 import { crmQueryKeys } from "./crmQueryKeys";
 import type { CrmContact, CrmCustomerEnriched, CrmOrder } from "./crm.types";
 import { SegmentBadge } from "./components/SegmentBadge";
@@ -248,6 +250,80 @@ function ContactsTab({ customerId }: { customerId: string }) {
   );
 }
 
+function TagsSection({ customer }: { customer: CrmCustomerEnriched }) {
+  const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+
+  const mutation = useMutation({
+    mutationFn: ({ add, remove }: { add: string[]; remove: string[] }) =>
+      updateCustomerTags(customer.id, add, remove),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: crmQueryKeys.customer(customer.id) });
+      setEditing(false);
+    },
+  });
+
+  const current = new Set(customer.tags ?? []);
+
+  function toggle(tag: string) {
+    if (current.has(tag)) {
+      mutation.mutate({ add: [], remove: [tag] });
+    } else {
+      mutation.mutate({ add: [tag], remove: [] });
+    }
+  }
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-xs text-slate-500">Tags</p>
+        <button
+          type="button"
+          onClick={() => setEditing(!editing)}
+          className="text-xs text-slate-500 hover:text-slate-700"
+        >
+          {editing ? "Fechar" : "Editar"}
+        </button>
+      </div>
+      {editing ? (
+        <div className="flex flex-wrap gap-1.5">
+          {ALL_TAGS.map((tag) => {
+            const active = current.has(tag);
+            return (
+              <button
+                key={tag}
+                type="button"
+                onClick={() => toggle(tag)}
+                disabled={mutation.isPending}
+                className={`rounded-full border px-2.5 py-1 text-xs transition-colors disabled:opacity-50 ${
+                  active
+                    ? "border-slate-700 bg-slate-800 text-white"
+                    : "border-slate-300 bg-white text-slate-600 hover:border-slate-400"
+                }`}
+              >
+                {active ? "✓ " : "+ "}{tag}
+              </button>
+            );
+          })}
+        </div>
+      ) : customer.tags && customer.tags.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5">
+          {customer.tags.map((tag) => (
+            <span
+              key={tag}
+              className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+      ) : (
+        <p className="text-xs text-slate-400">Sem tags</p>
+      )}
+    </div>
+  );
+}
+
 function ProfileTab({ customer }: { customer: CrmCustomerEnriched }) {
   const qc = useQueryClient();
   const [editing, setEditing] = useState(false);
@@ -329,21 +405,7 @@ function ProfileTab({ customer }: { customer: CrmCustomerEnriched }) {
       </div>
 
       {/* Tags */}
-      {customer.tags && customer.tags.length > 0 && (
-        <div>
-          <p className="mb-1 text-xs text-slate-500">Tags</p>
-          <div className="flex flex-wrap gap-1.5">
-            {(customer.tags as string[]).map((tag) => (
-              <span
-                key={tag}
-                className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
-              >
-                {tag}
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+      <TagsSection customer={customer} />
 
       {/* Marcar como inativo */}
       <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
