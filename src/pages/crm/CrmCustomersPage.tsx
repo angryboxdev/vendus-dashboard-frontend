@@ -5,6 +5,7 @@ import { createCustomer, fetchCustomersEnriched, type CreateCustomerBody } from 
 import { crmQueryKeys } from "./crmQueryKeys";
 import { SegmentBadge } from "./components/SegmentBadge";
 import { ContactModal } from "./components/ContactModal";
+import { ALL_TAGS, tagLabel } from "./crmTags";
 import type { CrmCustomerEnriched, CrmSegment } from "./crm.types";
 
 // ─── Modal novo cliente ────────────────────────────────────────────────────────
@@ -335,13 +336,16 @@ function Filters({
             <option value="Pendente">Pendente</option>
             <option value="Não">Não</option>
           </select>
-          <input
-            type="text"
+          <select
             value={tag}
             onChange={(e) => setFilter("tag", e.target.value)}
-            placeholder="Tag (ex: reclamou)"
             className="rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm focus:outline-none"
-          />
+          >
+            <option value="">Todas as tags</option>
+            {ALL_TAGS.map((t) => (
+              <option key={t} value={t}>{tagLabel(t)}</option>
+            ))}
+          </select>
           <label className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-300 bg-white px-3 py-3 text-sm text-slate-600">
             <input
               type="checkbox"

@@ -10,7 +10,7 @@ import {
   updateCustomerTags,
   type CreateOrderBody,
 } from "./crmApi";
-import { ALL_TAGS } from "./crmTags";
+import { ALL_TAGS, tagLabel } from "./crmTags";
 import { crmQueryKeys } from "./crmQueryKeys";
 import type { CrmContact, CrmCustomerEnriched, CrmOrder } from "./crm.types";
 import { SegmentBadge } from "./components/SegmentBadge";
@@ -236,7 +236,7 @@ function ContactsTab({ customerId }: { customerId: string }) {
                 <div className="mb-1 flex flex-wrap justify-end gap-1">
                   {c.tagsAdded.map((t) => (
                     <span key={t} className="rounded-full bg-amber-100 px-2 py-0.5 text-xs text-amber-700">
-                      {t}
+                      {tagLabel(t)}
                     </span>
                   ))}
                 </div>
@@ -301,7 +301,7 @@ function TagsSection({ customer }: { customer: CrmCustomerEnriched }) {
                     : "border-slate-300 bg-white text-slate-600 hover:border-slate-400"
                 }`}
               >
-                {active ? "✓ " : "+ "}{tag}
+                {active ? "✓ " : "+ "}{tagLabel(tag)}
               </button>
             );
           })}
@@ -313,7 +313,7 @@ function TagsSection({ customer }: { customer: CrmCustomerEnriched }) {
               key={tag}
               className="rounded-full border border-slate-300 bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
             >
-              {tag}
+              {tagLabel(tag)}
             </span>
           ))}
         </div>

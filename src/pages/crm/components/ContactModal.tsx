@@ -14,7 +14,7 @@ type Props = {
   onClose: () => void;
 };
 
-import { ALL_TAGS } from "../crmTags";
+import { ALL_TAGS, tagLabel } from "../crmTags";
 
 export function ContactModal({ customer, onClose }: Props) {
   const qc = useQueryClient();
@@ -315,7 +315,7 @@ export function ContactModal({ customer, onClose }: Props) {
                       }`}
                     >
                       {isAdd ? "+ " : isRem ? "− " : isExisting ? "" : ""}
-                      {tag}
+                      {tagLabel(tag)}
                     </button>
                   );
                 })}
