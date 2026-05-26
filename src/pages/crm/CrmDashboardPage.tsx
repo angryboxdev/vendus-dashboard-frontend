@@ -53,7 +53,7 @@ function CustomerRow({
             <span className="text-xs text-slate-500">{customer.nextFollowUp.reason}</span>
           )}
         </div>
-        <p className="mt-1 text-xs text-slate-400">{customer.preferredChannel} · €{Number(customer.ltv).toFixed(0)}</p>
+        <p className="mt-1 text-xs text-slate-400">{customer.phone ?? "—"} · €{Number(customer.ltv).toFixed(0)}</p>
       </div>
       <button
         type="button"
