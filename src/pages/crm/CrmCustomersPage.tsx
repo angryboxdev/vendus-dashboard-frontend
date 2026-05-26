@@ -242,7 +242,7 @@ function CustomerCard({
           <SegmentBadge segment={c.segment} short />
         </div>
         <p className="mt-0.5 text-xs text-slate-400">
-          {c.id} · {c.preferredChannel} · {c.orderCount} pedidos · {formatEur(c.ltv)}
+          {c.id} · {c.phone ?? "—"} · {c.orderCount} pedidos · {formatEur(c.ltv)}
         </p>
         <div className="mt-1.5">
           <FollowUpBadge fu={c.nextFollowUp} />
@@ -448,7 +448,7 @@ export function CrmCustomersPage() {
             <tr className="border-b border-slate-200 bg-slate-50 text-left">
               <th className="px-4 py-3 text-xs font-medium text-slate-500">Cliente</th>
               <th className="px-4 py-3 text-xs font-medium text-slate-500">Segmento</th>
-              <th className="px-4 py-3 text-xs font-medium text-slate-500">Canal</th>
+              <th className="px-4 py-3 text-xs font-medium text-slate-500">Telemóvel</th>
               <th className="hidden px-4 py-3 text-xs font-medium text-slate-500 md:table-cell">Pedidos</th>
               <th className="hidden px-4 py-3 text-xs font-medium text-slate-500 md:table-cell">LTV</th>
               <th className="hidden px-4 py-3 text-xs font-medium text-slate-500 lg:table-cell">Último pedido</th>
@@ -471,7 +471,7 @@ export function CrmCustomersPage() {
                     <p className="text-xs text-slate-400">{c.id}</p>
                   </td>
                   <td className="px-4 py-3"><SegmentBadge segment={c.segment} short /></td>
-                  <td className="px-4 py-3 text-slate-600">{c.preferredChannel}</td>
+                  <td className="px-4 py-3 text-slate-600">{c.phone ?? "—"}</td>
                   <td className="hidden px-4 py-3 text-slate-600 md:table-cell">{c.orderCount}</td>
                   <td className="hidden px-4 py-3 text-slate-600 md:table-cell">{formatEur(c.ltv)}</td>
                   <td className="hidden px-4 py-3 text-slate-500 lg:table-cell">{formatDate(c.lastOrderDate)}</td>
