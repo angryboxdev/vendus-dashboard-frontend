@@ -18,7 +18,8 @@ const jobRoleEnum = z.enum(["manager", "prep", "service"]);
 
 const optionalDatePicker = z
   .string()
-  .refine((s) => s === "" || isValidIsoDate(s), "Data inválida");
+  .refine((s) => s === "" || isValidIsoDate(s), "Data inválida")
+  .optional();
 
 export const createEmployeeSchema = z.object({
   fullName: z.string().trim().min(1, "Nome obrigatório"),
