@@ -3,7 +3,10 @@ import type { CompleteTaskPort } from "../../domain/ports/in/complete-task.port.
 import type { TaskApiPort } from "../../domain/ports/out/task-api.port.ts";
 
 export class CompleteTaskUseCase implements CompleteTaskPort {
-  constructor(private readonly api: TaskApiPort) {}
+  private readonly api: TaskApiPort;
+  constructor(api: TaskApiPort) {
+    this.api = api;
+  }
 
   async execute(taskId: string): Promise<Task> {
     const tasks = await this.api.fetchAll();
