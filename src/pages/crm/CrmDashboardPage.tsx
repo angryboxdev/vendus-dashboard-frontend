@@ -5,7 +5,7 @@ import { fetchCrmDashboard } from "./crmApi";
 import { crmQueryKeys } from "./crmQueryKeys";
 import { SegmentBadge } from "./components/SegmentBadge";
 import { ContactModal } from "./components/ContactModal";
-import type { CrmCustomerEnriched } from "./crm.types";
+import type { CrmCustomerEnriched, CrmSegment } from "./crm.types";
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr + "T12:00:00Z").toLocaleDateString("pt-PT", {
@@ -175,8 +175,8 @@ export function CrmDashboardPage() {
                 return (
                   <div key={seg}>
                     <div className="flex items-center justify-between text-xs mb-0.5">
-                      <Link to={`/crm/customers?segment=${seg}`} className="text-slate-600 hover:text-slate-900">
-                        {seg}
+                      <Link to={`/crm/customers?segment=${seg}`}>
+                        <SegmentBadge segment={seg as CrmSegment} />
                       </Link>
                       <span className="font-medium text-slate-700">{count}</span>
                     </div>
