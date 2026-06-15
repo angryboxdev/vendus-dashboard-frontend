@@ -1,20 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import {
   verifyPin,
-  getVendusTotal,
+  getSessions,
   submitClosing,
   type VerifyPinResult,
   type CashClosing,
+  type RegisterSessionDto,
+  type DrawerDenominations,
 } from "./cashClosingApi";
+import { PageFooter } from "../../components/PageFooter.tsx";
+
+// ---------- denomination constants (drawer end-of-day count) ----------
+
+const BILL_DENOMS = [50, 20, 10, 5];
+const COIN_DENOMS = [2, 1, 0.5, 0.2, 0.1, 0.01];
+const ALL_DENOMS = [...BILL_DENOMS, ...COIN_DENOMS];
 
 // ---------- helpers ----------
 
 function todayYmd(): string {
   const d = new Date();
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, "0");
-  const day = String(d.getDate()).padStart(2, "0");
-  return `${y}-${m}-${day}`;
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
 function fmtEur(n: number): string {
@@ -23,11 +29,34 @@ function fmtEur(n: number): string {
 
 function fmtDateLabel(ymd: string): string {
   return new Date(ymd + "T12:00:00Z").toLocaleDateString("pt-PT", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
+    weekday: "long", day: "numeric", month: "long", year: "numeric",
   });
+}
+
+function fmtTime(iso: string): string {
+  return iso.slice(11, 16);
+}
+
+function fmtDenom(d: number): string {
+  const cents = Math.round(d * 100);
+  if (cents >= 100) return `${cents / 100} €`;
+  return `${cents} cênt.`;
+}
+
+/** Maps the component's denomQty Record to the typed DrawerDenominations shape. */
+function toDenominations(q: Record<string, number>): DrawerDenominations {
+  return {
+    notes50: q["50"] ?? 0,
+    notes20: q["20"] ?? 0,
+    notes10: q["10"] ?? 0,
+    notes5: q["5"] ?? 0,
+    coins200: q["2"] ?? 0,
+    coins100: q["1"] ?? 0,
+    coins50: q["0.5"] ?? 0,
+    coins20: q["0.2"] ?? 0,
+    coins10: q["0.1"] ?? 0,
+    coins1: q["0.01"] ?? 0,
+  };
 }
 
 // ---------- PIN keypad ----------
@@ -45,8 +74,8 @@ function PinDots({ count }: { count: number }) {
       {[0, 1, 2, 3].map((i) => (
         <div
           key={i}
-          className={`h-4 w-4 rounded-full transition-colors ${
-            i < count ? "bg-indigo-400" : "bg-slate-600"
+          className={`h-3.5 w-3.5 rounded-full transition-all duration-150 ${
+            i < count ? "scale-110 bg-[#ED5C32]" : "bg-stone-200"
           }`}
         />
       ))}
@@ -66,8 +95,8 @@ function AmountInput({
   onChange: (v: string) => void;
 }) {
   return (
-    <div className="flex flex-col gap-1">
-      <label className="text-sm font-medium text-slate-300">{label}</label>
+    <div className="flex flex-col gap-1.5">
+      <label className="text-sm font-medium text-stone-500">{label}</label>
       <div className="relative">
         <input
           type="number"
@@ -75,10 +104,10 @@ function AmountInput({
           step="0.01"
           value={value}
           onChange={(e) => onChange(e.target.value)}
-          className="w-full rounded-xl border border-slate-600 bg-slate-700 px-4 py-3 pr-10 text-right text-lg font-semibold text-white placeholder-slate-500 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+          className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 pr-10 text-right text-lg font-semibold text-stone-800 placeholder-stone-300 focus:border-[#ED5C32] focus:outline-none focus:ring-2 focus:ring-[#ED5C32]/10"
           placeholder="0.00"
         />
-        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-slate-400">
+        <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-sm text-stone-400">
           €
         </span>
       </div>
@@ -86,17 +115,63 @@ function AmountInput({
   );
 }
 
+// ---------- Denomination column (compact, for 2-col grid) ----------
+
+function DenomCol({
+  title,
+  denoms,
+  denomQty,
+  setDenom,
+}: {
+  title: string;
+  denoms: number[];
+  denomQty: Record<string, number>;
+  setDenom: (d: number, qty: number) => void;
+}) {
+  return (
+    <div>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-stone-400">{title}</p>
+      <div className="space-y-1.5">
+        {denoms.map((d) => {
+          const qty = denomQty[String(d)] ?? 0;
+          const subtotal = Math.round(d * qty * 100) / 100;
+          return (
+            <div key={d} className="rounded-xl bg-stone-50 px-2 py-2">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-stone-700">{fmtDenom(d)}</span>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => setDenom(d, qty - 1)}
+                    disabled={qty === 0}
+                    className="flex h-6 w-6 items-center justify-center rounded-full border border-stone-200 bg-white text-sm font-bold text-stone-500 transition-all hover:bg-stone-100 disabled:opacity-30 active:scale-90"
+                  >
+                    −
+                  </button>
+                  <span className="w-5 text-center text-sm font-bold tabular-nums text-stone-800">{qty}</span>
+                  <button
+                    type="button"
+                    onClick={() => setDenom(d, qty + 1)}
+                    className="flex h-6 w-6 items-center justify-center rounded-full bg-[#ED5C32]/10 text-sm font-bold text-[#ED5C32] transition-all hover:bg-[#ED5C32]/20 active:scale-90"
+                  >
+                    +
+                  </button>
+                </div>
+              </div>
+              {subtotal > 0 && (
+                <p className="mt-0.5 text-right text-xs tabular-nums text-stone-400">{fmtEur(subtotal)}</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ---------- Step types ----------
 
-type Step =
-  | "pin"
-  | "date"
-  | "tpa"
-  | "delivery"
-  | "cash"
-  | "drawer"
-  | "review"
-  | "done";
+type Step = "pin" | "date" | "session" | "tpa" | "delivery" | "cash" | "drawer" | "review" | "done";
 
 type FormData = {
   employee: VerifyPinResult | null;
@@ -110,7 +185,6 @@ type FormData = {
   cashIn: string;
   cashOut: string;
   cashDrawerOpen: string;
-  cashDrawerTotal: string;
   notes: string;
   vendusTotal: number | null;
 };
@@ -127,7 +201,6 @@ const INITIAL_FORM: FormData = {
   cashIn: "",
   cashOut: "",
   cashDrawerOpen: "",
-  cashDrawerTotal: "",
   notes: "",
   vendusTotal: null,
 };
@@ -142,6 +215,19 @@ export function CashClosingPage() {
   const [error, setError] = useState("");
   const [pinDigits, setPinDigits] = useState<string[]>([]);
   const [result, setResult] = useState<CashClosing | null>(null);
+
+  // Sessions
+  const [sessions, setSessions] = useState<RegisterSessionDto[]>([]);
+  const [selectedSession, setSelectedSession] = useState<RegisterSessionDto | null>(null);
+
+  // Denomination state — for end-of-day drawer count (cashDrawerTotal)
+  const [denomQty, setDenomQty] = useState<Record<string, number>>({});
+
+  function setDenom(d: number, qty: number) {
+    setDenomQty((prev) => ({ ...prev, [String(d)]: Math.max(0, qty) }));
+  }
+
+  const totalSteps = 7;
 
   function setField<K extends keyof FormData>(key: K, value: FormData[K]) {
     setForm((f) => ({ ...f, [key]: value }));
@@ -161,26 +247,39 @@ export function CashClosingPage() {
   const cashIn = toNum(form.cashIn);
   const cashOut = toNum(form.cashOut);
   const cashDrawerOpen = toNum(form.cashDrawerOpen);
-  const cashDrawerTotal = toNum(form.cashDrawerTotal);
-  const totalCalculated = tpa + uber + glovo + bolt + eatz + cashSales;
+  // cashDrawerTotal is computed from the denomination count
+  const cashDrawerTotal = Math.round(
+    ALL_DENOMS.reduce((sum, d) => sum + d * (denomQty[String(d)] ?? 0), 0) * 100,
+  ) / 100;
+
+  const totalCalculated = Math.round((tpa + uber + glovo + bolt + eatz + cashSales) * 100) / 100;
   const expectedCash = Math.round((cashDrawerOpen + cashSales + cashIn - cashOut) * 100) / 100;
-  const cashDiff = cashDrawerTotal > 0 || expectedCash > 0
-    ? Math.round((cashDrawerTotal - expectedCash) * 100) / 100
-    : null;
-  const sangriaAmount = cashDrawerTotal > 100 ? Math.round((cashDrawerTotal - 100) * 100) / 100 : 0;
+  const cashDiff =
+    cashDrawerTotal > 0 || expectedCash > 0
+      ? Math.round((cashDrawerTotal - expectedCash) * 100) / 100
+      : null;
+  const sangriaAmount =
+    cashDrawerTotal > 100 ? Math.round((cashDrawerTotal - 100) * 100) / 100 : 0;
   const diff =
     form.vendusTotal != null
       ? Math.round((totalCalculated - form.vendusTotal) * 100) / 100
       : null;
 
-  // ---- PIN step ----
+  function resetAll() {
+    setStep("pin");
+    setForm(INITIAL_FORM);
+    setPinDigits([]);
+    setResult(null);
+    setError("");
+    setSessions([]);
+    setSelectedSession(null);
+    setDenomQty({});
+  }
+
+  // ---- PIN ----
   async function handlePinKey(key: string) {
     if (loading) return;
-    if (key === "⌫") {
-      setPinDigits((d) => d.slice(0, -1));
-      setError("");
-      return;
-    }
+    if (key === "⌫") { setPinDigits((d) => d.slice(0, -1)); setError(""); return; }
     if (pinDigits.length >= 4) return;
     const next = [...pinDigits, key];
     setPinDigits(next);
@@ -200,20 +299,26 @@ export function CashClosingPage() {
     }
   }
 
-  // ---- Drawer step → fetch Vendus total then go to review ----
-  async function goToReview() {
+  // ---- Date → sessions ----
+  async function goFromDate() {
     setLoading(true);
     setError("");
     try {
-      const vt = await getVendusTotal(form.closingDate);
-      setField("vendusTotal", vt);
-      setStep("review");
-    } catch {
-      setField("vendusTotal", null);
-      setStep("review");
+      const fetched = await getSessions(form.closingDate);
+      setSessions(fetched);
+      setSelectedSession(null);
+      setStep("session");
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Erro ao carregar sessões");
     } finally {
       setLoading(false);
     }
+  }
+
+  // ---- Drawer → review ----
+  function goToReview() {
+    setField("vendusTotal", selectedSession?.total ?? null);
+    setStep("review");
   }
 
   // ---- Submit ----
@@ -225,17 +330,11 @@ export function CashClosingPage() {
       const closing = await submitClosing({
         employeeId: form.employee.employeeId,
         closingDate: form.closingDate,
-        tpa,
-        uber,
-        glovo,
-        bolt,
-        eatz,
-        cashSales,
-        cashIn,
-        cashOut,
-        cashDrawerOpen,
-        cashDrawerTotal,
+        tpa, uber, glovo, bolt, eatz, cashSales, cashIn, cashOut,
+        cashDrawerOpen, cashDrawerTotal,
         notes: form.notes.trim() || null,
+        sessionOpenedAt: selectedSession?.openedAt ?? null,
+        drawerDenominations: toDenominations(denomQty),
       });
       setResult(closing);
       setStep("done");
@@ -246,21 +345,22 @@ export function CashClosingPage() {
     }
   }
 
-  // ---- PIN screen ----
+  // ========== PIN screen ==========
   if (step === "pin") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-900 px-6 py-12">
+      <StepShell>
         <div className="flex w-full max-w-xs flex-col items-center gap-8">
           <div className="text-center">
-            <p className="text-2xl font-bold text-white">Fecho de Caixa</p>
-            <p className="mt-1 text-sm text-slate-400">Introduz o teu PIN</p>
+            <p className="text-xs font-medium uppercase tracking-widest text-stone-400">Angry Box</p>
+            <p className="mt-2 text-2xl font-bold text-stone-800">Fecho de Caixa</p>
+            <p className="mt-1 text-sm text-stone-400">Introduz o teu PIN</p>
           </div>
           {error && (
-            <p className="rounded-lg bg-red-900/50 px-4 py-2 text-sm text-red-300">{error}</p>
+            <p className="rounded-xl border border-red-100 bg-red-50 px-4 py-2 text-sm text-red-600">{error}</p>
           )}
           <PinDots count={pinDigits.length} />
           {loading ? (
-            <div className="h-10 w-10 animate-spin rounded-full border-4 border-slate-600 border-t-indigo-400" />
+            <div className="h-10 w-10 animate-spin rounded-full border-4 border-stone-200 border-t-[#ED5C32]" />
           ) : (
             <div className="grid w-full grid-cols-3 gap-3">
               {KEYPAD.map((key, i) =>
@@ -271,7 +371,7 @@ export function CashClosingPage() {
                     key={i}
                     type="button"
                     onClick={() => void handlePinKey(key)}
-                    className="flex h-16 items-center justify-center rounded-2xl bg-slate-700 text-xl font-semibold text-white transition-colors hover:bg-slate-600 active:scale-95"
+                    className="flex h-16 items-center justify-center rounded-2xl border border-stone-100 bg-white text-xl font-semibold text-stone-800 shadow-sm transition-all hover:bg-stone-50 active:scale-95"
                   >
                     {key}
                   </button>
@@ -280,163 +380,220 @@ export function CashClosingPage() {
             </div>
           )}
         </div>
-      </div>
+      </StepShell>
     );
   }
 
-  // ---- Date step ----
+  // ========== Date step ==========
   if (step === "date") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-900 px-6 py-12">
+      <StepShell>
         <div className="w-full max-w-sm">
           <div className="mb-8 text-center">
-            <p className="text-2xl font-bold text-white">Fecho de Caixa</p>
-            <p className="mt-1 text-sm text-slate-400">
-              Olá, <span className="text-white">{form.employee?.fullName}</span>
+            <p className="text-xs font-medium uppercase tracking-widest text-stone-400">Angry Box</p>
+            <p className="mt-2 text-2xl font-bold text-stone-800">Fecho de Caixa</p>
+            <p className="mt-1 text-sm text-stone-400">
+              Olá, <span className="font-medium text-stone-700">{form.employee?.fullName}</span>
             </p>
           </div>
-          <div className="rounded-2xl bg-slate-800 p-6">
-            <p className="mb-4 text-sm font-medium text-slate-300">Data do fecho</p>
+          <div className="rounded-2xl bg-white p-6 shadow-sm">
+            <p className="mb-3 text-sm font-medium text-stone-500">Data do fecho</p>
             <input
               type="date"
               value={form.closingDate}
               onChange={(e) => setField("closingDate", e.target.value)}
-              className="w-full rounded-xl border border-slate-600 bg-slate-700 px-4 py-3 text-lg text-white focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              className="w-full rounded-xl border border-stone-200 bg-[#FAF6F3] px-4 py-3 text-lg text-stone-800 focus:border-[#ED5C32] focus:outline-none focus:ring-2 focus:ring-[#ED5C32]/10"
             />
-            <p className="mt-2 text-center text-sm capitalize text-slate-400">
+            <p className="mt-2 text-center text-sm capitalize text-stone-400">
               {fmtDateLabel(form.closingDate)}
             </p>
           </div>
+          {error && (
+            <p className="mt-3 rounded-xl border border-red-100 bg-red-50 px-4 py-2 text-sm text-red-600">{error}</p>
+          )}
           <button
             type="button"
-            onClick={() => setStep("tpa")}
-            className="mt-6 w-full rounded-2xl bg-indigo-600 py-4 text-lg font-semibold text-white hover:bg-indigo-500 active:scale-95"
+            disabled={loading}
+            onClick={() => void goFromDate()}
+            className="mt-5 w-full rounded-2xl bg-gradient-to-r from-[#ED5C32] to-[#F1A93F] py-4 text-lg font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-50 active:scale-95"
           >
-            Continuar
+            {loading ? "A carregar…" : "Continuar"}
           </button>
         </div>
-      </div>
+      </StepShell>
     );
   }
 
-  // ---- TPA step ----
+  // ========== Session step ==========
+  if (step === "session") {
+    return (
+      <StepShell>
+        <div className="w-full max-w-sm">
+          <StepHeader step={2} total={7} title="Sessão de Caixa" />
+          {sessions.length === 0 ? (
+            <div className="rounded-2xl bg-white p-6 text-center shadow-sm">
+              <p className="text-sm text-stone-400">
+                Nenhuma sessão encontrada para {fmtDateLabel(form.closingDate)}.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {sessions.map((s) => {
+                const isSelected = selectedSession?.openedAt === s.openedAt;
+                return (
+                  <button
+                    key={s.openedAt}
+                    type="button"
+                    disabled={s.alreadySubmitted}
+                    onClick={() => setSelectedSession(s)}
+                    className={`w-full rounded-2xl border p-4 text-left transition-all ${
+                      s.alreadySubmitted
+                        ? "cursor-not-allowed border-stone-100 bg-white opacity-40"
+                        : isSelected
+                          ? "border-[#ED5C32]/40 bg-[#ED5C32]/5 ring-1 ring-[#ED5C32]/40"
+                          : "border-stone-100 bg-white shadow-sm hover:border-stone-200"
+                    }`}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-semibold text-stone-800">
+                          {fmtTime(s.openedAt)} → {s.closedAt ? fmtTime(s.closedAt) : "Em aberto"}
+                        </p>
+                        <p className="mt-0.5 text-xs text-stone-400">
+                          {s.alreadySubmitted ? "Já submetido" : "Disponível"}
+                        </p>
+                      </div>
+                      <p className="text-lg font-bold tabular-nums text-stone-800">{fmtEur(s.total)}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          <StepActions
+            onBack={() => setStep("date")}
+            onNext={() => setStep("tpa")}
+            nextDisabled={selectedSession === null}
+          />
+        </div>
+      </StepShell>
+    );
+  }
+
+  // ========== TPA step ==========
   if (step === "tpa") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-900 px-6 py-12">
+      <StepShell>
         <div className="w-full max-w-sm">
-          <StepHeader step={2} total={6} title="Multibanco / TPA" />
-          <div className="rounded-2xl bg-slate-800 p-6">
+          <StepHeader step={3} total={totalSteps} title="Multibanco / TPA" />
+          <div className="rounded-2xl bg-white p-6 shadow-sm">
             <AmountInput label="Total TPA" value={form.tpa} onChange={(v) => setField("tpa", v)} />
           </div>
           <StepActions
-            onBack={() => setStep("date")}
+            onBack={() => setStep("session")}
             onNext={() => setStep("delivery")}
           />
         </div>
-      </div>
+      </StepShell>
     );
   }
 
-  // ---- Delivery step ----
+  // ========== Delivery step ==========
   if (step === "delivery") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-900 px-6 py-12">
+      <StepShell>
         <div className="w-full max-w-sm">
-          <StepHeader step={3} total={6} title="Apps de Entrega" />
-          <div className="rounded-2xl bg-slate-800 p-6 space-y-4">
+          <StepHeader step={4} total={totalSteps} title="Apps de Entrega" />
+          <div className="space-y-4 rounded-2xl bg-white p-6 shadow-sm">
             <AmountInput label="Uber Eats" value={form.uber} onChange={(v) => setField("uber", v)} />
             <AmountInput label="Glovo" value={form.glovo} onChange={(v) => setField("glovo", v)} />
             <AmountInput label="Bolt Food" value={form.bolt} onChange={(v) => setField("bolt", v)} />
             <AmountInput label="Eatz" value={form.eatz} onChange={(v) => setField("eatz", v)} />
           </div>
-          <StepActions
-            onBack={() => setStep("tpa")}
-            onNext={() => setStep("cash")}
-          />
+          <StepActions onBack={() => setStep("tpa")} onNext={() => setStep("cash")} />
         </div>
-      </div>
+      </StepShell>
     );
   }
 
-  // ---- Cash step ----
+  // ========== Cash step — simple text input ==========
   if (step === "cash") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-900 px-6 py-12">
+      <StepShell>
         <div className="w-full max-w-sm">
-          <StepHeader step={4} total={6} title="Vendas a Dinheiro" />
-          <div className="rounded-2xl bg-slate-800 p-6 space-y-4">
+          <StepHeader step={5} total={totalSteps} title="Vendas a Dinheiro" />
+          <div className="rounded-2xl bg-white p-6 shadow-sm">
             <AmountInput
               label="Total de vendas a dinheiro"
               value={form.cashSales}
               onChange={(v) => setField("cashSales", v)}
             />
           </div>
-          <StepActions
-            onBack={() => setStep("delivery")}
-            onNext={() => setStep("drawer")}
-          />
+          <StepActions onBack={() => setStep("delivery")} onNext={() => setStep("drawer")} />
         </div>
-      </div>
+      </StepShell>
     );
   }
 
-  // ---- Drawer step ----
+  // ========== Drawer step — cash movements + denomination count ==========
   if (step === "drawer") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center bg-slate-900 px-6 py-12">
+      <StepShell align="start">
         <div className="w-full max-w-sm">
-          <StepHeader step={5} total={6} title="Movimentos de Caixa" />
-          <div className="rounded-2xl bg-slate-800 p-6 space-y-4">
-            <AmountInput
-              label="Entradas de dinheiro"
-              value={form.cashIn}
-              onChange={(v) => setField("cashIn", v)}
-            />
-            <p className="text-xs text-slate-500">
-              Ex: fundo de caixa adicionado, trocos recebidos
-            </p>
-            <AmountInput
-              label="Saídas de dinheiro"
-              value={form.cashOut}
-              onChange={(v) => setField("cashOut", v)}
-            />
-            <p className="text-xs text-slate-500">
-              Ex: despesas pagas a dinheiro, sangrias intermédias
-            </p>
-            <div className="border-t border-slate-700 pt-4">
+          <StepHeader step={6} total={totalSteps} title="Movimentos de Caixa" />
+          <div className="space-y-4 rounded-2xl bg-white p-6 shadow-sm">
+            <AmountInput label="Entradas de dinheiro" value={form.cashIn} onChange={(v) => setField("cashIn", v)} />
+            <p className="text-xs text-stone-400">Ex: fundo de caixa adicionado, trocos recebidos</p>
+            <AmountInput label="Saídas de dinheiro" value={form.cashOut} onChange={(v) => setField("cashOut", v)} />
+            <p className="text-xs text-stone-400">Ex: despesas pagas a dinheiro, sangrias intermédias</p>
+            <div className="border-t border-stone-100 pt-4">
               <AmountInput
                 label="Total contado na gaveta (início do dia)"
                 value={form.cashDrawerOpen}
                 onChange={(v) => setField("cashDrawerOpen", v)}
               />
-              <div className="mt-4">
-                <AmountInput
-                  label="Total contado na gaveta (fim do dia)"
-                  value={form.cashDrawerTotal}
-                  onChange={(v) => setField("cashDrawerTotal", v)}
-                />
+            </div>
+            {/* Denomination count — 2-column grid */}
+            <div className="border-t border-stone-100 pt-4">
+              <p className="mb-3 text-sm font-medium text-stone-500">
+                Total contado na gaveta (fim do dia)
+              </p>
+              <div className="grid grid-cols-2 gap-3">
+                <DenomCol title="Notas" denoms={BILL_DENOMS} denomQty={denomQty} setDenom={setDenom} />
+                <DenomCol title="Moedas" denoms={COIN_DENOMS} denomQty={denomQty} setDenom={setDenom} />
+              </div>
+              <div className="mt-4 flex items-center justify-between border-t border-stone-100 pt-4">
+                <span className="text-sm font-semibold text-stone-600">Total da gaveta (fim)</span>
+                <span className={`text-xl font-bold tabular-nums ${cashDrawerTotal > 0 ? "text-stone-900" : "text-stone-300"}`}>
+                  {fmtEur(cashDrawerTotal)}
+                </span>
               </div>
             </div>
           </div>
           <StepActions
             onBack={() => setStep("cash")}
-            onNext={() => void goToReview()}
-            nextLabel={loading ? "A carregar…" : "Rever"}
-            nextDisabled={loading}
+            onNext={goToReview}
+            nextLabel="Rever"
           />
         </div>
-      </div>
+      </StepShell>
     );
   }
 
-  // ---- Review step ----
+  // ========== Review step ==========
   if (step === "review") {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-start bg-slate-900 px-6 py-12">
+      <StepShell align="start">
         <div className="w-full max-w-sm">
-          <StepHeader step={6} total={6} title="Resumo do Fecho" />
-          <div className="rounded-2xl bg-slate-800 divide-y divide-slate-700">
+          <StepHeader step={7} total={totalSteps} title="Resumo do Fecho" />
+          <div className="divide-y divide-stone-100 rounded-2xl bg-white shadow-sm">
             <ReviewRow label="Data" value={fmtDateLabel(form.closingDate)} />
+            {selectedSession && (
+              <ReviewRow
+                label="Sessão"
+                value={`${fmtTime(selectedSession.openedAt)} → ${selectedSession.closedAt ? fmtTime(selectedSession.closedAt) : "Em aberto"}`}
+              />
+            )}
             <ReviewRow label="Funcionário" value={form.employee?.fullName ?? ""} />
             <ReviewRow label="TPA" value={fmtEur(tpa)} />
             <ReviewRow label="Uber Eats" value={fmtEur(uber)} />
@@ -446,12 +603,10 @@ export function CashClosingPage() {
             <ReviewRow label="Vendas a dinheiro" value={fmtEur(cashSales)} />
             {cashIn > 0 && <ReviewRow label="Entradas" value={fmtEur(cashIn)} />}
             {cashOut > 0 && <ReviewRow label="Saídas" value={fmtEur(cashOut)} />}
-            <ReviewRow label="Gaveta (início do dia)" value={fmtEur(cashDrawerOpen)} />
-            <ReviewRow label="Gaveta (fim do dia)" value={fmtEur(cashDrawerTotal)} />
+            <ReviewRow label="Gaveta (início)" value={fmtEur(cashDrawerOpen)} />
+            <ReviewRow label="Gaveta (fim)" value={fmtEur(cashDrawerTotal)} />
             <ReviewRow label="Total Calculado" value={fmtEur(totalCalculated)} highlight />
-            {form.vendusTotal != null && (
-              <ReviewRow label="Total Vendus" value={fmtEur(form.vendusTotal)} />
-            )}
+            {form.vendusTotal != null && <ReviewRow label="Total Vendus" value={fmtEur(form.vendusTotal)} />}
             {diff != null && (
               <ReviewRow
                 label="Diferença Vendus"
@@ -473,26 +628,26 @@ export function CashClosingPage() {
             )}
           </div>
 
-          <div className="mt-4 rounded-2xl bg-slate-800 p-4">
-            <label className="text-sm font-medium text-slate-300">Observações (opcional)</label>
+          <div className="mt-4 rounded-2xl bg-white p-4 shadow-sm">
+            <label className="text-sm font-medium text-stone-500">Observações (opcional)</label>
             <textarea
               value={form.notes}
               onChange={(e) => setField("notes", e.target.value)}
               rows={2}
-              className="mt-2 w-full rounded-xl border border-slate-600 bg-slate-700 px-3 py-2 text-sm text-white placeholder-slate-500 focus:border-indigo-400 focus:outline-none focus:ring-1 focus:ring-indigo-400"
+              className="mt-2 w-full rounded-xl border border-stone-200 bg-[#FAF6F3] px-3 py-2 text-sm text-stone-800 placeholder-stone-300 focus:border-[#ED5C32] focus:outline-none focus:ring-2 focus:ring-[#ED5C32]/10"
               placeholder="Alguma nota adicional?"
             />
           </div>
 
           {error && (
-            <p className="mt-3 rounded-lg bg-red-900/50 px-4 py-2 text-sm text-red-300">{error}</p>
+            <p className="mt-3 rounded-xl border border-red-100 bg-red-50 px-4 py-2 text-sm text-red-600">{error}</p>
           )}
 
-          <div className="mt-6 flex gap-3">
+          <div className="mt-5 flex gap-3">
             <button
               type="button"
               onClick={() => setStep("drawer")}
-              className="flex-1 rounded-2xl border border-slate-600 py-4 text-sm font-semibold text-slate-300 hover:bg-slate-800"
+              className="flex-1 rounded-2xl border border-stone-200 bg-white py-4 text-sm font-semibold text-stone-600 hover:bg-stone-50 active:scale-95"
             >
               Corrigir
             </button>
@@ -500,66 +655,106 @@ export function CashClosingPage() {
               type="button"
               disabled={loading}
               onClick={() => void handleSubmit()}
-              className="flex-[2] rounded-2xl bg-emerald-600 py-4 text-lg font-semibold text-white hover:bg-emerald-500 disabled:opacity-50 active:scale-95"
+              className="flex-[2] rounded-2xl bg-gradient-to-r from-[#ED5C32] to-[#F1A93F] py-4 text-lg font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-50 active:scale-95"
             >
               {loading ? "A submeter…" : "Confirmar Fecho"}
             </button>
           </div>
         </div>
-      </div>
+      </StepShell>
     );
   }
 
-  // ---- Done screen ----
+  // ========== Done screen ==========
+  void result;
+  const firstName = form.employee?.fullName?.split(" ")[0] ?? "";
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-emerald-800 px-6">
-      <div className="max-w-xs text-center">
-        <p className="text-6xl">✓</p>
-        <p className="mt-6 text-2xl font-bold text-white">Fecho submetido!</p>
-        <p className="mt-2 text-lg text-emerald-200">
-          {form.employee?.fullName?.split(" ")[0]}, obrigado pelo registo.
-        </p>
-        {result && sangriaAmount > 0 && (
-          <div className="mt-6 rounded-2xl bg-emerald-700 px-6 py-4">
-            <p className="text-sm font-semibold text-emerald-100">Lembra-te da sangria:</p>
-            <p className="mt-1 text-2xl font-bold text-white">{fmtEur(sangriaAmount)}</p>
-            <p className="mt-1 text-xs text-emerald-300">para colocar no envelope</p>
+    <StepShell>
+      <div className="w-full max-w-xs">
+        <div className="mb-8 text-center">
+          <div className="mx-auto mb-5 flex h-16 w-16 items-center justify-center rounded-full bg-emerald-100">
+            <span className="text-3xl text-emerald-600">✓</span>
           </div>
-        )}
+          <p className="text-2xl font-bold text-stone-800">Fecho submetido!</p>
+          <p className="mt-1 text-stone-500">{firstName}, obrigado pelo registo.</p>
+        </div>
+
+        <div className="space-y-3">
+          {sangriaAmount > 0 && (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4">
+              <p className="text-xs font-semibold uppercase tracking-wider text-amber-600">
+                Lembrete · Sangria
+              </p>
+              <p className="mt-1.5 text-2xl font-bold tabular-nums text-amber-700">
+                {fmtEur(sangriaAmount)}
+              </p>
+              <p className="mt-0.5 text-sm text-amber-600">
+                Coloca no envelope de sangria antes de sair
+              </p>
+            </div>
+          )}
+
+          <div className="rounded-2xl border border-[#ED5C32]/30 bg-[#ED5C32]/5 px-5 py-4">
+            <p className="text-xs font-semibold uppercase tracking-wider text-[#A3211A]">
+              Lembrete · Vendus
+            </p>
+            <p className="mt-1.5 text-sm font-medium text-[#A3211A]">
+              Não te esqueças de concluir o fecho de caixa no Vendus
+            </p>
+          </div>
+        </div>
+
         <button
           type="button"
-          onClick={() => {
-            setStep("pin");
-            setForm(INITIAL_FORM);
-            setPinDigits([]);
-            setResult(null);
-            setError("");
-          }}
-          className="mt-8 rounded-2xl border border-emerald-500 px-6 py-3 text-sm font-semibold text-emerald-200 hover:bg-emerald-700"
+          onClick={resetAll}
+          className="mt-8 w-full rounded-2xl bg-gradient-to-r from-[#ED5C32] to-[#F1A93F] py-4 text-lg font-semibold text-white shadow-sm hover:opacity-90 active:scale-95"
         >
           Novo fecho
         </button>
       </div>
-    </div>
+    </StepShell>
   );
 }
 
 // ---------- sub-components ----------
 
+/**
+ * Wrapper comum a todos os ecrãs do kiosk.
+ * Inclui a barra de acento no topo, a área de conteúdo (centrada ou alinhada ao topo)
+ * e o PageFooter no fundo.
+ */
+function StepShell({
+  children,
+  align = "center",
+}: {
+  children: ReactNode;
+  align?: "center" | "start";
+}) {
+  return (
+    <div className="flex min-h-screen flex-col bg-[#FAF6F3]">
+      <div className="fixed inset-x-0 top-0 z-50 h-0.5 bg-gradient-to-r from-[#ED5C32] to-[#F1A93F]" />
+      <div
+        className={`flex flex-1 flex-col items-center px-6 py-12 ${
+          align === "center" ? "justify-center" : "justify-start"
+        }`}
+      >
+        {children}
+      </div>
+      <PageFooter />
+    </div>
+  );
+}
+
 function StepHeader({ step, total, title }: { step: number; total: number; title: string }) {
   return (
     <div className="mb-6 text-center">
-      <p className="text-xs font-medium text-slate-500">
-        Passo {step} de {total}
-      </p>
-      <p className="mt-1 text-xl font-bold text-white">{title}</p>
-      <div className="mt-3 flex gap-1 justify-center">
+      <p className="text-xs font-medium text-stone-400">Passo {step} de {total}</p>
+      <p className="mt-1 text-xl font-bold text-stone-800">{title}</p>
+      <div className="mt-3 flex justify-center gap-1">
         {Array.from({ length: total }).map((_, i) => (
           <div
             key={i}
-            className={`h-1 w-8 rounded-full transition-colors ${
-              i < step ? "bg-indigo-400" : "bg-slate-700"
-            }`}
+            className={`h-1 w-6 rounded-full transition-colors ${i < step ? "bg-[#ED5C32]" : "bg-stone-200"}`}
           />
         ))}
       </div>
@@ -568,10 +763,7 @@ function StepHeader({ step, total, title }: { step: number; total: number; title
 }
 
 function StepActions({
-  onBack,
-  onNext,
-  nextLabel = "Continuar",
-  nextDisabled = false,
+  onBack, onNext, nextLabel = "Continuar", nextDisabled = false,
 }: {
   onBack: () => void;
   onNext: () => void;
@@ -579,11 +771,11 @@ function StepActions({
   nextDisabled?: boolean;
 }) {
   return (
-    <div className="mt-6 flex gap-3">
+    <div className="mt-5 flex gap-3">
       <button
         type="button"
         onClick={onBack}
-        className="flex-1 rounded-2xl border border-slate-600 py-4 text-sm font-semibold text-slate-300 hover:bg-slate-800"
+        className="flex-1 rounded-2xl border border-stone-200 bg-white py-4 text-sm font-semibold text-stone-600 hover:bg-stone-50 active:scale-95"
       >
         Voltar
       </button>
@@ -591,7 +783,7 @@ function StepActions({
         type="button"
         onClick={onNext}
         disabled={nextDisabled}
-        className="flex-[2] rounded-2xl bg-indigo-600 py-4 text-lg font-semibold text-white hover:bg-indigo-500 disabled:opacity-50 active:scale-95"
+        className="flex-[2] rounded-2xl bg-gradient-to-r from-[#ED5C32] to-[#F1A93F] py-4 text-lg font-semibold text-white shadow-sm hover:opacity-90 disabled:opacity-40 active:scale-95"
       >
         {nextLabel}
       </button>
@@ -600,11 +792,7 @@ function StepActions({
 }
 
 function ReviewRow({
-  label,
-  value,
-  highlight,
-  amber,
-  diffColor,
+  label, value, highlight, amber, diffColor,
 }: {
   label: string;
   value: string;
@@ -613,20 +801,16 @@ function ReviewRow({
   diffColor?: "green" | "blue" | "red";
 }) {
   const valueClass = diffColor
-    ? diffColor === "green"
-      ? "text-emerald-400"
-      : diffColor === "blue"
-        ? "text-blue-400"
-        : "text-red-400"
+    ? diffColor === "green" ? "text-emerald-600" : diffColor === "blue" ? "text-blue-600" : "text-red-500"
     : amber
-      ? "text-amber-300 font-semibold"
+      ? "font-semibold text-amber-600"
       : highlight
-        ? "text-white font-bold text-lg"
-        : "text-slate-200";
+        ? "text-lg font-bold text-stone-900"
+        : "text-stone-700";
 
   return (
     <div className="flex items-center justify-between px-5 py-3">
-      <span className={`text-sm ${highlight ? "font-semibold text-slate-200" : "text-slate-400"}`}>
+      <span className={`text-sm ${highlight ? "font-semibold text-stone-600" : "text-stone-400"}`}>
         {label}
       </span>
       <span className={`text-sm tabular-nums ${valueClass}`}>{value}</span>

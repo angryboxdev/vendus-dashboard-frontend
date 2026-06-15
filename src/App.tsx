@@ -12,7 +12,8 @@ import { PizzasPage } from "./pages/stock/PizzasPage";
 import { StockLayout } from "./pages/stock/StockLayout";
 import { StockMovementHistoryPage } from "./pages/stock/StockMovementHistoryPage";
 import { StockPage } from "./pages/stock/StockPage";
-import { Sidebar } from "./components/Sidebar";
+import { Sidebar } from "./modules/sidebar/adapters/in/SidebarView.tsx";
+import { SidebarProvider } from "./modules/sidebar/sidebar.module.tsx";
 import { HrCalendarPage } from "./pages/hr/HrCalendarPage";
 import { HrEmployeeDetailPage } from "./pages/hr/HrEmployeeDetailPage";
 import { HrEmployeesPage } from "./pages/hr/HrEmployeesPage";
@@ -23,7 +24,8 @@ import { HrReportPage } from "./pages/hr/HrReportPage";
 import { KioskDisplayPage } from "./pages/kiosk/KioskDisplayPage";
 import { KioskCheckinPage } from "./pages/kiosk/KioskCheckinPage";
 import { CashClosingPage } from "./pages/cashClosing/CashClosingPage";
-import { CashClosingsHubPage } from "./pages/cashClosing/CashClosingsHubPage";
+import { CashClosingsProvider } from "./modules/cash-closings/cash-closings.module.tsx";
+import { CashClosingsHubView } from "./modules/cash-closings/adapters/in/CashClosingsHubView.tsx";
 import { TerminalPage } from "./pages/terminal/TerminalPage";
 import { LoginPage } from "./pages/LoginPage";
 import { UsersPage } from "./pages/admin/UsersPage";
@@ -59,7 +61,8 @@ export default function App() {
         path="*"
         element={
           <ProtectedRoute>
-            <div className="flex min-h-screen bg-slate-100">
+            <SidebarProvider>
+            <div className="flex min-h-screen bg-[#FAF6F3]">
               <Sidebar />
               <main className="min-w-0 flex-1 overflow-auto pt-12 md:pt-0">
                 <Routes>
@@ -115,11 +118,19 @@ export default function App() {
                   />
                   <Route path="/crm/parameters" element={<CrmParametersPage />} />
                 </Route>
-                <Route path="/cash-closings" element={<CashClosingsHubPage />} />
+                <Route
+                  path="/cash-closings"
+                  element={
+                    <CashClosingsProvider>
+                      <CashClosingsHubView />
+                    </CashClosingsProvider>
+                  }
+                />
                 <Route path="/admin/users" element={<UsersPage />} />
               </Routes>
             </main>
           </div>
+          </SidebarProvider>
           </ProtectedRoute>
         }
       />

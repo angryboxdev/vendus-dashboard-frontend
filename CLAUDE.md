@@ -37,7 +37,8 @@ padrão novo, abra o `README.md` dele e veja o campo `Status`; sem README ou com
 ### Módulos já no padrão novo
 <!-- Mantenha esta lista atualizada. É a fonte de verdade de quem já migrou. -->
 - `tasks` (módulo de referência)
-<!-- adicione aqui cada módulo conforme for criado/migrado -->
+- `cash-closings`
+- `sidebar`
 
 ## Stack
 

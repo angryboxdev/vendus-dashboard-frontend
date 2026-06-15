@@ -4,6 +4,19 @@ const BASE = "/api/cash-closings";
 
 export type CashClosingStatus = "pending" | "approved" | "rejected";
 
+export type DrawerDenominations = {
+  notes50: number;
+  notes20: number;
+  notes10: number;
+  notes5: number;
+  coins200: number;
+  coins100: number;
+  coins50: number;
+  coins20: number;
+  coins10: number;
+  coins1: number;
+};
+
 export type CashClosing = {
   id: string;
   closingDate: string;
@@ -27,6 +40,7 @@ export type CashClosing = {
   managerNotes: string | null;
   reviewedAt: string | null;
   submittedAt: string;
+  drawerDenominations: DrawerDenominations | null;
 };
 
 export type VerifyPinResult = {
@@ -48,12 +62,22 @@ export async function verifyPin(pin: string): Promise<VerifyPinResult> {
   return res.json() as Promise<VerifyPinResult>;
 }
 
-export async function getVendusTotal(date: string): Promise<number> {
-  const url = `${API_BASE}${BASE}/vendus-total?date=${encodeURIComponent(date)}`;
+
+export type RegisterSessionDto = {
+  openedAt: string;
+  closedAt: string | null;
+  total: number;
+  alreadySubmitted: boolean;
+};
+
+export async function getSessions(date: string): Promise<RegisterSessionDto[]> {
+  const url = `${API_BASE}${BASE}/sessions?date=${encodeURIComponent(date)}`;
   const res = await fetch(url);
-  if (!res.ok) return 0;
-  const data = await res.json() as { total: number };
-  return data.total;
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({})) as { error?: string };
+    throw new Error(data.error ?? `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<RegisterSessionDto[]>;
 }
 
 export type SubmitClosingBody = {
@@ -70,6 +94,8 @@ export type SubmitClosingBody = {
   cashDrawerOpen: number;
   cashDrawerTotal: number;
   notes?: string | null;
+  sessionOpenedAt?: string | null;
+  drawerDenominations?: DrawerDenominations | null;
 };
 
 export async function submitClosing(body: SubmitClosingBody): Promise<CashClosing> {
