@@ -9,7 +9,11 @@ import {
 } from "../../domain/services/nav-state.service.ts";
 
 export class GetNavStateUseCase implements GetNavStatePort {
-  constructor(private readonly auth: AuthPort) {}
+  private readonly auth: AuthPort;
+
+  constructor(auth: AuthPort) {
+    this.auth = auth;
+  }
 
   execute(currentPath: string): SidebarState {
     const user = this.auth.getUser();

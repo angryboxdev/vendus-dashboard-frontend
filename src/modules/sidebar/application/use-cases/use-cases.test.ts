@@ -6,7 +6,12 @@ import { SignOutUseCase } from "./sign-out.use-case.ts";
 
 class FakeAuth implements AuthPort {
   signedOut = false;
-  constructor(private readonly user: SidebarUser | null = null) {}
+  private readonly user: SidebarUser | null;
+
+  constructor(user: SidebarUser | null = null) {
+    this.user = user;
+  }
+
   getUser() {
     return this.user;
   }
