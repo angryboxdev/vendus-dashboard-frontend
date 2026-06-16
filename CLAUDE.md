@@ -39,6 +39,8 @@ padrão novo, abra o `README.md` dele e veja o campo `Status`; sem README ou com
 - `tasks` (módulo de referência)
 - `cash-closings`
 - `sidebar`
+- `financial-base` (junho 2026)
+- `invoices` (junho 2026)
 
 ## Stack
 

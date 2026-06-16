@@ -6,14 +6,14 @@ import {
 } from "./nav-state.service.ts";
 
 describe("buildTree", () => {
-  it("returns 7 entries for a non-admin user", () => {
+  it("returns 8 entries for a non-admin user", () => {
     const tree = buildTree({ email: "a@b.com", role: "manager" });
-    expect(tree).toHaveLength(7);
+    expect(tree).toHaveLength(8);
   });
 
-  it("returns 8 entries for admin (includes Utilizadores)", () => {
+  it("returns 9 entries for admin (includes Utilizadores)", () => {
     const tree = buildTree({ email: "a@b.com", role: "admin" });
-    expect(tree).toHaveLength(8);
+    expect(tree).toHaveLength(9);
     const last = tree[tree.length - 1];
     expect(last?.kind).toBe("item");
     expect(last?.kind === "item" && last.path).toBe("/admin/users");

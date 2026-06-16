@@ -36,6 +36,11 @@ import { CrmDashboardPage } from "./pages/crm/CrmDashboardPage";
 import { CrmCustomersPage } from "./pages/crm/CrmCustomersPage";
 import { CrmCustomerDetailPage } from "./pages/crm/CrmCustomerDetailPage";
 import { CrmParametersPage } from "./pages/crm/CrmParametersPage";
+import { FinancialBaseProvider } from "./modules/financial-base/financial-base.module.tsx";
+import { CostCentersView } from "./modules/financial-base/adapters/in/CostCentersView.tsx";
+import { SuppliersView } from "./modules/financial-base/adapters/in/SuppliersView.tsx";
+import { InvoicesProvider } from "./modules/invoices/invoices.module.tsx";
+import { InvoicesView } from "./modules/invoices/adapters/in/InvoicesView.tsx";
 
 export default function App() {
   return (
@@ -124,6 +129,20 @@ export default function App() {
                     <CashClosingsProvider>
                       <CashClosingsHubView />
                     </CashClosingsProvider>
+                  }
+                />
+                <Route
+                  path="/financial/*"
+                  element={
+                    <FinancialBaseProvider>
+                      <InvoicesProvider>
+                        <Routes>
+                          <Route path="cost-centers" element={<CostCentersView />} />
+                          <Route path="suppliers" element={<SuppliersView />} />
+                          <Route path="invoices" element={<InvoicesView />} />
+                        </Routes>
+                      </InvoicesProvider>
+                    </FinancialBaseProvider>
                   }
                 />
                 <Route path="/admin/users" element={<UsersPage />} />

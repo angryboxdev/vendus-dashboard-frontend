@@ -33,6 +33,12 @@ const CRM_ITEMS: NavItem[] = [
   { kind: "item", path: "/crm/parameters", label: "Parâmetros" },
 ];
 
+const FINANCIAL_ITEMS: NavItem[] = [
+  { kind: "item", path: "/financial/cost-centers", label: "Centros de Custo" },
+  { kind: "item", path: "/financial/suppliers", label: "Fornecedores" },
+  { kind: "item", path: "/financial/invoices", label: "Faturas" },
+];
+
 export function buildTree(user: SidebarUser): SidebarNavEntry[] {
   const entries: SidebarNavEntry[] = [
     { kind: "item", path: "/", label: "Dashboard", end: true },
@@ -64,6 +70,13 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
       label: "CRM",
       basePath: "/crm",
       items: CRM_ITEMS,
+    },
+    {
+      kind: "group",
+      id: "financial",
+      label: "Financeiro",
+      basePath: "/financial",
+      items: FINANCIAL_ITEMS,
     },
     { kind: "item", path: "/cash-closings", label: "Fechos de Caixa" },
   ];
