@@ -1,4 +1,5 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useInvoicesModule } from "../../invoices.module.tsx";
 import {
@@ -11,6 +12,11 @@ import {
   INVOICE_LINE_TYPE_LABELS,
 } from "../../domain/entities/invoice.ts";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
+import { usePayableEntriesModule } from "../../../payable-entries/payable-entries.module.tsx";
+import {
+  type PayableEntryDTO,
+  PAYABLE_STATUS_LABELS,
+} from "../../../payable-entries/domain/entities/payable-entry.ts";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -200,6 +206,7 @@ function ClassifyPanel({
 interface DetailDrawerProps {
   invoice: InvoiceDTO | null;
   costCenters: { id: string; code: string; name: string }[];
+  linkedPayable?: PayableEntryDTO | null;
   onClose: () => void;
   onMarkPaid: (id: string) => void;
   markingPaid: boolean;
@@ -208,11 +215,13 @@ interface DetailDrawerProps {
 function InvoiceDetailDrawer({
   invoice,
   costCenters,
+  linkedPayable,
   onClose,
   onMarkPaid,
   markingPaid,
 }: DetailDrawerProps) {
   const { api } = useInvoicesModule();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"details" | "lines">("details");
   const [lines, setLines] = useState<InvoiceLineDTO[]>([]);
@@ -354,6 +363,36 @@ function InvoiceDetailDrawer({
                   </div>
                 ))}
               </dl>
+
+              {/* Linked payable entry */}
+              {linkedPayable ? (
+                <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-3 space-y-2">
+                  <p className="text-xs font-medium text-amber-700">Conta a Pagar associada</p>
+                  <dl className="divide-y divide-amber-100/60">
+                    {[
+                      { label: "Estado", value: PAYABLE_STATUS_LABELS[linkedPayable.status] },
+                      { label: "Vencimento", value: formatDate(linkedPayable.dueDate) },
+                      { label: "Pago em", value: formatDate(linkedPayable.paidAt) },
+                      { label: "Valor", value: (linkedPayable.amount / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" }) },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="flex justify-between py-1.5">
+                        <dt className="text-xs text-stone-400">{label}</dt>
+                        <dd className="text-xs font-medium text-stone-700">{value}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                  <button
+                    onClick={() => { onClose(); navigate("/financial/payable-entries"); }}
+                    className="text-xs font-medium text-amber-700 hover:text-amber-900 underline"
+                  >
+                    Ver contas a pagar →
+                  </button>
+                </div>
+              ) : invoice.dueDate ? (
+                <div className="rounded-lg border border-stone-100 bg-stone-50 p-3">
+                  <p className="text-xs text-stone-400">Sem conta a pagar associada a esta fatura.</p>
+                </div>
+              ) : null}
             </div>
           )}
 
@@ -642,7 +681,10 @@ function CreateInvoiceDrawer({
 export function InvoicesView() {
   const { api } = useInvoicesModule();
   const fbModule = useFinancialBaseModule();
+  const { api: payableApi } = usePayableEntriesModule();
   const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "">("");
   const [search, setSearch] = useState("");
@@ -666,6 +708,31 @@ export function InvoicesView() {
     queryKey: ["suppliers"],
     queryFn: () => fbModule.api.listSuppliers(),
   });
+
+  // Payable entries cross-reference — build Map<invoiceId, PayableEntryDTO>
+  const { data: allPayables = [] } = useQuery({
+    queryKey: ["payable-entries"],
+    queryFn: () => payableApi.listPayableEntries(),
+  });
+
+  const payableByInvoiceId = useMemo(() => {
+    const map = new Map<string, PayableEntryDTO>();
+    for (const p of allPayables) {
+      if (p.invoiceId) map.set(p.invoiceId, p);
+    }
+    return map;
+  }, [allPayables]);
+
+  // Auto-open drawer when navigated with ?open=<invoiceId>
+  useEffect(() => {
+    const openId = searchParams.get("open");
+    if (!openId || invoices.length === 0) return;
+    const target = invoices.find((inv) => inv.id === openId);
+    if (target) {
+      setDetail(target);
+      navigate("/financial/invoices", { replace: true });
+    }
+  }, [searchParams, invoices, navigate]);
 
   const createMutation = useMutation({
     mutationFn: (payload: CreateInvoicePayload) => api.createInvoice(payload),
@@ -814,6 +881,7 @@ export function InvoicesView() {
                     "S/ IVA",
                     "IVA",
                     "Total",
+                    "A Pagar",
                   ].map((h) => (
                     <th
                       key={h}
@@ -863,6 +931,16 @@ export function InvoicesView() {
                     <td className="px-4 py-3 text-right font-semibold text-stone-800">
                       {fromCents(inv.totalWithVat)}
                     </td>
+                    <td className="px-4 py-3">
+                      {payableByInvoiceId.has(inv.id) ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
+                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
+                          {PAYABLE_STATUS_LABELS[payableByInvoiceId.get(inv.id)!.status]}
+                        </span>
+                      ) : (
+                        <span className="text-[10px] text-stone-300">—</span>
+                      )}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <button
                         onClick={() => setDetail(inv)}
@@ -893,6 +971,7 @@ export function InvoicesView() {
           <InvoiceDetailDrawer
             invoice={detail}
             costCenters={costCenters}
+            linkedPayable={payableByInvoiceId.get(detail.id) ?? null}
             onClose={() => setDetail(null)}
             onMarkPaid={handleMarkPaid}
             markingPaid={markingPaidId === detail.id}

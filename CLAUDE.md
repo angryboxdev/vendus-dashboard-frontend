@@ -41,6 +41,7 @@ padrão novo, abra o `README.md` dele e veja o campo `Status`; sem README ou com
 - `sidebar`
 - `financial-base` (junho 2026)
 - `invoices` (junho 2026)
+- `payable-entries` (junho 2026)
 
 ## Stack
 

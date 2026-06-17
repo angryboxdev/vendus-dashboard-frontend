@@ -41,6 +41,8 @@ import { CostCentersView } from "./modules/financial-base/adapters/in/CostCenter
 import { SuppliersView } from "./modules/financial-base/adapters/in/SuppliersView.tsx";
 import { InvoicesProvider } from "./modules/invoices/invoices.module.tsx";
 import { InvoicesView } from "./modules/invoices/adapters/in/InvoicesView.tsx";
+import { PayableEntriesProvider } from "./modules/payable-entries/payable-entries.module.tsx";
+import { PayableEntriesView } from "./modules/payable-entries/adapters/in/PayableEntriesView.tsx";
 
 export default function App() {
   return (
@@ -136,11 +138,14 @@ export default function App() {
                   element={
                     <FinancialBaseProvider>
                       <InvoicesProvider>
-                        <Routes>
-                          <Route path="cost-centers" element={<CostCentersView />} />
-                          <Route path="suppliers" element={<SuppliersView />} />
-                          <Route path="invoices" element={<InvoicesView />} />
-                        </Routes>
+                        <PayableEntriesProvider>
+                          <Routes>
+                            <Route path="cost-centers" element={<CostCentersView />} />
+                            <Route path="suppliers" element={<SuppliersView />} />
+                            <Route path="invoices" element={<InvoicesView />} />
+                            <Route path="payable-entries" element={<PayableEntriesView />} />
+                          </Routes>
+                        </PayableEntriesProvider>
                       </InvoicesProvider>
                     </FinancialBaseProvider>
                   }

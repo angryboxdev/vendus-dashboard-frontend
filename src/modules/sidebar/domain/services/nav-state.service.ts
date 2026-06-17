@@ -37,6 +37,7 @@ const FINANCIAL_ITEMS: NavItem[] = [
   { kind: "item", path: "/financial/cost-centers", label: "Centros de Custo" },
   { kind: "item", path: "/financial/suppliers", label: "Fornecedores" },
   { kind: "item", path: "/financial/invoices", label: "Faturas" },
+  { kind: "item", path: "/financial/payable-entries", label: "Contas a Pagar" },
 ];
 
 export function buildTree(user: SidebarUser): SidebarNavEntry[] {
