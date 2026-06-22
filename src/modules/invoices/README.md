@@ -1,7 +1,7 @@
 # Módulo: invoices
 
 > Status: ativo
-> Última atualização: 2026-06-16
+> Última atualização: 2026-06-22
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -60,8 +60,8 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 
 - **InvoiceDTO** — fatura com cabeçalho (fornecedor, valores, datas, estado) e
   linhas opcionais.
-- **InvoiceLineDTO** — linha de detalhe com tipo, centro de custo, categoria e
-  valores monetários.
+- **InvoiceLineDTO** — linha de detalhe com `type`, `costCenterId` (legado),
+  `costCenterCategoryId` (novo), `category` livre e valores monetários.
 - **InvoiceStatus** — `pending | paid | overdue | partial | cancelled | review`.
 - **InvoiceLineType** — `stock_purchase | operational_expense | fixed_cost |
   variable_cost | tax | bank_fee | salary | internal_transfer | service | mixed | other`.
@@ -72,8 +72,8 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 ### Saída (dependências do domínio)
 
 - `InvoicesApiPort` — interface com os métodos HTTP:
-  `listInvoices`, `getInvoice`, `createInvoice`, `updateInvoice`, `markInvoicePaid`,
-  `setInvoiceStatus`, `deleteInvoice`, `classifyLine`, `suggestClassification`.
+  `listInvoices`, `listInvoiceLines`, `getInvoice`, `addLine`, `createInvoice`,
+  `updateInvoice`, `markInvoicePaid`, `deleteInvoice`, `classifyLine`.
 
 ## Adapters
 
@@ -84,13 +84,18 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
     vencidas (total € + contagem), pendentes (total € + contagem).
   - **Filtros**: pesquisa por nome de fornecedor ou nº de fatura; filtro por estado.
   - **Tabela**: estado (badge), fornecedor, nº fatura, datas, valores. Botão "Ver" abre detalhe.
-  - **`CreateInvoiceDrawer`** — drawer lateral para criar nova fatura (campos
-    obrigatórios + opcionais; seleccionar fornecedor existente ou introduzir manualmente).
+  - **`CreateInvoiceDrawer`** — drawer lateral para criar nova fatura: campos de
+    cabeçalho (obrigatórios + opcionais, seleção de fornecedor) e secção de linhas
+    onde é possível adicionar linhas antes de submeter (tipo, categoria livre, qtd,
+    preço unitário, IVA).
   - **`InvoiceDetailDrawer`** — drawer lateral com dois tabs:
     - *Detalhes*: campos de cabeçalho, botão "Marcar como paga".
-    - *Linhas*: lista de `InvoiceLineDTO` com `ClassifyPanel` por linha.
-  - **`ClassifyPanel`** — painel inline por linha: seleccionar tipo, CC e categoria;
-    opção de guardar como regra automática para o fornecedor.
+    - *Linhas*: lista de `InvoiceLineDTO`; formulário `AddLineForm` para adicionar
+      novas linhas (com seleção de `InvoiceLineType` e campo de categoria livre);
+      `ClassifyPanel` inline por linha existente.
+  - **`ClassifyPanel`** — painel inline por linha: seleccionar tipo (`InvoiceLineType`),
+    subcategoria de CC (`costCenterCategoryId`) e categoria livre; opção de guardar
+    como regra automática para o fornecedor.
 
 ### Saída
 
@@ -133,3 +138,5 @@ e `SuppliersView`).
   necessário (o backend já suporta `from`/`to` como filtros de data).
 - Ao fechar um `InvoiceDetailDrawer` e reabri-lo, as linhas são recarregadas.
   Considerar manter as linhas em cache via `useQuery` com `queryKey: ["invoice-lines", id]`.
+- `setInvoiceStatus` e `suggestClassification` existem no backend mas não estão expostos
+  no `InvoicesApiPort` do frontend — adicionar quando necessário na UI.

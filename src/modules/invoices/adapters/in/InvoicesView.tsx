@@ -12,6 +12,7 @@ import {
   INVOICE_LINE_TYPE_LABELS,
 } from "../../domain/entities/invoice.ts";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
+import type { CostCenterCategory } from "../../../financial-base/domain/entities/cost-center.ts";
 import { usePayableEntriesModule } from "../../../payable-entries/payable-entries.module.tsx";
 import {
   type PayableEntryDTO,
@@ -92,19 +93,19 @@ function KpiCard({
 interface ClassifyPanelProps {
   line: InvoiceLineDTO;
   invoiceId: string;
-  costCenters: { id: string; code: string; name: string }[];
+  categories: CostCenterCategory[];
   onDone: (updated: InvoiceLineDTO) => void;
 }
 
 function ClassifyPanel({
   line,
   invoiceId,
-  costCenters,
+  categories,
   onDone,
 }: ClassifyPanelProps) {
   const { api } = useInvoicesModule();
   const [type, setType] = useState<InvoiceLineType>(line.type);
-  const [ccId, setCcId] = useState(line.costCenterId ?? "");
+  const [catId, setCatId] = useState(line.costCenterCategoryId ?? "");
   const [category, setCategory] = useState(line.category ?? "");
   const [saveRule, setSaveRule] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -115,7 +116,7 @@ function ClassifyPanel({
       const updated = await api.classifyLine(invoiceId, line.id, {
         classify: {
           type,
-          costCenterId: ccId || null,
+          costCenterCategoryId: catId || null,
           category: category || null,
         },
         saveAsRule: saveRule,
@@ -153,17 +154,17 @@ function ClassifyPanel({
         </div>
         <div>
           <label className="mb-1 block text-xs font-medium text-stone-500">
-            Centro de Custo
+            Subcategoria
           </label>
           <select
-            value={ccId}
-            onChange={(e) => setCcId(e.target.value)}
+            value={catId}
+            onChange={(e) => setCatId(e.target.value)}
             className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
           >
-            <option value="">— nenhum —</option>
-            {costCenters.map((cc) => (
-              <option key={cc.id} value={cc.id}>
-                {cc.code} — {cc.name}
+            <option value="">— nenhuma —</option>
+            {categories.filter((c) => c.isActive).map((c) => (
+              <option key={c.id} value={c.id}>
+                {c.code} — {c.name}
               </option>
             ))}
           </select>
@@ -171,7 +172,7 @@ function ClassifyPanel({
       </div>
       <div>
         <label className="mb-1 block text-xs font-medium text-stone-500">
-          Categoria
+          Categoria livre
         </label>
         <input
           type="text"
@@ -201,11 +202,188 @@ function ClassifyPanel({
   );
 }
 
+// ── Add Line Form ──────────────────────────────────────────────────────────────
+
+interface AddLineFormProps {
+  invoiceId: string;
+  categories: CostCenterCategory[];
+  onDone: (line: InvoiceLineDTO) => void;
+  onCancel: () => void;
+}
+
+function AddLineForm({ invoiceId, categories, onDone, onCancel }: AddLineFormProps) {
+  const { api } = useInvoicesModule();
+  const [description, setDescription] = useState("");
+  const [type, setType]               = useState<InvoiceLineType>("other");
+  const [quantity, setQuantity]       = useState("1");
+  const [unit, setUnit]               = useState("");
+  const [unitCost, setUnitCost]       = useState("");
+  const [vatRate, setVatRate]         = useState("23");
+  const [catId, setCatId]             = useState("");
+  const [category, setCategory]       = useState("");
+  const [saving, setSaving]           = useState(false);
+
+  const subtotal   = parseFloat(quantity || "0") * parseFloat(unitCost || "0");
+  const vatAmount  = Math.round(subtotal * (parseFloat(vatRate) / 100) * 100);
+  const totalCents = Math.round(subtotal * 100) + vatAmount;
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!description || !unitCost) return;
+    setSaving(true);
+    try {
+      const line = await api.addLine(invoiceId, {
+        description,
+        type,
+        quantity: parseFloat(quantity),
+        unit: unit || null,
+        unitCostWithoutVat: Math.round(parseFloat(unitCost || "0") * 100),
+        vatRate: parseFloat(vatRate),
+        vatAmount,
+        totalWithVat: totalCents,
+        costCenterCategoryId: catId || null,
+        category: category || null,
+      });
+      onDone(line);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <form
+      onSubmit={(e) => void handleSubmit(e)}
+      className="space-y-3 rounded-lg border border-[#F5C992]/60 bg-[#FDF8F5] p-3 text-sm"
+    >
+      <p className="text-xs font-semibold text-stone-600">Nova linha</p>
+      <div>
+        <input
+          type="text"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          placeholder="Descrição *"
+          required
+          className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+        />
+      </div>
+      {/* Type */}
+      <div>
+        <label className="mb-1 block text-xs font-medium text-stone-500">Tipo</label>
+        <select
+          value={type}
+          onChange={(e) => setType(e.target.value as InvoiceLineType)}
+          className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+        >
+          {(Object.entries(INVOICE_LINE_TYPE_LABELS) as [InvoiceLineType, string][]).map(([k, v]) => (
+            <option key={k} value={k}>{v}</option>
+          ))}
+        </select>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <input
+            type="number"
+            min="0.001"
+            step="any"
+            value={quantity}
+            onChange={(e) => setQuantity(e.target.value)}
+            placeholder="Qtd *"
+            required
+            className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+          />
+        </div>
+        <div>
+          <input
+            type="text"
+            value={unit}
+            onChange={(e) => setUnit(e.target.value)}
+            placeholder="Unidade (ex: kg)"
+            className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+          />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <input
+            type="number"
+            min="0"
+            step="any"
+            value={unitCost}
+            onChange={(e) => setUnitCost(e.target.value)}
+            placeholder="Preço unit. s/ IVA (€) *"
+            required
+            className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+          />
+        </div>
+        <div>
+          <select
+            value={vatRate}
+            onChange={(e) => setVatRate(e.target.value)}
+            className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+          >
+            <option value="0">IVA 0%</option>
+            <option value="6">IVA 6%</option>
+            <option value="13">IVA 13%</option>
+            <option value="23">IVA 23%</option>
+          </select>
+        </div>
+      </div>
+      {/* CC subcategory + free category */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <select
+            value={catId}
+            onChange={(e) => setCatId(e.target.value)}
+            className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+          >
+            <option value="">Subcategoria CC</option>
+            {categories.filter((c) => c.isActive).map((c) => (
+              <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <input
+            type="text"
+            value={category}
+            onChange={(e) => setCategory(e.target.value)}
+            placeholder="Categoria livre"
+            className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+          />
+        </div>
+      </div>
+      {subtotal > 0 && (
+        <p className="text-xs text-stone-500 tabular-nums">
+          Total c/ IVA: <span className="font-semibold text-stone-800">
+            {(totalCents / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+          </span>
+        </p>
+      )}
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="flex-1 rounded-md border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50"
+        >
+          Cancelar
+        </button>
+        <button
+          type="submit"
+          disabled={saving || !description || !unitCost}
+          className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+        >
+          {saving ? "A guardar…" : "Adicionar"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 // ── Invoice Detail Drawer ──────────────────────────────────────────────────────
 
 interface DetailDrawerProps {
   invoice: InvoiceDTO | null;
-  costCenters: { id: string; code: string; name: string }[];
+  categories: CostCenterCategory[];
   linkedPayable?: PayableEntryDTO | null;
   onClose: () => void;
   onMarkPaid: (id: string) => void;
@@ -214,7 +392,7 @@ interface DetailDrawerProps {
 
 function InvoiceDetailDrawer({
   invoice,
-  costCenters,
+  categories,
   linkedPayable,
   onClose,
   onMarkPaid,
@@ -226,10 +404,10 @@ function InvoiceDetailDrawer({
   const [tab, setTab] = useState<"details" | "lines">("details");
   const [lines, setLines] = useState<InvoiceLineDTO[]>([]);
   const [loadingLines, setLoadingLines] = useState(false);
+  const [showAddLine, setShowAddLine] = useState(false);
 
   // Reload lines from API when switching to lines tab
   async function loadLines(inv: InvoiceDTO) {
-    if (lines.length > 0) return;
     setLoadingLines(true);
     try {
       const full = await api.getInvoice(inv.id);
@@ -249,9 +427,16 @@ function InvoiceDetailDrawer({
     void qc.invalidateQueries({ queryKey: ["invoices"] });
   }
 
+  function handleLineAdded(newLine: InvoiceLineDTO) {
+    setLines((prev) => [...prev, newLine]);
+    setShowAddLine(false);
+    void qc.invalidateQueries({ queryKey: ["invoices"] });
+    void qc.invalidateQueries({ queryKey: ["invoice-lines-all"] });
+  }
+
   if (!invoice) return null;
 
-  const ccMap = new Map(costCenters.map((cc) => [cc.id, cc]));
+  const ccMap = new Map(categories.map((c) => [c.id, c]));
 
   return (
     <div className="fixed inset-0 z-50 flex" aria-modal="true">
@@ -398,14 +583,34 @@ function InvoiceDetailDrawer({
 
           {tab === "lines" && (
             <div className="space-y-3">
+              {/* Add line button */}
+              {!showAddLine && (
+                <button
+                  onClick={() => setShowAddLine(true)}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-stone-300 py-2 text-xs font-medium text-stone-500 hover:border-[#ED5C32] hover:text-[#ED5C32]"
+                >
+                  <span className="text-base leading-none">+</span> Adicionar linha
+                </button>
+              )}
+
+              {/* Inline add-line form */}
+              {showAddLine && (
+                <AddLineForm
+                  invoiceId={invoice.id}
+                  categories={categories}
+                  onDone={handleLineAdded}
+                  onCancel={() => setShowAddLine(false)}
+                />
+              )}
+
               {loadingLines ? (
                 <p className="text-sm text-stone-400">A carregar linhas…</p>
               ) : lines.length === 0 ? (
                 <p className="text-sm text-stone-400">Sem linhas registadas.</p>
               ) : (
                 lines.map((line) => {
-                  const cc = line.costCenterId
-                    ? ccMap.get(line.costCenterId)
+                  const cc = line.costCenterCategoryId
+                    ? ccMap.get(line.costCenterCategoryId)
                     : null;
                   return (
                     <div
@@ -436,7 +641,7 @@ function InvoiceDetailDrawer({
                       <ClassifyPanel
                         line={line}
                         invoiceId={invoice.id}
-                        costCenters={costCenters}
+                        categories={categories}
                         onDone={handleLineUpdated}
                       />
                     </div>
@@ -456,14 +661,51 @@ function InvoiceDetailDrawer({
 interface CreateFormProps {
   open: boolean;
   suppliers: { id: string; name: string }[];
+  categories: CostCenterCategory[];
   saving: boolean;
   onClose: () => void;
   onSave: (payload: CreateInvoicePayload) => void;
 }
 
+// Mini line builder used inside CreateInvoiceDrawer
+interface LineBuilder {
+  description: string;
+  type: InvoiceLineType;
+  quantity: string;
+  unit: string;
+  unitCost: string;
+  vatRate: string;
+  catId: string;
+  category: string;
+}
+
+function emptyLineBuilder(): LineBuilder {
+  return { description: "", type: "other", quantity: "1", unit: "", unitCost: "", vatRate: "23", catId: "", category: "" };
+}
+
+function lineBuilderToPayload(b: LineBuilder): CreateInvoiceLinePayload {
+  const unitCostEur = parseFloat(b.unitCost || "0");
+  const subtotal    = parseFloat(b.quantity || "0") * unitCostEur;
+  const vatAmount   = Math.round(subtotal * (parseFloat(b.vatRate) / 100) * 100);
+  const payload: CreateInvoiceLinePayload = {
+    description: b.description,
+    type: b.type,
+    quantity: parseFloat(b.quantity),
+    unitCostWithoutVat: Math.round(unitCostEur * 100),
+    vatRate: parseFloat(b.vatRate),
+    vatAmount,
+    totalWithVat: Math.round(subtotal * 100) + vatAmount,
+  };
+  if (b.unit) payload.unit = b.unit;
+  if (b.catId) payload.costCenterCategoryId = b.catId;
+  if (b.category) payload.category = b.category;
+  return payload;
+}
+
 function CreateInvoiceDrawer({
   open,
   suppliers,
+  categories,
   saving,
   onClose,
   onSave,
@@ -477,6 +719,9 @@ function CreateInvoiceDrawer({
   const [totalVat, setTotalVat] = useState("");
   const [totalWithVat, setTotalWithVat] = useState("");
   const [notes, setNotes] = useState("");
+  const [lines, setLines] = useState<CreateInvoiceLinePayload[]>([]);
+  const [addingLine, setAddingLine] = useState(false);
+  const [lineBuilder, setLineBuilder] = useState<LineBuilder>(emptyLineBuilder);
 
   if (!open) return null;
 
@@ -486,6 +731,17 @@ function CreateInvoiceDrawer({
       const sup = suppliers.find((s) => s.id === id);
       if (sup) setSupplierName(sup.name);
     }
+  }
+
+  function handleAddLine() {
+    if (!lineBuilder.description || !lineBuilder.unitCost) return;
+    setLines((prev) => [...prev, lineBuilderToPayload(lineBuilder)]);
+    setLineBuilder(emptyLineBuilder());
+    setAddingLine(false);
+  }
+
+  function handleRemoveLine(idx: number) {
+    setLines((prev) => prev.filter((_, i) => i !== idx));
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -503,17 +759,23 @@ function CreateInvoiceDrawer({
     if (supplierId) payload.supplierId = supplierId;
     if (dueDate) payload.dueDate = dueDate;
     if (notes) payload.notes = notes;
+    if (lines.length > 0) payload.lines = lines;
     onSave(payload);
   }
 
   const labelCls = "block text-xs font-medium text-stone-500 mb-1";
   const inputCls =
     "w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]";
+  const inputSmCls =
+    "w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]";
+
+  const lbSubtotal = parseFloat(lineBuilder.quantity || "0") * parseFloat(lineBuilder.unitCost || "0");
+  const lbTotal = Math.round(lbSubtotal * 100) + Math.round(lbSubtotal * (parseFloat(lineBuilder.vatRate) / 100) * 100);
 
   return (
     <div className="fixed inset-0 z-50 flex" aria-modal="true">
       <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <aside className="flex h-full w-full max-w-md flex-col bg-white shadow-2xl">
+      <aside className="flex h-full w-full max-w-lg flex-col bg-white shadow-2xl">
         <div className="flex items-center justify-between border-b border-[#F5C992]/40 px-6 py-4">
           <h2 className="text-lg font-bold text-stone-800">Nova Fatura</h2>
           <button
@@ -647,10 +909,157 @@ function CreateInvoiceDrawer({
               <textarea
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
-                rows={3}
+                rows={2}
                 className={inputCls}
                 placeholder="Opcional"
               />
+            </div>
+
+            {/* Lines section */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-xs font-medium text-stone-500">Linhas</label>
+                <span className="text-xs text-stone-400">{lines.length} linha{lines.length !== 1 ? "s" : ""}</span>
+              </div>
+
+              {/* Added lines list */}
+              {lines.length > 0 && (
+                <ul className="space-y-1">
+                  {lines.map((l, i) => (
+                    <li key={i} className="flex items-center justify-between rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-xs">
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-stone-700">{l.description}</p>
+                        <p className="text-stone-400">
+                          {INVOICE_LINE_TYPE_LABELS[l.type ?? "other"]} ·{" "}
+                          {(l.totalWithVat / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => handleRemoveLine(i)}
+                        className="ml-2 shrink-0 text-stone-400 hover:text-red-500"
+                      >
+                        <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                        </svg>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+
+              {/* Add line mini-form */}
+              {addingLine ? (
+                <div className="space-y-2 rounded-lg border border-[#F5C992]/60 bg-[#FDF8F5] p-3">
+                  <input
+                    type="text"
+                    value={lineBuilder.description}
+                    onChange={(e) => setLineBuilder((b) => ({ ...b, description: e.target.value }))}
+                    placeholder="Descrição *"
+                    className={inputSmCls}
+                  />
+                  <select
+                    value={lineBuilder.type}
+                    onChange={(e) => setLineBuilder((b) => ({ ...b, type: e.target.value as InvoiceLineType }))}
+                    className={inputSmCls}
+                  >
+                    {(Object.entries(INVOICE_LINE_TYPE_LABELS) as [InvoiceLineType, string][]).map(([k, v]) => (
+                      <option key={k} value={k}>{v}</option>
+                    ))}
+                  </select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="number"
+                      min="0.001"
+                      step="any"
+                      value={lineBuilder.quantity}
+                      onChange={(e) => setLineBuilder((b) => ({ ...b, quantity: e.target.value }))}
+                      placeholder="Qtd *"
+                      className={inputSmCls}
+                    />
+                    <input
+                      type="text"
+                      value={lineBuilder.unit}
+                      onChange={(e) => setLineBuilder((b) => ({ ...b, unit: e.target.value }))}
+                      placeholder="Unidade"
+                      className={inputSmCls}
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={lineBuilder.unitCost}
+                      onChange={(e) => setLineBuilder((b) => ({ ...b, unitCost: e.target.value }))}
+                      placeholder="Preço s/ IVA (€) *"
+                      className={inputSmCls}
+                    />
+                    <select
+                      value={lineBuilder.vatRate}
+                      onChange={(e) => setLineBuilder((b) => ({ ...b, vatRate: e.target.value }))}
+                      className={inputSmCls}
+                    >
+                      <option value="0">IVA 0%</option>
+                      <option value="6">IVA 6%</option>
+                      <option value="13">IVA 13%</option>
+                      <option value="23">IVA 23%</option>
+                    </select>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2">
+                    <select
+                      value={lineBuilder.catId}
+                      onChange={(e) => setLineBuilder((b) => ({ ...b, catId: e.target.value }))}
+                      className={inputSmCls}
+                    >
+                      <option value="">Subcategoria CC</option>
+                      {categories.filter((c) => c.isActive).map((c) => (
+                        <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+                      ))}
+                    </select>
+                    <input
+                      type="text"
+                      value={lineBuilder.category}
+                      onChange={(e) => setLineBuilder((b) => ({ ...b, category: e.target.value }))}
+                      placeholder="Categoria livre"
+                      className={inputSmCls}
+                    />
+                  </div>
+                  {lbSubtotal > 0 && (
+                    <p className="text-xs text-stone-500 tabular-nums">
+                      Total c/ IVA:{" "}
+                      <span className="font-semibold text-stone-800">
+                        {(lbTotal / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                      </span>
+                    </p>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setAddingLine(false); setLineBuilder(emptyLineBuilder()); }}
+                      className="flex-1 rounded-md border border-stone-300 px-2 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAddLine}
+                      disabled={!lineBuilder.description || !lineBuilder.unitCost}
+                      className="flex-1 rounded-md bg-stone-800 px-2 py-1.5 text-xs font-medium text-white hover:bg-stone-700 disabled:opacity-40"
+                    >
+                      Adicionar
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setAddingLine(true)}
+                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-stone-300 py-2 text-xs font-medium text-stone-500 hover:border-[#ED5C32] hover:text-[#ED5C32]"
+                >
+                  <span className="text-base leading-none">+</span> Adicionar linha
+                </button>
+              )}
             </div>
           </div>
 
@@ -699,9 +1108,9 @@ export function InvoicesView() {
       api.listInvoices(statusFilter ? { status: statusFilter } : undefined),
   });
 
-  const { data: costCenters = [] } = useQuery({
-    queryKey: ["cost-centers"],
-    queryFn: () => fbModule.api.listCostCenters(),
+  const { data: categories = [] } = useQuery({
+    queryKey: ["cost-center-categories"],
+    queryFn: () => fbModule.api.listCostCenterCategories(),
   });
 
   const { data: suppliers = [] } = useQuery({
@@ -738,6 +1147,7 @@ export function InvoicesView() {
     mutationFn: (payload: CreateInvoicePayload) => api.createInvoice(payload),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["invoices"] });
+      void qc.invalidateQueries({ queryKey: ["invoice-lines-all"] });
       setShowCreate(false);
     },
   });
@@ -961,6 +1371,7 @@ export function InvoicesView() {
           <CreateInvoiceDrawer
             open={showCreate}
             suppliers={suppliers}
+            categories={categories}
             saving={createMutation.isPending}
             onClose={() => setShowCreate(false)}
             onSave={(payload) => createMutation.mutate(payload)}
@@ -970,7 +1381,7 @@ export function InvoicesView() {
         {detail && (
           <InvoiceDetailDrawer
             invoice={detail}
-            costCenters={costCenters}
+            categories={categories}
             linkedPayable={payableByInvoiceId.get(detail.id) ?? null}
             onClose={() => setDetail(null)}
             onMarkPaid={handleMarkPaid}

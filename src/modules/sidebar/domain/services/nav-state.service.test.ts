@@ -41,6 +41,10 @@ describe("resolveActiveGroup", () => {
     ["/hr/calendar", "hr"],
     ["/crm", "crm"],
     ["/crm/customers", "crm"],
+    ["/financial/cost-centers", "financial"],
+    ["/financial/suppliers", "financial"],
+    ["/financial/invoices", "financial"],
+    ["/financial/payable-entries", "financial"],
   ])("path %s → group %s", (path, expected) => {
     expect(resolveActiveGroup(tree, path)).toBe(expected);
   });

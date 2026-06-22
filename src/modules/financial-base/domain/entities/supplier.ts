@@ -8,7 +8,8 @@ export interface Supplier {
   phone: string | null;
   address: string | null;
   iban: string | null;
-  defaultCostCenterId: string | null;
+  defaultCostCenterGroupId: string | null;
+  defaultCostCenterCategoryId: string | null;
   paymentTermsDays: number | null;
   notes: string | null;
   status: SupplierStatus;
@@ -23,7 +24,8 @@ export interface CreateSupplierPayload {
   phone?: string | null;
   address?: string | null;
   iban?: string | null;
-  defaultCostCenterId?: string | null;
+  defaultCostCenterGroupId?: string | null;
+  defaultCostCenterCategoryId?: string | null;
   paymentTermsDays?: number | null;
   notes?: string | null;
 }
@@ -35,7 +37,8 @@ export interface UpdateSupplierPayload {
   phone?: string | null;
   address?: string | null;
   iban?: string | null;
-  defaultCostCenterId?: string | null;
+  defaultCostCenterGroupId?: string | null;
+  defaultCostCenterCategoryId?: string | null;
   paymentTermsDays?: number | null;
   notes?: string | null;
 }

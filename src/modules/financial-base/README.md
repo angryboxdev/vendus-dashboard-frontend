@@ -1,100 +1,122 @@
 # Módulo: financial-base
 
 > Status: ativo
-> Última atualização: 2026-06-16
+> Última atualização: 2026-06-22
 
 ## O que é e para que serve (perspectiva de negócio)
 
 A Angrybox tem custos que vêm de muitos sítios diferentes — fornecedores de
 ingredientes, serviços de limpeza, rendas, plataformas de marketing, software. Sem
 uma estrutura que organize esses custos, é impossível responder a perguntas simples
-como "quanto gastámos em operações este mês?" ou "quem é o fornecedor X e qual é o
-IBAN dele?".
+como "quanto gastámos em operações este mês?" ou "este custo entra na DRE ou é CAPEX?".
 
 **O problema que resolve:**
 Sem centros de custo, todos os gastos caem num balde único — o manager vê o total
-mas não percebe onde o dinheiro está a ir. Sem fornecedores catalogados, cada vez
-que chega uma fatura há que voltar a procurar o NIF, o IBAN, as condições de
-pagamento. Este módulo cria e mantém essa estrutura base.
+mas não percebe onde o dinheiro vai. Sem fornecedores catalogados, cada vez que chega
+uma fatura há que voltar a procurar o NIF, o IBAN, as condições de pagamento. Este
+módulo cria e mantém essa estrutura base.
 
 **O fluxo do ponto de vista do negócio:**
 
 ```
 Manager (backoffice)
 ────────────────────────────────────────────────────
-1. Cria os centros de custo da empresa
-   (ex: ADM — Administração, OPE — Operações, MKT — Marketing)
-2. Cria os fornecedores com os dados necessários
-   (NIF, IBAN, condições de pagamento, CC por defeito)
-3. À medida que entram faturas, os fornecedores e CCs ficam
-   disponíveis para classificação automática e relatórios
-4. O manager pode activar/desactivar CCs ou fornecedores
-   sem os apagar (preserva o histórico financeiro)
+1. Seed inicial carrega os 7 grupos e 28 subcategorias padrão
+   (ou manager cria manualmente novos grupos/subcategorias)
+2. Cada subcategoria tem regras financeiras:
+   afeta DRE? afeta fluxo de caixa? afeta rentabilidade?
+3. Manager cria fornecedores com grupo+subcategoria por defeito
+   (ex: Makro → OPD / CMV / Ingredientes)
+4. À medida que entram faturas, o sistema usa a classificação
+   do fornecedor para sugerir o centro de custo
+5. Na tab "Análise", o manager vê quanto foi gasto por
+   subcategoria, cruzando as linhas de fatura classificadas
 ```
 
 **Conceitos-chave para o negócio:**
 
-- **Centro de Custo (CC)** — área ou função da empresa que origina despesas.
-  Exemplos: "ADM" (salários, contabilidade), "OPE" (ingredientes, embalagens),
-  "MKT" (publicidade, redes sociais). Cada CC tem uma categoria que permite
-  agrupamentos mais amplos nos relatórios.
-- **Fornecedor** — entidade externa que emite faturas para a Angrybox. Ter o
-  fornecedor catalogado com IBAN e condições de pagamento (ex: 30 dias) permite
-  ao módulo de faturas alertar sobre vencimentos e pré-preencher dados.
-- **CC por defeito do fornecedor** — quando a Makro emite uma fatura, o sistema
-  pode sugerir automaticamente o CC "OPE". Poupa tempo na classificação.
-- **KPIs por CC** — no detalhe de cada centro de custo é possível ver o total
-  faturado, pago e por pagar, calculado a partir das linhas de fatura classificadas
-  com esse CC.
+- **Grupo de Centro de Custo** — agrupamento gerencial de alto nível.
+  Exemplos: "OPD" (Operação Direta), "PES" (Pessoal), "FDR" (Fora da DRE).
+  São 7 grupos fixos no MVP, mas podem ser criados manualmente.
+- **Subcategoria** — classificação específica dentro de um grupo.
+  Exemplos: "OPD.01 — CMV / Ingredientes", "EST.01 — Renda / Aluguel".
+  Cada subcategoria tem tipo financeiro e flags de impacto (DRE, cashflow, rentabilidade).
+- **Tipo financeiro** — natureza da despesa: `cmv`, `variable_cost`, `fixed_opex`,
+  `personnel`, `administrative`, `marketing`, `financial`, `capex`, `fiscal`,
+  `off_dre`, `internal_transfer`, `transitory`.
+- **Fornecedor** — entidade externa que emite faturas. Tem grupo e subcategoria por
+  defeito para acelerar a classificação automática de novas faturas.
 
 ---
 
 ## Propósito técnico
 
-Gere a UI de master data financeiros: **centros de custo** e **fornecedores**.
-É o ponto de entrada visual para classificar despesas por área e para gerir os
-fornecedores associados a faturas. NÃO é responsável por mostrar faturas, calcular
-totais financeiros globais, nem gerir contas a pagar — esses módulos existem separadamente.
+Gere a UI de master data financeiros: **grupos de centros de custo**, **subcategorias**
+com regras financeiras e **fornecedores**. É a base visual de que os módulos `invoices`
+e `payable-entries` dependem para classificação e sugestão automática.
+
+NÃO é responsável por mostrar faturas, calcular totais financeiros globais, nem gerir
+contas a pagar — esses módulos existem separadamente.
 
 ## Conceitos do domínio
 
-- **CostCenter** — entidade com `id`, `code`, `name`, `category`, `status` e campos
-  opcionais (`subcategory`, `description`, `responsibleName`).
-- **Supplier** — fornecedor com dados de contacto (NIF, email, telefone, morada,
-  IBAN), condições de pagamento e `defaultCostCenterId`.
-- **CostCenterCategory** — enum de categorias: `administration`, `operations`,
-  `marketing`, `logistics`, `hr`, `technology`, `finance`, `real_estate`,
-  `app_delivery`, `other`.
+- **CostCenterGroup** — grupo principal com `id`, `code` (único, maiúsculas), `name`,
+  `description`, `sortOrder`, `isActive`.
+- **CostCenterCategory** — subcategoria com `groupId`, `code` (único), `name`,
+  `financialType` e cinco flags booleanas: `affectsDre`, `affectsCashflow`,
+  `affectsProfitability`, `requiresChannel`, `requiresAllocation`.
+- **FinancialType** — union de 12 valores com labels (`FINANCIAL_TYPE_LABELS`) e cores
+  de badge (`FINANCIAL_TYPE_COLORS`) definidos em `cost-center.ts`.
+- **Supplier** — fornecedor com dados de contacto (NIF, email, telefone, morada, IBAN),
+  `paymentTermsDays`, `defaultCostCenterGroupId` e `defaultCostCenterCategoryId`.
+- **SeedResult** — resultado do seed: `groupsCreated`, `categoriesCreated`, `groupsSkipped`,
+  `categoriesSkipped` (retornado por `seedDefaultCostCenters()`).
 
 ## Ports
 
-### Entrada (use cases)
-
-Não há use cases de cliente separados. O módulo expõe `api` diretamente via context,
-com os métodos do `FinancialBaseApiPort`.
-
 ### Saída (dependências do domínio)
 
-- `FinancialBaseApiPort` — interface com os métodos HTTP:
-  `listCostCenters`, `getCostCenter`, `createCostCenter`, `updateCostCenter`,
-  `toggleCostCenterStatus`, `listSuppliers`, `createSupplier`, `updateSupplier`,
-  `toggleSupplierStatus`.
+`FinancialBaseApiPort` — todas as chamadas HTTP ao backend:
+
+**Grupos**
+- `listCostCenterGroups(params?)` — lista com filtro `isActive?`
+- `getCostCenterGroup(id)` — detalhe
+- `createCostCenterGroup(payload)` — criar
+- `updateCostCenterGroup(id, payload)` — actualizar
+- `setCostCenterGroupStatus(id, isActive)` — activar/desactivar
+
+**Subcategorias**
+- `listCostCenterCategories(params?)` — lista com filtros `groupId?`, `isActive?`
+- `getCostCenterCategory(id)` — detalhe
+- `createCostCenterCategory(payload)` — criar
+- `updateCostCenterCategory(id, payload)` — actualizar
+- `setCostCenterCategoryStatus(id, isActive)` — activar/desactivar
+- `seedDefaultCostCenters()` — popula 7 grupos + 28 subcategorias padrão (idempotente)
+
+**Fornecedores**
+- `listSuppliers(params?)` — lista com filtros `status?`, `search?`
+- `getSupplier(id)` — detalhe
+- `createSupplier(payload)` — criar
+- `updateSupplier(id, payload)` — actualizar
+- `setSupplierStatus(id, status)` — activar/desactivar
 
 ## Adapters
 
 ### Entrada (UI)
 
-- `CostCentersView` — página `/financial/cost-centers`:
-  - KPIs globais de faturas (total faturado, pago, por pagar, vencido) — dados
-    vindos do módulo `invoices` via `useInvoicesModule()`.
-  - Tabela de CCs com código, nome, categoria e estado.
-  - Painel lateral de detalhe (`DetailPanel`): dados gerais do CC + tabela lazy
-    de faturas associadas (carregadas apenas quando o painel é aberto).
-  - Sidebar de vencimentos próximos (`UpcomingDue`).
-  - Formulário de criar/editar CC num drawer lateral.
-- `SuppliersView` — página `/financial/suppliers`:
-  - Tabela de fornecedores com pesquisa por nome.
-  - Formulário de criar/editar fornecedor num drawer lateral.
+- **`CostCentersView`** — página `/financial/cost-centers` com 3 tabs:
+  - *Tab 1 — Grupos*: tabela de `CostCenterGroup` com código, nome, descrição,
+    `sortOrder` e toggle de estado. Drawer lateral para criar/editar.
+  - *Tab 2 — Subcategorias*: tabela de `CostCenterCategory` com filtro por grupo,
+    badge de `financialType`, flags DRE/cashflow/rentabilidade e toggle de estado.
+    Drawer lateral para criar/editar.
+  - *Tab 3 — Análise*: tabela de analytics por subcategoria cruzando linhas de fatura
+    classificadas com `costCenterCategoryId`. Dados vindos do módulo `invoices` via
+    `useInvoicesModule()`. Rows expandíveis mostram o detalhe das linhas individuais.
+
+- **`SuppliersView`** — página `/financial/suppliers`:
+  - Tabela de fornecedores com pesquisa por nome e filtro de estado.
+  - Drawer lateral para criar/editar fornecedor (inclui seleção de grupo e subcategoria por defeito).
   - Botão de activar/desactivar.
 
 ### Saída
@@ -104,34 +126,37 @@ com os métodos do `FinancialBaseApiPort`.
 
 ## Decisões de design (ADR resumido)
 
-**KPIs de faturas no `CostCentersView` vêm do módulo `invoices`.**
-Os totais financeiros por CC são calculados a partir das faturas do módulo `invoices`
-(cruzando `invoice_lines.cost_center_id`). Para aceder a esses dados sem duplicar
-lógica, o `CostCentersView` usa `useInvoicesModule()`. Isto é possível porque o
-`InvoicesProvider` envolve toda a rota `/financial/*` no `App.tsx`.
+**Hierarquia Grupo + Subcategoria em vez de CostCenter plano.**
+A estrutura anterior tinha um `CostCenter` com `category` enum e `subcategory` texto livre.
+O novo modelo usa duas entidades separadas, alinhado com o backend redesenhado em Junho 2026.
+Permite filtrar analytics por `financialType` e flags (`affectsDre`, etc.) em vez de inferir
+comportamento de um enum de categoria.
 
-**Dados de faturas por CC carregados de forma lazy.**
-Carregar todas as faturas de todos os CCs na listagem implicaria N queries. Em vez
-disso, as faturas por CC só são buscadas quando o painel de detalhe daquele CC é
-aberto (`enabled: open && cc !== null`). Os KPIs globais usam a query de todas as
-faturas (uma só chamada).
+**Tab 3 (Análise) usa dados do módulo `invoices` via `useInvoicesModule()`.**
+Os totais por subcategoria vêm de `listInvoiceLines()` (endpoint `GET /api/invoices/lines`),
+cruzado com `cost_center_category_id`. Para aceder sem duplicar a query, o `InvoicesProvider`
+envolve toda a rota `/financial/*` no `App.tsx`. Qualquer vista dentro do grupo financeiro
+pode usar `useInvoicesModule()`.
 
 **`FinancialBaseProvider` e `InvoicesProvider` são co-dependentes.**
-O `CostCentersView` precisa de ambos os módulos. A solução é o `InvoicesProvider`
-envolver o `FinancialBaseProvider` no `App.tsx`, em vez de estar apenas na rota
-`/financial/invoices`. Desta forma qualquer vista dentro de `/financial/*` pode
-chamar `useInvoicesModule()`.
+A Tab 3 de `CostCentersView` precisa de ambos os módulos. A solução é o `InvoicesProvider`
+envolver o `FinancialBaseProvider` no `App.tsx`, em vez de estar apenas na rota `/financial/invoices`.
+
+**`FINANCIAL_TYPE_LABELS` e `FINANCIAL_TYPE_COLORS` definidos no domínio.**
+São constantes de apresentação (labels PT e classes Tailwind), mas pertencem ao domínio
+porque expressam semântica de negócio (o que é CMV, CAPEX, etc.). Componentes importam-nos
+directamente — evita props drilling e mantém a consistência visual em todos os sítios onde
+um `financialType` é exibido.
 
 ## Como testar
 
-- Domínio: não há lógica de domínio no frontend — entidades são apenas interfaces TypeScript.
+- Domínio: não há lógica de domínio no frontend — entidades são interfaces TypeScript.
 - Testes de UI: a implementar com Vitest + Testing Library.
 
 ## Pontos de atenção / dívidas conhecidas
 
 - A pesquisa de fornecedores (`SuppliersView`) filtra apenas no lado do cliente.
   Para grandes listas (>500 fornecedores) seria necessário delegar o filtro ao backend.
-- O `DetailPanel` do CC carrega faturas via `useQuery` lazy. Se o utilizador abrir
-  e fechar rapidamente vários painéis, podem existir múltiplas queries em paralelo.
-  Actualmente aceitável dado o volume esperado.
+- Tab 3 faz `listInvoiceLines()` sem paginação — aceitável para o volume actual; adicionar
+  filtros de data se necessário.
 - Testes de UI não implementados.

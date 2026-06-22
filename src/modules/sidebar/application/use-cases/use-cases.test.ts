@@ -64,6 +64,8 @@ describe("GetNavStateUseCase", () => {
     );
     expect(uc.execute("/dre/demonstrativo").activeGroupId).toBe("dre");
     expect(uc.execute("/cash-closings").activeGroupId).toBeNull();
+    expect(uc.execute("/financial/invoices").activeGroupId).toBe("financial");
+    expect(uc.execute("/financial/payable-entries").activeGroupId).toBe("financial");
   });
 });
 

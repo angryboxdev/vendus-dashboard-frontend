@@ -42,6 +42,7 @@ export interface InvoiceLineDTO {
   description: string;
   type: InvoiceLineType;
   costCenterId: string | null;
+  costCenterCategoryId: string | null;
   category: string | null;
   subcategory: string | null;
   stockItemId: string | null;
@@ -78,6 +79,7 @@ export interface CreateInvoiceLinePayload {
   description: string;
   type?: InvoiceLineType;
   costCenterId?: string | null;
+  costCenterCategoryId?: string | null;
   category?: string | null;
   quantity: number;
   unit?: string | null;
@@ -116,6 +118,7 @@ export interface ClassifyLinePayload {
   classify: {
     type?: InvoiceLineType;
     costCenterId?: string | null;
+    costCenterCategoryId?: string | null;
     category?: string | null;
   };
   saveAsRule?: boolean;

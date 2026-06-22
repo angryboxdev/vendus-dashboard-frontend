@@ -1,5 +1,5 @@
 import { apiGet, apiPost, apiPatch, apiDeleteNoContent } from "../../../../lib/api.ts";
-import type { InvoicesApiPort } from "../../domain/ports/out/invoices-api.port.ts";
+import type { InvoicesApiPort, AddInvoiceLinePayload } from "../../domain/ports/out/invoices-api.port.ts";
 import type {
   InvoiceDTO,
   InvoiceLineDTO,
@@ -21,6 +21,14 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     if (params?.to) q.set("to", params.to);
     const qs = q.toString();
     return apiGet(`${BASE}${qs ? `?${qs}` : ""}`);
+  }
+
+  async listInvoiceLines(): Promise<InvoiceLineDTO[]> {
+    return apiGet(`${BASE}/lines`);
+  }
+
+  async addLine(invoiceId: string, payload: AddInvoiceLinePayload): Promise<InvoiceLineDTO> {
+    return apiPost(`${BASE}/${encodeURIComponent(invoiceId)}/lines`, payload);
   }
 
   async getInvoice(id: string): Promise<InvoiceDTO> {

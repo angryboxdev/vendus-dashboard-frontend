@@ -1,38 +1,80 @@
 import { apiGet, apiPost, apiPatch } from "../../../../lib/api.ts";
-import type { FinancialBaseApiPort, ListCostCentersParams, ListSuppliersParams } from "../../domain/ports/out/financial-base-api.port.ts";
-import type { CostCenter, CostCenterCategory, CreateCostCenterPayload, UpdateCostCenterPayload } from "../../domain/entities/cost-center.ts";
+import type {
+  FinancialBaseApiPort,
+  ListCostCenterGroupsParams,
+  ListCostCenterCategoriesParams,
+  ListSuppliersParams,
+} from "../../domain/ports/out/financial-base-api.port.ts";
+import type {
+  CostCenterGroup,
+  CostCenterCategory,
+  CreateCostCenterGroupPayload,
+  UpdateCostCenterGroupPayload,
+  CreateCostCenterCategoryPayload,
+  UpdateCostCenterCategoryPayload,
+  SeedResult,
+} from "../../domain/entities/cost-center.ts";
 import type { Supplier, CreateSupplierPayload, UpdateSupplierPayload } from "../../domain/entities/supplier.ts";
 
 const BASE = "/api/financial-base";
 
 export class HttpFinancialBaseApiAdapter implements FinancialBaseApiPort {
-  async listCostCenters(params?: ListCostCentersParams): Promise<CostCenter[]> {
+  // ── Cost Center Groups ──────────────────────────────────────────────────────
+
+  async listCostCenterGroups(params?: ListCostCenterGroupsParams): Promise<CostCenterGroup[]> {
     const q = new URLSearchParams();
-    if (params?.category) q.set("category", params.category);
-    if (params?.status) q.set("status", params.status);
+    if (params?.isActive !== undefined) q.set("isActive", String(params.isActive));
     const qs = q.toString();
-    return apiGet(`${BASE}/cost-centers${qs ? `?${qs}` : ""}`);
+    return apiGet(`${BASE}/cost-center-groups${qs ? `?${qs}` : ""}`);
   }
 
-  async getCostCenter(id: string): Promise<CostCenter> {
-    return apiGet(`${BASE}/cost-centers/${encodeURIComponent(id)}`);
+  async getCostCenterGroup(id: string): Promise<CostCenterGroup> {
+    return apiGet(`${BASE}/cost-center-groups/${encodeURIComponent(id)}`);
   }
 
-  async createCostCenter(payload: CreateCostCenterPayload): Promise<CostCenter> {
-    return apiPost(`${BASE}/cost-centers`, payload);
+  async createCostCenterGroup(payload: CreateCostCenterGroupPayload): Promise<CostCenterGroup> {
+    return apiPost(`${BASE}/cost-center-groups`, payload);
   }
 
-  async updateCostCenter(id: string, payload: UpdateCostCenterPayload): Promise<CostCenter> {
-    return apiPatch(`${BASE}/cost-centers/${encodeURIComponent(id)}`, payload);
+  async updateCostCenterGroup(id: string, payload: UpdateCostCenterGroupPayload): Promise<CostCenterGroup> {
+    return apiPatch(`${BASE}/cost-center-groups/${encodeURIComponent(id)}`, payload);
   }
 
-  async setCostCenterStatus(id: string, status: "active" | "inactive"): Promise<CostCenter> {
-    return apiPatch(`${BASE}/cost-centers/${encodeURIComponent(id)}/status`, { status });
+  async setCostCenterGroupStatus(id: string, isActive: boolean): Promise<CostCenterGroup> {
+    return apiPatch(`${BASE}/cost-center-groups/${encodeURIComponent(id)}/status`, { isActive });
   }
 
-  async listCategories(): Promise<CostCenterCategory[]> {
-    return apiGet(`${BASE}/cost-centers/categories`);
+  // ── Cost Center Categories ──────────────────────────────────────────────────
+
+  async listCostCenterCategories(params?: ListCostCenterCategoriesParams): Promise<CostCenterCategory[]> {
+    const q = new URLSearchParams();
+    if (params?.groupId) q.set("groupId", params.groupId);
+    if (params?.isActive !== undefined) q.set("isActive", String(params.isActive));
+    const qs = q.toString();
+    return apiGet(`${BASE}/cost-center-categories${qs ? `?${qs}` : ""}`);
   }
+
+  async getCostCenterCategory(id: string): Promise<CostCenterCategory> {
+    return apiGet(`${BASE}/cost-center-categories/${encodeURIComponent(id)}`);
+  }
+
+  async createCostCenterCategory(payload: CreateCostCenterCategoryPayload): Promise<CostCenterCategory> {
+    return apiPost(`${BASE}/cost-center-categories`, payload);
+  }
+
+  async updateCostCenterCategory(id: string, payload: UpdateCostCenterCategoryPayload): Promise<CostCenterCategory> {
+    return apiPatch(`${BASE}/cost-center-categories/${encodeURIComponent(id)}`, payload);
+  }
+
+  async setCostCenterCategoryStatus(id: string, isActive: boolean): Promise<CostCenterCategory> {
+    return apiPatch(`${BASE}/cost-center-categories/${encodeURIComponent(id)}/status`, { isActive });
+  }
+
+  async seedDefaultCostCenters(): Promise<SeedResult> {
+    return apiPost(`${BASE}/cost-centers/seed`, {});
+  }
+
+  // ── Suppliers ───────────────────────────────────────────────────────────────
 
   async listSuppliers(params?: ListSuppliersParams): Promise<Supplier[]> {
     const q = new URLSearchParams();

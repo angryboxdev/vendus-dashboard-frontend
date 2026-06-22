@@ -1,9 +1,21 @@
-import type { CostCenter, CreateCostCenterPayload, UpdateCostCenterPayload, CostCenterCategory } from "../../entities/cost-center.ts";
+import type {
+  CostCenterGroup,
+  CostCenterCategory,
+  CreateCostCenterGroupPayload,
+  UpdateCostCenterGroupPayload,
+  CreateCostCenterCategoryPayload,
+  UpdateCostCenterCategoryPayload,
+  SeedResult,
+} from "../../entities/cost-center.ts";
 import type { Supplier, CreateSupplierPayload, UpdateSupplierPayload } from "../../entities/supplier.ts";
 
-export interface ListCostCentersParams {
-  category?: CostCenterCategory;
-  status?: "active" | "inactive";
+export interface ListCostCenterGroupsParams {
+  isActive?: boolean;
+}
+
+export interface ListCostCenterCategoriesParams {
+  groupId?: string;
+  isActive?: boolean;
 }
 
 export interface ListSuppliersParams {
@@ -12,13 +24,20 @@ export interface ListSuppliersParams {
 }
 
 export interface FinancialBaseApiPort {
-  // Cost Centers
-  listCostCenters(params?: ListCostCentersParams): Promise<CostCenter[]>;
-  getCostCenter(id: string): Promise<CostCenter>;
-  createCostCenter(payload: CreateCostCenterPayload): Promise<CostCenter>;
-  updateCostCenter(id: string, payload: UpdateCostCenterPayload): Promise<CostCenter>;
-  setCostCenterStatus(id: string, status: "active" | "inactive"): Promise<CostCenter>;
-  listCategories(): Promise<CostCenterCategory[]>;
+  // Cost Center Groups
+  listCostCenterGroups(params?: ListCostCenterGroupsParams): Promise<CostCenterGroup[]>;
+  getCostCenterGroup(id: string): Promise<CostCenterGroup>;
+  createCostCenterGroup(payload: CreateCostCenterGroupPayload): Promise<CostCenterGroup>;
+  updateCostCenterGroup(id: string, payload: UpdateCostCenterGroupPayload): Promise<CostCenterGroup>;
+  setCostCenterGroupStatus(id: string, isActive: boolean): Promise<CostCenterGroup>;
+
+  // Cost Center Categories
+  listCostCenterCategories(params?: ListCostCenterCategoriesParams): Promise<CostCenterCategory[]>;
+  getCostCenterCategory(id: string): Promise<CostCenterCategory>;
+  createCostCenterCategory(payload: CreateCostCenterCategoryPayload): Promise<CostCenterCategory>;
+  updateCostCenterCategory(id: string, payload: UpdateCostCenterCategoryPayload): Promise<CostCenterCategory>;
+  setCostCenterCategoryStatus(id: string, isActive: boolean): Promise<CostCenterCategory>;
+  seedDefaultCostCenters(): Promise<SeedResult>;
 
   // Suppliers
   listSuppliers(params?: ListSuppliersParams): Promise<Supplier[]>;

@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFinancialBaseModule } from "../../financial-base.module.tsx";
+import { useInvoicesModule } from "../../../invoices/invoices.module.tsx";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
-import type { CostCenter } from "../../domain/entities/cost-center.ts";
+import type { CostCenterGroup, CostCenterCategory } from "../../domain/entities/cost-center.ts";
 import {
   type Supplier,
   type CreateSupplierPayload,
@@ -15,15 +16,11 @@ function StatusBadge({ status }: { status: "active" | "inactive" }) {
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-        status === "active"
-          ? "bg-emerald-50 text-emerald-700"
-          : "bg-stone-100 text-stone-500"
+        status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-500"
       }`}
     >
       <span
-        className={`h-1.5 w-1.5 rounded-full ${
-          status === "active" ? "bg-emerald-500" : "bg-stone-400"
-        }`}
+        className={`h-1.5 w-1.5 rounded-full ${status === "active" ? "bg-emerald-500" : "bg-stone-400"}`}
       />
       {status === "active" ? "Ativo" : "Inativo"}
     </span>
@@ -32,42 +29,43 @@ function StatusBadge({ status }: { status: "active" | "inactive" }) {
 
 // ── Drawer (create / edit) ────────────────────────────────────────────────────
 
+const inputCls =
+  "w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30";
+
 interface DrawerProps {
   open: boolean;
   editing: Supplier | null;
-  costCenters: CostCenter[];
+  groups: CostCenterGroup[];
+  categories: CostCenterCategory[];
   onClose: () => void;
   onSave: (payload: CreateSupplierPayload | UpdateSupplierPayload, id?: string) => void;
   saving: boolean;
 }
 
-function SupplierDrawer({ open, editing, costCenters, onClose, onSave, saving }: DrawerProps) {
+function SupplierDrawer({ open, editing, groups, categories, onClose, onSave, saving }: DrawerProps) {
   const isEdit = editing !== null;
 
-  const [name, setName] = useState(editing?.name ?? "");
-  const [nif, setNif] = useState(editing?.nif ?? "");
-  const [email, setEmail] = useState(editing?.email ?? "");
-  const [phone, setPhone] = useState(editing?.phone ?? "");
-  const [address, setAddress] = useState(editing?.address ?? "");
-  const [iban, setIban] = useState(editing?.iban ?? "");
-  const [defaultCostCenterId, setDefaultCostCenterId] = useState(
-    editing?.defaultCostCenterId ?? "",
-  );
-  const [paymentTermsDays, setPaymentTermsDays] = useState(
+  const [name,                     setName]                     = useState(editing?.name ?? "");
+  const [nif,                      setNif]                      = useState(editing?.nif ?? "");
+  const [email,                    setEmail]                    = useState(editing?.email ?? "");
+  const [phone,                    setPhone]                    = useState(editing?.phone ?? "");
+  const [address,                  setAddress]                  = useState(editing?.address ?? "");
+  const [iban,                     setIban]                     = useState(editing?.iban ?? "");
+  const [defaultGroupId,           setDefaultGroupId]           = useState(editing?.defaultCostCenterGroupId ?? "");
+  const [defaultCategoryId,        setDefaultCategoryId]        = useState(editing?.defaultCostCenterCategoryId ?? "");
+  const [paymentTermsDays,         setPaymentTermsDays]         = useState(
     editing?.paymentTermsDays != null ? String(editing.paymentTermsDays) : "",
   );
-  const [notes, setNotes] = useState(editing?.notes ?? "");
+  const [notes,                    setNotes]                    = useState(editing?.notes ?? "");
 
-  if (editing && name !== editing.name && !saving) {
-    setName(editing.name);
-    setNif(editing.nif ?? "");
-    setEmail(editing.email ?? "");
-    setPhone(editing.phone ?? "");
-    setAddress(editing.address ?? "");
-    setIban(editing.iban ?? "");
-    setDefaultCostCenterId(editing.defaultCostCenterId ?? "");
-    setPaymentTermsDays(editing.paymentTermsDays != null ? String(editing.paymentTermsDays) : "");
-    setNotes(editing.notes ?? "");
+  // Filter categories by selected group
+  const filteredCategories = categories.filter(
+    (c) => c.isActive && (!defaultGroupId || c.groupId === defaultGroupId),
+  );
+
+  function handleGroupChange(groupId: string) {
+    setDefaultGroupId(groupId);
+    setDefaultCategoryId(""); // reset category when group changes
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -79,7 +77,8 @@ function SupplierDrawer({ open, editing, costCenters, onClose, onSave, saving }:
       phone: phone || null,
       address: address || null,
       iban: iban || null,
-      defaultCostCenterId: defaultCostCenterId || null,
+      defaultCostCenterGroupId: defaultGroupId || null,
+      defaultCostCenterCategoryId: defaultCategoryId || null,
       paymentTermsDays: paymentTermsDays ? Number(paymentTermsDays) : null,
       notes: notes || null,
     };
@@ -87,6 +86,8 @@ function SupplierDrawer({ open, editing, costCenters, onClose, onSave, saving }:
   }
 
   if (!open) return null;
+
+  const activeGroups = groups.filter((g) => g.isActive);
 
   return (
     <>
@@ -121,7 +122,7 @@ function SupplierDrawer({ open, editing, costCenters, onClose, onSave, saving }:
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder="ex: Aldeia Portugal"
-              className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30"
+              className={inputCls}
             />
           </div>
 
@@ -132,7 +133,7 @@ function SupplierDrawer({ open, editing, costCenters, onClose, onSave, saving }:
                 value={nif}
                 onChange={(e) => setNif(e.target.value)}
                 placeholder="500000000"
-                className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30"
+                className={inputCls}
               />
             </div>
             <div>
@@ -141,7 +142,7 @@ function SupplierDrawer({ open, editing, costCenters, onClose, onSave, saving }:
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+351 9xx xxx xxx"
-                className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30"
+                className={inputCls}
               />
             </div>
           </div>
@@ -153,7 +154,7 @@ function SupplierDrawer({ open, editing, costCenters, onClose, onSave, saving }:
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="contacto@fornecedor.pt"
-              className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30"
+              className={inputCls}
             />
           </div>
 
@@ -163,7 +164,7 @@ function SupplierDrawer({ open, editing, costCenters, onClose, onSave, saving }:
               value={address}
               onChange={(e) => setAddress(e.target.value)}
               placeholder="Rua, número, cidade"
-              className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30"
+              className={inputCls}
             />
           </div>
 
@@ -173,43 +174,63 @@ function SupplierDrawer({ open, editing, costCenters, onClose, onSave, saving }:
               value={iban}
               onChange={(e) => setIban(e.target.value)}
               placeholder="PT50 0000 0000 0000 0000 0000 0"
-              className="w-full rounded-lg border border-stone-200 px-3 py-2 font-mono text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30"
+              className={`${inputCls} font-mono`}
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-stone-700">
-                Centro de custo padrão
-              </label>
-              <select
-                value={defaultCostCenterId}
-                onChange={(e) => setDefaultCostCenterId(e.target.value)}
-                className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30"
-              >
-                <option value="">Nenhum</option>
-                {costCenters
-                  .filter((cc) => cc.status === "active")
-                  .map((cc) => (
-                    <option key={cc.id} value={cc.id}>
-                      {cc.code} — {cc.name}
-                    </option>
-                  ))}
-              </select>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-stone-700">
-                Prazo pagamento (dias)
-              </label>
-              <input
-                type="number"
-                min={0}
-                value={paymentTermsDays}
-                onChange={(e) => setPaymentTermsDays(e.target.value)}
-                placeholder="30"
-                className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30"
-              />
-            </div>
+          {/* Centro de custo padrão — two cascading dropdowns */}
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-stone-700">
+              Grupo de CC padrão
+            </label>
+            <select
+              value={defaultGroupId}
+              onChange={(e) => handleGroupChange(e.target.value)}
+              className={inputCls}
+            >
+              <option value="">Nenhum</option>
+              {activeGroups.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.code} — {g.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-stone-700">
+              Subcategoria de CC padrão
+            </label>
+            <select
+              value={defaultCategoryId}
+              onChange={(e) => setDefaultCategoryId(e.target.value)}
+              disabled={!defaultGroupId}
+              className={`${inputCls} disabled:cursor-not-allowed disabled:bg-stone-50 disabled:text-stone-400`}
+            >
+              <option value="">Nenhuma</option>
+              {filteredCategories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.code} — {c.name}
+                </option>
+              ))}
+            </select>
+            {!defaultGroupId && (
+              <p className="mt-1 text-xs text-stone-400">Selecione um grupo primeiro.</p>
+            )}
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-stone-700">
+              Prazo de pagamento (dias)
+            </label>
+            <input
+              type="number"
+              min={0}
+              value={paymentTermsDays}
+              onChange={(e) => setPaymentTermsDays(e.target.value)}
+              placeholder="30"
+              className={inputCls}
+            />
           </div>
 
           <div>
@@ -219,7 +240,7 @@ function SupplierDrawer({ open, editing, costCenters, onClose, onSave, saving }:
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
               placeholder="Informações adicionais…"
-              className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30"
+              className={inputCls}
             />
           </div>
         </form>
@@ -250,11 +271,12 @@ function SupplierDrawer({ open, editing, costCenters, onClose, onSave, saving }:
 
 export function SuppliersView() {
   const { api } = useFinancialBaseModule();
+  const { api: invoicesApi } = useInvoicesModule();
   const qc = useQueryClient();
 
-  const [drawerOpen, setDrawerOpen] = useState(false);
-  const [editing, setEditing] = useState<Supplier | null>(null);
-  const [search, setSearch] = useState("");
+  const [drawerOpen,   setDrawerOpen]   = useState(false);
+  const [editing,      setEditing]      = useState<Supplier | null>(null);
+  const [search,       setSearch]       = useState("");
   const [filterStatus, setFilterStatus] = useState<"active" | "inactive" | "">("");
 
   const { data: suppliers = [], isLoading } = useQuery({
@@ -262,12 +284,28 @@ export function SuppliersView() {
     queryFn: () => api.listSuppliers(),
   });
 
-  const { data: costCenters = [] } = useQuery({
-    queryKey: ["cost-centers"],
-    queryFn: () => api.listCostCenters(),
+  const { data: groups = [] } = useQuery({
+    queryKey: ["cost-center-groups"],
+    queryFn: () => api.listCostCenterGroups(),
   });
 
-  const ccMap = new Map(costCenters.map((cc) => [cc.id, cc]));
+  const { data: categories = [] } = useQuery({
+    queryKey: ["cost-center-categories"],
+    queryFn: () => api.listCostCenterCategories(),
+  });
+
+  const { data: invoices = [] } = useQuery({
+    queryKey: ["invoices"],
+    queryFn: () => invoicesApi.listInvoices(),
+  });
+
+  const groupMap    = new Map(groups.map((g) => [g.id, g]));
+  const categoryMap = new Map(categories.map((c) => [c.id, c]));
+
+  const invoiceCountBySupplierId = invoices.reduce<Record<string, number>>((acc, inv) => {
+    if (inv.supplierId) acc[inv.supplierId] = (acc[inv.supplierId] ?? 0) + 1;
+    return acc;
+  }, {});
 
   const saveMutation = useMutation({
     mutationFn: ({
@@ -308,6 +346,8 @@ export function SuppliersView() {
   });
 
   const hasFilters = search !== "" || filterStatus !== "";
+
+  const drawerKey = `supplier-${editing?.id ?? "new"}`;
 
   return (
     <div className="flex min-h-full flex-col bg-[#FAF6F3]">
@@ -355,7 +395,7 @@ export function SuppliersView() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar por nome, NIF ou email…"
-              className="rounded-lg border border-stone-200 bg-white py-1.5 pl-9 pr-4 text-sm text-stone-700 shadow-sm outline-none transition focus:border-[#ED5C32] w-72"
+              className="w-72 rounded-lg border border-stone-200 bg-white py-1.5 pl-9 pr-4 text-sm text-stone-700 shadow-sm outline-none transition focus:border-[#ED5C32]"
             />
           </div>
 
@@ -372,10 +412,7 @@ export function SuppliersView() {
           {hasFilters && (
             <button
               type="button"
-              onClick={() => {
-                setSearch("");
-                setFilterStatus("");
-              }}
+              onClick={() => { setSearch(""); setFilterStatus(""); }}
               className="text-sm text-stone-400 transition-colors hover:text-stone-600"
             >
               Limpar filtros
@@ -403,10 +440,7 @@ export function SuppliersView() {
               {!hasFilters && (
                 <button
                   type="button"
-                  onClick={() => {
-                    setEditing(null);
-                    setDrawerOpen(true);
-                  }}
+                  onClick={() => { setEditing(null); setDrawerOpen(true); }}
                   className="mt-1 text-sm font-medium text-[#ED5C32] transition-colors hover:text-[#A3211A]"
                 >
                   Criar o primeiro
@@ -421,6 +455,7 @@ export function SuppliersView() {
                   <th className="px-4 py-3">NIF</th>
                   <th className="px-4 py-3">Contacto</th>
                   <th className="px-4 py-3">CC Padrão</th>
+                  <th className="px-4 py-3 text-center">Faturas</th>
                   <th className="px-4 py-3">Prazo</th>
                   <th className="px-4 py-3">Estado</th>
                   <th className="px-4 py-3 text-right">Ações</th>
@@ -428,7 +463,8 @@ export function SuppliersView() {
               </thead>
               <tbody className="divide-y divide-stone-50">
                 {filtered.map((s) => {
-                  const cc = s.defaultCostCenterId ? ccMap.get(s.defaultCostCenterId) : null;
+                  const group    = s.defaultCostCenterGroupId    ? groupMap.get(s.defaultCostCenterGroupId)    : null;
+                  const category = s.defaultCostCenterCategoryId ? categoryMap.get(s.defaultCostCenterCategoryId) : null;
                   return (
                     <tr key={s.id} className="group transition-colors hover:bg-[#FAF6F3]/60">
                       <td className="px-4 py-3">
@@ -448,14 +484,26 @@ export function SuppliersView() {
                         ) : (
                           <span className="text-stone-300">—</span>
                         )}
-                        {s.phone && (
-                          <p className="text-xs text-stone-400">{s.phone}</p>
-                        )}
+                        {s.phone && <p className="text-xs text-stone-400">{s.phone}</p>}
                       </td>
                       <td className="px-4 py-3">
-                        {cc ? (
-                          <span className="rounded-md bg-stone-100 px-2 py-0.5 font-mono text-xs text-stone-600">
-                            {cc.code}
+                        {group ? (
+                          <div className="flex flex-col gap-0.5">
+                            <span className="rounded-md bg-stone-100 px-2 py-0.5 font-mono text-xs text-stone-600">
+                              {group.code}
+                            </span>
+                            {category && (
+                              <span className="text-xs text-stone-400">{category.code}</span>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-stone-300">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        {invoiceCountBySupplierId[s.id] ? (
+                          <span className="inline-flex items-center justify-center rounded-full bg-[#FDF0E8] px-2.5 py-0.5 text-xs font-semibold text-[#ED5C32]">
+                            {invoiceCountBySupplierId[s.id]}
                           </span>
                         ) : (
                           <span className="text-stone-300">—</span>
@@ -476,10 +524,7 @@ export function SuppliersView() {
                           <button
                             type="button"
                             title="Editar"
-                            onClick={() => {
-                              setEditing(s);
-                              setDrawerOpen(true);
-                            }}
+                            onClick={() => { setEditing(s); setDrawerOpen(true); }}
                             className="rounded-lg p-1.5 text-stone-400 transition-colors hover:bg-stone-100 hover:text-stone-600"
                           >
                             <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -503,11 +548,19 @@ export function SuppliersView() {
                           >
                             {s.status === "active" ? (
                               <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z" clipRule="evenodd" />
+                                <path
+                                  fillRule="evenodd"
+                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.28 7.22a.75.75 0 00-1.06 1.06L8.94 10l-1.72 1.72a.75.75 0 101.06 1.06L10 11.06l1.72 1.72a.75.75 0 101.06-1.06L11.06 10l1.72-1.72a.75.75 0 00-1.06-1.06L10 8.94 8.28 7.22z"
+                                  clipRule="evenodd"
+                                />
                               </svg>
                             ) : (
                               <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                                <path
+                                  fillRule="evenodd"
+                                  d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z"
+                                  clipRule="evenodd"
+                                />
                               </svg>
                             )}
                           </button>
@@ -523,13 +576,12 @@ export function SuppliersView() {
       </div>
 
       <SupplierDrawer
+        key={drawerKey}
         open={drawerOpen}
         editing={editing}
-        costCenters={costCenters}
-        onClose={() => {
-          setDrawerOpen(false);
-          setEditing(null);
-        }}
+        groups={groups}
+        categories={categories}
+        onClose={() => { setDrawerOpen(false); setEditing(null); }}
         onSave={(payload, id) => saveMutation.mutate({ payload, id })}
         saving={saveMutation.isPending}
       />
