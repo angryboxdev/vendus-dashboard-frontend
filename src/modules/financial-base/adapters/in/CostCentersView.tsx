@@ -856,7 +856,7 @@ interface Tab3Props {
   invoices: InvoiceDTO[];
 }
 
-function FlagBadge({ value, yes, no }: { value: boolean; yes: string; no: string }) {
+function FlagBadge({ value, yes }: { value: boolean; yes: string }) {
   if (value) {
     return (
       <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium ${yes}`}>
@@ -985,13 +985,13 @@ function Tab3Aplicacao({ groups, categories, suppliers, invoices }: Tab3Props) {
                       {fmt(row.totalWithoutVat)}
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <FlagBadge value={cat.affectsDre} yes="bg-emerald-50 text-emerald-700" no="" />
+                      <FlagBadge value={cat.affectsDre} yes="bg-emerald-50 text-emerald-700" />
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <FlagBadge value={cat.affectsCashflow} yes="bg-blue-50 text-blue-700" no="" />
+                      <FlagBadge value={cat.affectsCashflow} yes="bg-blue-50 text-blue-700" />
                     </td>
                     <td className="px-4 py-3 text-center">
-                      <FlagBadge value={cat.affectsProfitability} yes="bg-purple-50 text-purple-700" no="" />
+                      <FlagBadge value={cat.affectsProfitability} yes="bg-purple-50 text-purple-700" />
                     </td>
                   </tr>
 

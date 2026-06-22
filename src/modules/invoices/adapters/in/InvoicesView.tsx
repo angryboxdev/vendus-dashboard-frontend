@@ -8,6 +8,7 @@ import {
   type InvoiceStatus,
   type InvoiceLineType,
   type CreateInvoicePayload,
+  type CreateInvoiceLinePayload,
   INVOICE_STATUS_LABELS,
   INVOICE_LINE_TYPE_LABELS,
 } from "../../domain/entities/invoice.ts";
