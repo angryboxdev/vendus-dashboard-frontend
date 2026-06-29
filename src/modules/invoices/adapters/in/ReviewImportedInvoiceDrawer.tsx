@@ -13,10 +13,6 @@ import { VALIDATION_ISSUE_LABELS } from "../../domain/entities/invoice.ts";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-function fromCents(n: number): string {
-  return (n / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
-}
-
 function toCents(s: string): number {
   return Math.round(parseFloat(s.replace(",", ".")) * 100);
 }
