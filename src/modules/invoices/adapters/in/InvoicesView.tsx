@@ -9,9 +9,12 @@ import {
   type InvoiceLineType,
   type CreateInvoicePayload,
   type CreateInvoiceLinePayload,
+  type InvoiceImportResultDTO,
   INVOICE_STATUS_LABELS,
   INVOICE_LINE_TYPE_LABELS,
 } from "../../domain/entities/invoice.ts";
+import { ImportInvoiceModal } from "./ImportInvoiceModal.tsx";
+import { ReviewImportedInvoiceDrawer } from "./ReviewImportedInvoiceDrawer.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
 import type { CostCenterCategory } from "../../../financial-base/domain/entities/cost-center.ts";
 import { usePayableEntriesModule } from "../../../payable-entries/payable-entries.module.tsx";
@@ -39,6 +42,8 @@ function formatDate(s: string | null): string {
 // ── StatusBadge ────────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<InvoiceStatus, string> = {
+  draft_ai: "bg-stone-100 text-stone-500",
+  pending_review: "bg-purple-50 text-purple-700",
   pending: "bg-amber-50 text-amber-700",
   paid: "bg-emerald-50 text-emerald-700",
   overdue: "bg-red-50 text-red-700",
@@ -48,6 +53,8 @@ const STATUS_COLORS: Record<InvoiceStatus, string> = {
 };
 
 const STATUS_DOT: Record<InvoiceStatus, string> = {
+  draft_ai: "bg-stone-400",
+  pending_review: "bg-purple-500",
   pending: "bg-amber-500",
   paid: "bg-emerald-500",
   overdue: "bg-red-500",
@@ -1086,6 +1093,181 @@ function CreateInvoiceDrawer({
   );
 }
 
+// ── Invoice Calendar View ──────────────────────────────────────────────────────
+
+const MONTH_NAMES_PT = [
+  "Janeiro","Fevereiro","Março","Abril","Maio","Junho",
+  "Julho","Agosto","Setembro","Outubro","Novembro","Dezembro",
+];
+const DOW_NAMES_PT = ["Seg","Ter","Qua","Qui","Sex","Sáb","Dom"];
+
+const STATUS_CHIP_BG: Record<InvoiceStatus, string> = {
+  draft_ai:       "#f5f5f4",
+  pending_review: "#faf5ff",
+  pending:        "#fffbeb",
+  paid:           "#f0fdf4",
+  overdue:        "#fef2f2",
+  partial:        "#eff6ff",
+  cancelled:      "#f5f5f4",
+  review:         "#faf5ff",
+};
+
+interface InvoiceCalendarViewProps {
+  invoicesByDate: Map<string, InvoiceDTO[]>;
+  noDueDateInvoices: InvoiceDTO[];
+  month: Date;
+  onPrevMonth: () => void;
+  onNextMonth: () => void;
+  onToday: () => void;
+  onInvoiceClick: (inv: InvoiceDTO) => void;
+}
+
+function InvoiceCalendarView({
+  invoicesByDate,
+  noDueDateInvoices,
+  month,
+  onPrevMonth,
+  onNextMonth,
+  onToday,
+  onInvoiceClick,
+}: InvoiceCalendarViewProps) {
+  const year = month.getFullYear();
+  const monthIdx = month.getMonth();
+
+  const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+  const firstDayDow = (new Date(year, monthIdx, 1).getDay() + 6) % 7; // Mon=0
+  const daysInMonth = new Date(year, monthIdx + 1, 0).getDate();
+  const cells: (number | null)[] = [
+    ...Array(firstDayDow).fill(null) as null[],
+    ...Array.from({ length: daysInMonth }, (_, i) => i + 1),
+  ];
+  while (cells.length % 7 !== 0) cells.push(null);
+
+  return (
+    <div className="space-y-4">
+      <div className="overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white">
+        {/* Month navigation */}
+        <div className="flex items-center justify-between border-b border-[#F5C992]/40 px-4 py-3">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={onPrevMonth}
+              className="rounded-md p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
+              </svg>
+            </button>
+            <h2 className="w-44 text-center text-sm font-semibold text-stone-800">
+              {MONTH_NAMES_PT[monthIdx]} {year}
+            </h2>
+            <button
+              onClick={onNextMonth}
+              className="rounded-md p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+              </svg>
+            </button>
+          </div>
+          <button
+            onClick={onToday}
+            className="rounded-md border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50"
+          >
+            Hoje
+          </button>
+        </div>
+
+        {/* Day-of-week headers */}
+        <div className="grid grid-cols-7 border-b border-[#F5C992]/40 bg-stone-50/40">
+          {DOW_NAMES_PT.map((d) => (
+            <div key={d} className="py-2 text-center text-xs font-semibold text-stone-400">
+              {d}
+            </div>
+          ))}
+        </div>
+
+        {/* Calendar grid */}
+        <div className="grid grid-cols-7 divide-x divide-y divide-[#F5C992]/20">
+          {cells.map((day, i) => {
+            if (day === null) {
+              return <div key={`pad-${i}`} className="min-h-[110px] bg-stone-50/30" />;
+            }
+            const dateStr = `${year}-${String(monthIdx + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+            const dayInvs = invoicesByDate.get(dateStr) ?? [];
+            const isToday = dateStr === todayStr;
+            const hasOverdue = dayInvs.some((inv) => inv.status === "overdue");
+            const visible = dayInvs.slice(0, 3);
+            const extra = dayInvs.length - visible.length;
+
+            return (
+              <div
+                key={dateStr}
+                className={`min-h-[110px] p-1.5 ${isToday ? "bg-orange-50/50" : ""}`}
+              >
+                <div className="mb-1 flex justify-end">
+                  <span
+                    className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
+                      isToday
+                        ? "bg-[#ED5C32] text-white"
+                        : hasOverdue && dayInvs.length > 0
+                          ? "text-red-500"
+                          : "text-stone-400"
+                    }`}
+                  >
+                    {day}
+                  </span>
+                </div>
+                <div className="space-y-0.5">
+                  {visible.map((inv) => (
+                    <button
+                      key={inv.id}
+                      onClick={() => onInvoiceClick(inv)}
+                      title={`${inv.supplierName} · ${fromCents(inv.totalWithVat)}`}
+                      className="flex w-full items-center gap-1 rounded px-1.5 py-0.5 text-left transition-opacity hover:opacity-75"
+                      style={{ backgroundColor: STATUS_CHIP_BG[inv.status] }}
+                    >
+                      <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${STATUS_DOT[inv.status]}`} />
+                      <span className="min-w-0 truncate text-[10px] font-medium leading-tight text-stone-700">
+                        {inv.supplierName}
+                      </span>
+                    </button>
+                  ))}
+                  {extra > 0 && (
+                    <p className="pl-1 text-[9px] font-medium text-stone-400">+{extra} mais</p>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Invoices without due date */}
+      {noDueDateInvoices.length > 0 && (
+        <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-3">
+          <p className="mb-2 text-xs font-semibold text-stone-500">
+            Sem data de vencimento ({noDueDateInvoices.length})
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {noDueDateInvoices.map((inv) => (
+              <button
+                key={inv.id}
+                onClick={() => onInvoiceClick(inv)}
+                className="flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-2.5 py-1 text-xs font-medium text-stone-600 hover:bg-stone-50"
+              >
+                <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[inv.status]}`} />
+                {inv.supplierName}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Main View ──────────────────────────────────────────────────────────────────
 
 export function InvoicesView() {
@@ -1096,9 +1278,16 @@ export function InvoicesView() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
 
+  const [viewMode, setViewMode] = useState<"table" | "calendar">("table");
+  const [calendarMonth, setCalendarMonth] = useState<Date>(
+    () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
+  );
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "">("");
+  const [activeTab, setActiveTab] = useState<"all" | "today" | "week" | "overdue">("all");
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
+  const [showImport, setShowImport] = useState(false);
+  const [importResult, setImportResult] = useState<InvoiceImportResultDTO | null>(null);
   const [detail, setDetail] = useState<InvoiceDTO | null>(null);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
 
@@ -1107,6 +1296,11 @@ export function InvoicesView() {
     queryKey: ["invoices", statusFilter],
     queryFn: () =>
       api.listInvoices(statusFilter ? { status: statusFilter } : undefined),
+  });
+
+  const { data: alerts } = useQuery({
+    queryKey: ["invoice-alerts"],
+    queryFn: () => api.getInvoiceAlerts(),
   });
 
   const { data: categories = [] } = useQuery({
@@ -1133,6 +1327,36 @@ export function InvoicesView() {
     return map;
   }, [allPayables]);
 
+  const supplierById = useMemo(
+    () => new Map(suppliers.map((s) => [s.id, s])),
+    [suppliers],
+  );
+
+  const categoryById = useMemo(
+    () => new Map(categories.map((c) => [c.id, c])),
+    [categories],
+  );
+
+  const invoicesByDueDate = useMemo(() => {
+    const map = new Map<string, InvoiceDTO[]>();
+    for (const inv of invoices) {
+      const dateKey = inv.dueDate ?? inv.paidAt;
+      if (!dateKey) continue;
+      const list = map.get(dateKey) ?? [];
+      list.push(inv);
+      map.set(dateKey, list);
+    }
+    return map;
+  }, [invoices]);
+
+  const noDueDateInvoices = useMemo(
+    () =>
+      invoices.filter(
+        (i) => !i.dueDate && !i.paidAt && !["paid", "cancelled"].includes(i.status),
+      ),
+    [invoices],
+  );
+
   // Auto-open drawer when navigated with ?open=<invoiceId>
   useEffect(() => {
     const openId = searchParams.get("open");
@@ -1153,6 +1377,16 @@ export function InvoicesView() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => api.deleteInvoice(id),
+    onSuccess: (_data, id) => {
+      void qc.invalidateQueries({ queryKey: ["invoices"] });
+      void qc.invalidateQueries({ queryKey: ["invoice-alerts"] });
+      if (detail?.id === id) setDetail(null);
+      if (importResult?.invoice.id === id) setImportResult(null);
+    },
+  });
+
   async function handleMarkPaid(id: string) {
     setMarkingPaidId(id);
     try {
@@ -1162,6 +1396,17 @@ export function InvoicesView() {
     } finally {
       setMarkingPaidId(null);
     }
+  }
+
+  async function handleRowReview(inv: InvoiceDTO) {
+    const full = await api.getInvoice(inv.id);
+    setImportResult({
+      invoice: full,
+      aiConfidence: full.aiConfidence ?? 0,
+      validationIssues: [],
+      supplierMatch: null,
+      extractedLines: [],
+    });
   }
 
   // Filtered
@@ -1174,6 +1419,65 @@ export function InvoicesView() {
         inv.invoiceNumber.toLowerCase().includes(q),
     );
   }, [invoices, search]);
+
+  // Tab helpers
+  function getTodayStr() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  function getIn7DaysStr() {
+    const d = new Date();
+    d.setDate(d.getDate() + 7);
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  }
+
+  const tabCounts = useMemo(() => {
+    const today = getTodayStr();
+    const in7 = getIn7DaysStr();
+    return {
+      all: invoices.length,
+      today: invoices.filter(
+        (i) => i.dueDate === today && !["paid", "cancelled"].includes(i.status),
+      ).length,
+      week: invoices.filter(
+        (i) =>
+          i.dueDate != null &&
+          i.dueDate > today &&
+          i.dueDate <= in7 &&
+          !["paid", "cancelled"].includes(i.status),
+      ).length,
+      overdue: invoices.filter((i) => i.status === "overdue").length,
+    };
+  }, [invoices]);
+
+  const tabFiltered = useMemo(() => {
+    const today = getTodayStr();
+    const in7 = getIn7DaysStr();
+    switch (activeTab) {
+      case "today":
+        return filtered.filter(
+          (i) => i.dueDate === today && !["paid", "cancelled"].includes(i.status),
+        );
+      case "week":
+        return filtered.filter(
+          (i) =>
+            i.dueDate != null &&
+            i.dueDate > today &&
+            i.dueDate <= in7 &&
+            !["paid", "cancelled"].includes(i.status),
+        );
+      case "overdue":
+        return filtered.filter((i) => i.status === "overdue");
+      default:
+        return filtered;
+    }
+  }, [filtered, activeTab]);
+
+  function handleTabChange(tab: "all" | "today" | "week" | "overdue") {
+    setActiveTab(tab);
+    if (tab !== "all") setStatusFilter("");
+  }
 
   // KPIs
   const kpis = useMemo(() => {
@@ -1206,15 +1510,60 @@ export function InvoicesView() {
               Gestão de faturas de fornecedores
             </p>
           </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-            </svg>
-            Nova fatura
-          </button>
+          <div className="flex items-center gap-3">
+            {/* View mode toggle */}
+            <div className="flex rounded-md border border-stone-200 bg-stone-50 p-0.5">
+              <button
+                onClick={() => setViewMode("table")}
+                title="Vista tabela"
+                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                  viewMode === "table"
+                    ? "bg-white text-stone-800 shadow-sm"
+                    : "text-stone-500 hover:text-stone-700"
+                }`}
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M.99 5.24A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25l.01 9.5A2.25 2.25 0 0116.76 17H3.26A2.272 2.272 0 011 14.75l-.01-9.51zm8.26 9.52v-.625a.75.75 0 00-.75-.75H3.25a.75.75 0 00-.75.75v.615c0 .414.336.75.75.75h5.373a.75.75 0 00.627-.74zm1.5 0a.75.75 0 00.627.74h5.373a.75.75 0 00.75-.75v-.615a.75.75 0 00-.75-.75H11.5a.75.75 0 00-.75.75v.625zm6.75-3.63v-.625a.75.75 0 00-.75-.75H11.5a.75.75 0 00-.75.75v.625c0 .414.336.75.75.75h5.25a.75.75 0 00.75-.75zm-8.25 0v-.625a.75.75 0 00-.75-.75H3.25a.75.75 0 00-.75.75v.625c0 .414.336.75.75.75H8.5a.75.75 0 00.75-.75zM17.5 7.5v-.625a.75.75 0 00-.75-.75H11.5a.75.75 0 00-.75.75V7.5c0 .414.336.75.75.75h5.25a.75.75 0 00.75-.75zm-8.25 0v-.625a.75.75 0 00-.75-.75H3.25a.75.75 0 00-.75.75V7.5c0 .414.336.75.75.75H8.5a.75.75 0 00.75-.75z" clipRule="evenodd" />
+                </svg>
+                Tabela
+              </button>
+              <button
+                onClick={() => setViewMode("calendar")}
+                title="Vista calendário"
+                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                  viewMode === "calendar"
+                    ? "bg-white text-stone-800 shadow-sm"
+                    : "text-stone-500 hover:text-stone-700"
+                }`}
+              >
+                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd" />
+                </svg>
+                Calendário
+              </button>
+            </div>
+
+            <div className="h-6 w-px bg-stone-200" />
+
+            <button
+              onClick={() => setShowImport(true)}
+              className="flex items-center gap-2 rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+              </svg>
+              Importar fatura
+            </button>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="flex items-center gap-2 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+              </svg>
+              Nova manual
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1229,8 +1578,8 @@ export function InvoicesView() {
           />
           <KpiCard
             label="Vencidas"
-            value={fromCents(kpis.overdueAmountCents)}
-            sub={`${kpis.overdue} vencida${kpis.overdue !== 1 ? "s" : ""}`}
+            value={alerts ? fromCents(alerts.overdue.totalAmount) : fromCents(kpis.overdueAmountCents)}
+            sub={`${alerts?.overdue.count ?? kpis.overdue} vencida${(alerts?.overdue.count ?? kpis.overdue) !== 1 ? "s" : ""}`}
             accentClass="text-red-600"
           />
           <KpiCard
@@ -1241,6 +1590,36 @@ export function InvoicesView() {
           />
         </div>
 
+        {/* Alert strip */}
+        {alerts && (alerts.pendingReviewCount > 0 || alerts.dueIn7Days.count > 0 || alerts.lowAiConfidenceCount > 0) && (
+          <div className="flex flex-wrap gap-3">
+            {alerts.pendingReviewCount > 0 && (
+              <button
+                onClick={() => setStatusFilter("pending_review")}
+                className="flex items-center gap-2 rounded-lg border border-purple-200 bg-purple-50 px-3 py-2 text-xs font-medium text-purple-700 hover:bg-purple-100"
+              >
+                <span className="h-2 w-2 rounded-full bg-purple-500" />
+                {alerts.pendingReviewCount} para revisão
+              </button>
+            )}
+            {alerts.dueIn7Days.count > 0 && (
+              <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+                <span className="h-2 w-2 rounded-full bg-amber-400" />
+                {alerts.dueIn7Days.count} vencem em 7 dias ({fromCents(alerts.dueIn7Days.totalAmount)})
+              </div>
+            )}
+            {alerts.lowAiConfidenceCount > 0 && (
+              <div className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-medium text-orange-700">
+                <span className="h-2 w-2 rounded-full bg-orange-400" />
+                {alerts.lowAiConfidenceCount} com baixa confiança IA
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Table mode: filters + tabs + table */}
+        {viewMode === "table" && <>
+
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3">
           <input
@@ -1250,31 +1629,60 @@ export function InvoicesView() {
             placeholder="Pesquisar fornecedor ou nº fatura…"
             className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32] w-64"
           />
-          <select
-            value={statusFilter}
-            onChange={(e) =>
-              setStatusFilter(e.target.value as InvoiceStatus | "")
-            }
-            className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
-          >
-            <option value="">Todos os estados</option>
-            {(
-              Object.entries(INVOICE_STATUS_LABELS) as [InvoiceStatus, string][]
-            ).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
+          {activeTab === "all" && (
+            <select
+              value={statusFilter}
+              onChange={(e) =>
+                setStatusFilter(e.target.value as InvoiceStatus | "")
+              }
+              className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
+            >
+              <option value="">Todos os estados</option>
+              {(
+                Object.entries(INVOICE_STATUS_LABELS) as [InvoiceStatus, string][]
+              ).map(([k, v]) => (
+                <option key={k} value={k}>
+                  {v}
+                </option>
+              ))}
+            </select>
+          )}
         </div>
 
         {/* Table */}
         <div className="overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white">
+          {/* Tabs */}
+          <div className="flex border-b border-[#F5C992]/40 px-2">
+            {(
+              [
+                { key: "all", label: "Todas", badgeCls: "bg-stone-100 text-stone-500" },
+                { key: "today", label: "Vencem hoje", badgeCls: tabCounts.today > 0 ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-400" },
+                { key: "week", label: "Vencem em 7 dias", badgeCls: tabCounts.week > 0 ? "bg-orange-100 text-orange-700" : "bg-stone-100 text-stone-400" },
+                { key: "overdue", label: "Vencidas", badgeCls: tabCounts.overdue > 0 ? "bg-red-100 text-red-700" : "bg-stone-100 text-stone-400" },
+              ] as const
+            ).map(({ key, label, badgeCls }) => (
+              <button
+                key={key}
+                onClick={() => handleTabChange(key)}
+                className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+                  activeTab === key
+                    ? "border-[#ED5C32] text-[#ED5C32]"
+                    : "border-transparent text-stone-500 hover:text-stone-700"
+                }`}
+              >
+                {label}
+                <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums ${badgeCls}`}>
+                  {tabCounts[key]}
+                </span>
+              </button>
+            ))}
+          </div>
+
           {isLoading ? (
             <div className="py-16 text-center text-sm text-stone-400">
               A carregar…
             </div>
-          ) : filtered.length === 0 ? (
+          ) : tabFiltered.length === 0 ? (
             <div className="py-16 text-center text-sm text-stone-400">
               Sem faturas.
             </div>
@@ -1292,7 +1700,7 @@ export function InvoicesView() {
                     "S/ IVA",
                     "IVA",
                     "Total",
-                    "A Pagar",
+                    "CC Padrão",
                   ].map((h) => (
                     <th
                       key={h}
@@ -1305,7 +1713,7 @@ export function InvoicesView() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F5C992]/30">
-                {filtered.map((inv) => (
+                {tabFiltered.map((inv) => (
                   <tr key={inv.id} className="hover:bg-[#FDF8F5]">
                     <td className="px-4 py-3">
                       <StatusBadge status={inv.status} />
@@ -1343,22 +1751,51 @@ export function InvoicesView() {
                       {fromCents(inv.totalWithVat)}
                     </td>
                     <td className="px-4 py-3">
-                      {payableByInvoiceId.has(inv.id) ? (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 px-2 py-0.5 text-[10px] font-medium text-amber-700">
-                          <span className="h-1.5 w-1.5 rounded-full bg-amber-400" />
-                          {PAYABLE_STATUS_LABELS[payableByInvoiceId.get(inv.id)!.status]}
-                        </span>
-                      ) : (
-                        <span className="text-[10px] text-stone-300">—</span>
-                      )}
+                      {(() => {
+                        const sup = inv.supplierId ? supplierById.get(inv.supplierId) : null;
+                        const cat = sup?.defaultCostCenterCategoryId
+                          ? categoryById.get(sup.defaultCostCenterCategoryId)
+                          : null;
+                        if (!cat) return <span className="text-[10px] text-stone-300">—</span>;
+                        return (
+                          <span
+                            title={cat.name}
+                            className="inline-flex items-center rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-600"
+                          >
+                            {cat.code}
+                          </span>
+                        );
+                      })()}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <button
-                        onClick={() => setDetail(inv)}
-                        className="rounded-md px-2 py-1 text-xs font-medium text-[#ED5C32] hover:bg-orange-50"
-                      >
-                        Ver
-                      </button>
+                      <div className="flex items-center justify-end gap-1">
+                        <button
+                          onClick={() => {
+                            if (inv.status === "draft_ai" || inv.status === "pending_review") {
+                              void handleRowReview(inv);
+                            } else {
+                              setDetail(inv);
+                            }
+                          }}
+                          className="rounded-md px-2 py-1 text-xs font-medium text-[#ED5C32] hover:bg-orange-50"
+                        >
+                          {inv.status === "draft_ai" || inv.status === "pending_review" ? "Rever" : "Ver"}
+                        </button>
+                        <button
+                          onClick={() => {
+                            if (window.confirm(`Eliminar fatura ${inv.invoiceNumber}? Esta ação não pode ser revertida.`)) {
+                              deleteMutation.mutate(inv.id);
+                            }
+                          }}
+                          disabled={deleteMutation.isPending && deleteMutation.variables === inv.id}
+                          className="rounded-md p-1 text-stone-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
+                          title="Eliminar fatura"
+                        >
+                          <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
+                          </svg>
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -1367,7 +1804,49 @@ export function InvoicesView() {
           )}
         </div>
 
+        </> /* end table mode */}
+
+        {/* Calendar mode */}
+        {viewMode === "calendar" && (
+          <InvoiceCalendarView
+            invoicesByDate={invoicesByDueDate}
+            noDueDateInvoices={noDueDateInvoices}
+            month={calendarMonth}
+            onPrevMonth={() =>
+              setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))
+            }
+            onNextMonth={() =>
+              setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))
+            }
+            onToday={() =>
+              setCalendarMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
+            }
+            onInvoiceClick={(inv) => setDetail(inv)}
+          />
+        )}
+
         {/* Drawers */}
+        {showImport && (
+          <ImportInvoiceModal
+            onClose={() => setShowImport(false)}
+            onImported={(result) => {
+              setShowImport(false);
+              setImportResult(result);
+            }}
+          />
+        )}
+
+        {importResult && (
+          <ReviewImportedInvoiceDrawer
+            importResult={importResult}
+            onClose={() => setImportResult(null)}
+            onConfirmed={(inv) => {
+              setImportResult(null);
+              setDetail(inv);
+            }}
+          />
+        )}
+
         {showCreate && (
           <CreateInvoiceDrawer
             open={showCreate}

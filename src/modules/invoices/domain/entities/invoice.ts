@@ -1,4 +1,12 @@
-export type InvoiceStatus = "pending" | "paid" | "overdue" | "partial" | "cancelled" | "review";
+export type InvoiceStatus =
+  | "draft_ai"
+  | "pending_review"
+  | "pending"
+  | "paid"
+  | "overdue"
+  | "partial"
+  | "cancelled"
+  | "review";
 
 export type InvoiceLineType =
   | "stock_purchase"
@@ -13,7 +21,12 @@ export type InvoiceLineType =
   | "mixed"
   | "other";
 
+export type InvoiceSource = "manual" | "pdf_import" | "image_import";
+export type AiExtractionStatus = "processing" | "done" | "failed";
+
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
+  draft_ai: "Rascunho IA",
+  pending_review: "Pendente revisão",
   pending: "Pendente",
   paid: "Paga",
   overdue: "Vencida",
@@ -53,6 +66,9 @@ export interface InvoiceLineDTO {
   vatAmount: number;
   totalWithVat: number;
   stockEntryId: string | null;
+  affectsDre: boolean;
+  affectsCashflow: boolean;
+  affectsProfitability: boolean;
   createdAt: string;
 }
 
@@ -60,6 +76,7 @@ export interface InvoiceDTO {
   id: string;
   supplierId: string | null;
   supplierName: string;
+  supplierNifSnapshot: string | null;
   invoiceNumber: string;
   invoiceDate: string;
   dueDate: string | null;
@@ -70,9 +87,57 @@ export interface InvoiceDTO {
   status: InvoiceStatus;
   notes: string | null;
   attachmentUrl: string | null;
+  source: InvoiceSource;
+  aiExtractionStatus: AiExtractionStatus | null;
+  aiConfidence: number | null;
+  requiresReview: boolean;
+  costCenterGroupId: string | null;
+  financialType: string | null;
+  affectsDre: boolean;
+  affectsCashflow: boolean;
+  affectsProfitability: boolean;
+  currency: string;
   createdAt: string;
   updatedAt: string;
   lines?: InvoiceLineDTO[];
+}
+
+export interface SupplierMatchDTO {
+  id: string;
+  name: string;
+  nif: string | null;
+  defaultCostCenterGroupId: string | null;
+  defaultCostCenterCategoryId: string | null;
+  defaultFinancialType: string | null;
+}
+
+export interface AiExtractedLineDTO {
+  description: string;
+  quantity: number | null;
+  unitPriceWithoutVat: number | null;
+  vatRate: number | null;
+  vatAmount: number | null;
+  totalWithoutVat: number | null;
+  totalWithVat: number | null;
+}
+
+export interface InvoiceImportResultDTO {
+  invoice: InvoiceDTO;
+  aiConfidence: number;
+  validationIssues: string[];
+  supplierMatch: SupplierMatchDTO | null;
+  extractedLines: AiExtractedLineDTO[];
+}
+
+export interface InvoiceAlertsDTO {
+  overdue: { count: number; totalAmount: number };
+  dueToday: { count: number; totalAmount: number };
+  dueIn7Days: { count: number; totalAmount: number };
+  noDueDateCount: number;
+  noSupplierCount: number;
+  pendingReviewCount: number;
+  lowAiConfidenceCount: number;
+  valueDiscrepancyCount: number;
 }
 
 export interface CreateInvoiceLinePayload {
@@ -105,6 +170,7 @@ export interface CreateInvoicePayload {
 export interface UpdateInvoicePayload {
   supplierId?: string | null;
   supplierName?: string;
+  supplierNifSnapshot?: string | null;
   invoiceNumber?: string;
   invoiceDate?: string;
   dueDate?: string | null;
@@ -112,6 +178,35 @@ export interface UpdateInvoicePayload {
   totalVat?: number;
   totalWithVat?: number;
   notes?: string | null;
+  costCenterGroupId?: string | null;
+  financialType?: string | null;
+  affectsDre?: boolean;
+  affectsCashflow?: boolean;
+  affectsProfitability?: boolean;
+  currency?: string;
+}
+
+export interface ConfirmImportedInvoicePayload {
+  supplierId?: string | null;
+  supplierName?: string;
+  supplierNifSnapshot?: string | null;
+  invoiceNumber?: string;
+  invoiceDate?: string;
+  dueDate?: string | null;
+  subtotalWithoutVat?: number;
+  totalVat?: number;
+  totalWithVat?: number;
+  notes?: string | null;
+  costCenterGroupId?: string | null;
+  financialType?: string | null;
+  affectsDre?: boolean;
+  affectsCashflow?: boolean;
+  affectsProfitability?: boolean;
+  currency?: string;
+  saveAsPayable?: boolean;
+  markAsPaid?: boolean;
+  paidAt?: string; // YYYY-MM-DD — used when markAsPaid is true
+  lines?: CreateInvoiceLinePayload[];
 }
 
 export interface ClassifyLinePayload {
@@ -131,3 +226,11 @@ export interface ListInvoicesParams {
   from?: string;
   to?: string;
 }
+
+export const VALIDATION_ISSUE_LABELS: Record<string, string> = {
+  no_due_date: "Sem data de vencimento",
+  no_supplier_match: "Fornecedor não encontrado no cadastro",
+  low_ai_confidence: "Confiança da IA abaixo do limite",
+  value_discrepancy: "Divergência entre subtotal + IVA e total",
+  duplicate_invoice: "Fatura duplicada (mesmo número e fornecedor)",
+};

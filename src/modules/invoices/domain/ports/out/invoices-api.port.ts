@@ -5,6 +5,9 @@ import type {
   UpdateInvoicePayload,
   ClassifyLinePayload,
   ListInvoicesParams,
+  InvoiceImportResultDTO,
+  InvoiceAlertsDTO,
+  ConfirmImportedInvoicePayload,
 } from "../../entities/invoice.ts";
 
 export interface AddInvoiceLinePayload {
@@ -30,4 +33,7 @@ export interface InvoicesApiPort {
   markInvoicePaid(id: string, paidAt?: string): Promise<InvoiceDTO>;
   deleteInvoice(id: string): Promise<void>;
   classifyLine(invoiceId: string, lineId: string, payload: ClassifyLinePayload): Promise<InvoiceLineDTO>;
+  importInvoice(file: File): Promise<InvoiceImportResultDTO>;
+  confirmImportedInvoice(id: string, payload: ConfirmImportedInvoicePayload): Promise<InvoiceDTO>;
+  getInvoiceAlerts(): Promise<InvoiceAlertsDTO>;
 }

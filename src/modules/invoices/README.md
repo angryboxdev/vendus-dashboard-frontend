@@ -1,7 +1,7 @@
 # Módulo: invoices
 
 > Status: ativo
-> Última atualização: 2026-06-22
+> Última atualização: 2026-06-29
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -13,56 +13,79 @@ quando vence, nem quanto gastou por área.
 **O problema que resolve:**
 Perder uma fatura vencida significa juros ou interrupção de serviço. Não saber o
 total de custos por centro de custo impede qualquer análise financeira. Esta página
-centraliza todas as faturas, dá visibilidade sobre o estado de cada uma e permite
-classificar cada despesa pela área da empresa a que pertence.
+centraliza todas as faturas, dá visibilidade sobre o estado de cada uma, permite
+importar PDFs/imagens com extração automática de dados via IA, e classifica cada
+despesa pela área da empresa a que pertence.
 
 **O fluxo do ponto de vista do negócio:**
 
 ```
 Manager (backoffice)
 ────────────────────────────────────────────────────────────────
-1. Chega uma fatura (email, papel, PDF)
-2. Manager clica "Nova fatura" e introduz os dados:
-   fornecedor, número, datas, valores (s/ IVA, IVA, total)
-3. A fatura aparece na tabela com estado "Pendente"
-4. Manager abre a fatura → tab "Linhas":
-   — classifica cada linha por tipo e centro de custo
-   — opcionalmente guarda como regra para futuras faturas
-     do mesmo fornecedor
-5. Quando a fatura é paga, clica "Marcar como paga"
-   → estado passa para "Paga", fica registada a data
-6. Faturas com prazo ultrapassado aparecem a vermelho nos KPIs
-   e na tabela com estado "Vencida"
+Fluxo de importação via IA:
+1. Manager clica "Importar fatura" e envia PDF, JPG ou PNG
+2. IA extrai: fornecedor, NIF, nº fatura, datas, valores, linhas
+3. Fatura criada em estado "Rascunho IA"
+4. Manager revê dados no drawer de revisão, corrige se necessário
+5. Manager confirma (três opções):
+   — "Salvar como pendente" → estado Pendente
+   — "Salvar e gerar conta a pagar" → estado Pendente + conta a pagar
+   — "Fatura já paga" + data → estado Paga diretamente
+6. Alertas de vencimento ficam ativos a partir daí
+
+Fluxo manual:
+1. Manager clica "Nova manual" e introduz os dados
+2. A fatura fica em estado "Pendente"
+3. Manager classifica as linhas por tipo e centro de custo
+4. Quando paga, clica "Marcar como paga" → estado Paga
+
+Visibilidade diária:
+- Tabs rápidos (Vencem hoje / Vencem em 7 dias / Vencidas) com contagem
+- Vista calendário: faturas distribuídas por dia de vencimento
+- Strip de alertas: vencidas, a vencer, baixa confiança IA, pendentes de revisão
 ```
 
 **Conceitos-chave para o negócio:**
 
-- **Estado da fatura** — *Pendente* (a pagar), *Paga*, *Vencida* (prazo
-  ultrapassado), *Parcial* (pagamento parcial), *Cancelada*, *Em revisão*.
+- **Estado da fatura** — *Rascunho IA* (aguarda revisão do manager), *Pendente Revisão*,
+  *Pendente* (a pagar), *Paga*, *Vencida* (prazo ultrapassado), *Parcial*, *Cancelada*.
+- **Importação via IA** — o manager envia o documento original; a IA extrai os dados
+  automaticamente. O manager valida/corrige antes de confirmar.
 - **Linha de fatura** — detalhe do que foi comprado. Uma fatura da Makro pode ter
-  "Farinha T55" (stock, OPE) e "Material de limpeza" (operacional, OPE). Classificar
-  por linha permite relatórios precisos por área.
+  "Farinha T55" (stock) e "Tampa Inox" (equipamento). Classificar por linha permite
+  relatórios precisos por área.
 - **Regra de classificação** — ao marcar "guardar como regra", o sistema memoriza
-  como classificar futuras faturas desse fornecedor. A confiança cresce a cada
-  confirmação manual.
-- **KPIs** — total faturado (c/ e s/ IVA), total vencido (€ + contagem) e total
-  pendente (€ + contagem). Dão ao manager visão imediata sobre o estado das contas.
+  como classificar futuras faturas desse fornecedor.
+- **KPIs** — total faturado (c/ e s/ IVA), total vencido (€ + contagem), total
+  pendente (€ + contagem). Visão imediata sobre o estado das contas.
+- **CC Padrão** — centro de custo padrão do fornecedor (configurado no cadastro de
+  fornecedores); mostrado na tabela como referência rápida de classificação.
 
 ---
 
 ## Propósito técnico
 
-Gere a UI de faturas de fornecedores: listagem, criação, ciclo de vida (pendente →
-pago/cancelado/vencido), e classificação de linhas por tipo e centro de custo.
+Gere a UI de faturas de fornecedores: listagem (tabela e calendário), importação via
+IA, criação manual, ciclo de vida (draft_ai → pending → paid/cancelled/overdue),
+classificação de linhas por tipo e centro de custo, e alertas operacionais.
 NÃO é responsável por extratos bancários, reconciliação ou relatórios financeiros.
 
 ## Conceitos do domínio
 
-- **InvoiceDTO** — fatura com cabeçalho (fornecedor, valores, datas, estado) e
-  linhas opcionais.
-- **InvoiceLineDTO** — linha de detalhe com `type`, `costCenterId` (legado),
-  `costCenterCategoryId` (novo), `category` livre e valores monetários.
-- **InvoiceStatus** — `pending | paid | overdue | partial | cancelled | review`.
+- **InvoiceDTO** — fatura com cabeçalho (fornecedor, NIF snapshot, valores, datas,
+  estado, source, aiConfidence, requiresReview, costCenterGroupId, financialType,
+  flags DRE/cashflow/profitability, currency) e linhas opcionais.
+- **InvoiceLineDTO** — linha de detalhe com `type`, `costCenterCategoryId`,
+  `category` livre, valores monetários e flags `affectsDre`/`affectsCashflow`/`affectsProfitability`.
+- **InvoiceImportResultDTO** — resultado do import: `invoice` (draft_ai), `aiConfidence`,
+  `validationIssues`, `supplierMatch`, `extractedLines`.
+- **InvoiceAlertsDTO** — contagens e totais para: `overdue`, `dueToday`, `dueIn7Days`,
+  `noDueDateCount`, `noSupplierCount`, `pendingReviewCount`, `lowAiConfidenceCount`,
+  `valueDiscrepancyCount`.
+- **InvoiceStatus** — `draft_ai | pending_review | pending | paid | overdue | partial | cancelled | review`.
+- **InvoiceSource** — `manual | pdf_import | image_import`.
+- **VALIDATION_ISSUE_LABELS** — mapa de chaves de validação para texto PT:
+  `no_due_date`, `no_supplier_match`, `low_ai_confidence`, `value_discrepancy`, `duplicate_invoice`.
 - **InvoiceLineType** — `stock_purchase | operational_expense | fixed_cost |
   variable_cost | tax | bank_fee | salary | internal_transfer | service | mixed | other`.
 - Todos os valores monetários em **cêntimos** (inteiros). Exibição usa `pt-PT` locale.
@@ -71,60 +94,97 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 
 ### Saída (dependências do domínio)
 
-- `InvoicesApiPort` — interface com os métodos HTTP:
-  `listInvoices`, `listInvoiceLines`, `getInvoice`, `addLine`, `createInvoice`,
-  `updateInvoice`, `markInvoicePaid`, `deleteInvoice`, `classifyLine`.
+- `InvoicesApiPort` — métodos HTTP:
+  - CRUD base: `listInvoices(params?)`, `getInvoice(id)`, `createInvoice`, `updateInvoice`, `deleteInvoice`
+  - Linhas: `listInvoiceLines()`, `addLine`, `classifyLine`
+  - Ciclo de vida: `markInvoicePaid(id, paidAt?)`
+  - Import IA: `importInvoice(file)` → `InvoiceImportResultDTO`; `confirmImportedInvoice(id, payload)`
+  - Alertas: `getInvoiceAlerts()` → `InvoiceAlertsDTO`
 
 ## Adapters
 
 ### Entrada (UI)
 
-- `InvoicesView` — página `/financial/invoices`:
-  - **KPIs** (4 cards): total de faturas, valor total (c/ IVA + s/ IVA como sub),
-    vencidas (total € + contagem), pendentes (total € + contagem).
-  - **Filtros**: pesquisa por nome de fornecedor ou nº de fatura; filtro por estado.
-  - **Tabela**: estado (badge), fornecedor, nº fatura, datas, valores. Botão "Ver" abre detalhe.
-  - **`CreateInvoiceDrawer`** — drawer lateral para criar nova fatura: campos de
-    cabeçalho (obrigatórios + opcionais, seleção de fornecedor) e secção de linhas
-    onde é possível adicionar linhas antes de submeter (tipo, categoria livre, qtd,
-    preço unitário, IVA).
-  - **`InvoiceDetailDrawer`** — drawer lateral com dois tabs:
-    - *Detalhes*: campos de cabeçalho, botão "Marcar como paga".
-    - *Linhas*: lista de `InvoiceLineDTO`; formulário `AddLineForm` para adicionar
-      novas linhas (com seleção de `InvoiceLineType` e campo de categoria livre);
-      `ClassifyPanel` inline por linha existente.
-  - **`ClassifyPanel`** — painel inline por linha: seleccionar tipo (`InvoiceLineType`),
-    subcategoria de CC (`costCenterCategoryId`) e categoria livre; opção de guardar
-    como regra automática para o fornecedor.
+- **`InvoicesView`** — página `/financial/invoices`:
+  - **KPIs** (4 cards): total de faturas, valor total (c/ IVA + s/ IVA), vencidas (€ + contagem), pendentes (€ + contagem).
+  - **Toggle Tabela / Calendário** — segmented control no header para alternar entre as duas vistas.
+  - **Alert strip** — aparece quando há alertas ativos: vencidas, a vencer em 7 dias, baixa confiança IA, pendentes de revisão. Clicável (filtra tabela por estado).
+  - **Vista Tabela**:
+    - Tabs com badge de contagem: *Todas*, *Vencem hoje*, *Vencem em 7 dias*, *Vencidas*.
+      - "Vencem hoje": `dueDate === hoje` e status não `paid`/`cancelled`.
+      - "Vencem em 7 dias": `dueDate > hoje` e `<= hoje+7` e status não `paid`/`cancelled`.
+      - "Vencidas": `status === "overdue"`.
+      - Mudar para tab não-"Todas" limpa o filtro de estado.
+    - Filtros: pesquisa (fornecedor/nº); dropdown de estado (só visível na tab "Todas").
+    - Colunas: Estado, Fornecedor, Nº Fatura, Emissão, Vencimento, Pago em, S/ IVA, IVA, Total, **CC Padrão**.
+      - **CC Padrão**: mostra o `code` da categoria de CC padrão do fornecedor (derivado de `supplier.defaultCostCenterCategoryId`); tooltip com o nome completo; `—` se não configurado.
+  - **Vista Calendário**:
+    - Grid mensal Seg→Dom com navegação mês a mês e botão "Hoje".
+    - Cada célula mostra chips das faturas com `dueDate` nesse dia (fallback: `paidAt` se não houver `dueDate`). Cor do chip = status da fatura.
+    - Máximo 3 chips por célula; `+N mais` se houver mais.
+    - Dia de hoje destacado com círculo laranja (`#ED5C32`); dias com faturas vencidas com número a vermelho.
+    - Clicar num chip abre o `InvoiceDetailDrawer`.
+    - Secção abaixo: faturas sem `dueDate` nem `paidAt` em pills clicáveis.
+
+- **`ImportInvoiceModal`** — modal de drag-and-drop para envio de PDF/imagem:
+  - Aceita `application/pdf`, `image/jpeg`, `image/png`, `image/webp`.
+  - Chama `POST /api/invoices/import` (multipart). Em caso de sucesso, fecha e abre o `ReviewImportedInvoiceDrawer`.
+
+- **`ReviewImportedInvoiceDrawer`** — drawer de revisão de fatura importada por IA:
+  - Exibe `aiConfidence` como barra de progresso colorida.
+  - Lista `validationIssues` com labels PT; cada issue desaparece dinamicamente conforme o utilizador corrige os campos.
+  - Permite editar todos os campos do cabeçalho (fornecedor via dropdown ou texto livre, NIF, nº fatura, datas, valores).
+  - Permite ligar a um fornecedor do cadastro (atualiza nome + NIF snapshot automaticamente).
+  - **"Fatura já paga"** — checkbox que oculta `dueDate`, mostra campo `paidAt` (default: `invoiceDate`), e envia `markAsPaid: true` ao confirmar.
+  - Edição de linhas: adicionar, editar quantidade/preço/IVA, eliminar.
+  - Chama `POST /api/invoices/:id/confirm` ao confirmar.
+
+- **`CreateInvoiceDrawer`** — drawer para criação manual:
+  - Seleção de fornecedor (dropdown) ou nome livre.
+  - Campos de cabeçalho + secção de linhas inline.
+
+- **`InvoiceDetailDrawer`** — drawer de detalhe com dois tabs:
+  - *Detalhes*: campos do cabeçalho, botão "Marcar como paga", conta a pagar associada (se existir) com link para `/financial/payable-entries`.
+  - *Linhas*: `AddLineForm` para adicionar novas linhas; `ClassifyPanel` inline por linha existente.
+
+- **`ClassifyPanel`** — painel inline por linha: tipo (`InvoiceLineType`), subcategoria de CC (`costCenterCategoryId`), categoria livre; opção de guardar como regra automática para o fornecedor.
 
 ### Saída
 
 - `HttpInvoicesApiAdapter` — implementa `InvoicesApiPort` usando `apiGet`,
-  `apiPost`, `apiPatch`, `apiDeleteNoContent` de `src/lib/api.ts`.
+  `apiPost`, `apiPatch`, `apiDeleteNoContent`, `apiPostFormData` de `src/lib/api.ts`.
 
 ## Decisões de design (ADR resumido)
 
 **`InvoicesProvider` envolve toda a rota `/financial/*`.**
-O `CostCentersView` (módulo `financial-base`) também precisa de dados de faturas
-para os KPIs globais. Em vez de duplicar a query, o `InvoicesProvider` foi movido
-para envolver o nó pai `/financial/*` no `App.tsx`. Qualquer vista dentro do
-grupo financeiro pode usar `useInvoicesModule()`.
+Em vez de duplicar queries, o provider foi movido para o nó pai `/financial/*` no
+`App.tsx`. Qualquer vista dentro do grupo financeiro pode usar `useInvoicesModule()`.
 
 **Linhas carregadas on-demand no detalhe.**
-A listagem de faturas não inclui linhas (custo de rede desnecessário). As linhas
-são carregadas apenas quando o tab "Linhas" é activado no `InvoiceDetailDrawer`,
-com uma chamada a `getInvoice(id)` que retorna a fatura com linhas incluídas.
+A listagem não inclui linhas. São carregadas apenas quando o tab "Linhas" é
+activado no `InvoiceDetailDrawer` via `getInvoice(id)`.
+
+**Vista calendário usa `dueDate ?? paidAt` como base temporal.**
+O calendário mostra faturas no seu dia de vencimento. Se não houver `dueDate`
+(ex: fatura já paga sem prazo definido), usa `paidAt` como fallback. Faturas sem
+nenhuma data ficam numa secção separada abaixo do calendário.
+
+**Tabs de filtragem temporal não usam o servidor.**
+As contagens e filtros de "Vencem hoje / 7 dias / Vencidas" são calculados
+client-side sobre os dados já carregados. Evita chamadas adicionais à API.
+
+**Coluna CC Padrão derivada do fornecedor, não da fatura.**
+A coluna mostra `supplier.defaultCostCenterCategoryId` resolvido via `categoryById`
+(mapa de categorias já carregado). É informativa — serve de referência visual para
+o manager saber se a classificação esperada está configurada.
 
 **`ClassifyPanel` inline por linha (sem modal separado).**
-A classificação é frequente (uma linha de cada vez). Ter o painel directamente
-visível na lista de linhas elimina um nível de navegação e torna o fluxo mais
-rápido para o manager.
+A classificação é frequente. Ter o painel directamente visível elimina um nível
+de navegação e torna o fluxo mais rápido.
 
 **Identidade visual consistente com o grupo financeiro.**
-Bordas `border-[#F5C992]/40`, fundo `#FAF6F3`, botões com gradiente
-`from-[#ED5C32] to-[#EF8935]`, KPI cards `px-5 py-4 shadow-sm text-xl`.
-Título de página `text-xl font-bold text-stone-900` (igual a `CostCentersView`
-e `SuppliersView`).
+Bordas `border-[#F5C992]/40`, fundo `#FAF6F3`, gradiente `from-[#ED5C32] to-[#EF8935]`,
+KPI cards `px-5 py-4 shadow-sm text-xl`.
 
 ## Como testar
 
@@ -133,10 +193,13 @@ e `SuppliersView`).
 
 ## Pontos de atenção / dívidas conhecidas
 
-- Testes de UI não implementados.
-- Não há paginação na listagem — aceitável para o volume actual; adicionar se
-  necessário (o backend já suporta `from`/`to` como filtros de data).
-- Ao fechar um `InvoiceDetailDrawer` e reabri-lo, as linhas são recarregadas.
-  Considerar manter as linhas em cache via `useQuery` com `queryKey: ["invoice-lines", id]`.
-- `setInvoiceStatus` e `suggestClassification` existem no backend mas não estão expostos
-  no `InvoicesApiPort` do frontend — adicionar quando necessário na UI.
+- Testes de UI não implementados. A lógica de filtragem dos tabs e agrupamento do
+  calendário são candidatas a extração para um serviço puro e testes unitários.
+- Não há paginação na listagem — aceitável para o volume actual; o backend já suporta
+  `from`/`to` como filtros de data.
+- Ao fechar e reabrir o `InvoiceDetailDrawer`, as linhas são recarregadas. Considerar
+  cache via `useQuery` com `queryKey: ["invoice-lines", id]`.
+- `setInvoiceStatus` e `suggestClassification` existem no backend mas não estão
+  expostos no `InvoicesApiPort` do frontend — adicionar quando necessário na UI.
+- A regra de classificação guarda apenas uma entrada por fornecedor. Para fornecedores
+  mistos (ex: Makro), o último "guardar como regra" sobrescreve o anterior.

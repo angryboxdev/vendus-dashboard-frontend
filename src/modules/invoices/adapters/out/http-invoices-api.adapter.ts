@@ -1,4 +1,10 @@
-import { apiGet, apiPost, apiPatch, apiDeleteNoContent } from "../../../../lib/api.ts";
+import {
+  apiGet,
+  apiPost,
+  apiPatch,
+  apiDeleteNoContent,
+  apiPostFormData,
+} from "../../../../lib/api.ts";
 import type { InvoicesApiPort, AddInvoiceLinePayload } from "../../domain/ports/out/invoices-api.port.ts";
 import type {
   InvoiceDTO,
@@ -7,6 +13,9 @@ import type {
   UpdateInvoicePayload,
   ClassifyLinePayload,
   ListInvoicesParams,
+  InvoiceImportResultDTO,
+  InvoiceAlertsDTO,
+  ConfirmImportedInvoicePayload,
 } from "../../domain/entities/invoice.ts";
 
 const BASE = "/api/invoices";
@@ -56,5 +65,19 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
       `${BASE}/${encodeURIComponent(invoiceId)}/lines/${encodeURIComponent(lineId)}/classify`,
       payload,
     );
+  }
+
+  async importInvoice(file: File): Promise<InvoiceImportResultDTO> {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiPostFormData(`${BASE}/import`, formData);
+  }
+
+  async confirmImportedInvoice(id: string, payload: ConfirmImportedInvoicePayload): Promise<InvoiceDTO> {
+    return apiPost(`${BASE}/${encodeURIComponent(id)}/confirm`, payload);
+  }
+
+  async getInvoiceAlerts(): Promise<InvoiceAlertsDTO> {
+    return apiGet(`${BASE}/alerts`);
   }
 }
