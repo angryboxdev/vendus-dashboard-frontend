@@ -1,7 +1,7 @@
 # Módulo: invoices
 
 > Status: ativo
-> Última atualização: 2026-06-29
+> Última atualização: 2026-07-01
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -27,10 +27,11 @@ Fluxo de importação via IA:
 2. IA extrai: fornecedor, NIF, nº fatura, datas, valores, linhas
 3. Fatura criada em estado "Rascunho IA"
 4. Manager revê dados no drawer de revisão, corrige se necessário
-5. Manager confirma (três opções):
+5. Manager confirma (quatro opções):
    — "Salvar como pendente" → estado Pendente
    — "Salvar e gerar conta a pagar" → estado Pendente + conta a pagar
    — "Fatura já paga" + data → estado Paga diretamente
+   — "Débito direto" + data de débito → fica Pendente; cron processa na data e marca como Paga
 6. Alertas de vencimento ficam ativos a partir daí
 
 Fluxo manual:
@@ -60,6 +61,9 @@ Visibilidade diária:
   pendente (€ + contagem). Visão imediata sobre o estado das contas.
 - **CC Padrão** — centro de custo padrão do fornecedor (configurado no cadastro de
   fornecedores); mostrado na tabela como referência rápida de classificação.
+- **Débito direto** — modalidade em que o fornecedor debita automaticamente a conta
+  na data acordada. A fatura fica Pendente com `isDirectDebit=true`; identificada
+  na tabela com o badge "DD". Um cron diário no backend processa-a e marca-a como Paga.
 
 ---
 
@@ -74,9 +78,9 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 
 - **InvoiceDTO** — fatura com cabeçalho (fornecedor, NIF snapshot, valores, datas,
   estado, source, aiConfidence, requiresReview, costCenterGroupId, financialType,
-  flags DRE/cashflow/profitability, currency) e linhas opcionais.
+  flags DRE/cashflow/profitability, currency, `isDirectDebit`, `directDebitDate`) e linhas opcionais.
 - **InvoiceLineDTO** — linha de detalhe com `type`, `costCenterCategoryId`,
-  `category` livre, valores monetários e flags `affectsDre`/`affectsCashflow`/`affectsProfitability`.
+  valores monetários e flags `affectsDre`/`affectsCashflow`/`affectsProfitability`.
 - **InvoiceImportResultDTO** — resultado do import: `invoice` (draft_ai), `aiConfidence`,
   `validationIssues`, `supplierMatch`, `extractedLines`.
 - **InvoiceAlertsDTO** — contagens e totais para: `overdue`, `dueToday`, `dueIn7Days`,
@@ -115,8 +119,8 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
       - "Vencem em 7 dias": `dueDate > hoje` e `<= hoje+7` e status não `paid`/`cancelled`.
       - "Vencidas": `status === "overdue"`.
       - Mudar para tab não-"Todas" limpa o filtro de estado.
-    - Filtros: pesquisa (fornecedor/nº); dropdown de estado (só visível na tab "Todas").
-    - Colunas: Estado, Fornecedor, Nº Fatura, Emissão, Vencimento, Pago em, S/ IVA, IVA, Total, **CC Padrão**.
+    - Filtros: pesquisa (fornecedor/nº); dropdown de estado (só visível na tab "Todas"); toggle **"Débito direto"** (filtra client-side por `isDirectDebit=true`).
+    - Colunas: Estado, Fornecedor (com badge **DD** e tooltip para faturas de débito direto), Nº Fatura, Emissão, Vencimento, Pago em, S/ IVA, IVA, Total, **CC Padrão**.
       - **CC Padrão**: mostra o `code` da categoria de CC padrão do fornecedor (derivado de `supplier.defaultCostCenterCategoryId`); tooltip com o nome completo; `—` se não configurado.
   - **Vista Calendário**:
     - Grid mensal Seg→Dom com navegação mês a mês e botão "Hoje".
@@ -136,6 +140,7 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
   - Permite editar todos os campos do cabeçalho (fornecedor via dropdown ou texto livre, NIF, nº fatura, datas, valores).
   - Permite ligar a um fornecedor do cadastro (atualiza nome + NIF snapshot automaticamente).
   - **"Fatura já paga"** — checkbox que oculta `dueDate`, mostra campo `paidAt` (default: `invoiceDate`), e envia `markAsPaid: true` ao confirmar.
+  - **"Débito direto"** — checkbox mutuamente exclusivo com "Fatura já paga": substitui o campo `dueDate` pelo campo "Data de débito" (`directDebitDate`); suprime o alerta `no_due_date`; força `saveAsPayable: false`; mostra botão "Salvar com débito direto".
   - Edição de linhas: adicionar, editar quantidade/preço/IVA, eliminar.
   - Chama `POST /api/invoices/:id/confirm` ao confirmar.
 
@@ -144,10 +149,10 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
   - Campos de cabeçalho + secção de linhas inline.
 
 - **`InvoiceDetailDrawer`** — drawer de detalhe com dois tabs:
-  - *Detalhes*: campos do cabeçalho, botão "Marcar como paga", conta a pagar associada (se existir) com link para `/financial/payable-entries`.
+  - *Detalhes*: campos do cabeçalho; para faturas de débito direto mostra "Débito direto em" em vez de "Data de vencimento"; botão "Marcar como paga"; conta a pagar associada (se existir) com link para `/financial/payable-entries`.
   - *Linhas*: `AddLineForm` para adicionar novas linhas; `ClassifyPanel` inline por linha existente.
 
-- **`ClassifyPanel`** — painel inline por linha: tipo (`InvoiceLineType`), subcategoria de CC (`costCenterCategoryId`), categoria livre; opção de guardar como regra automática para o fornecedor.
+- **`ClassifyPanel`** — painel inline por linha: tipo (`InvoiceLineType`), subcategoria de CC (`costCenterCategoryId`); opção de guardar como regra automática para o fornecedor.
 
 ### Saída
 
