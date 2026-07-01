@@ -14,7 +14,6 @@ export interface AddInvoiceLinePayload {
   description: string;
   type?: string;
   costCenterCategoryId?: string | null;
-  category?: string | null;
   quantity: number;
   unit?: string | null;
   unitCostWithoutVat: number;

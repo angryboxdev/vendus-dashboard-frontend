@@ -114,7 +114,6 @@ function ClassifyPanel({
   const { api } = useInvoicesModule();
   const [type, setType] = useState<InvoiceLineType>(line.type);
   const [catId, setCatId] = useState(line.costCenterCategoryId ?? "");
-  const [category, setCategory] = useState(line.category ?? "");
   const [saveRule, setSaveRule] = useState(false);
   const [saving, setSaving] = useState(false);
 
@@ -125,7 +124,6 @@ function ClassifyPanel({
         classify: {
           type,
           costCenterCategoryId: catId || null,
-          category: category || null,
         },
         saveAsRule: saveRule,
       });
@@ -178,18 +176,6 @@ function ClassifyPanel({
           </select>
         </div>
       </div>
-      <div>
-        <label className="mb-1 block text-xs font-medium text-stone-500">
-          Categoria livre
-        </label>
-        <input
-          type="text"
-          value={category}
-          onChange={(e) => setCategory(e.target.value)}
-          placeholder="ex: Ingredientes"
-          className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
-        />
-      </div>
       <label className="flex items-center gap-2 text-xs text-stone-600">
         <input
           type="checkbox"
@@ -228,7 +214,6 @@ function AddLineForm({ invoiceId, categories, onDone, onCancel }: AddLineFormPro
   const [unitCost, setUnitCost]       = useState("");
   const [vatRate, setVatRate]         = useState("23");
   const [catId, setCatId]             = useState("");
-  const [category, setCategory]       = useState("");
   const [saving, setSaving]           = useState(false);
 
   const subtotal   = parseFloat(quantity || "0") * parseFloat(unitCost || "0");
@@ -250,7 +235,6 @@ function AddLineForm({ invoiceId, categories, onDone, onCancel }: AddLineFormPro
         vatAmount,
         totalWithVat: totalCents,
         costCenterCategoryId: catId || null,
-        category: category || null,
       });
       onDone(line);
     } finally {
@@ -336,30 +320,17 @@ function AddLineForm({ invoiceId, categories, onDone, onCancel }: AddLineFormPro
           </select>
         </div>
       </div>
-      {/* CC subcategory + free category */}
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <select
-            value={catId}
-            onChange={(e) => setCatId(e.target.value)}
-            className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
-          >
-            <option value="">Subcategoria CC</option>
-            {categories.filter((c) => c.isActive).map((c) => (
-              <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <input
-            type="text"
-            value={category}
-            onChange={(e) => setCategory(e.target.value)}
-            placeholder="Categoria livre"
-            className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
-          />
-        </div>
-      </div>
+      {/* CC subcategory */}
+      <select
+        value={catId}
+        onChange={(e) => setCatId(e.target.value)}
+        className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+      >
+        <option value="">Subcategoria CC</option>
+        {categories.filter((c) => c.isActive).map((c) => (
+          <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+        ))}
+      </select>
       {subtotal > 0 && (
         <p className="text-xs text-stone-500 tabular-nums">
           Total c/ IVA: <span className="font-semibold text-stone-800">
@@ -538,10 +509,14 @@ function InvoiceDetailDrawer({
                     label: "Data de emissão",
                     value: formatDate(invoice.invoiceDate),
                   },
-                  {
+                  ...(!invoice.isDirectDebit ? [{
                     label: "Data de vencimento",
                     value: formatDate(invoice.dueDate),
-                  },
+                  }] : []),
+                  ...(invoice.isDirectDebit ? [{
+                    label: "Débito direto em",
+                    value: formatDate(invoice.directDebitDate),
+                  }] : []),
                   {
                     label: "Data de pagamento",
                     value: formatDate(invoice.paidAt),
@@ -644,7 +619,6 @@ function InvoiceDetailDrawer({
                         <span>IVA: {line.vatRate}%</span>
                         <span>Total: {fromCents(line.totalWithVat)}</span>
                         {cc && <span>CC: {cc.code}</span>}
-                        {line.category && <span>Cat: {line.category}</span>}
                       </div>
                       <ClassifyPanel
                         line={line}
@@ -684,11 +658,10 @@ interface LineBuilder {
   unitCost: string;
   vatRate: string;
   catId: string;
-  category: string;
 }
 
 function emptyLineBuilder(): LineBuilder {
-  return { description: "", type: "other", quantity: "1", unit: "", unitCost: "", vatRate: "23", catId: "", category: "" };
+  return { description: "", type: "other", quantity: "1", unit: "", unitCost: "", vatRate: "23", catId: "" };
 }
 
 function lineBuilderToPayload(b: LineBuilder): CreateInvoiceLinePayload {
@@ -706,7 +679,6 @@ function lineBuilderToPayload(b: LineBuilder): CreateInvoiceLinePayload {
   };
   if (b.unit) payload.unit = b.unit;
   if (b.catId) payload.costCenterCategoryId = b.catId;
-  if (b.category) payload.category = b.category;
   return payload;
 }
 
@@ -1014,25 +986,16 @@ function CreateInvoiceDrawer({
                       <option value="23">IVA 23%</option>
                     </select>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <select
-                      value={lineBuilder.catId}
-                      onChange={(e) => setLineBuilder((b) => ({ ...b, catId: e.target.value }))}
-                      className={inputSmCls}
-                    >
-                      <option value="">Subcategoria CC</option>
-                      {categories.filter((c) => c.isActive).map((c) => (
-                        <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
-                      ))}
-                    </select>
-                    <input
-                      type="text"
-                      value={lineBuilder.category}
-                      onChange={(e) => setLineBuilder((b) => ({ ...b, category: e.target.value }))}
-                      placeholder="Categoria livre"
-                      className={inputSmCls}
-                    />
-                  </div>
+                  <select
+                    value={lineBuilder.catId}
+                    onChange={(e) => setLineBuilder((b) => ({ ...b, catId: e.target.value }))}
+                    className={inputSmCls}
+                  >
+                    <option value="">Subcategoria CC</option>
+                    {categories.filter((c) => c.isActive).map((c) => (
+                      <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+                    ))}
+                  </select>
                   {lbSubtotal > 0 && (
                     <p className="text-xs text-stone-500 tabular-nums">
                       Total c/ IVA:{" "}
@@ -1283,6 +1246,7 @@ export function InvoicesView() {
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   );
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "">("");
+  const [directDebitFilter, setDirectDebitFilter] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "today" | "week" | "overdue">("all");
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
@@ -1411,14 +1375,16 @@ export function InvoicesView() {
 
   // Filtered
   const filtered = useMemo(() => {
-    if (!search) return invoices;
+    let result = invoices;
+    if (directDebitFilter) result = result.filter((inv) => inv.isDirectDebit);
+    if (!search) return result;
     const q = search.toLowerCase();
-    return invoices.filter(
+    return result.filter(
       (inv) =>
         inv.supplierName.toLowerCase().includes(q) ||
         inv.invoiceNumber.toLowerCase().includes(q),
     );
-  }, [invoices, search]);
+  }, [invoices, search, directDebitFilter]);
 
   // Tab helpers
   function getTodayStr() {
@@ -1647,6 +1613,16 @@ export function InvoicesView() {
               ))}
             </select>
           )}
+          <button
+            onClick={() => setDirectDebitFilter((v) => !v)}
+            className={`rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+              directDebitFilter
+                ? "border-blue-400 bg-blue-50 text-blue-700"
+                : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+            }`}
+          >
+            Débito direto
+          </button>
         </div>
 
         {/* Table */}
@@ -1719,7 +1695,17 @@ export function InvoicesView() {
                       <StatusBadge status={inv.status} />
                     </td>
                     <td className="px-4 py-3 font-medium text-stone-800">
-                      {inv.supplierName}
+                      <div className="flex items-center gap-2">
+                        {inv.supplierName}
+                        {inv.isDirectDebit && (
+                          <span
+                            title={`Débito direto${inv.directDebitDate ? ` em ${formatDate(inv.directDebitDate)}` : ""}`}
+                            className="shrink-0 inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600"
+                          >
+                            DD
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="px-4 py-3 text-stone-600">
                       {inv.invoiceNumber}

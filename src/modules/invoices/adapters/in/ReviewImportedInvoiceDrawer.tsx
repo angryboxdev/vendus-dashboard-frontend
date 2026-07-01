@@ -8,8 +8,10 @@ import type {
   ConfirmImportedInvoicePayload,
   CreateInvoiceLinePayload,
   SupplierMatchDTO,
+  NewSupplierPayload,
 } from "../../domain/entities/invoice.ts";
 import { VALIDATION_ISSUE_LABELS } from "../../domain/entities/invoice.ts";
+import type { CostCenterGroup, CostCenterCategory } from "../../../financial-base/domain/entities/cost-center.ts";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -36,18 +38,130 @@ function ConfidenceBadge({ value }: { value: number }) {
   );
 }
 
+// ── CostCenterCascadeSelect ───────────────────────────────────────────────────
+
+interface CostCenterCascadeSelectProps {
+  groups: CostCenterGroup[];
+  categories: CostCenterCategory[];
+  groupId: string | null;
+  categoryId: string | null;
+  onChange(groupId: string | null, categoryId: string | null): void;
+  inputCls: string;
+}
+
+function CostCenterCascadeSelect({
+  groups,
+  categories,
+  groupId,
+  categoryId,
+  onChange,
+  inputCls,
+}: CostCenterCascadeSelectProps) {
+  const activeGroups = groups.filter((g) => g.isActive);
+  const filteredCats = categories.filter(
+    (c) => c.isActive && (groupId === null || c.groupId === groupId),
+  );
+
+  function handleGroupChange(newGroupId: string) {
+    const gId = newGroupId || null;
+    // clear category if it no longer belongs to the new group
+    const currentCat = categories.find((c) => c.id === categoryId);
+    const catStillValid = currentCat && (gId === null || currentCat.groupId === gId);
+    onChange(gId, catStillValid ? categoryId : null);
+  }
+
+  function handleCategoryChange(newCatId: string) {
+    const cId = newCatId || null;
+    if (cId) {
+      const cat = categories.find((c) => c.id === cId);
+      // auto-populate group when category is selected
+      onChange(cat?.groupId ?? groupId, cId);
+    } else {
+      onChange(groupId, null);
+    }
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <select
+        value={groupId ?? ""}
+        onChange={(e) => handleGroupChange(e.target.value)}
+        className={inputCls}
+      >
+        <option value="">— Grupo CC —</option>
+        {activeGroups.map((g) => (
+          <option key={g.id} value={g.id}>{g.code} — {g.name}</option>
+        ))}
+      </select>
+      <select
+        value={categoryId ?? ""}
+        onChange={(e) => handleCategoryChange(e.target.value)}
+        className={inputCls}
+      >
+        <option value="">— Subcategoria —</option>
+        {filteredCats.map((c) => (
+          <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+        ))}
+      </select>
+    </div>
+  );
+}
+
 // ── SupplierPanel ─────────────────────────────────────────────────────────────
 
 interface SupplierPanelProps {
   match: SupplierMatchDTO | null;
   currentSupplierId: string | null;
-  suppliers: { id: string; name: string; nif?: string | null }[];
-  onLink(supplierId: string | null, supplierName?: string, supplierNif?: string | null): void;
+  currentNewSupplier: NewSupplierPayload | null;
+  suppliers: {
+    id: string;
+    name: string;
+    nif?: string | null;
+    defaultCostCenterGroupId?: string | null;
+    defaultCostCenterCategoryId?: string | null;
+  }[];
+  groups: CostCenterGroup[];
+  categories: CostCenterCategory[];
+  defaultName: string;
+  defaultNif: string;
+  onLink(
+    supplierId: string | null,
+    supplierName?: string,
+    supplierNif?: string | null,
+    defaultCcGroupId?: string | null,
+    defaultCcCategoryId?: string | null,
+  ): void;
+  onNewSupplier(data: NewSupplierPayload | null): void;
 }
 
-function SupplierPanel({ match, currentSupplierId, suppliers, onLink }: SupplierPanelProps) {
+function SupplierPanel({
+  match,
+  currentSupplierId,
+  currentNewSupplier,
+  suppliers,
+  groups,
+  categories,
+  defaultName,
+  defaultNif,
+  onLink,
+  onNewSupplier,
+}: SupplierPanelProps) {
   const [showLink, setShowLink] = useState(false);
+  const [showCreate, setShowCreate] = useState(false);
   const [selectedId, setSelectedId] = useState("");
+
+  // Create form state — pre-filled from invoice extraction
+  const [createName, setCreateName] = useState(defaultName);
+  const [createNif, setCreateNif] = useState(defaultNif);
+  const [createEmail, setCreateEmail] = useState("");
+  const [createPhone, setCreatePhone] = useState("");
+  const [createAddress, setCreateAddress] = useState("");
+  const [createIban, setCreateIban] = useState("");
+  const [createPaymentDays, setCreatePaymentDays] = useState("");
+  const [createGroupId, setCreateGroupId] = useState<string | null>(null);
+  const [createCategoryId, setCreateCategoryId] = useState<string | null>(null);
+
+  const inputCls = "w-full rounded-md border border-stone-200 bg-white px-2 py-1.5 text-xs focus:border-[#ED5C32] focus:outline-none";
 
   // Resolve linked supplier — either auto-matched by AI or manually selected
   const linkedSupplier = (() => {
@@ -70,20 +184,36 @@ function SupplierPanel({ match, currentSupplierId, suppliers, onLink }: Supplier
               {match?.id === currentSupplierId ? "Fornecedor encontrado" : "Fornecedor vinculado"}
             </p>
           </div>
-          <button
-            onClick={() => { onLink(null); }}
-            className="text-[10px] text-stone-400 hover:text-stone-600 underline"
-          >
+          <button onClick={() => onLink(null)} className="text-[10px] text-stone-400 hover:text-stone-600 underline">
             alterar
           </button>
         </div>
         <p className="text-sm font-medium text-stone-800">{linkedSupplier.name}</p>
         {linkedSupplier.nif && <p className="text-xs text-stone-500">NIF {linkedSupplier.nif}</p>}
         {linkedSupplier.financialType && (
-          <p className="text-xs text-stone-400">
-            Tipo: {linkedSupplier.financialType} · Classificação padrão aplicada
-          </p>
+          <p className="text-xs text-stone-400">Tipo: {linkedSupplier.financialType} · Classificação padrão aplicada</p>
         )}
+      </div>
+    );
+  }
+
+  if (currentNewSupplier) {
+    return (
+      <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <svg className="h-4 w-4 text-emerald-600" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+            </svg>
+            <p className="text-xs font-semibold text-emerald-700">Novo fornecedor a criar</p>
+          </div>
+          <button onClick={() => onNewSupplier(null)} className="text-[10px] text-stone-400 hover:text-stone-600 underline">
+            alterar
+          </button>
+        </div>
+        <p className="text-sm font-medium text-stone-800">{currentNewSupplier.name}</p>
+        {currentNewSupplier.nif && <p className="text-xs text-stone-500">NIF {currentNewSupplier.nif}</p>}
+        {currentNewSupplier.iban && <p className="text-xs text-stone-400">IBAN {currentNewSupplier.iban}</p>}
       </div>
     );
   }
@@ -99,56 +229,171 @@ function SupplierPanel({ match, currentSupplierId, suppliers, onLink }: Supplier
       <p className="text-xs text-stone-600">
         O NIF extraído não corresponde a nenhum fornecedor cadastrado.
       </p>
-      <div className="space-y-2">
-        {showLink ? (
-          <div className="space-y-2">
-            <select
-              value={selectedId}
-              onChange={(e) => setSelectedId(e.target.value)}
-              className="w-full rounded-md border border-stone-200 bg-white px-2.5 py-1.5 text-xs focus:border-[#ED5C32] focus:outline-none"
-            >
-              <option value="">— selecionar fornecedor —</option>
-              {suppliers.map((s) => (
-                <option key={s.id} value={s.id}>{s.name}</option>
-              ))}
-            </select>
-            <div className="flex gap-2">
-              <button
-                onClick={() => {
-                  const sup = suppliers.find((s) => s.id === selectedId);
-                  onLink(selectedId || null, sup?.name, sup?.nif);
-                  setShowLink(false);
-                }}
-                disabled={!selectedId}
-                className="rounded-md bg-[#ED5C32] px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40"
-              >
-                Vincular
-              </button>
-              <button
-                onClick={() => setShowLink(false)}
-                className="rounded-md px-3 py-1 text-xs text-stone-500 hover:bg-stone-100"
-              >
-                Cancelar
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-1.5">
+
+      {showLink && (
+        <div className="space-y-2">
+          <select
+            value={selectedId}
+            onChange={(e) => setSelectedId(e.target.value)}
+            className={inputCls}
+          >
+            <option value="">— selecionar fornecedor —</option>
+            {suppliers.map((s) => (
+              <option key={s.id} value={s.id}>{s.name}</option>
+            ))}
+          </select>
+          <div className="flex gap-2">
             <button
-              onClick={() => setShowLink(true)}
-              className="w-full rounded-md border border-stone-200 bg-white px-3 py-1.5 text-left text-xs text-stone-700 hover:bg-stone-50"
+              onClick={() => {
+                const sup = suppliers.find((s) => s.id === selectedId);
+                onLink(
+                  selectedId || null,
+                  sup?.name,
+                  sup?.nif,
+                  sup?.defaultCostCenterGroupId ?? null,
+                  sup?.defaultCostCenterCategoryId ?? null,
+                );
+                setShowLink(false);
+              }}
+              disabled={!selectedId}
+              className="rounded-md bg-[#ED5C32] px-3 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40"
             >
-              Vincular a fornecedor existente
+              Vincular
             </button>
             <button
-              onClick={() => onLink(null)}
-              className="w-full rounded-md border border-stone-200 bg-white px-3 py-1.5 text-left text-xs text-stone-500 hover:bg-stone-50"
+              onClick={() => setShowLink(false)}
+              className="rounded-md px-3 py-1 text-xs text-stone-500 hover:bg-stone-100"
             >
-              Continuar sem cadastrar
+              Cancelar
             </button>
           </div>
-        )}
-      </div>
+        </div>
+      )}
+
+      {showCreate && (
+        <div className="space-y-2 rounded-lg border border-stone-200 bg-white p-3">
+          <p className="text-xs font-medium text-stone-600">Dados do novo fornecedor</p>
+          <input
+            type="text"
+            value={createName}
+            onChange={(e) => setCreateName(e.target.value)}
+            placeholder="Nome *"
+            className={inputCls}
+          />
+          <input
+            type="text"
+            value={createNif}
+            onChange={(e) => setCreateNif(e.target.value)}
+            placeholder="NIF"
+            className={inputCls}
+          />
+          <input
+            type="email"
+            value={createEmail}
+            onChange={(e) => setCreateEmail(e.target.value)}
+            placeholder="Email"
+            className={inputCls}
+          />
+          <input
+            type="text"
+            value={createPhone}
+            onChange={(e) => setCreatePhone(e.target.value)}
+            placeholder="Telefone"
+            className={inputCls}
+          />
+          <input
+            type="text"
+            value={createAddress}
+            onChange={(e) => setCreateAddress(e.target.value)}
+            placeholder="Morada"
+            className={inputCls}
+          />
+          <input
+            type="text"
+            value={createIban}
+            onChange={(e) => setCreateIban(e.target.value)}
+            placeholder="IBAN"
+            className={inputCls}
+          />
+          <input
+            type="number"
+            value={createPaymentDays}
+            onChange={(e) => setCreatePaymentDays(e.target.value)}
+            placeholder="Prazo pagamento (dias)"
+            min="0"
+            className={inputCls}
+          />
+          {groups.length > 0 && (
+            <>
+              <p className="text-[11px] font-medium text-stone-400 pt-1">Centro de custo padrão</p>
+              <CostCenterCascadeSelect
+                groups={groups}
+                categories={categories}
+                groupId={createGroupId}
+                categoryId={createCategoryId}
+                onChange={(gId, cId) => { setCreateGroupId(gId); setCreateCategoryId(cId); }}
+                inputCls={inputCls}
+              />
+            </>
+          )}
+          <div className="flex gap-2 pt-1">
+            <button
+              onClick={() => setShowCreate(false)}
+              className="flex-1 rounded-md border border-stone-200 px-2 py-1 text-xs text-stone-500 hover:bg-stone-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => {
+                if (!createName.trim()) return;
+                onNewSupplier({
+                  name: createName.trim(),
+                  nif: createNif.trim() || null,
+                  email: createEmail.trim() || null,
+                  phone: createPhone.trim() || null,
+                  address: createAddress.trim() || null,
+                  iban: createIban.trim() || null,
+                  defaultCostCenterGroupId: createGroupId || null,
+                  defaultCostCenterCategoryId: createCategoryId || null,
+                  paymentTermsDays: createPaymentDays ? parseInt(createPaymentDays) : null,
+                });
+                setShowCreate(false);
+              }}
+              disabled={!createName.trim()}
+              className="flex-1 rounded-md bg-[#ED5C32] px-2 py-1 text-xs font-medium text-white hover:opacity-90 disabled:opacity-40"
+            >
+              Confirmar
+            </button>
+          </div>
+        </div>
+      )}
+
+      {!showLink && !showCreate && (
+        <div className="space-y-1.5">
+          <button
+            onClick={() => setShowLink(true)}
+            className="w-full rounded-md border border-stone-200 bg-white px-3 py-1.5 text-left text-xs text-stone-700 hover:bg-stone-50"
+          >
+            Vincular a fornecedor existente
+          </button>
+          <button
+            onClick={() => {
+              setCreateName(defaultName);
+              setCreateNif(defaultNif);
+              setShowCreate(true);
+            }}
+            className="w-full rounded-md border border-stone-200 bg-white px-3 py-1.5 text-left text-xs text-stone-700 hover:bg-stone-50"
+          >
+            Criar novo fornecedor
+          </button>
+          <button
+            onClick={() => onLink(null)}
+            className="w-full rounded-md border border-stone-200 bg-white px-3 py-1.5 text-left text-xs text-stone-500 hover:bg-stone-50"
+          >
+            Continuar sem cadastrar
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -330,21 +575,36 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
     queryFn: () => fbModule.api.listSuppliers(),
   });
 
+  const { data: groups = [] } = useQuery({
+    queryKey: ["cost-center-groups"],
+    queryFn: () => fbModule.api.listCostCenterGroups(),
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ["cost-center-categories"],
+    queryFn: () => fbModule.api.listCostCenterCategories(),
+  });
+
   const inv = importResult.invoice;
 
   // Editable fields — initialised from AI extraction
   const [supplierName, setSupplierName] = useState(inv.supplierName);
   const [supplierNif, setSupplierNif] = useState(inv.supplierNifSnapshot ?? "");
   const [supplierId, setSupplierId] = useState<string | null>(inv.supplierId);
+  const [newSupplierData, setNewSupplierData] = useState<NewSupplierPayload | null>(null);
   const [invoiceNumber, setInvoiceNumber] = useState(inv.invoiceNumber);
   const [invoiceDate, setInvoiceDate] = useState(inv.invoiceDate ?? todayStr());
   const [dueDate, setDueDate] = useState(inv.dueDate ?? "");
-  const [subtotalStr, setSubtotalStr] = useState(((inv.subtotalWithoutVat) / 100).toFixed(2));
-  const [vatStr, setVatStr] = useState(((inv.totalVat) / 100).toFixed(2));
-  const [totalStr, setTotalStr] = useState(((inv.totalWithVat) / 100).toFixed(2));
+  const [subtotalStr, setSubtotalStr] = useState((inv.subtotalWithoutVat / 100).toFixed(2));
+  const [vatStr, setVatStr] = useState((inv.totalVat / 100).toFixed(2));
+  const [totalStr, setTotalStr] = useState((inv.totalWithVat / 100).toFixed(2));
   const [notes, setNotes] = useState(inv.notes ?? "");
+  const [costCenterGroupId, setCostCenterGroupId] = useState<string | null>(inv.costCenterGroupId ?? null);
+  const [costCenterCategoryId, setCostCenterCategoryId] = useState<string | null>(inv.costCenterCategoryId ?? null);
   const [alreadyPaid, setAlreadyPaid] = useState(false);
   const [paidAt, setPaidAt] = useState(inv.invoiceDate ?? todayStr());
+  const [isDirectDebit, setIsDirectDebit] = useState(false);
+  const [directDebitDate, setDirectDebitDate] = useState(inv.dueDate ?? "");
   const [lines, setLines] = useState<DraftLine[]>(() =>
     importResult.extractedLines.map((l, i) => ({
       key: String(i),
@@ -354,6 +614,30 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
       totalWithVat: l.totalWithVat != null ? (l.totalWithVat / 100).toFixed(2) : "",
     }))
   );
+
+  function handleLink(
+    id: string | null,
+    name?: string,
+    nif?: string | null,
+    defaultCcGroupId?: string | null,
+    defaultCcCategoryId?: string | null,
+  ) {
+    setSupplierId(id);
+    setNewSupplierData(null);
+    if (name) setSupplierName(name);
+    if (nif !== undefined) setSupplierNif(nif ?? "");
+    if (defaultCcGroupId !== undefined) setCostCenterGroupId(defaultCcGroupId);
+    if (defaultCcCategoryId !== undefined) setCostCenterCategoryId(defaultCcCategoryId);
+  }
+
+  function handleNewSupplier(data: NewSupplierPayload | null) {
+    setNewSupplierData(data);
+    if (data) {
+      setSupplierId(null);
+      setSupplierName(data.name);
+      if (data.nif !== undefined) setSupplierNif(data.nif ?? "");
+    }
+  }
 
   const confirmMutation = useMutation({
     mutationFn: (payload: ConfirmImportedInvoicePayload) =>
@@ -366,22 +650,31 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
   });
 
   function buildPayload(saveAsPayable: boolean): ConfirmImportedInvoicePayload {
-    return {
-      supplierId: supplierId ?? null,
+    const payload: ConfirmImportedInvoicePayload = {
       supplierName: supplierName.trim(),
       supplierNifSnapshot: supplierNif.trim() || null,
       invoiceNumber: invoiceNumber.trim(),
       invoiceDate,
-      dueDate: dueDate || null,
+      dueDate: isDirectDebit ? null : (dueDate || null),
+      isDirectDebit,
+      directDebitDate: isDirectDebit ? (directDebitDate || null) : null,
       subtotalWithoutVat: toCents(subtotalStr),
       totalVat: toCents(vatStr),
       totalWithVat: toCents(totalStr),
       notes: notes.trim() || null,
-      saveAsPayable: alreadyPaid ? false : saveAsPayable,
+      costCenterGroupId: costCenterGroupId || null,
+      costCenterCategoryId: costCenterCategoryId || null,
+      saveAsPayable: (alreadyPaid || isDirectDebit) ? false : saveAsPayable,
       markAsPaid: alreadyPaid,
       paidAt: alreadyPaid ? paidAt : undefined,
       lines: lines.filter((l) => l.description.trim()).map(draftLineToPayload),
     };
+    if (newSupplierData) {
+      payload.newSupplier = newSupplierData;
+    } else {
+      payload.supplierId = supplierId ?? null;
+    }
+    return payload;
   }
 
   const saving = confirmMutation.isPending;
@@ -392,9 +685,10 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
   const labelCls = "block text-xs font-medium text-stone-500 mb-1";
   const inputCls =
     "w-full rounded-md border border-stone-200 bg-white px-2.5 py-1.5 text-sm focus:border-[#ED5C32] focus:outline-none";
+  const inputSmCls =
+    "w-full rounded-md border border-stone-200 bg-white px-2.5 py-1.5 text-xs focus:border-[#ED5C32] focus:outline-none";
 
   return (
-    /* overlay */
     <div className="fixed inset-0 z-50 flex items-end justify-end bg-black/30">
       <div className="flex h-full w-full max-w-3xl flex-col bg-white shadow-2xl">
         {/* header */}
@@ -425,10 +719,10 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
         <div className="flex flex-1 gap-6 overflow-y-auto p-6">
           {/* Left — editable form */}
           <div className="flex-1 space-y-5 min-w-0">
-            {/* Validation issues — filtered as user resolves them */}
+            {/* Validation issues */}
             <ValidationIssues issues={importResult.validationIssues.filter((issue) => {
-              if (issue === "no_supplier_match" && supplierId !== null) return false;
-              if (issue === "no_due_date" && (dueDate !== "" || alreadyPaid)) return false;
+              if (issue === "no_supplier_match" && (supplierId !== null || newSupplierData !== null)) return false;
+              if (issue === "no_due_date" && (dueDate !== "" || alreadyPaid || isDirectDebit)) return false;
               return true;
             })} />
 
@@ -479,32 +773,63 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
                     className={inputCls}
                   />
                 </div>
-                <div>
-                  <label className={labelCls}>Data de vencimento</label>
-                  <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    disabled={alreadyPaid}
-                    className={`${inputCls} disabled:bg-stone-50 disabled:text-stone-400`}
-                  />
-                </div>
+                {!isDirectDebit && (
+                  <div>
+                    <label className={labelCls}>Data de vencimento</label>
+                    <input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      disabled={alreadyPaid}
+                      className={`${inputCls} disabled:bg-stone-50 disabled:text-stone-400`}
+                    />
+                  </div>
+                )}
+                {isDirectDebit && (
+                  <div>
+                    <label className={labelCls}>Data de débito</label>
+                    <input
+                      type="date"
+                      value={directDebitDate}
+                      onChange={(e) => setDirectDebitDate(e.target.value)}
+                      className={inputCls}
+                    />
+                  </div>
+                )}
               </div>
-              <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={alreadyPaid}
-                  onChange={(e) => {
-                    setAlreadyPaid(e.target.checked);
-                    if (e.target.checked) {
-                      setDueDate("");
-                      setPaidAt(invoiceDate || todayStr());
-                    }
-                  }}
-                  className="h-4 w-4 rounded border-stone-300 text-[#ED5C32] focus:ring-[#ED5C32]"
-                />
-                Fatura já paga
-              </label>
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={alreadyPaid}
+                    onChange={(e) => {
+                      setAlreadyPaid(e.target.checked);
+                      if (e.target.checked) {
+                        setIsDirectDebit(false);
+                        setDueDate("");
+                        setPaidAt(invoiceDate || todayStr());
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-stone-300 text-[#ED5C32] focus:ring-[#ED5C32]"
+                  />
+                  Fatura já paga
+                </label>
+                <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isDirectDebit}
+                    onChange={(e) => {
+                      setIsDirectDebit(e.target.checked);
+                      if (e.target.checked) {
+                        setAlreadyPaid(false);
+                        setDirectDebitDate(dueDate || "");
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-stone-300 text-[#ED5C32] focus:ring-[#ED5C32]"
+                  />
+                  Débito direto
+                </label>
+              </div>
               {alreadyPaid && (
                 <div>
                   <label className={labelCls}>Data de pagamento</label>
@@ -524,36 +849,15 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
               <div className="grid grid-cols-3 gap-3">
                 <div>
                   <label className={labelCls}>Subtotal s/ IVA (€)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={subtotalStr}
-                    onChange={(e) => setSubtotalStr(e.target.value)}
-                    className={inputCls}
-                  />
+                  <input type="number" min="0" step="0.01" value={subtotalStr} onChange={(e) => setSubtotalStr(e.target.value)} className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>IVA (€)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={vatStr}
-                    onChange={(e) => setVatStr(e.target.value)}
-                    className={inputCls}
-                  />
+                  <input type="number" min="0" step="0.01" value={vatStr} onChange={(e) => setVatStr(e.target.value)} className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>Total c/ IVA (€)</label>
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={totalStr}
-                    onChange={(e) => setTotalStr(e.target.value)}
-                    className={inputCls}
-                  />
+                  <input type="number" min="0" step="0.01" value={totalStr} onChange={(e) => setTotalStr(e.target.value)} className={inputCls} />
                 </div>
               </div>
             </div>
@@ -569,6 +873,23 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
                 placeholder="Opcional"
               />
             </div>
+
+            {/* Centro de custo da fatura */}
+            {groups.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                  Centro de custo <span className="normal-case font-normal text-stone-400">(propaga para todas as linhas)</span>
+                </p>
+                <CostCenterCascadeSelect
+                  groups={groups as CostCenterGroup[]}
+                  categories={categories as CostCenterCategory[]}
+                  groupId={costCenterGroupId}
+                  categoryId={costCenterCategoryId}
+                  onChange={(gId, cId) => { setCostCenterGroupId(gId); setCostCenterCategoryId(cId); }}
+                  inputCls={inputSmCls}
+                />
+              </div>
+            )}
 
             {/* Editable lines */}
             <EditableLinesSection lines={lines} onChange={setLines} />
@@ -594,12 +915,14 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
             <SupplierPanel
               match={importResult.supplierMatch}
               currentSupplierId={supplierId}
+              currentNewSupplier={newSupplierData}
               suppliers={suppliers}
-              onLink={(id, name, nif) => {
-                setSupplierId(id);
-                if (name) setSupplierName(name);
-                if (nif !== undefined) setSupplierNif(nif ?? "");
-              }}
+              groups={groups as CostCenterGroup[]}
+              categories={categories as CostCenterCategory[]}
+              defaultName={supplierName}
+              defaultNif={supplierNif}
+              onLink={handleLink}
+              onNewSupplier={handleNewSupplier}
             />
 
             {/* Source info */}
@@ -629,7 +952,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
               Cancelar
             </button>
             <div className="flex gap-2">
-              {alreadyPaid ? (
+              {alreadyPaid && (
                 <button
                   onClick={() => confirmMutation.mutate(buildPayload(false))}
                   disabled={saving}
@@ -637,7 +960,17 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
                 >
                   {saving ? "A guardar…" : "Salvar como paga"}
                 </button>
-              ) : (
+              )}
+              {isDirectDebit && (
+                <button
+                  onClick={() => confirmMutation.mutate(buildPayload(false))}
+                  disabled={saving}
+                  className="rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {saving ? "A guardar…" : "Salvar com débito direto"}
+                </button>
+              )}
+              {!alreadyPaid && !isDirectDebit && (
                 <>
                   <button
                     onClick={() => confirmMutation.mutate(buildPayload(false))}

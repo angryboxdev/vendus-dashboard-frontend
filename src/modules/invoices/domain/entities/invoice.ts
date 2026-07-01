@@ -54,10 +54,7 @@ export interface InvoiceLineDTO {
   invoiceId: string;
   description: string;
   type: InvoiceLineType;
-  costCenterId: string | null;
   costCenterCategoryId: string | null;
-  category: string | null;
-  subcategory: string | null;
   stockItemId: string | null;
   quantity: number;
   unit: string | null;
@@ -81,6 +78,8 @@ export interface InvoiceDTO {
   invoiceDate: string;
   dueDate: string | null;
   paidAt: string | null;
+  isDirectDebit: boolean;
+  directDebitDate: string | null; // YYYY-MM-DD
   subtotalWithoutVat: number;
   totalVat: number;
   totalWithVat: number;
@@ -92,6 +91,7 @@ export interface InvoiceDTO {
   aiConfidence: number | null;
   requiresReview: boolean;
   costCenterGroupId: string | null;
+  costCenterCategoryId: string | null;
   financialType: string | null;
   affectsDre: boolean;
   affectsCashflow: boolean;
@@ -143,9 +143,7 @@ export interface InvoiceAlertsDTO {
 export interface CreateInvoiceLinePayload {
   description: string;
   type?: InvoiceLineType;
-  costCenterId?: string | null;
   costCenterCategoryId?: string | null;
-  category?: string | null;
   quantity: number;
   unit?: string | null;
   unitCostWithoutVat: number;
@@ -160,6 +158,8 @@ export interface CreateInvoicePayload {
   invoiceNumber: string;
   invoiceDate: string;
   dueDate?: string | null;
+  isDirectDebit?: boolean;
+  directDebitDate?: string | null;
   subtotalWithoutVat: number;
   totalVat: number;
   totalWithVat: number;
@@ -174,11 +174,14 @@ export interface UpdateInvoicePayload {
   invoiceNumber?: string;
   invoiceDate?: string;
   dueDate?: string | null;
+  isDirectDebit?: boolean;
+  directDebitDate?: string | null;
   subtotalWithoutVat?: number;
   totalVat?: number;
   totalWithVat?: number;
   notes?: string | null;
   costCenterGroupId?: string | null;
+  costCenterCategoryId?: string | null;
   financialType?: string | null;
   affectsDre?: boolean;
   affectsCashflow?: boolean;
@@ -186,18 +189,34 @@ export interface UpdateInvoicePayload {
   currency?: string;
 }
 
+export interface NewSupplierPayload {
+  name: string;
+  nif?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  address?: string | null;
+  iban?: string | null;
+  defaultCostCenterGroupId?: string | null;
+  defaultCostCenterCategoryId?: string | null;
+  paymentTermsDays?: number | null;
+}
+
 export interface ConfirmImportedInvoicePayload {
   supplierId?: string | null;
+  newSupplier?: NewSupplierPayload;
   supplierName?: string;
   supplierNifSnapshot?: string | null;
   invoiceNumber?: string;
   invoiceDate?: string;
   dueDate?: string | null;
+  isDirectDebit?: boolean;
+  directDebitDate?: string | null;
   subtotalWithoutVat?: number;
   totalVat?: number;
   totalWithVat?: number;
   notes?: string | null;
   costCenterGroupId?: string | null;
+  costCenterCategoryId?: string | null;
   financialType?: string | null;
   affectsDre?: boolean;
   affectsCashflow?: boolean;
@@ -212,9 +231,8 @@ export interface ConfirmImportedInvoicePayload {
 export interface ClassifyLinePayload {
   classify: {
     type?: InvoiceLineType;
-    costCenterId?: string | null;
     costCenterCategoryId?: string | null;
-    category?: string | null;
+    stockItemId?: string | null;
   };
   saveAsRule?: boolean;
 }
@@ -225,6 +243,7 @@ export interface ListInvoicesParams {
   status?: InvoiceStatus;
   from?: string;
   to?: string;
+  isDirectDebit?: boolean;
 }
 
 export const VALIDATION_ISSUE_LABELS: Record<string, string> = {
