@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useInvoicesModule } from "../../invoices.module.tsx";
@@ -95,7 +96,7 @@ function MarkPaidModal({
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const [paidAt, setPaidAt] = useState(todayStr);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" aria-modal="true">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl">
@@ -130,7 +131,8 @@ function MarkPaidModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -147,7 +149,7 @@ function DeleteConfirmModal({
   onClose: () => void;
   deleting: boolean;
 }) {
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" aria-modal="true">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl">
@@ -173,7 +175,8 @@ function DeleteConfirmModal({
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -518,7 +521,7 @@ function InvoiceDetailDrawer({
 
   const ccMap = new Map(categories.map((c) => [c.id, c]));
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex" aria-modal="true">
       <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
       <aside className="flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl">
@@ -734,7 +737,8 @@ function InvoiceDetailDrawer({
           )}
         </div>
       </aside>
-    </div>
+    </div>,
+    document.body
   );
 }
 
@@ -852,7 +856,7 @@ function CreateInvoiceDrawer({
   const lbSubtotal = parseFloat(lineBuilder.quantity || "0") * parseFloat(lineBuilder.unitCost || "0");
   const lbTotal = Math.round(lbSubtotal * 100) + Math.round(lbSubtotal * (parseFloat(lineBuilder.vatRate) / 100) * 100);
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex" aria-modal="true">
       <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
       <aside className="flex h-full w-full max-w-lg flex-col bg-white shadow-2xl">
@@ -1152,7 +1156,8 @@ function CreateInvoiceDrawer({
           </div>
         </form>
       </aside>
-    </div>
+    </div>,
+    document.body
   );
 }
 
