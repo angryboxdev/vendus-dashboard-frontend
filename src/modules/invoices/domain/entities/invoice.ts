@@ -25,7 +25,7 @@ export type InvoiceSource = "manual" | "pdf_import" | "image_import";
 export type AiExtractionStatus = "processing" | "done" | "failed";
 
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
-  draft_ai: "Rascunho IA",
+  draft_ai: "Rascunho",
   pending_review: "Pendente revisão",
   pending: "Pendente",
   paid: "Paga",

@@ -63,6 +63,10 @@ const STATUS_DOT: Record<InvoiceStatus, string> = {
   review: "bg-purple-500",
 };
 
+function MobileStatusDot({ status }: { status: InvoiceStatus }) {
+  return <span className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${STATUS_DOT[status]}`} />;
+}
+
 function StatusBadge({ status }: { status: InvoiceStatus }) {
   return (
     <span
@@ -71,6 +75,105 @@ function StatusBadge({ status }: { status: InvoiceStatus }) {
       <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status]}`} />
       {INVOICE_STATUS_LABELS[status]}
     </span>
+  );
+}
+
+// ── MarkPaidModal ─────────────────────────────────────────────────────────────
+
+function MarkPaidModal({
+  invoice,
+  onConfirm,
+  onClose,
+  saving,
+}: {
+  invoice: InvoiceDTO;
+  onConfirm: (paidAt: string) => void;
+  onClose: () => void;
+  saving: boolean;
+}) {
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  const [paidAt, setPaidAt] = useState(todayStr);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" aria-modal="true">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl">
+        <h3 className="text-base font-bold text-stone-900">Marcar como paga</h3>
+        <p className="mt-1 truncate text-sm text-stone-500">
+          {invoice.supplierName} · {invoice.invoiceNumber}
+        </p>
+        <div className="mt-4">
+          <label className="mb-1 block text-xs font-medium text-stone-500">
+            Data de pagamento
+          </label>
+          <input
+            type="date"
+            value={paidAt}
+            onChange={(e) => setPaidAt(e.target.value)}
+            className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
+          />
+        </div>
+        <div className="mt-5 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={() => onConfirm(paidAt)}
+            disabled={saving || !paidAt}
+            className="flex-1 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+          >
+            {saving ? "A registar…" : "Confirmar"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── DeleteConfirmModal ────────────────────────────────────────────────────────
+
+function DeleteConfirmModal({
+  invoice,
+  onConfirm,
+  onClose,
+  deleting,
+}: {
+  invoice: InvoiceDTO;
+  onConfirm: () => void;
+  onClose: () => void;
+  deleting: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" aria-modal="true">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl">
+        <h3 className="text-base font-bold text-stone-900">Eliminar fatura</h3>
+        <p className="mt-2 text-sm text-stone-600">
+          Tens a certeza que queres eliminar{" "}
+          <span className="font-semibold">{invoice.invoiceNumber}</span> de{" "}
+          <span className="font-semibold">{invoice.supplierName}</span>? Esta ação é irreversível.
+        </p>
+        <div className="mt-5 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={onConfirm}
+            disabled={deleting}
+            className="flex-1 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+          >
+            {deleting ? "A eliminar…" : "Eliminar"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -365,8 +468,7 @@ interface DetailDrawerProps {
   categories: CostCenterCategory[];
   linkedPayable?: PayableEntryDTO | null;
   onClose: () => void;
-  onMarkPaid: (id: string) => void;
-  markingPaid: boolean;
+  onOpenMarkPaid: (inv: InvoiceDTO) => void;
 }
 
 function InvoiceDetailDrawer({
@@ -374,8 +476,7 @@ function InvoiceDetailDrawer({
   categories,
   linkedPayable,
   onClose,
-  onMarkPaid,
-  markingPaid,
+  onOpenMarkPaid,
 }: DetailDrawerProps) {
   const { api } = useInvoicesModule();
   const navigate = useNavigate();
@@ -469,11 +570,10 @@ function InvoiceDetailDrawer({
                 {(invoice.status === "pending" ||
                   invoice.status === "overdue") && (
                   <button
-                    onClick={() => onMarkPaid(invoice.id)}
-                    disabled={markingPaid}
-                    className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+                    onClick={() => onOpenMarkPaid(invoice)}
+                    className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
                   >
-                    {markingPaid ? "A registar…" : "Marcar como paga"}
+                    Marcar como paga
                   </button>
                 )}
               </div>
@@ -1254,6 +1354,8 @@ export function InvoicesView() {
   const [importResult, setImportResult] = useState<InvoiceImportResultDTO | null>(null);
   const [detail, setDetail] = useState<InvoiceDTO | null>(null);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
+  const [markPaidInvoice, setMarkPaidInvoice] = useState<InvoiceDTO | null>(null);
+  const [deleteConfirmInvoice, setDeleteConfirmInvoice] = useState<InvoiceDTO | null>(null);
 
   // Data
   const { data: invoices = [], isLoading } = useQuery({
@@ -1348,15 +1450,18 @@ export function InvoicesView() {
       void qc.invalidateQueries({ queryKey: ["invoice-alerts"] });
       if (detail?.id === id) setDetail(null);
       if (importResult?.invoice.id === id) setImportResult(null);
+      setDeleteConfirmInvoice(null);
     },
   });
 
-  async function handleMarkPaid(id: string) {
+  async function handleMarkPaid(id: string, paidAt?: string) {
     setMarkingPaidId(id);
     try {
-      const updated = await api.markInvoicePaid(id);
+      const updated = await api.markInvoicePaid(id, paidAt);
       void qc.invalidateQueries({ queryKey: ["invoices"] });
+      void qc.invalidateQueries({ queryKey: ["payable-entries"] });
       if (detail?.id === id) setDetail(updated);
+      setMarkPaidInvoice(null);
     } finally {
       setMarkingPaidId(null);
     }
@@ -1472,7 +1577,7 @@ export function InvoicesView() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-xl font-bold text-stone-900">Faturas</h1>
-            <p className="mt-0.5 text-sm text-stone-500">
+            <p className="mt-0.5 hidden sm:block text-sm text-stone-500">
               Gestão de faturas de fornecedores
             </p>
           </div>
@@ -1482,30 +1587,30 @@ export function InvoicesView() {
               <button
                 onClick={() => setViewMode("table")}
                 title="Vista tabela"
-                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition-colors sm:px-3 ${
                   viewMode === "table"
                     ? "bg-white text-stone-800 shadow-sm"
                     : "text-stone-500 hover:text-stone-700"
                 }`}
               >
-                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M.99 5.24A2.25 2.25 0 013.25 3h13.5A2.25 2.25 0 0119 5.25l.01 9.5A2.25 2.25 0 0116.76 17H3.26A2.272 2.272 0 011 14.75l-.01-9.51zm8.26 9.52v-.625a.75.75 0 00-.75-.75H3.25a.75.75 0 00-.75.75v.615c0 .414.336.75.75.75h5.373a.75.75 0 00.627-.74zm1.5 0a.75.75 0 00.627.74h5.373a.75.75 0 00.75-.75v-.615a.75.75 0 00-.75-.75H11.5a.75.75 0 00-.75.75v.625zm6.75-3.63v-.625a.75.75 0 00-.75-.75H11.5a.75.75 0 00-.75.75v.625c0 .414.336.75.75.75h5.25a.75.75 0 00.75-.75zm-8.25 0v-.625a.75.75 0 00-.75-.75H3.25a.75.75 0 00-.75.75v.625c0 .414.336.75.75.75H8.5a.75.75 0 00.75-.75zM17.5 7.5v-.625a.75.75 0 00-.75-.75H11.5a.75.75 0 00-.75.75V7.5c0 .414.336.75.75.75h5.25a.75.75 0 00.75-.75zm-8.25 0v-.625a.75.75 0 00-.75-.75H3.25a.75.75 0 00-.75.75V7.5c0 .414.336.75.75.75H8.5a.75.75 0 00.75-.75z" clipRule="evenodd" />
                 </svg>
-                Tabela
+                <span className="hidden sm:inline">Tabela</span>
               </button>
               <button
                 onClick={() => setViewMode("calendar")}
                 title="Vista calendário"
-                className={`flex items-center gap-1.5 rounded px-3 py-1.5 text-xs font-medium transition-colors ${
+                className={`flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition-colors sm:px-3 ${
                   viewMode === "calendar"
                     ? "bg-white text-stone-800 shadow-sm"
                     : "text-stone-500 hover:text-stone-700"
                 }`}
               >
-                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
                   <path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd" />
                 </svg>
-                Calendário
+                <span className="hidden sm:inline">Calendário</span>
               </button>
             </div>
 
@@ -1513,21 +1618,23 @@ export function InvoicesView() {
 
             <button
               onClick={() => setShowImport(true)}
-              className="flex items-center gap-2 rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
+              title="Importar fatura"
+              className="flex items-center gap-2 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 sm:px-4"
             >
-              <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+              <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
               </svg>
-              Importar fatura
+              <span className="hidden sm:inline">Importar fatura</span>
             </button>
             <button
               onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+              title="Nova fatura manual"
+              className="flex items-center gap-2 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-3 py-2 text-sm font-medium text-white hover:opacity-90 sm:px-4"
             >
-              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <svg className="h-4 w-4 shrink-0" viewBox="0 0 20 20" fill="currentColor">
                 <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
               </svg>
-              Nova manual
+              <span className="hidden sm:inline">Nova manual</span>
             </button>
           </div>
         </div>
@@ -1586,30 +1693,78 @@ export function InvoicesView() {
         {/* Table mode: filters + tabs + table */}
         {viewMode === "table" && <>
 
-        {/* Filters */}
-        <div className="flex flex-wrap items-center gap-3">
+        {/* Filtros mobile */}
+        <div className="flex flex-col gap-2 sm:hidden">
           <input
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Pesquisar fornecedor ou nº fatura…"
-            className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32] w-64"
+            className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
+          />
+          <div className="flex gap-2">
+            {activeTab === "all" && (
+              <select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value as InvoiceStatus | "")}
+                className="flex-1 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
+              >
+                <option value="">Todos os estados</option>
+                {(Object.entries(INVOICE_STATUS_LABELS) as [InvoiceStatus, string][]).map(([k, v]) => (
+                  <option key={k} value={k}>{v}</option>
+                ))}
+              </select>
+            )}
+            <select
+              value={activeTab}
+              onChange={(e) => handleTabChange(e.target.value as typeof activeTab)}
+              className="flex-1 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
+            >
+              <option value="all">Todas ({tabCounts.all})</option>
+              <option value="today">Hoje ({tabCounts.today})</option>
+              <option value="week">7 dias ({tabCounts.week})</option>
+              <option value="overdue">Vencidas ({tabCounts.overdue})</option>
+            </select>
+          </div>
+          <button
+            onClick={() => setDirectDebitFilter((v) => !v)}
+            className={`flex w-full items-center gap-2 rounded-md border px-3 py-2 text-sm font-medium transition-colors ${
+              directDebitFilter
+                ? "border-blue-400 bg-blue-50 text-blue-700"
+                : "border-stone-300 bg-white text-stone-600"
+            }`}
+          >
+            <span className={`flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-colors ${
+              directDebitFilter ? "border-blue-500 bg-blue-500" : "border-stone-300"
+            }`}>
+              {directDebitFilter && (
+                <svg className="h-3 w-3 text-white" viewBox="0 0 20 20" fill="currentColor">
+                  <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                </svg>
+              )}
+            </span>
+            Débito direto
+          </button>
+        </div>
+
+        {/* Filtros desktop */}
+        <div className="hidden sm:flex flex-wrap items-center gap-3">
+          <input
+            type="text"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Pesquisar fornecedor ou nº fatura…"
+            className="w-64 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
           />
           {activeTab === "all" && (
             <select
               value={statusFilter}
-              onChange={(e) =>
-                setStatusFilter(e.target.value as InvoiceStatus | "")
-              }
+              onChange={(e) => setStatusFilter(e.target.value as InvoiceStatus | "")}
               className="rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
             >
               <option value="">Todos os estados</option>
-              {(
-                Object.entries(INVOICE_STATUS_LABELS) as [InvoiceStatus, string][]
-              ).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
+              {(Object.entries(INVOICE_STATUS_LABELS) as [InvoiceStatus, string][]).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
               ))}
             </select>
           )}
@@ -1627,26 +1782,27 @@ export function InvoicesView() {
 
         {/* Table */}
         <div className="overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white">
-          {/* Tabs */}
-          <div className="flex border-b border-[#F5C992]/40 px-2">
+          {/* Tabs — desktop apenas */}
+          <div className="hidden sm:flex border-b border-[#F5C992]/40 px-2">
             {(
               [
-                { key: "all", label: "Todas", badgeCls: "bg-stone-100 text-stone-500" },
-                { key: "today", label: "Vencem hoje", badgeCls: tabCounts.today > 0 ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-400" },
-                { key: "week", label: "Vencem em 7 dias", badgeCls: tabCounts.week > 0 ? "bg-orange-100 text-orange-700" : "bg-stone-100 text-stone-400" },
-                { key: "overdue", label: "Vencidas", badgeCls: tabCounts.overdue > 0 ? "bg-red-100 text-red-700" : "bg-stone-100 text-stone-400" },
-              ] as const
-            ).map(({ key, label, badgeCls }) => (
+                { key: "all" as const, label: "Todas", shortLabel: "Todas", badgeCls: "bg-stone-100 text-stone-500" },
+                { key: "today" as const, label: "Vencem hoje", shortLabel: "Hoje", badgeCls: tabCounts.today > 0 ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-400" },
+                { key: "week" as const, label: "Vencem em 7 dias", shortLabel: "7 dias", badgeCls: tabCounts.week > 0 ? "bg-orange-100 text-orange-700" : "bg-stone-100 text-stone-400" },
+                { key: "overdue" as const, label: "Vencidas", shortLabel: "Vencidas", badgeCls: tabCounts.overdue > 0 ? "bg-red-100 text-red-700" : "bg-stone-100 text-stone-400" },
+              ]
+            ).map(({ key, label, shortLabel, badgeCls }) => (
               <button
                 key={key}
                 onClick={() => handleTabChange(key)}
-                className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+                className={`-mb-px flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium transition-colors sm:px-4 ${
                   activeTab === key
                     ? "border-[#ED5C32] text-[#ED5C32]"
                     : "border-transparent text-stone-500 hover:text-stone-700"
                 }`}
               >
-                {label}
+                <span className="sm:hidden">{shortLabel}</span>
+                <span className="hidden sm:inline">{label}</span>
                 <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums ${badgeCls}`}>
                   {tabCounts[key]}
                 </span>
@@ -1663,130 +1819,151 @@ export function InvoicesView() {
               Sem faturas.
             </div>
           ) : (
-            <table className="min-w-full text-sm">
-              <thead className="border-b border-[#F5C992]/40 bg-stone-50/60">
-                <tr>
-                  {[
-                    "Estado",
-                    "Fornecedor",
-                    "Nº Fatura",
-                    "Emissão",
-                    "Vencimento",
-                    "Pago em",
-                    "S/ IVA",
-                    "IVA",
-                    "Total",
-                    "CC Padrão",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                  <th className="px-4 py-3" />
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F5C992]/30">
-                {tabFiltered.map((inv) => (
-                  <tr key={inv.id} className="hover:bg-[#FDF8F5]">
-                    <td className="px-4 py-3">
-                      <StatusBadge status={inv.status} />
-                    </td>
-                    <td className="px-4 py-3 font-medium text-stone-800">
-                      <div className="flex items-center gap-2">
-                        {inv.supplierName}
-                        {inv.isDirectDebit && (
-                          <span
-                            title={`Débito direto${inv.directDebitDate ? ` em ${formatDate(inv.directDebitDate)}` : ""}`}
-                            className="shrink-0 inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600"
-                          >
-                            DD
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-stone-600">
-                      {inv.invoiceNumber}
-                    </td>
-                    <td className="px-4 py-3 text-stone-600">
-                      {formatDate(inv.invoiceDate)}
-                    </td>
-                    <td className="px-4 py-3 text-stone-600">
-                      <span
-                        className={
-                          inv.status === "overdue"
-                            ? "font-medium text-red-600"
-                            : ""
-                        }
-                      >
-                        {formatDate(inv.dueDate)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-stone-600">
-                      {formatDate(inv.paidAt)}
-                    </td>
-                    <td className="px-4 py-3 text-right text-stone-700">
-                      {fromCents(inv.subtotalWithoutVat)}
-                    </td>
-                    <td className="px-4 py-3 text-right text-stone-500">
-                      {fromCents(inv.totalVat)}
-                    </td>
-                    <td className="px-4 py-3 text-right font-semibold text-stone-800">
-                      {fromCents(inv.totalWithVat)}
-                    </td>
-                    <td className="px-4 py-3">
-                      {(() => {
-                        const sup = inv.supplierId ? supplierById.get(inv.supplierId) : null;
-                        const cat = sup?.defaultCostCenterCategoryId
-                          ? categoryById.get(sup.defaultCostCenterCategoryId)
-                          : null;
-                        if (!cat) return <span className="text-[10px] text-stone-300">—</span>;
-                        return (
-                          <span
-                            title={cat.name}
-                            className="inline-flex items-center rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-600"
-                          >
-                            {cat.code}
-                          </span>
-                        );
-                      })()}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <button
-                          onClick={() => {
-                            if (inv.status === "draft_ai" || inv.status === "pending_review") {
-                              void handleRowReview(inv);
-                            } else {
-                              setDetail(inv);
-                            }
-                          }}
-                          className="rounded-md px-2 py-1 text-xs font-medium text-[#ED5C32] hover:bg-orange-50"
-                        >
-                          {inv.status === "draft_ai" || inv.status === "pending_review" ? "Rever" : "Ver"}
-                        </button>
-                        <button
-                          onClick={() => {
-                            if (window.confirm(`Eliminar fatura ${inv.invoiceNumber}? Esta ação não pode ser revertida.`)) {
-                              deleteMutation.mutate(inv.id);
-                            }
-                          }}
-                          disabled={deleteMutation.isPending && deleteMutation.variables === inv.id}
-                          className="rounded-md p-1 text-stone-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
-                          title="Eliminar fatura"
-                        >
-                          <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
-                          </svg>
-                        </button>
-                      </div>
-                    </td>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="border-b border-[#F5C992]/40 bg-stone-50/60">
+                  <tr>
+                    <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Estado</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Fornecedor</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Nº Fatura</th>
+                    <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Emissão</th>
+                    <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Vencimento</th>
+                    <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Pago em</th>
+                    <th className="hidden lg:table-cell px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">S/ IVA</th>
+                    <th className="hidden lg:table-cell px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">IVA</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">Total</th>
+                    <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">CC Padrão</th>
+                    <th className="sticky right-0 bg-stone-50/60 px-4 py-3 shadow-[-1px_0_0_0_rgba(245,201,146,0.4)]" />
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-[#F5C992]/30">
+                  {tabFiltered.map((inv) => (
+                    <tr
+                      key={inv.id}
+                      className="group cursor-pointer hover:bg-[#FDF8F5]"
+                      onClick={() => {
+                        if (inv.status === "draft_ai" || inv.status === "pending_review") {
+                          void handleRowReview(inv);
+                        } else {
+                          setDetail(inv);
+                        }
+                      }}
+                    >
+                      <td className="hidden md:table-cell px-4 py-3">
+                        <StatusBadge status={inv.status} />
+                      </td>
+                      <td className="px-4 py-3 font-medium text-stone-800">
+                        <div className="flex items-center gap-2">
+                          <span className="md:hidden"><MobileStatusDot status={inv.status} /></span>
+                          <span className="max-w-[130px] truncate sm:max-w-none">{inv.supplierName}</span>
+                          {inv.isDirectDebit && (
+                            <span
+                              title={`Débito direto${inv.directDebitDate ? ` em ${formatDate(inv.directDebitDate)}` : ""}`}
+                              className="shrink-0 inline-flex items-center rounded-md bg-blue-50 px-1.5 py-0.5 text-[10px] font-semibold text-blue-600"
+                            >
+                              DD
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-xs text-stone-600 sm:text-sm">
+                        {inv.invoiceNumber}
+                      </td>
+                      <td className="hidden md:table-cell px-4 py-3 text-stone-600">
+                        {formatDate(inv.invoiceDate)}
+                      </td>
+                      <td className="hidden md:table-cell px-4 py-3 text-stone-600">
+                        <span className={inv.status === "overdue" ? "font-medium text-red-600" : ""}>
+                          {formatDate(inv.dueDate)}
+                        </span>
+                      </td>
+                      <td className="hidden md:table-cell px-4 py-3 text-stone-600">
+                        {formatDate(inv.paidAt)}
+                      </td>
+                      <td className="hidden lg:table-cell px-4 py-3 text-right text-stone-700">
+                        {fromCents(inv.subtotalWithoutVat)}
+                      </td>
+                      <td className="hidden lg:table-cell px-4 py-3 text-right text-stone-500">
+                        {fromCents(inv.totalVat)}
+                      </td>
+                      <td className="px-4 py-3 text-right font-semibold text-stone-800">
+                        {fromCents(inv.totalWithVat)}
+                      </td>
+                      <td className="hidden lg:table-cell px-4 py-3">
+                        {(() => {
+                          const sup = inv.supplierId ? supplierById.get(inv.supplierId) : null;
+                          const cat = sup?.defaultCostCenterCategoryId
+                            ? categoryById.get(sup.defaultCostCenterCategoryId)
+                            : null;
+                          if (!cat) return <span className="text-[10px] text-stone-300">—</span>;
+                          return (
+                            <span
+                              title={cat.name}
+                              className="inline-flex items-center rounded-md bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-600"
+                            >
+                              {cat.code}
+                            </span>
+                          );
+                        })()}
+                      </td>
+                      <td
+                        className="sticky right-0 z-10 bg-white px-3 py-3 group-hover:bg-[#FDF8F5] shadow-[-1px_0_0_0_rgba(245,201,146,0.4)]"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div className="flex items-center justify-end gap-0.5">
+                          {/* Marcar como paga — sempre primeiro */}
+                          {(inv.status === "pending" || inv.status === "overdue") && (
+                            <button
+                              onClick={() => setMarkPaidInvoice(inv)}
+                              title="Marcar como paga"
+                              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-emerald-600 hover:bg-emerald-50"
+                            >
+                              <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                              </svg>
+                              <span className="hidden md:inline">Paga</span>
+                            </button>
+                          )}
+
+                          {/* Ver / Rever */}
+                          <button
+                            onClick={() => {
+                              if (inv.status === "draft_ai" || inv.status === "pending_review") {
+                                void handleRowReview(inv);
+                              } else {
+                                setDetail(inv);
+                              }
+                            }}
+                            title={inv.status === "draft_ai" || inv.status === "pending_review" ? "Rever fatura" : "Ver detalhes"}
+                            className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-[#ED5C32] hover:bg-orange-50"
+                          >
+                            <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                              <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+                              <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                            </svg>
+                            <span className="hidden md:inline">
+                              {inv.status === "draft_ai" || inv.status === "pending_review" ? "Rever" : "Ver"}
+                            </span>
+                          </button>
+
+                          {/* Apagar */}
+                          <button
+                            onClick={() => setDeleteConfirmInvoice(inv)}
+                            disabled={deleteMutation.isPending && deleteMutation.variables === inv.id}
+                            title="Eliminar fatura"
+                            className="rounded-md p-1.5 text-stone-400 hover:bg-red-50 hover:text-red-500 disabled:opacity-40"
+                          >
+                            <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
+                            </svg>
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
@@ -1850,8 +2027,25 @@ export function InvoicesView() {
             categories={categories}
             linkedPayable={payableByInvoiceId.get(detail.id) ?? null}
             onClose={() => setDetail(null)}
-            onMarkPaid={handleMarkPaid}
-            markingPaid={markingPaidId === detail.id}
+            onOpenMarkPaid={setMarkPaidInvoice}
+          />
+        )}
+
+        {markPaidInvoice && (
+          <MarkPaidModal
+            invoice={markPaidInvoice}
+            onConfirm={(paidAt) => void handleMarkPaid(markPaidInvoice.id, paidAt)}
+            onClose={() => setMarkPaidInvoice(null)}
+            saving={markingPaidId === markPaidInvoice.id}
+          />
+        )}
+
+        {deleteConfirmInvoice && (
+          <DeleteConfirmModal
+            invoice={deleteConfirmInvoice}
+            onConfirm={() => deleteMutation.mutate(deleteConfirmInvoice.id)}
+            onClose={() => setDeleteConfirmInvoice(null)}
+            deleting={deleteMutation.isPending && deleteMutation.variables === deleteConfirmInvoice.id}
           />
         )}
       </div>

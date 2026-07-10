@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useInvoicesModule } from "../../invoices.module.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
@@ -32,7 +33,7 @@ function ConfidenceBadge({ value }: { value: number }) {
     pct >= 70 ? "bg-amber-50 text-amber-700" :
     "bg-red-50 text-red-700";
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${color}`}>
+    <span className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${color}`}>
       IA {pct}%
     </span>
   );
@@ -688,11 +689,11 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
   const inputSmCls =
     "w-full rounded-md border border-stone-200 bg-white px-2.5 py-1.5 text-xs focus:border-[#ED5C32] focus:outline-none";
 
-  return (
-    <div className="fixed inset-0 z-50 flex items-end justify-end bg-black/30">
+  return createPortal(
+    <div className="fixed inset-0 z-[100] flex items-end justify-end bg-black/30">
       <div className="flex h-full w-full max-w-3xl flex-col bg-white shadow-2xl">
         {/* header */}
-        <div className="flex items-center justify-between border-b border-stone-100 px-6 py-4 shrink-0">
+        <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3 shrink-0 sm:px-6 sm:py-4">
           <div className="flex items-center gap-3">
             <div>
               <h2 className="text-base font-semibold text-stone-900">Revisar fatura importada</h2>
@@ -716,9 +717,9 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
         </div>
 
         {/* body */}
-        <div className="flex flex-1 gap-6 overflow-y-auto p-6">
+        <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6 md:flex-row md:gap-6">
           {/* Left — editable form */}
-          <div className="flex-1 space-y-5 min-w-0">
+          <div className="flex-1 space-y-5 min-w-0 md:order-first">
             {/* Validation issues */}
             <ValidationIssues issues={importResult.validationIssues.filter((issue) => {
               if (issue === "no_supplier_match" && (supplierId !== null || newSupplierData !== null)) return false;
@@ -753,7 +754,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
             {/* Dados da fatura */}
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Dados da fatura</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                 <div>
                   <label className={labelCls}>Nº da fatura</label>
                   <input
@@ -797,7 +798,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
                   </div>
                 )}
               </div>
-              <div className="flex flex-wrap gap-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:gap-4">
                 <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer select-none">
                   <input
                     type="checkbox"
@@ -846,7 +847,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
             {/* Valores */}
             <div className="space-y-3">
               <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Valores</p>
-              <div className="grid grid-cols-3 gap-3">
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
                   <label className={labelCls}>Subtotal s/ IVA (€)</label>
                   <input type="number" min="0" step="0.01" value={subtotalStr} onChange={(e) => setSubtotalStr(e.target.value)} className={inputCls} />
@@ -911,7 +912,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
           </div>
 
           {/* Right — supplier + status */}
-          <div className="w-64 shrink-0 space-y-4">
+          <div className="w-full space-y-4 md:order-last md:w-64 md:shrink-0">
             <SupplierPanel
               match={importResult.supplierMatch}
               currentSupplierId={supplierId}
@@ -939,24 +940,24 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
         </div>
 
         {/* footer */}
-        <div className="shrink-0 border-t border-stone-100 px-6 py-4">
+        <div className="shrink-0 border-t border-stone-100 px-4 py-3 sm:px-6 sm:py-4">
           {confirmError && (
             <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{confirmError}</p>
           )}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
             <button
               onClick={onClose}
               disabled={saving}
-              className="rounded-md px-4 py-2 text-sm text-stone-500 hover:bg-stone-100 disabled:opacity-50"
+              className="rounded-md px-4 py-2 text-center text-sm text-stone-500 hover:bg-stone-100 disabled:opacity-50 sm:text-left"
             >
               Cancelar
             </button>
-            <div className="flex gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
               {alreadyPaid && (
                 <button
                   onClick={() => confirmMutation.mutate(buildPayload(false))}
                   disabled={saving}
-                  className="rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
                 >
                   {saving ? "A guardar…" : "Salvar como paga"}
                 </button>
@@ -965,7 +966,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
                 <button
                   onClick={() => confirmMutation.mutate(buildPayload(false))}
                   disabled={saving}
-                  className="rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
                 >
                   {saving ? "A guardar…" : "Salvar com débito direto"}
                 </button>
@@ -975,14 +976,14 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
                   <button
                     onClick={() => confirmMutation.mutate(buildPayload(false))}
                     disabled={saving}
-                    className="rounded-md border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+                    className="w-full rounded-md border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50 sm:w-auto"
                   >
                     {saving ? "A guardar…" : "Salvar como pendente"}
                   </button>
                   <button
                     onClick={() => confirmMutation.mutate(buildPayload(true))}
                     disabled={saving || !dueDate}
-                    className="rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                    className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
                     title={!dueDate ? "Defina a data de vencimento para gerar conta a pagar" : undefined}
                   >
                     {saving ? "A guardar…" : "Salvar e gerar conta a pagar"}
@@ -993,6 +994,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
