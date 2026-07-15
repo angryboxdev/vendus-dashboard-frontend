@@ -244,6 +244,7 @@ export interface ListInvoicesParams {
   from?: string;
   to?: string;
   isDirectDebit?: boolean;
+  search?: string;
 }
 
 export const VALIDATION_ISSUE_LABELS: Record<string, string> = {

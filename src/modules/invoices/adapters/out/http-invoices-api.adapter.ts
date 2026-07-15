@@ -28,6 +28,7 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     if (params?.status) q.set("status", params.status);
     if (params?.from) q.set("from", params.from);
     if (params?.to) q.set("to", params.to);
+    if (params?.search) q.set("search", params.search);
     const qs = q.toString();
     return apiGet(`${BASE}${qs ? `?${qs}` : ""}`);
   }

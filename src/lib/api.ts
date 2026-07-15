@@ -83,6 +83,11 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<T> {
   return res.json() as Promise<T>;
 }
 
+/** PATCH com resposta 204 sem corpo. */
+export async function apiPatchNoContent(path: string, body: unknown): Promise<void> {
+  await request(path, { method: "PATCH", body: JSON.stringify(body) });
+}
+
 /** DELETE com resposta 204 sem corpo. */
 export async function apiDeleteNoContent(path: string): Promise<void> {
   await request(path, { method: "DELETE" });
