@@ -1,4 +1,4 @@
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
@@ -20,7 +20,6 @@ import {
   JUSTIFICATION_TYPE_LABELS,
   RISK_LEVEL_LABELS,
   STATEMENT_STATUS_LABELS,
-  RESOLVED_STATUSES,
 } from "../../domain/entities/bank-statement.ts";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 
@@ -1218,15 +1217,6 @@ function StatementDetail({
     onError: (e: Error) => alert(`Erro: ${e.message}`),
   });
 
-  const confirmMut = useMutation({
-    mutationFn: (m: BankMovementDTO) =>
-      api.classifyMovement(m.id, { justificationType: "fatura" }),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["bank-statement", statementId] });
-      void qc.invalidateQueries({ queryKey: ["bank-statements"] });
-    },
-    onError: (e: Error) => alert(`Erro: ${e.message}`),
-  });
 
   const filteredMovements = useMemo(() => {
     if (!detail) return [];
@@ -1441,7 +1431,7 @@ function StatementDetail({
                       { label: "Saldo após", align: "right" },
                       { label: "Estado",     align: "left"  },
                       { label: "Ações",      align: "center" },
-                    ] as { label: string; align: "left" | "right" }[]
+                    ] as { label: string; align: "left" | "right" | "center" }[]
                   ).map(({ label, align }) => (
                     <th
                       key={label}
