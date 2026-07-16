@@ -193,6 +193,7 @@ export interface MovementCandidateDTO {
   entityType: "invoice" | "payable_entry";
   entityId: string;
   entityLabel: string;
+  supplierId: string | null;
   amountCents: number;
   date: string;
   confidence: number;

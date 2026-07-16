@@ -580,11 +580,13 @@ function ClassifyDrawer({
   movement,
   onClose,
   onSave,
+  onReconcile,
   saving,
 }: {
   movement: BankMovementDTO;
   onClose: () => void;
   onSave: (payload: ClassifyMovementPayload) => void;
+  onReconcile: (entityType: "invoice" | "payable_entry", entityId: string, supplierId: string | null) => void;
   saving: boolean;
 }) {
   const { api } = useBankStatementsModule();
@@ -714,17 +716,9 @@ function ClassifyDrawer({
 
     if (activeTab === "sistema") {
       if (selectedCandidate) {
-        onSave({
-          justificationType: "fatura",
-          matchedEntityType: selectedCandidate.entityType,
-          matchedEntityId: selectedCandidate.entityId,
-        });
+        onReconcile(selectedCandidate.entityType, selectedCandidate.entityId, selectedCandidate.supplierId);
       } else if (selectedInvoice) {
-        onSave({
-          justificationType: "fatura",
-          matchedEntityType: "invoice",
-          matchedEntityId: selectedInvoice.id,
-        });
+        onReconcile("invoice", selectedInvoice.id, selectedInvoice.supplierId ?? null);
       }
       return;
     }
@@ -1220,6 +1214,18 @@ function StatementDetail({
     onError: (e: Error) => alert(`Erro: ${e.message}`),
   });
 
+  const reconcileMut = useMutation({
+    mutationFn: (args: { movementId: string; entityType: "invoice" | "payable_entry"; entityId: string; supplierId: string | null }) =>
+      api.reconcileMovement(args.movementId, args.entityType, args.entityId, args.supplierId),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["bank-statement", statementId] });
+      void qc.invalidateQueries({ queryKey: ["bank-statements"] });
+      setClassifying(null);
+      showToast("Movimento conciliado com sucesso");
+    },
+    onError: (e: Error) => alert(`Erro: ${e.message}`),
+  });
+
 
   const filteredMovements = useMemo(() => {
     if (!detail) return [];
@@ -1551,7 +1557,10 @@ function StatementDetail({
           onSave={(payload) =>
             classifyMut.mutate({ movementId: classifying.id, payload })
           }
-          saving={classifyMut.isPending}
+          onReconcile={(entityType, entityId, supplierId) =>
+            reconcileMut.mutate({ movementId: classifying.id, entityType, entityId, supplierId })
+          }
+          saving={classifyMut.isPending || reconcileMut.isPending}
         />
       )}
     </div>
