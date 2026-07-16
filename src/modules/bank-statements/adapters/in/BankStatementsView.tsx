@@ -616,7 +616,7 @@ function ClassifyDrawer({
 
   const { data: invoiceSearchResults = [], isLoading: loadingSearch } = useQuery({
     queryKey: ["invoices-search", debouncedSearch],
-    queryFn: () => invApi.listInvoices({ search: debouncedSearch, status: "pending" }),
+    queryFn: () => invApi.listInvoices({ search: debouncedSearch }),
     enabled: debouncedSearch.length >= 2,
     staleTime: 30_000,
   });
