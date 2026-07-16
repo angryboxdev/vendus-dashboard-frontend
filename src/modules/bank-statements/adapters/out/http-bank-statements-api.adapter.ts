@@ -1,7 +1,6 @@
 import {
   apiGet,
   apiPost,
-  apiPatch,
   apiPatchNoContent,
   apiDeleteNoContent,
   apiPostFormData,
@@ -68,14 +67,14 @@ export class HttpBankStatementsApiAdapter implements BankStatementsApiPort {
     entityType: "invoice" | "payable_entry",
     entityId: string
   ): Promise<void> {
-    await apiPatch(`${BASE}/movements/${encodeURIComponent(movementId)}/reconcile`, {
+    await apiPatchNoContent(`${BASE}/movements/${encodeURIComponent(movementId)}/reconcile`, {
       entityType,
       entityId,
     });
   }
 
   async classifyMovement(movementId: string, payload: ClassifyMovementPayload): Promise<void> {
-    await apiPatch(`${BASE}/movements/${encodeURIComponent(movementId)}/classify`, payload);
+    await apiPatchNoContent(`${BASE}/movements/${encodeURIComponent(movementId)}/classify`, payload);
   }
 
   async listRules(): Promise<ReconciliationRuleDTO[]> {
