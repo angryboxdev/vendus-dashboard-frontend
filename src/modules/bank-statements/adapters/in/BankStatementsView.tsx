@@ -22,6 +22,7 @@ import {
   STATEMENT_STATUS_LABELS,
 } from "../../domain/entities/bank-statement.ts";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
+import { useToast, ToastContainer } from "../../../../components/Toast.tsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -1160,6 +1161,7 @@ function StatementDetail({
 }) {
   const { api } = useBankStatementsModule();
   const qc = useQueryClient();
+  const { toasts, show: showToast } = useToast();
   const [movTab, setMovTab] = useState<MovementTab>("all");
   const [classifying, setClassifying] = useState<BankMovementDTO | null>(null);
 
@@ -1213,6 +1215,7 @@ function StatementDetail({
       void qc.invalidateQueries({ queryKey: ["bank-statement", statementId] });
       void qc.invalidateQueries({ queryKey: ["bank-statements"] });
       setClassifying(null);
+      showToast("Movimento classificado com sucesso");
     },
     onError: (e: Error) => alert(`Erro: ${e.message}`),
   });
@@ -1262,6 +1265,7 @@ function StatementDetail({
 
   return (
     <div className="space-y-6">
+      <ToastContainer toasts={toasts} />
       {/* Breadcrumb / back */}
       <div className="flex items-center gap-2">
         <button
