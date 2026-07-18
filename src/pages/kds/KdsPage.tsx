@@ -63,8 +63,8 @@ const STATUS_DOT: Record<DeliveryStatus, string> = {
 const CARD_STYLE: Record<DeliveryStatus, string> = {
   pending: "bg-[#2e3347] border-[#4a5168]",
   received: "bg-[#2e3347] border-[#4a5168]",
-  cooking: "bg-[#241f08] border-[#DEB221]",
-  waiting_to_delivery: "bg-[#07231a] border-[#00cc99]",
+  cooking: "bg-[#3a3010] border-[#DEB221]",
+  waiting_to_delivery: "bg-[#0d3526] border-[#00cc99]",
   delivered: "bg-[#1e2130] border-[#353b52]",
   canceled: "bg-[#1e2130] border-[#353b52]",
 };
@@ -251,8 +251,8 @@ function OrderCard({
     onRevert,
   );
   const dividerColor =
-    delivery.status === "cooking" ? "border-[#3d3510]"
-    : delivery.status === "waiting_to_delivery" ? "border-[#0f3d2e]"
+    delivery.status === "cooking" ? "border-[#524518]"
+    : delivery.status === "waiting_to_delivery" ? "border-[#154d38]"
     : delivery.status === "pending" || delivery.status === "received" ? "border-[#3d4460]"
     : "border-[#2a2f42]";
 
