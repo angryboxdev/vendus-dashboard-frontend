@@ -27,6 +27,7 @@ import { CashClosingPage } from "./pages/cashClosing/CashClosingPage";
 import { CashClosingsProvider } from "./modules/cash-closings/cash-closings.module.tsx";
 import { CashClosingsHubView } from "./modules/cash-closings/adapters/in/CashClosingsHubView.tsx";
 import { TerminalPage } from "./pages/terminal/TerminalPage";
+import { KdsPage } from "./pages/kds/KdsPage";
 import { LoginPage } from "./pages/LoginPage";
 import { UsersPage } from "./pages/admin/UsersPage";
 import { PrintOrdersPage } from "./pages/orders/PrintOrdersPage";
@@ -64,6 +65,9 @@ export default function App() {
 
       {/* Fecho de caixa — standalone sem auth */}
       <Route path="/fecho" element={<CashClosingPage />} />
+
+      {/* KDS — ecrã de cozinha standalone sem auth */}
+      <Route path="/kds" element={<KdsPage />} />
 
       {/* Layout principal com sidebar */}
       <Route

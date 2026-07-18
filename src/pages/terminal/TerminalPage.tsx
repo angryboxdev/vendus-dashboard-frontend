@@ -27,6 +27,18 @@ const APPS = [
     shadow: "shadow-emerald-900/50",
   },
   {
+    to: "/kds",
+    label: "KDS Cozinha",
+    description: "Ecrã de pedidos em tempo real",
+    icon: (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-14 w-14">
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8.25v-1.5m0 1.5c-1.355 0-2.697.056-4.024.166C6.845 8.51 6 9.473 6 10.608v2.513m6-4.871c1.355 0 2.697.056 4.024.166C17.155 8.51 18 9.473 18 10.608v2.513M15 8.25v-1.5m-6 1.5v-1.5m12 9.75-1.5.75a3.354 3.354 0 0 1-3 0 3.354 3.354 0 0 0-3 0 3.354 3.354 0 0 1-3 0 3.354 3.354 0 0 0-3 0 3.354 3.354 0 0 1-1.5-.75m0-5.25a3.354 3.354 0 0 0 1.5.75 3.354 3.354 0 0 1 3 0 3.354 3.354 0 0 0 3 0 3.354 3.354 0 0 1 3 0 3.354 3.354 0 0 0 3 0 3.354 3.354 0 0 1 1.5-.75M12 12.75h.008v.008H12v-.008Z" />
+      </svg>
+    ),
+    color: "from-orange-500 to-red-600",
+    shadow: "shadow-orange-900/50",
+  },
+  {
     to: "/print-orders",
     label: "Pedidos de Cozinha",
     description: "Impressão de pedidos",
