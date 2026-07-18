@@ -51,58 +51,58 @@ const STATUS_LABEL: Record<DeliveryStatus, string> = {
 };
 
 const STATUS_DOT: Record<DeliveryStatus, string> = {
-  pending: "bg-[#ED5C32]",
-  received: "bg-[#ED5C32]",
-  cooking: "bg-amber-500",
-  waiting_to_delivery: "bg-emerald-500",
-  delivered: "bg-stone-300",
-  canceled: "bg-stone-300",
+  pending: "bg-[#8b93b0]",
+  received: "bg-[#8b93b0]",
+  cooking: "bg-[#DEB221]",
+  waiting_to_delivery: "bg-[#00cc99]",
+  delivered: "bg-[#4a5168]",
+  canceled: "bg-[#4a5168]",
 };
 
 // card background + border per status
 const CARD_STYLE: Record<DeliveryStatus, string> = {
-  pending: "bg-white border-[#F5C992]/40",
-  received: "bg-white border-[#F5C992]/40",
-  cooking: "bg-amber-50 border-amber-200",
-  waiting_to_delivery: "bg-emerald-50 border-emerald-200",
-  delivered: "bg-white border-stone-200",
-  canceled: "bg-white border-stone-200",
+  pending: "bg-[#2e3347] border-[#4a5168]",
+  received: "bg-[#2e3347] border-[#4a5168]",
+  cooking: "bg-[#241f08] border-[#DEB221]",
+  waiting_to_delivery: "bg-[#07231a] border-[#00cc99]",
+  delivered: "bg-[#1e2130] border-[#353b52]",
+  canceled: "bg-[#1e2130] border-[#353b52]",
 };
 
 const STATUS_TEXT: Record<DeliveryStatus, string> = {
-  pending: "text-[#ED5C32]",
-  received: "text-[#ED5C32]",
-  cooking: "text-amber-600",
-  waiting_to_delivery: "text-emerald-600",
-  delivered: "text-stone-400",
-  canceled: "text-stone-400",
+  pending: "text-[#8b93b0]",
+  received: "text-[#8b93b0]",
+  cooking: "text-[#DEB221]",
+  waiting_to_delivery: "text-[#00cc99]",
+  delivered: "text-[#4a5168]",
+  canceled: "text-[#4a5168]",
 };
 
 const TITLE_TEXT: Record<DeliveryStatus, string> = {
-  pending: "text-stone-900",
-  received: "text-stone-900",
-  cooking: "text-amber-900",
-  waiting_to_delivery: "text-emerald-900",
-  delivered: "text-stone-500",
-  canceled: "text-stone-500",
+  pending: "text-white",
+  received: "text-white",
+  cooking: "text-[#f5e5a0]",
+  waiting_to_delivery: "text-[#d5f0ee]",
+  delivered: "text-[#4a5168]",
+  canceled: "text-[#4a5168]",
 };
 
 const ITEM_TEXT: Record<DeliveryStatus, string> = {
-  pending: "text-stone-800",
-  received: "text-stone-800",
-  cooking: "text-amber-800",
-  waiting_to_delivery: "text-emerald-800",
-  delivered: "text-stone-400",
-  canceled: "text-stone-400",
+  pending: "text-[#d4d8e8]",
+  received: "text-[#d4d8e8]",
+  cooking: "text-[#f0d882]",
+  waiting_to_delivery: "text-[#b1ebe1]",
+  delivered: "text-[#4a5168]",
+  canceled: "text-[#4a5168]",
 };
 
 const QTY_TEXT: Record<DeliveryStatus, string> = {
-  pending: "text-stone-900",
-  received: "text-stone-900",
-  cooking: "text-amber-700",
-  waiting_to_delivery: "text-emerald-700",
-  delivered: "text-stone-400",
-  canceled: "text-stone-400",
+  pending: "text-white",
+  received: "text-white",
+  cooking: "text-[#DEB221]",
+  waiting_to_delivery: "text-[#00cc99]",
+  delivered: "text-[#4a5168]",
+  canceled: "text-[#4a5168]",
 };
 
 // ── Long press hook ────────────────────────────────────────────────────────────
@@ -181,7 +181,7 @@ function DeliveredDuration({ dateCreate, deliveredAt }: { dateCreate?: string; d
   const start = parseUtcMs(dateCreate);
   const end = deliveredAt ?? Date.now();
   return (
-    <span className="font-mono text-base font-bold tabular-nums text-stone-400">
+    <span className="font-mono text-lg font-extrabold tabular-nums text-stone-400">
       {fmtDuration(end - start)}
     </span>
   );
@@ -203,23 +203,23 @@ function ElapsedTimer({ dateCreate }: { dateCreate?: string }) {
   const colour = mins >= 10 ? "text-red-600" : mins >= 5 ? "text-amber-500" : "text-emerald-600";
 
   return (
-    <span className={`font-mono text-base font-bold tabular-nums ${colour}`}>
+    <span className={`font-mono text-lg font-extrabold tabular-nums ${colour}`}>
       {display}
     </span>
   );
 }
 
 function ItemIcon({ status }: { status: ItemStatus }) {
-  if (status === "forno") return <span className="text-base leading-none">🔥</span>;
-  if (status === "corte") return <span className="text-base leading-none">🔪</span>;
+  if (status === "forno") return <span className="text-2xl leading-none">🔥</span>;
+  if (status === "corte") return <span className="text-2xl leading-none">🔪</span>;
   if (status === "pronto") {
     return (
-      <svg className="h-4 w-4 shrink-0 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+      <svg className="h-6 w-6 shrink-0 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
         <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
       </svg>
     );
   }
-  return <span className="h-4 w-4 shrink-0 rounded-full border border-stone-300 inline-block" />;
+  return <span className="h-6 w-6 shrink-0 rounded-full border-2 border-[#4a5168] inline-block" />;
 }
 
 function OrderCard({
@@ -251,25 +251,26 @@ function OrderCard({
     onRevert,
   );
   const dividerColor =
-    delivery.status === "cooking" ? "border-amber-200"
-    : delivery.status === "waiting_to_delivery" ? "border-emerald-200"
-    : "border-stone-100";
+    delivery.status === "cooking" ? "border-[#3d3510]"
+    : delivery.status === "waiting_to_delivery" ? "border-[#0f3d2e]"
+    : delivery.status === "pending" || delivery.status === "received" ? "border-[#3d4460]"
+    : "border-[#2a2f42]";
 
   return (
     <div
       {...(canInteract ? pressHandlers : {})}
       className={[
-        "flex w-72 shrink-0 flex-col rounded-xl border shadow-sm transition-all duration-200 select-none",
+        "flex w-96 shrink-0 flex-col rounded-2xl border shadow-sm transition-all duration-200 select-none",
         CARD_STYLE[delivery.status],
         canInteract ? "cursor-pointer active:scale-[0.98] active:shadow-none" : "",
         isUpdating ? "opacity-60" : "",
       ].join(" ")}
     >
       {/* Card header */}
-      <div className={`flex items-center justify-between border-b px-4 py-3.5 ${dividerColor}`}>
-        <div className="flex items-center gap-2">
-          <span className={`h-2.5 w-2.5 rounded-full ${STATUS_DOT[delivery.status]}`} />
-          <span className={`text-sm font-semibold ${STATUS_TEXT[delivery.status]}`}>
+      <div className={`flex items-center justify-between border-b px-5 py-4 ${dividerColor}`}>
+        <div className="flex items-center gap-2.5">
+          <span className={`h-3 w-3 rounded-full ${STATUS_DOT[delivery.status]}`} />
+          <span className={`text-lg font-bold ${STATUS_TEXT[delivery.status]}`}>
             {STATUS_LABEL[delivery.status]}
           </span>
         </div>
@@ -281,14 +282,14 @@ function OrderCard({
       </div>
 
       {/* Card body */}
-      <div className="flex flex-1 flex-col p-4">
+      <div className="flex flex-1 flex-col p-5">
         {/* Title */}
-        <p className={`mb-3 text-lg font-bold ${TITLE_TEXT[delivery.status]}`}>
+        <p className={`mb-4 text-xl font-bold ${TITLE_TEXT[delivery.status]}`}>
           {delivery.table?.name ?? (delivery.reference > 0 ? `#${delivery.reference}` : `#${delivery.id}`)}
         </p>
 
         {/* Items */}
-        <ul className="space-y-1">
+        <ul className="space-y-2">
           {delivery.items.map((item, i) => {
             const st = itemStatuses[i] ?? "idle";
             const done = st === "pronto";
@@ -296,38 +297,38 @@ function OrderCard({
               <li
                 key={i}
                 onClick={(e) => { e.stopPropagation(); cycleItem(i, item.name); }}
-                className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 transition-colors hover:bg-black/5 active:bg-black/10"
+                className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2.5 transition-colors hover:bg-white/5 active:bg-white/10"
               >
                 <ItemIcon status={st} />
-                <span className={`min-w-[1.5rem] text-sm font-bold ${QTY_TEXT[delivery.status]}`}>
+                <span className={`min-w-[2rem] text-base font-bold ${QTY_TEXT[delivery.status]}`}>
                   {item.qty}×
                 </span>
                 <div className="flex-1">
-                  <span className={`text-sm font-medium ${ITEM_TEXT[delivery.status]} ${done ? "line-through opacity-50" : ""}`}>
+                  <span className={`text-base font-extrabold ${ITEM_TEXT[delivery.status]} ${done ? "line-through opacity-50" : ""}`}>
                     {item.name}
                   </span>
                   {item.notes && (
-                    <p className="text-xs italic text-stone-400">{item.notes}</p>
+                    <p className="text-sm italic text-stone-400">{item.notes}</p>
                   )}
                 </div>
               </li>
             );
           })}
           {delivery.items.length === 0 && (
-            <li className="text-xs italic text-stone-400">Sem items</li>
+            <li className="text-sm italic text-stone-400">Sem items</li>
           )}
         </ul>
 
         {/* Extra info */}
         {delivery.extraInfo && (
-          <p className="mt-3 rounded-lg bg-amber-50 px-2 py-1.5 text-xs text-amber-800">
+          <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
             {delivery.extraInfo}
           </p>
         )}
 
         {/* Source — só origens externas */}
         {delivery.source && delivery.source !== "pos" && delivery.source !== "0" && (
-          <p className="mt-3 text-xs font-medium text-purple-600">{delivery.source}</p>
+          <p className="mt-4 text-sm font-medium text-purple-600">{delivery.source}</p>
         )}
       </div>
     </div>
@@ -402,26 +403,26 @@ export function KdsPage() {
   };
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#FAF6F3]">
+    <div className="flex min-h-screen flex-col bg-[#272B39]">
       {/* Header */}
-      <div className="border-b border-[#F5C992]/40 bg-white px-6 py-4">
+      <div className="border-b border-white/10 bg-[#1e2130] px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-stone-900">KDS — Cozinha</h1>
-            <p className="text-sm text-stone-500">Pedidos activos em tempo real</p>
+            <h1 className="text-xl font-bold text-white">KDS — Cozinha</h1>
+            <p className="text-sm text-stone-400">Pedidos activos em tempo real</p>
           </div>
           <div className="flex items-center gap-3">
             {deliveries.length > 0 && (
-              <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-600">
+              <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium text-stone-300">
                 {deliveries.length} pedido{deliveries.length !== 1 ? "s" : ""}
               </span>
             )}
-            <span className="text-xs text-stone-400">
+            <span className="text-xs text-stone-500">
               {fmtTime(lastRefresh)}
             </span>
             <button
               onClick={() => void refresh()}
-              className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 transition hover:bg-stone-50"
+              className="rounded-lg border border-white/20 px-3 py-1.5 text-xs font-medium text-stone-300 transition hover:bg-white/10"
             >
               Actualizar
             </button>
@@ -464,7 +465,7 @@ export function KdsPage() {
         if (active.length === 0 && finalizados.length === 0 && !error) {
           return (
             <div className="flex flex-1 items-center justify-center">
-              <p className="text-sm text-stone-400">Sem pedidos activos</p>
+              <p className="text-sm text-stone-500">Sem pedidos activos</p>
             </div>
           );
         }
@@ -474,7 +475,7 @@ export function KdsPage() {
             {/* Lane activa — ocupa pelo menos metade da altura disponível */}
             <div className="flex min-h-[50%] items-start gap-4 overflow-x-auto p-6 pb-4">
               {active.length === 0 ? (
-                <p className="self-center text-sm text-stone-400">Sem pedidos em preparo</p>
+                <p className="self-center text-sm text-stone-500">Sem pedidos em preparo</p>
               ) : (
                 active.map((d) => (
                   <OrderCard
@@ -491,8 +492,8 @@ export function KdsPage() {
 
             {/* Lane finalizados */}
             {finalizados.length > 0 && (
-              <div className="border-t border-stone-200/60 px-6 py-5">
-                <p className="mb-4 text-sm font-bold tracking-widest text-stone-400">FINALIZADOS</p>
+              <div className="border-t border-white/10 px-6 py-5">
+                <p className="mb-4 text-sm font-bold tracking-widest text-stone-500">FINALIZADOS</p>
                 <div className="flex items-start gap-4 overflow-x-auto pb-2">
                   {finalizados.map((d) => (
                     <OrderCard
