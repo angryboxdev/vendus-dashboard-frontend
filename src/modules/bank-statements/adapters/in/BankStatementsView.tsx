@@ -11,7 +11,6 @@ import {
   type BankMovementDTO,
   type BankStatementSummaryDTO,
   type ClassifyMovementPayload,
-  type EntityLinkDTO,
   type JustificationType,
   type MovementCandidateDTO,
   type ReconciliationStatus,
