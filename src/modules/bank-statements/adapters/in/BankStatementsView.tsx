@@ -1,10 +1,14 @@
 import { useState, useMemo, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
 import { useInvoicesModule } from "../../../invoices/invoices.module.tsx";
 import type { StatementPreview } from "../../domain/ports/out/bank-statements-api.port.ts";
-import type { CostCenterGroup, CostCenterCategory } from "../../../financial-base/domain/entities/cost-center.ts";
+import type {
+  CostCenterGroup,
+  CostCenterCategory,
+} from "../../../financial-base/domain/entities/cost-center.ts";
 import type { Supplier } from "../../../financial-base/domain/entities/supplier.ts";
 import type { InvoiceDTO } from "../../../invoices/domain/entities/invoice.ts";
 import {
@@ -27,7 +31,10 @@ import { useToast, ToastContainer } from "../../../../components/Toast.tsx";
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fromCents(n: number): string {
-  return (n / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
+  return (n / 100).toLocaleString("pt-PT", {
+    style: "currency",
+    currency: "EUR",
+  });
 }
 
 function formatDate(s: string): string {
@@ -75,7 +82,9 @@ const RISK_COLORS: Record<RiskLevel, string> = {
 
 function RiskBadge({ level }: { level: RiskLevel }) {
   return (
-    <span className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${RISK_COLORS[level]}`}>
+    <span
+      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${RISK_COLORS[level]}`}
+    >
       Risco {RISK_LEVEL_LABELS[level]}
     </span>
   );
@@ -90,7 +99,9 @@ const STMT_STATUS_COLORS: Record<StatementStatus, string> = {
 
 function StatementStatusBadge({ status }: { status: StatementStatus }) {
   return (
-    <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STMT_STATUS_COLORS[status]}`}>
+    <span
+      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${STMT_STATUS_COLORS[status]}`}
+    >
       {STATEMENT_STATUS_LABELS[status]}
     </span>
   );
@@ -162,7 +173,11 @@ function EditableBalanceCard({
       <p className="text-xs font-medium text-stone-500 flex items-center gap-1">
         {label}
         {!disabled && !editing && (
-          <svg className="h-3 w-3 text-stone-300" viewBox="0 0 20 20" fill="currentColor">
+          <svg
+            className="h-3 w-3 text-stone-300"
+            viewBox="0 0 20 20"
+            fill="currentColor"
+          >
             <path d="M2.695 14.763l-1.262 3.154a.5.5 0 00.65.65l3.155-1.262a4 4 0 001.343-.885L17.5 5.5a2.121 2.121 0 00-3-3L3.58 13.42a4 4 0 00-.885 1.343z" />
           </svg>
         )}
@@ -180,7 +195,9 @@ function EditableBalanceCard({
           className="mt-1 w-full border-b border-[#ED5C32] bg-transparent text-xl font-bold text-stone-800 outline-none"
         />
       ) : (
-        <p className="mt-1 text-xl font-bold text-stone-800">{fromCents(valueCents)}</p>
+        <p className="mt-1 text-xl font-bold text-stone-800">
+          {fromCents(valueCents)}
+        </p>
       )}
     </div>
   );
@@ -191,11 +208,7 @@ function EditableBalanceCard({
 function ProgressBar({ value }: { value: number }) {
   const pct = Math.min(100, Math.max(0, value));
   const color =
-    pct === 100
-      ? "bg-emerald-500"
-      : pct >= 60
-      ? "bg-amber-400"
-      : "bg-red-400";
+    pct === 100 ? "bg-emerald-500" : pct >= 60 ? "bg-amber-400" : "bg-red-400";
   return (
     <div className="flex items-center gap-2">
       <div className="h-2 flex-1 overflow-hidden rounded-full bg-stone-100">
@@ -263,17 +276,22 @@ function ImportModal({
     setPreviewing(true);
     setPreviewError(null);
     try {
-      const preview: StatementPreview = await api.previewStatement(selectedFile);
+      const preview: StatementPreview =
+        await api.previewStatement(selectedFile);
       if (preview.bankName) setBankName(preview.bankName);
       if (preview.accountNumber) setAccountNumber(preview.accountNumber);
-      if (preview.openingBalance != null) setOpeningBalance((preview.openingBalance / 100).toFixed(2));
-      if (preview.closingBalance != null) setClosingBalance((preview.closingBalance / 100).toFixed(2));
+      if (preview.openingBalance != null)
+        setOpeningBalance((preview.openingBalance / 100).toFixed(2));
+      if (preview.closingBalance != null)
+        setClosingBalance((preview.closingBalance / 100).toFixed(2));
       if (preview.periodStart) setPeriodStart(preview.periodStart);
       if (preview.periodEnd) setPeriodEnd(preview.periodEnd);
       setMovementsCount(preview.movementsCount);
       setStep(2);
     } catch (e) {
-      setPreviewError(e instanceof Error ? e.message : "Erro ao analisar o ficheiro.");
+      setPreviewError(
+        e instanceof Error ? e.message : "Erro ao analisar o ficheiro.",
+      );
     } finally {
       setPreviewing(false);
     }
@@ -286,8 +304,16 @@ function ImportModal({
     fd.append("file", selectedFile);
     if (bankName) fd.append("bankName", bankName);
     if (accountNumber) fd.append("accountNumber", accountNumber);
-    if (openingBalance) fd.append("openingBalance", String(Math.round(parseFloat(openingBalance) * 100)));
-    if (closingBalance) fd.append("closingBalance", String(Math.round(parseFloat(closingBalance) * 100)));
+    if (openingBalance)
+      fd.append(
+        "openingBalance",
+        String(Math.round(parseFloat(openingBalance) * 100)),
+      );
+    if (closingBalance)
+      fd.append(
+        "closingBalance",
+        String(Math.round(parseFloat(closingBalance) * 100)),
+      );
     if (periodStart) fd.append("periodStart", periodStart);
     if (periodEnd) fd.append("periodEnd", periodEnd);
     fd.append("currency", "EUR");
@@ -298,18 +324,25 @@ function ImportModal({
   const inputCls =
     "w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]";
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
       <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[#F5C992]/40 px-6 py-4">
           <div>
-            <h2 className="text-lg font-bold text-stone-800">Importar Extrato Bancário</h2>
+            <h2 className="text-lg font-bold text-stone-800">
+              Importar Extrato Bancário
+            </h2>
             <p className="text-xs text-stone-400 mt-0.5">
-              {step === 1 ? "Passo 1 de 2 — selecionar ficheiro" : "Passo 2 de 2 — confirmar dados"}
+              {step === 1
+                ? "Passo 1 de 2 — selecionar ficheiro"
+                : "Passo 2 de 2 — confirmar dados"}
             </p>
           </div>
-          <button onClick={onClose} className="rounded-md p-1 text-stone-400 hover:bg-stone-100">
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 text-stone-400 hover:bg-stone-100"
+          >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
             </svg>
@@ -331,12 +364,15 @@ function ImportModal({
                 }}
               />
               <p className="mt-1 text-xs text-stone-400">
-                Suporta CSV (Millennium BCP ou genérico PT) e Excel (.xlsx / .xls).
+                Suporta CSV (Millennium BCP ou genérico PT) e Excel (.xlsx /
+                .xls).
               </p>
             </div>
 
             {previewError && (
-              <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{previewError}</p>
+              <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
+                {previewError}
+              </p>
             )}
 
             <div className="flex gap-3 border-t border-[#F5C992]/40 pt-4">
@@ -365,11 +401,21 @@ function ImportModal({
             {/* Summary pill */}
             {movementsCount != null && (
               <div className="flex items-center gap-2 rounded-lg bg-[#FDF8F5] border border-[#F5C992]/40 px-4 py-2.5">
-                <svg className="h-4 w-4 text-[#ED5C32] shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                <svg
+                  className="h-4 w-4 text-[#ED5C32] shrink-0"
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path
+                    fillRule="evenodd"
+                    d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
+                    clipRule="evenodd"
+                  />
                 </svg>
                 <span className="text-sm text-stone-700">
-                  <span className="font-semibold">{movementsCount}</span> movimentos detetados em <span className="font-semibold">{selectedFile?.name}</span>
+                  <span className="font-semibold">{movementsCount}</span>{" "}
+                  movimentos detetados em{" "}
+                  <span className="font-semibold">{selectedFile?.name}</span>
                 </span>
               </div>
             )}
@@ -378,7 +424,9 @@ function ImportModal({
               <div>
                 <label className={labelCls}>
                   Banco *
-                  {!bankName && <span className="ml-1 text-amber-500">(não detetado)</span>}
+                  {!bankName && (
+                    <span className="ml-1 text-amber-500">(não detetado)</span>
+                  )}
                 </label>
                 <input
                   type="text"
@@ -392,7 +440,9 @@ function ImportModal({
               <div>
                 <label className={labelCls}>
                   Conta / IBAN *
-                  {!accountNumber && <span className="ml-1 text-amber-500">(não detetado)</span>}
+                  {!accountNumber && (
+                    <span className="ml-1 text-amber-500">(não detetado)</span>
+                  )}
                 </label>
                 <input
                   type="text"
@@ -472,7 +522,8 @@ function ImportModal({
           </form>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -495,16 +546,35 @@ const TAB_B_SUB_TYPES: JustificationType[] = [
 
 // Which sub-types show each optional section
 function showsDocument(jt: JustificationType) {
-  return ["recibo_comprovativo", "despesa_bancaria_automatica", "contrato_recorrencia", "emprestimo_financiamento"].includes(jt);
+  return [
+    "recibo_comprovativo",
+    "despesa_bancaria_automatica",
+    "contrato_recorrencia",
+    "emprestimo_financiamento",
+  ].includes(jt);
 }
 function showsSupplier(jt: JustificationType) {
-  return ["recibo_comprovativo", "contrato_recorrencia", "emprestimo_financiamento"].includes(jt);
+  return [
+    "recibo_comprovativo",
+    "contrato_recorrencia",
+    "emprestimo_financiamento",
+  ].includes(jt);
 }
 function showsCostCenter(jt: JustificationType) {
-  return ["recibo_comprovativo", "despesa_bancaria_automatica", "contrato_recorrencia", "emprestimo_financiamento"].includes(jt);
+  return [
+    "recibo_comprovativo",
+    "despesa_bancaria_automatica",
+    "contrato_recorrencia",
+    "emprestimo_financiamento",
+  ].includes(jt);
 }
 function showsVat(jt: JustificationType) {
-  return ["recibo_comprovativo", "despesa_bancaria_automatica", "contrato_recorrencia", "emprestimo_financiamento"].includes(jt);
+  return [
+    "recibo_comprovativo",
+    "despesa_bancaria_automatica",
+    "contrato_recorrencia",
+    "emprestimo_financiamento",
+  ].includes(jt);
 }
 function showsTransferTarget(jt: JustificationType) {
   return jt === "transferencia_interna";
@@ -519,62 +589,104 @@ function requiresNotes(jt: JustificationType) {
   return jt === "sem_justificativa";
 }
 
-function EntityCard({ candidate, selected, onToggle }: {
+function EntityCard({
+  candidate,
+  onAdd,
+}: {
   candidate: MovementCandidateDTO;
-  selected: boolean;
-  onToggle: () => void;
+  onAdd: () => void;
 }) {
   return (
     <button
       type="button"
-      onClick={onToggle}
-      className={`w-full text-left rounded-lg border px-3 py-2.5 text-sm transition-colors ${
-        selected ? "border-[#ED5C32] bg-[#FDF8F5]" : "border-stone-200 hover:border-stone-300"
-      }`}
+      onClick={onAdd}
+      className="w-full text-left rounded-lg border border-stone-200 px-3 py-2.5 text-sm transition-colors hover:border-[#ED5C32] hover:bg-[#FDF8F5] group"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-medium text-stone-800 truncate">{candidate.entityLabel}</span>
-        <span className="shrink-0 text-xs text-stone-400">{Math.round(candidate.confidence * 100)}%</span>
+        <span className="font-medium text-stone-800 truncate">
+          {candidate.entityLabel}
+        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-stone-400">
+            {Math.round(candidate.confidence * 100)}%
+          </span>
+          <span className="text-xs font-medium text-[#ED5C32] opacity-0 group-hover:opacity-100 transition-opacity">
+            + Adicionar
+          </span>
+        </div>
       </div>
       <div className="flex items-center gap-2 mt-0.5">
-        <span className="text-xs text-stone-500">{fromCents(candidate.amountCents)}</span>
-        <span className="text-xs text-stone-300">·</span>
-        <span className="text-xs text-stone-400">{formatDate(candidate.date)}</span>
-        <span className="text-xs text-stone-300">·</span>
-        <span className={`text-xs font-medium ${candidate.entityType === "invoice" ? "text-blue-600" : "text-violet-600"}`}>
+        <span
+          className={`text-xs font-medium ${candidate.entityType === "invoice" ? "text-blue-600" : "text-violet-600"}`}
+        >
           {candidate.entityType === "invoice" ? "Fatura" : "Conta a pagar"}
+        </span>
+        <span className="text-xs text-stone-300">·</span>
+        <span className="text-xs text-stone-500">
+          Total: {fromCents(candidate.amountCents)}
+        </span>
+        <span className="text-xs text-stone-300">·</span>
+        <span className="text-xs text-stone-500">
+          Em aberto: {fromCents(candidate.openBalanceCents)}
+        </span>
+        <span className="text-xs text-stone-300">·</span>
+        <span className="text-xs text-stone-400">
+          {formatDate(candidate.date)}
         </span>
       </div>
     </button>
   );
 }
 
-function InvoiceCard({ invoice, selected, onToggle }: {
+function InvoiceCard({
+  invoice,
+  onAdd,
+}: {
   invoice: InvoiceDTO;
-  selected: boolean;
-  onToggle: () => void;
+  onAdd: () => void;
 }) {
   return (
     <button
       type="button"
-      onClick={onToggle}
-      className={`w-full text-left rounded-lg border px-3 py-2.5 text-sm transition-colors ${
-        selected ? "border-[#ED5C32] bg-[#FDF8F5]" : "border-stone-200 hover:border-stone-300"
-      }`}
+      onClick={onAdd}
+      className="w-full text-left rounded-lg border border-stone-200 px-3 py-2.5 text-sm transition-colors hover:border-[#ED5C32] hover:bg-[#FDF8F5] group"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="font-medium text-stone-800 truncate">{invoice.supplierName}</span>
-        <span className="text-xs text-stone-400">{fromCents(invoice.totalWithVat)}</span>
+        <span className="font-medium text-stone-800 truncate">
+          {invoice.supplierName}
+        </span>
+        <div className="flex items-center gap-2 shrink-0">
+          <span className="text-xs text-stone-400">
+            {fromCents(invoice.totalWithVat)}
+          </span>
+          <span className="text-xs font-medium text-[#ED5C32] opacity-0 group-hover:opacity-100 transition-opacity">
+            + Adicionar
+          </span>
+        </div>
       </div>
       <div className="flex items-center gap-2 mt-0.5">
-        <span className="text-xs text-stone-500">Nº {invoice.invoiceNumber}</span>
-        <span className="text-xs text-stone-300">·</span>
-        <span className="text-xs text-stone-400">{formatDate(invoice.invoiceDate)}</span>
-        <span className="text-xs text-stone-300">·</span>
         <span className="text-xs font-medium text-blue-600">Fatura</span>
+        <span className="text-xs text-stone-300">·</span>
+        <span className="text-xs text-stone-500">
+          Nº {invoice.invoiceNumber}
+        </span>
+        <span className="text-xs text-stone-300">·</span>
+        <span className="text-xs text-stone-400">
+          {formatDate(invoice.invoiceDate)}
+        </span>
       </div>
     </button>
   );
+}
+
+interface AllocationEntry {
+  entityType: "invoice" | "payable_entry";
+  entityId: string;
+  entityLabel: string;
+  supplierId: string | null;
+  totalCents: number; // entity full amount
+  openBalanceCents: number; // entity open balance (may be approximated for existing links)
+  allocatedCents: number; // amount the user wants to allocate (editable)
 }
 
 function ClassifyDrawer({
@@ -587,7 +699,14 @@ function ClassifyDrawer({
   movement: BankMovementDTO;
   onClose: () => void;
   onSave: (payload: ClassifyMovementPayload) => void;
-  onReconcile: (entityLinks: Array<{ entityType: "invoice" | "payable_entry"; entityId: string; supplierId: string | null }>) => void;
+  onReconcile: (
+    entityLinks: Array<{
+      entityType: "invoice" | "payable_entry";
+      entityId: string;
+      allocatedAmountCents: number;
+      supplierId: string | null;
+    }>,
+  ) => void;
   saving: boolean;
 }) {
   const { api } = useBankStatementsModule();
@@ -595,14 +714,27 @@ function ClassifyDrawer({
   const invApi = useInvoicesModule().api;
 
   const labelCls = "block text-xs font-medium text-stone-500 mb-1";
-  const inputCls = "w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]";
+  const inputCls =
+    "w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]";
 
   // ─── Tab state ────────────────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<ClassifyTab>("sistema");
 
-  // ─── Tab A: Sistema ───────────────────────────────────────────────────────
-  const [selectedCandidates, setSelectedCandidates] = useState<MovementCandidateDTO[]>([]);
-  const [selectedInvoices, setSelectedInvoices] = useState<InvoiceDTO[]>([]);
+  // ─── Tab A: Allocations ───────────────────────────────────────────────────
+  // Pre-populate from existing entity links (re-editing a previously reconciled movement).
+  const [allocations, setAllocations] = useState<AllocationEntry[]>(() =>
+    movement.entityLinks.map((l) => ({
+      entityType: l.entityType,
+      entityId: l.entityId,
+      entityLabel: l.entityLabel,
+      supplierId: null,
+      totalCents: l.amountCents,
+      // Approximate open balance: entity total - current allocation (conservative — may have other movements)
+      openBalanceCents: l.amountCents,
+      allocatedCents: l.allocatedAmountCents,
+    })),
+  );
+
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -617,28 +749,35 @@ function ClassifyDrawer({
     staleTime: 60_000,
   });
 
-  const { data: invoiceSearchResults = [], isLoading: loadingSearch } = useQuery({
-    queryKey: ["invoices-search", debouncedSearch],
-    queryFn: () => invApi.listInvoices({ search: debouncedSearch }),
-    enabled: debouncedSearch.length >= 2,
-    staleTime: 30_000,
-  });
+  const { data: invoiceSearchResults = [], isLoading: loadingSearch } =
+    useQuery({
+      queryKey: ["invoices-search", debouncedSearch],
+      queryFn: () => invApi.listInvoices({ search: debouncedSearch }),
+      enabled: debouncedSearch.length >= 2,
+      staleTime: 30_000,
+    });
 
   // ─── Tab B: Justificar ────────────────────────────────────────────────────
   const [subType, setSubType] = useState<JustificationType>(
     movement.justificationType && movement.justificationType !== "fatura"
       ? movement.justificationType
-      : "recibo_comprovativo"
+      : "recibo_comprovativo",
   );
   const [notes, setNotes] = useState(movement.notes ?? "");
   const [transferTarget, setTransferTarget] = useState("");
 
   // Cost center
-  const [groupId, setGroupId] = useState<string>(movement.costCenterGroupId ?? "");
-  const [categoryId, setCategoryId] = useState<string>(movement.costCenterCategoryId ?? "");
+  const [groupId, setGroupId] = useState<string>(
+    movement.costCenterGroupId ?? "",
+  );
+  const [categoryId, setCategoryId] = useState<string>(
+    movement.costCenterCategoryId ?? "",
+  );
 
   // Supplier
-  const [supplierId, setSupplierId] = useState<string>(movement.supplierId ?? "");
+  const [supplierId, setSupplierId] = useState<string>(
+    movement.supplierId ?? "",
+  );
   const [supplierSearch, setSupplierSearch] = useState("");
   const [supplierOpen, setSupplierOpen] = useState(false);
 
@@ -649,7 +788,9 @@ function ClassifyDrawer({
   // Document upload
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
-  const [documentUrl, setDocumentUrl] = useState<string | null>(movement.documentUrl);
+  const [documentUrl, setDocumentUrl] = useState<string | null>(
+    movement.documentUrl,
+  );
   const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -669,7 +810,11 @@ function ClassifyDrawer({
 
   const { data: suppliers = [] } = useQuery<Supplier[]>({
     queryKey: ["suppliers", supplierSearch],
-    queryFn: () => fbApi.listSuppliers({ search: supplierSearch || undefined, status: "active" }),
+    queryFn: () =>
+      fbApi.listSuppliers({
+        search: supplierSearch || undefined,
+        status: "active",
+      }),
     staleTime: 60_000,
   });
 
@@ -704,31 +849,62 @@ function ClassifyDrawer({
       const result = await api.uploadMovementDocument(movement.id, file);
       setDocumentUrl(result.documentUrl);
     } catch (err) {
-      setUploadError(err instanceof Error ? err.message : "Erro ao carregar ficheiro.");
+      setUploadError(
+        err instanceof Error ? err.message : "Erro ao carregar ficheiro.",
+      );
       setUploadFile(null);
     } finally {
       setUploading(false);
     }
   }
 
+  // ─── Tab A helpers ────────────────────────────────────────────────────────
+
+  const allocatedEntityIds = new Set(allocations.map((a) => a.entityId));
+  const totalAllocated = allocations.reduce((s, a) => s + a.allocatedCents, 0);
+  const remaining = movement.amount - totalAllocated;
+  const withinTolerance = Math.abs(remaining) <= 100;
+  const overAllocated = totalAllocated > movement.amount;
+
+  function addAllocation(entry: Omit<AllocationEntry, "allocatedCents">) {
+    if (allocatedEntityIds.has(entry.entityId)) return; // already in list
+    const suggested = Math.min(entry.openBalanceCents, Math.max(0, remaining));
+    setAllocations((prev) => [
+      ...prev,
+      { ...entry, allocatedCents: suggested },
+    ]);
+  }
+
+  function removeAllocation(entityId: string) {
+    setAllocations((prev) => prev.filter((a) => a.entityId !== entityId));
+  }
+
+  function updateAllocatedCents(entityId: string, cents: number) {
+    setAllocations((prev) =>
+      prev.map((a) =>
+        a.entityId === entityId
+          ? { ...a, allocatedCents: Math.max(0, cents) }
+          : a,
+      ),
+    );
+  }
+
+
   // ─── Submit ───────────────────────────────────────────────────────────────
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     if (activeTab === "sistema") {
-      const links: Array<{ entityType: "invoice" | "payable_entry"; entityId: string; supplierId: string | null }> = [
-        ...selectedCandidates.map((c) => ({
-          entityType: c.entityType,
-          entityId: c.entityId,
-          supplierId: c.supplierId,
-        })),
-        ...selectedInvoices.map((inv) => ({
-          entityType: "invoice" as const,
-          entityId: inv.id,
-          supplierId: inv.supplierId ?? null,
-        })),
-      ];
-      if (links.length > 0) onReconcile(links);
+      if (allocations.length > 0 && !overAllocated) {
+        onReconcile(
+          allocations.map((a) => ({
+            entityType: a.entityType,
+            entityId: a.entityId,
+            allocatedAmountCents: a.allocatedCents,
+            supplierId: a.supplierId,
+          })),
+        );
+      }
       return;
     }
 
@@ -739,8 +915,10 @@ function ClassifyDrawer({
       documentUrl: documentUrl ?? undefined,
     };
 
-    if (showsCostCenter(subType) && groupId) payload.costCenterGroupId = groupId;
-    if (showsCostCenter(subType) && categoryId) payload.costCenterCategoryId = categoryId;
+    if (showsCostCenter(subType) && groupId)
+      payload.costCenterGroupId = groupId;
+    if (showsCostCenter(subType) && categoryId)
+      payload.costCenterCategoryId = categoryId;
     if (showsSupplier(subType) && supplierId) payload.supplierId = supplierId;
     if (showsVat(subType) && vatMode !== "exempt") {
       payload.vatRate = vatRate;
@@ -754,51 +932,54 @@ function ClassifyDrawer({
   }
 
   // ─── Validation ───────────────────────────────────────────────────────────
-  const canSubmitA = activeTab === "sistema" && (selectedCandidates.length > 0 || selectedInvoices.length > 0);
-  const canSubmitB = activeTab === "justificar" && (
-    !requiresSupplier(subType) || !!supplierId
-  ) && (
-    !requiresCostCenter(subType) || (!!groupId && !!categoryId)
-  ) && (
-    !requiresNotes(subType) || !!notes.trim()
-  ) && !uploading;
+  const canSubmitA =
+    activeTab === "sistema" &&
+    allocations.length > 0 &&
+    !overAllocated &&
+    allocations.every((a) => a.allocatedCents > 0);
+  const canSubmitB =
+    activeTab === "justificar" &&
+    (!requiresSupplier(subType) || !!supplierId) &&
+    (!requiresCostCenter(subType) || (!!groupId && !!categoryId)) &&
+    (!requiresNotes(subType) || !!notes.trim()) &&
+    !uploading;
 
   const canSubmit = canSubmitA || canSubmitB;
 
-  // Invoice search results filtered to remove duplicates with candidates
+  // Filter search results: exclude already-allocated entities and candidates
   const candidateEntityIds = new Set(candidates.map((c) => c.entityId));
   const filteredSearchResults = invoiceSearchResults.filter(
-    (inv) => !candidateEntityIds.has(inv.id)
+    (inv) => !candidateEntityIds.has(inv.id) && !allocatedEntityIds.has(inv.id),
   );
 
-  // Running total for Tab A
-  const selectedCandidateIds = new Set(selectedCandidates.map((c) => c.entityId));
-  const selectedInvoiceIds = new Set(selectedInvoices.map((i) => i.id));
-  const totalSelected =
-    selectedCandidates.reduce((s, c) => s + c.amountCents, 0) +
-    selectedInvoices.reduce((s, inv) => s + inv.totalWithVat, 0);
-  const amountDiff = movement.amount - totalSelected;
-  const withinTolerance = Math.abs(amountDiff) <= 100;
-
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex" aria-modal="true">
       <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
       <aside className="flex h-full w-full max-w-lg flex-col bg-white shadow-2xl">
-
         {/* Header */}
         <div className="flex items-start justify-between border-b border-[#F5C992]/40 px-6 py-4 shrink-0">
           <div>
-            <p className="text-xs font-medium text-stone-400">Classificar movimento</p>
-            <h2 className="text-base font-bold text-stone-800 mt-0.5 truncate max-w-sm">{movement.description}</h2>
+            <p className="text-xs font-medium text-stone-400">
+              Classificar movimento
+            </p>
+            <h2 className="text-base font-bold text-stone-800 mt-0.5 truncate max-w-sm">
+              {movement.description}
+            </h2>
             <p className="text-sm text-stone-500 mt-0.5 flex items-center gap-2">
               <span>{formatDate(movement.bookingDate)}</span>
-              <span className={`font-semibold ${movement.movementType === "debit" ? "text-red-600" : "text-emerald-600"}`}>
-                {movement.movementType === "debit" ? "−" : "+"}{fromCents(movement.amount)}
+              <span
+                className={`font-semibold ${movement.movementType === "debit" ? "text-red-600" : "text-emerald-600"}`}
+              >
+                {movement.movementType === "debit" ? "−" : "+"}
+                {fromCents(movement.amount)}
               </span>
               <ReconciliationBadge status={movement.reconciliationStatus} />
             </p>
           </div>
-          <button onClick={onClose} className="rounded-md p-1 text-stone-400 hover:bg-stone-100 shrink-0 ml-2">
+          <button
+            onClick={onClose}
+            className="rounded-md p-1 text-stone-400 hover:bg-stone-100 shrink-0 ml-2"
+          >
             <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
               <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
             </svg>
@@ -807,92 +988,241 @@ function ClassifyDrawer({
 
         {/* Tabs */}
         <div className="flex border-b border-[#F5C992]/40 px-6 shrink-0">
-          {([["sistema", "Conciliar com sistema"], ["justificar", "Justificar despesa"]] as [ClassifyTab, string][]).map(
-            ([tab, label]) => (
-              <button
-                key={tab}
-                type="button"
-                onClick={() => setActiveTab(tab)}
-                className={`py-3 px-1 mr-6 text-sm font-medium border-b-2 transition-colors ${
-                  activeTab === tab
-                    ? "border-[#ED5C32] text-[#ED5C32]"
-                    : "border-transparent text-stone-400 hover:text-stone-600"
-                }`}
-              >
-                {label}
-              </button>
-            )
-          )}
+          {(
+            [
+              ["sistema", "Conciliar com sistema"],
+              ["justificar", "Justificar despesa"],
+            ] as [ClassifyTab, string][]
+          ).map(([tab, label]) => (
+            <button
+              key={tab}
+              type="button"
+              onClick={() => setActiveTab(tab)}
+              className={`py-3 px-1 mr-6 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === tab
+                  ? "border-[#ED5C32] text-[#ED5C32]"
+                  : "border-transparent text-stone-400 hover:text-stone-600"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
 
-        <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
+        <form
+          onSubmit={handleSubmit}
+          className="flex flex-1 flex-col overflow-hidden"
+        >
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-
-            {/* ── Tab A: Sistema ─────────────────────────────────────────── */}
+            {/* ── Tab A: Conciliar com sistema ────────────────────────────── */}
             {activeTab === "sistema" && (
               <>
-                {/* Currently linked entities */}
-                {movement.entityLinks.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
-                      Entidades associadas
-                    </p>
-                    <div className="space-y-1.5">
-                      {movement.entityLinks.map((link) => (
-                        <div key={link.id} className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm">
-                          <div className="min-w-0">
-                            <p className="font-medium text-stone-800 truncate">{link.entityLabel}</p>
-                            <p className="text-xs text-stone-500 mt-0.5">
-                              {link.entityType === "invoice" ? "Fatura" : "Conta a pagar"}
-                            </p>
-                          </div>
-                          <span className="text-sm font-semibold text-stone-700 ml-3 shrink-0">
-                            {fromCents(link.amountCents)}
-                          </span>
-                        </div>
-                      ))}
+                {/* ── Zona 1: Resumo de alocação ────────────────────────────── */}
+                <div
+                  className={`rounded-lg border px-4 py-3 ${overAllocated ? "border-red-200 bg-red-50" : withinTolerance && allocations.length > 0 ? "border-emerald-200 bg-emerald-50" : "border-stone-200 bg-stone-50"}`}
+                >
+                  <p
+                    className={`text-xs font-semibold uppercase tracking-wide mb-2 ${overAllocated ? "text-red-600" : "text-stone-500"}`}
+                  >
+                    Resumo de alocação
+                  </p>
+                  <div className="space-y-1 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-stone-500">Valor do movimento</span>
+                      <span className="font-semibold text-stone-800">
+                        {fromCents(movement.amount)}
+                      </span>
                     </div>
-                    {movement.reconciliationAmountDiff != null && (
-                      <p className="mt-2 text-xs text-yellow-700 bg-yellow-50 rounded-md px-3 py-2">
-                        Diferença não coberta: {fromCents(Math.abs(movement.reconciliationAmountDiff))}
+                    <div className="flex justify-between">
+                      <span className="text-stone-500">Total alocado</span>
+                      <span
+                        className={`font-semibold ${overAllocated ? "text-red-600" : "text-stone-800"}`}
+                      >
+                        {fromCents(totalAllocated)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-stone-500">Por alocar</span>
+                      <span
+                        className={`font-semibold ${remaining < 0 ? "text-red-600" : remaining === 0 ? "text-emerald-600" : "text-amber-600"}`}
+                      >
+                        {fromCents(Math.abs(remaining))}
+                        {remaining < 0 ? " (excesso)" : ""}
+                      </span>
+                    </div>
+                  </div>
+                  {allocations.length > 0 && (
+                    <div className="mt-2 h-1.5 rounded-full bg-stone-200 overflow-hidden">
+                      <div
+                        className={`h-full rounded-full transition-all ${overAllocated ? "bg-red-500" : withinTolerance ? "bg-emerald-500" : "bg-amber-400"}`}
+                        style={{
+                          width: `${Math.min(100, Math.round((totalAllocated / movement.amount) * 100))}%`,
+                        }}
+                      />
+                    </div>
+                  )}
+                  {overAllocated && (
+                    <p className="mt-1.5 text-xs text-red-600">
+                      Total alocado excede o valor do movimento.
+                    </p>
+                  )}
+                  {!overAllocated &&
+                    remaining > 100 &&
+                    allocations.length > 0 && (
+                      <p className="mt-1.5 text-xs text-amber-600">
+                        Restam {fromCents(remaining)} por alocar — o movimento
+                        ficará parcialmente conciliado.
                       </p>
                     )}
+                  {withinTolerance && allocations.length > 0 && (
+                    <p className="mt-1.5 text-xs text-emerald-600">
+                      Movimento totalmente coberto.
+                    </p>
+                  )}
+                </div>
+
+                {/* ── Zona 2: Alocações ativas ──────────────────────────────── */}
+                {allocations.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
+                      Faturas / contas a alocar ({allocations.length})
+                    </p>
+                    <div className="space-y-2">
+                      {allocations.map((a) => {
+                        const exceedsBalance =
+                          a.allocatedCents > a.openBalanceCents;
+                        return (
+                          <div
+                            key={a.entityId}
+                            className={`rounded-lg border px-3 py-2.5 ${exceedsBalance ? "border-red-200 bg-red-50" : "border-[#F5C992]/60 bg-[#FDF8F5]"}`}
+                          >
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="min-w-0 flex-1">
+                                <p className="text-sm font-medium text-stone-800 truncate">
+                                  {a.entityLabel}
+                                </p>
+                                <p className="text-xs text-stone-400 mt-0.5">
+                                  {a.entityType === "invoice"
+                                    ? "Fatura"
+                                    : "Conta a pagar"}
+                                  {" · "}Total: {fromCents(a.totalCents)}
+                                  {" · "}Em aberto:{" "}
+                                  {fromCents(a.openBalanceCents)}
+                                </p>
+                              </div>
+                              <button
+                                type="button"
+                                onClick={() => removeAllocation(a.entityId)}
+                                className="shrink-0 text-stone-300 hover:text-red-400 mt-0.5"
+                                title="Remover"
+                              >
+                                <svg
+                                  className="h-4 w-4"
+                                  viewBox="0 0 20 20"
+                                  fill="currentColor"
+                                >
+                                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                                </svg>
+                              </button>
+                            </div>
+                            <div className="flex items-center gap-2 mt-2">
+                              <label className="text-xs text-stone-500 shrink-0">
+                                A alocar (€)
+                              </label>
+                              <input
+                                type="number"
+                                min="0.01"
+                                step="0.01"
+                                value={(a.allocatedCents / 100).toFixed(2)}
+                                onChange={(e) =>
+                                  updateAllocatedCents(
+                                    a.entityId,
+                                    Math.round(
+                                      parseFloat(e.target.value || "0") * 100,
+                                    ),
+                                  )
+                                }
+                                className={`flex-1 rounded-md border px-2 py-1 text-sm text-right focus:outline-none ${exceedsBalance ? "border-red-400 bg-red-50 text-red-700 focus:border-red-400" : "border-stone-300 bg-white focus:border-[#ED5C32]"}`}
+                              />
+                              <span className="text-xs shrink-0 w-32 text-right">
+                                {a.openBalanceCents - a.allocatedCents <= 0 ? (
+                                  <span className="text-emerald-600 font-medium">
+                                    ✓ Pago na totalidade
+                                  </span>
+                                ) : (
+                                  <span className="text-amber-600">
+                                    {fromCents(a.openBalanceCents - a.allocatedCents)}{" "}
+                                    em aberto
+                                  </span>
+                                )}
+                              </span>
+                            </div>
+                            {exceedsBalance && (
+                              <p className="text-xs text-red-600 mt-1">
+                                Excede o saldo em aberto (
+                                {fromCents(a.openBalanceCents)}).
+                              </p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
                   </div>
                 )}
 
-                {/* Auto-matched suggestions */}
+                {allocations.length === 0 && (
+                  <p className="text-xs text-stone-400 bg-stone-50 rounded-md px-3 py-3 text-center">
+                    Seleciona faturas ou contas a pagar abaixo para associar a
+                    este movimento.
+                  </p>
+                )}
+
+                {/* ── Zona 3: Adicionar faturas ─────────────────────────────── */}
                 <div>
                   <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
                     Sugestões automáticas
                   </p>
-                  {loadingCandidates && <p className="text-xs text-stone-400 py-1">A procurar correspondências…</p>}
-                  {!loadingCandidates && candidates.length === 0 && (
-                    <p className="text-xs text-stone-400 py-1">Nenhuma correspondência automática encontrada.</p>
+                  {loadingCandidates && (
+                    <p className="text-xs text-stone-400 py-1">
+                      A procurar correspondências…
+                    </p>
                   )}
-                  {candidates.length > 0 && (
+                  {!loadingCandidates &&
+                    candidates.filter(
+                      (c) => !allocatedEntityIds.has(c.entityId),
+                    ).length === 0 && (
+                      <p className="text-xs text-stone-400 py-1">
+                        Nenhuma correspondência automática encontrada.
+                      </p>
+                    )}
+                  {candidates.filter((c) => !allocatedEntityIds.has(c.entityId))
+                    .length > 0 && (
                     <div className="space-y-1.5">
-                      {candidates.map((c) => (
-                        <EntityCard
-                          key={c.entityId}
-                          candidate={c}
-                          selected={selectedCandidateIds.has(c.entityId)}
-                          onToggle={() => {
-                            setSelectedCandidates((prev) =>
-                              prev.some((x) => x.entityId === c.entityId)
-                                ? prev.filter((x) => x.entityId !== c.entityId)
-                                : [...prev, c]
-                            );
-                          }}
-                        />
-                      ))}
+                      {candidates
+                        .filter((c) => !allocatedEntityIds.has(c.entityId))
+                        .map((c) => (
+                          <EntityCard
+                            key={c.entityId}
+                            candidate={c}
+                            onAdd={() =>
+                              addAllocation({
+                                entityType: c.entityType,
+                                entityId: c.entityId,
+                                entityLabel: c.entityLabel,
+                                supplierId: c.supplierId,
+                                totalCents: c.amountCents,
+                                openBalanceCents: c.openBalanceCents,
+                              })
+                            }
+                          />
+                        ))}
                     </div>
                   )}
                 </div>
 
-                {/* Free search */}
                 <div>
                   <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
-                    Procurar outra fatura
+                    Procurar faturas
                   </p>
                   <input
                     type="search"
@@ -904,51 +1234,41 @@ function ClassifyDrawer({
                   {loadingSearch && debouncedSearch.length >= 2 && (
                     <p className="text-xs text-stone-400 mt-2">A procurar…</p>
                   )}
-                  {!loadingSearch && debouncedSearch.length >= 2 && filteredSearchResults.length === 0 && (
-                    <p className="text-xs text-stone-400 mt-2">Sem resultados para "{debouncedSearch}".</p>
-                  )}
+                  {!loadingSearch &&
+                    debouncedSearch.length >= 2 &&
+                    filteredSearchResults.length === 0 && (
+                      <p className="text-xs text-stone-400 mt-2">
+                        Sem resultados para "{debouncedSearch}".
+                      </p>
+                    )}
                   {filteredSearchResults.length > 0 && (
-                    <div className="space-y-1.5 mt-2 max-h-56 overflow-y-auto pr-1">
-                      {filteredSearchResults.map((inv) => (
-                        <InvoiceCard
-                          key={inv.id}
-                          invoice={inv}
-                          selected={selectedInvoiceIds.has(inv.id)}
-                          onToggle={() => {
-                            setSelectedInvoices((prev) =>
-                              prev.some((x) => x.id === inv.id)
-                                ? prev.filter((x) => x.id !== inv.id)
-                                : [...prev, inv]
-                            );
-                          }}
-                        />
-                      ))}
+                    <div className="mt-2 border border-stone-200 rounded-lg overflow-hidden">
+                      <div className="space-y-1.5 p-2 max-h-56 overflow-y-auto">
+                        {filteredSearchResults.map((inv) => (
+                          <InvoiceCard
+                            key={inv.id}
+                            invoice={inv}
+                            onAdd={() =>
+                              addAllocation({
+                                entityType: "invoice",
+                                entityId: inv.id,
+                                entityLabel: `${inv.supplierName} — ${inv.invoiceNumber}`,
+                                supplierId: inv.supplierId ?? null,
+                                totalCents: inv.totalWithVat,
+                                openBalanceCents: inv.totalWithVat,
+                              })
+                            }
+                          />
+                        ))}
+                      </div>
+                      <div className="border-t border-stone-100 bg-stone-50 px-3 py-1.5">
+                        <p className="text-xs text-stone-400">
+                          {filteredSearchResults.length} resultado{filteredSearchResults.length !== 1 ? "s" : ""}
+                        </p>
+                      </div>
                     </div>
                   )}
                 </div>
-
-                {/* Running total bar */}
-                {(selectedCandidates.length > 0 || selectedInvoices.length > 0) ? (
-                  <div className={`rounded-md px-3 py-2.5 text-xs ${withinTolerance ? "bg-emerald-50" : "bg-yellow-50"}`}>
-                    <div className="flex items-center justify-between font-medium">
-                      <span className={withinTolerance ? "text-emerald-700" : "text-yellow-700"}>
-                        {withinTolerance ? "Correspondência completa" : "Correspondência parcial"}
-                      </span>
-                      <span className={withinTolerance ? "text-emerald-700" : "text-yellow-700"}>
-                        {fromCents(totalSelected)} / {fromCents(movement.amount)}
-                      </span>
-                    </div>
-                    {!withinTolerance && (
-                      <p className="mt-0.5 text-yellow-600">
-                        Diferença: {fromCents(Math.abs(amountDiff))} — o movimento ficará com pendência.
-                      </p>
-                    )}
-                  </div>
-                ) : (
-                  <p className="text-xs text-amber-600 bg-amber-50 rounded-md px-3 py-2">
-                    Selecciona uma ou mais faturas / contas a pagar para associar a este movimento.
-                  </p>
-                )}
               </>
             )}
 
@@ -968,7 +1288,9 @@ function ClassifyDrawer({
                     className={inputCls}
                   >
                     {TAB_B_SUB_TYPES.map((jt) => (
-                      <option key={jt} value={jt}>{JUSTIFICATION_TYPE_LABELS[jt]}</option>
+                      <option key={jt} value={jt}>
+                        {JUSTIFICATION_TYPE_LABELS[jt]}
+                      </option>
                     ))}
                   </select>
                 </div>
@@ -977,7 +1299,8 @@ function ClassifyDrawer({
                 {showsDocument(subType) && (
                   <div>
                     <label className={labelCls}>
-                      Comprovativo{subType === "recibo_comprovativo" ? " *" : " (opcional)"}
+                      Comprovativo
+                      {subType === "recibo_comprovativo" ? " *" : " (opcional)"}
                     </label>
                     <div
                       className="rounded-lg border-2 border-dashed border-stone-200 p-4 text-center cursor-pointer hover:border-[#ED5C32]/50 transition-colors"
@@ -994,15 +1317,27 @@ function ClassifyDrawer({
                         <p className="text-xs text-stone-400">A carregar…</p>
                       ) : documentUrl ? (
                         <div className="flex items-center justify-center gap-2">
-                          <svg className="h-4 w-4 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
-                            <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                          <svg
+                            className="h-4 w-4 text-emerald-500"
+                            viewBox="0 0 20 20"
+                            fill="currentColor"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
+                              clipRule="evenodd"
+                            />
                           </svg>
                           <span className="text-xs text-emerald-600 font-medium">
                             {uploadFile?.name ?? "Comprovativo carregado"}
                           </span>
                           <button
                             type="button"
-                            onClick={(e) => { e.stopPropagation(); setDocumentUrl(null); setUploadFile(null); }}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDocumentUrl(null);
+                              setUploadFile(null);
+                            }}
                             className="text-xs text-stone-400 hover:text-red-500 ml-1"
                           >
                             ×
@@ -1010,12 +1345,18 @@ function ClassifyDrawer({
                         </div>
                       ) : (
                         <div>
-                          <p className="text-xs text-stone-500">Clique ou arraste PDF / imagem</p>
-                          <p className="text-xs text-stone-300 mt-0.5">máx. 10 MB</p>
+                          <p className="text-xs text-stone-500">
+                            Clique ou arraste PDF / imagem
+                          </p>
+                          <p className="text-xs text-stone-300 mt-0.5">
+                            máx. 10 MB
+                          </p>
                         </div>
                       )}
                     </div>
-                    {uploadError && <p className="text-xs text-red-500 mt-1">{uploadError}</p>}
+                    {uploadError && (
+                      <p className="text-xs text-red-500 mt-1">{uploadError}</p>
+                    )}
                   </div>
                 )}
 
@@ -1023,11 +1364,16 @@ function ClassifyDrawer({
                 {showsSupplier(subType) && (
                   <div className="relative">
                     <label className={labelCls}>
-                      Fornecedor{requiresSupplier(subType) ? " *" : " (opcional)"}
+                      Fornecedor
+                      {requiresSupplier(subType) ? " *" : " (opcional)"}
                     </label>
                     <input
                       type="text"
-                      value={supplierId ? (selectedSupplier?.name ?? supplierId) : supplierSearch}
+                      value={
+                        supplierId
+                          ? (selectedSupplier?.name ?? supplierId)
+                          : supplierSearch
+                      }
                       onChange={(e) => {
                         setSupplierId("");
                         setSupplierSearch(e.target.value);
@@ -1040,10 +1386,19 @@ function ClassifyDrawer({
                     {supplierId && (
                       <button
                         type="button"
-                        onClick={() => { setSupplierId(""); setSupplierSearch(""); setGroupId(""); setCategoryId(""); }}
+                        onClick={() => {
+                          setSupplierId("");
+                          setSupplierSearch("");
+                          setGroupId("");
+                          setCategoryId("");
+                        }}
                         className="absolute right-2 top-7 text-stone-300 hover:text-red-400"
                       >
-                        <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                        <svg
+                          className="h-4 w-4"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
                           <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
                         </svg>
                       </button>
@@ -1054,11 +1409,19 @@ function ClassifyDrawer({
                           <button
                             key={s.id}
                             type="button"
-                            onClick={() => { setSupplierId(s.id); setSupplierSearch(""); setSupplierOpen(false); }}
+                            onClick={() => {
+                              setSupplierId(s.id);
+                              setSupplierSearch("");
+                              setSupplierOpen(false);
+                            }}
                             className="w-full text-left px-3 py-2 text-sm text-stone-700 hover:bg-stone-50"
                           >
                             {s.name}
-                            {s.nif && <span className="ml-2 text-xs text-stone-400">{s.nif}</span>}
+                            {s.nif && (
+                              <span className="ml-2 text-xs text-stone-400">
+                                {s.nif}
+                              </span>
+                            )}
                           </button>
                         ))}
                       </div>
@@ -1069,7 +1432,11 @@ function ClassifyDrawer({
                       rel="noopener noreferrer"
                       className="mt-1 inline-flex items-center gap-1 text-xs text-[#ED5C32] hover:underline"
                     >
-                      <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                      <svg
+                        className="h-3 w-3"
+                        viewBox="0 0 20 20"
+                        fill="currentColor"
+                      >
                         <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
                       </svg>
                       Cadastrar novo fornecedor
@@ -1090,7 +1457,9 @@ function ClassifyDrawer({
                       >
                         <option value="">Seleccionar grupo…</option>
                         {groups.map((g) => (
-                          <option key={g.id} value={g.id}>{g.code} — {g.name}</option>
+                          <option key={g.id} value={g.id}>
+                            {g.code} — {g.name}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -1103,9 +1472,15 @@ function ClassifyDrawer({
                         disabled={!groupId}
                         required
                       >
-                        <option value="">{groupId ? "Seleccionar categoria…" : "Primeiro selecciona o grupo"}</option>
+                        <option value="">
+                          {groupId
+                            ? "Seleccionar categoria…"
+                            : "Primeiro selecciona o grupo"}
+                        </option>
                         {categories.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name}</option>
+                          <option key={c.id} value={c.id}>
+                            {c.name}
+                          </option>
                         ))}
                       </select>
                     </div>
@@ -1117,22 +1492,26 @@ function ClassifyDrawer({
                   <div>
                     <label className={labelCls}>IVA</label>
                     <div className="flex gap-2 mb-2">
-                      {([["included", "Inclui IVA"], ["excluded", "Não inclui IVA"], ["exempt", "Isento / N/A"]] as [VatMode, string][]).map(
-                        ([mode, label]) => (
-                          <button
-                            key={mode}
-                            type="button"
-                            onClick={() => setVatMode(mode)}
-                            className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
-                              vatMode === mode
-                                ? "border-[#ED5C32] bg-[#FDF8F5] text-[#ED5C32]"
-                                : "border-stone-200 text-stone-500 hover:border-stone-300"
-                            }`}
-                          >
-                            {label}
-                          </button>
-                        )
-                      )}
+                      {(
+                        [
+                          ["included", "Inclui IVA"],
+                          ["excluded", "Não inclui IVA"],
+                          ["exempt", "Isento / N/A"],
+                        ] as [VatMode, string][]
+                      ).map(([mode, label]) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => setVatMode(mode)}
+                          className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
+                            vatMode === mode
+                              ? "border-[#ED5C32] bg-[#FDF8F5] text-[#ED5C32]"
+                              : "border-stone-200 text-stone-500 hover:border-stone-300"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
                     </div>
                     {vatMode !== "exempt" && (
                       <div className="flex gap-2">
@@ -1180,7 +1559,9 @@ function ClassifyDrawer({
                     rows={3}
                     required={requiresNotes(subType)}
                     className={inputCls}
-                    placeholder={requiresNotes(subType) ? "Motivo obrigatório" : "Opcional"}
+                    placeholder={
+                      requiresNotes(subType) ? "Motivo obrigatório" : "Opcional"
+                    }
                   />
                 </div>
               </>
@@ -1201,18 +1582,28 @@ function ClassifyDrawer({
               disabled={saving || uploading || !canSubmit}
               className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40"
             >
-              {saving ? "A guardar…" : uploading ? "A carregar ficheiro…" : "Classificar"}
+              {saving
+                ? "A guardar…"
+                : uploading
+                  ? "A carregar ficheiro…"
+                  : "Classificar"}
             </button>
           </div>
         </form>
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
 // ── Statement Detail ──────────────────────────────────────────────────────────
 
-type MovementTab = "all" | "unresolved" | "suggestions" | "high_risk" | "partial";
+type MovementTab =
+  | "all"
+  | "unresolved"
+  | "suggestions"
+  | "high_risk"
+  | "partial";
 
 function StatementDetail({
   statementId,
@@ -1249,7 +1640,9 @@ function StatementDetail({
     onSuccess: (res) => {
       void qc.invalidateQueries({ queryKey: ["bank-statement", statementId] });
       void qc.invalidateQueries({ queryKey: ["bank-statements"] });
-      alert(`Regras aplicadas: ${res.appliedCount} movimento(s) classificado(s). Progresso: ${res.reconciliationProgress}%`);
+      alert(
+        `Regras aplicadas: ${res.appliedCount} movimento(s) classificado(s). Progresso: ${res.reconciliationProgress}%`,
+      );
     },
     onError: (e: Error) => alert(`Erro: ${e.message}`),
   });
@@ -1273,8 +1666,10 @@ function StatementDetail({
   });
 
   const classifyMut = useMutation({
-    mutationFn: (args: { movementId: string; payload: ClassifyMovementPayload }) =>
-      api.classifyMovement(args.movementId, args.payload),
+    mutationFn: (args: {
+      movementId: string;
+      payload: ClassifyMovementPayload;
+    }) => api.classifyMovement(args.movementId, args.payload),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["bank-statement", statementId] });
       void qc.invalidateQueries({ queryKey: ["bank-statements"] });
@@ -1285,8 +1680,15 @@ function StatementDetail({
   });
 
   const reconcileMut = useMutation({
-    mutationFn: (args: { movementId: string; entityLinks: Array<{ entityType: "invoice" | "payable_entry"; entityId: string; supplierId: string | null }> }) =>
-      api.reconcileMovement(args.movementId, args.entityLinks),
+    mutationFn: (args: {
+      movementId: string;
+      entityLinks: Array<{
+        entityType: "invoice" | "payable_entry";
+        entityId: string;
+        allocatedAmountCents: number;
+        supplierId: string | null;
+      }>;
+    }) => api.reconcileMovement(args.movementId, args.entityLinks),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["bank-statement", statementId] });
       void qc.invalidateQueries({ queryKey: ["bank-statements"] });
@@ -1296,34 +1698,42 @@ function StatementDetail({
     onError: (e: Error) => showToast(e.message, "error"),
   });
 
-
   const filteredMovements = useMemo(() => {
     if (!detail) return [];
     switch (movTab) {
       case "unresolved":
         return detail.movements.filter((m) => !m.isResolved);
       case "suggestions":
-        return detail.movements.filter((m) => m.reconciliationStatus === "sugestao");
+        return detail.movements.filter(
+          (m) => m.reconciliationStatus === "sugestao",
+        );
       case "high_risk":
         return detail.movements.filter(
-          (m) => m.riskLevel === "high" || m.riskLevel === "critical"
+          (m) => m.riskLevel === "high" || m.riskLevel === "critical",
         );
       case "partial":
-        return detail.movements.filter((m) => m.reconciliationStatus === "conciliado_parcial");
+        return detail.movements.filter(
+          (m) => m.reconciliationStatus === "conciliado_parcial",
+        );
       default:
         return detail.movements;
     }
   }, [detail, movTab]);
 
-  const unresolvedCount = detail?.movements.filter((m) => !m.isResolved).length ?? 0;
+  const unresolvedCount =
+    detail?.movements.filter((m) => !m.isResolved).length ?? 0;
   const suggestionCount =
-    detail?.movements.filter((m) => m.reconciliationStatus === "sugestao").length ?? 0;
+    detail?.movements.filter((m) => m.reconciliationStatus === "sugestao")
+      .length ?? 0;
   const highRiskCount =
     detail?.movements.filter(
-      (m) => (m.riskLevel === "high" || m.riskLevel === "critical") && !m.isResolved
+      (m) =>
+        (m.riskLevel === "high" || m.riskLevel === "critical") && !m.isResolved,
     ).length ?? 0;
   const partialCount =
-    detail?.movements.filter((m) => m.reconciliationStatus === "conciliado_parcial").length ?? 0;
+    detail?.movements.filter(
+      (m) => m.reconciliationStatus === "conciliado_parcial",
+    ).length ?? 0;
 
   if (isLoading) {
     return (
@@ -1353,12 +1763,18 @@ function StatementDetail({
           className="text-sm text-[#ED5C32] hover:underline flex items-center gap-1"
         >
           <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z" clipRule="evenodd" />
+            <path
+              fillRule="evenodd"
+              d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z"
+              clipRule="evenodd"
+            />
           </svg>
           Extratos
         </button>
         <span className="text-stone-300">/</span>
-        <span className="text-sm font-medium text-stone-700">{detail.bankName}</span>
+        <span className="text-sm font-medium text-stone-700">
+          {detail.bankName}
+        </span>
         <span className="text-stone-300">/</span>
         <span className="text-sm text-stone-500">{detail.accountNumber}</span>
       </div>
@@ -1368,14 +1784,19 @@ function StatementDetail({
         <div className="flex items-start justify-between flex-wrap gap-4">
           <div>
             <div className="flex items-center gap-3">
-              <h2 className="text-xl font-bold text-stone-900">{detail.bankName}</h2>
+              <h2 className="text-xl font-bold text-stone-900">
+                {detail.bankName}
+              </h2>
               <StatementStatusBadge status={detail.status} />
             </div>
             <p className="mt-1 text-sm text-stone-500">
-              {detail.accountNumber} · {formatDate(detail.periodStart)} – {formatDate(detail.periodEnd)}
+              {detail.accountNumber} · {formatDate(detail.periodStart)} –{" "}
+              {formatDate(detail.periodEnd)}
             </p>
             {detail.sourceFileName && (
-              <p className="mt-0.5 text-xs text-stone-400">Ficheiro: {detail.sourceFileName}</p>
+              <p className="mt-0.5 text-xs text-stone-400">
+                Ficheiro: {detail.sourceFileName}
+              </p>
             )}
           </div>
 
@@ -1400,7 +1821,7 @@ function StatementDetail({
                 onClick={() => {
                   if (
                     confirm(
-                      "Fechar a conciliação? Esta ação valida que o saldo fecha e não há pendências críticas."
+                      "Fechar a conciliação? Esta ação valida que o saldo fecha e não há pendências críticas.",
                     )
                   ) {
                     closeMut.mutate();
@@ -1425,9 +1846,12 @@ function StatementDetail({
         {/* Progress bar */}
         <div className="mt-4">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-xs font-medium text-stone-500">Progresso da conciliação</span>
+            <span className="text-xs font-medium text-stone-500">
+              Progresso da conciliação
+            </span>
             <span className="text-xs text-stone-400">
-              {detail.importedMovementsCount - unresolvedCount} / {detail.importedMovementsCount} movimentos resolvidos
+              {detail.importedMovementsCount - unresolvedCount} /{" "}
+              {detail.importedMovementsCount} movimentos resolvidos
             </span>
           </div>
           <ProgressBar value={detail.reconciliationProgress} />
@@ -1440,13 +1864,23 @@ function StatementDetail({
           label="Saldo inicial"
           valueCents={detail.openingBalance}
           disabled={isClosed || updateBalancesMut.isPending}
-          onSave={(v) => updateBalancesMut.mutate({ opening: v, closing: detail.closingBalance })}
+          onSave={(v) =>
+            updateBalancesMut.mutate({
+              opening: v,
+              closing: detail.closingBalance,
+            })
+          }
         />
         <EditableBalanceCard
           label="Saldo extrato"
           valueCents={detail.closingBalance}
           disabled={isClosed || updateBalancesMut.isPending}
-          onSave={(v) => updateBalancesMut.mutate({ opening: detail.openingBalance, closing: v })}
+          onSave={(v) =>
+            updateBalancesMut.mutate({
+              opening: detail.openingBalance,
+              closing: v,
+            })
+          }
         />
         <KpiCard
           label="Saldo calculado"
@@ -1456,7 +1890,9 @@ function StatementDetail({
         <KpiCard
           label="Diferença de saldo"
           value={fromCents(detail.balanceDifference)}
-          sub={detail.balanceDifference === 0 ? "Saldo fecha ✓" : "Saldo não fecha"}
+          sub={
+            detail.balanceDifference === 0 ? "Saldo fecha ✓" : "Saldo não fecha"
+          }
           valueClass={diffClass(detail.balanceDifference)}
         />
       </div>
@@ -1467,11 +1903,31 @@ function StatementDetail({
         <div className="flex border-b border-[#F5C992]/40 px-4 pt-1">
           {(
             [
-              { key: "all" as MovementTab, label: "Todos", count: detail.importedMovementsCount },
-              { key: "unresolved" as MovementTab, label: "Não resolvidos", count: unresolvedCount },
-              { key: "suggestions" as MovementTab, label: "Sugestões", count: suggestionCount },
-              { key: "high_risk" as MovementTab, label: "Alto risco", count: highRiskCount },
-              { key: "partial" as MovementTab, label: "Parciais", count: partialCount },
+              {
+                key: "all" as MovementTab,
+                label: "Todos",
+                count: detail.importedMovementsCount,
+              },
+              {
+                key: "unresolved" as MovementTab,
+                label: "Não resolvidos",
+                count: unresolvedCount,
+              },
+              {
+                key: "suggestions" as MovementTab,
+                label: "Sugestões",
+                count: suggestionCount,
+              },
+              {
+                key: "high_risk" as MovementTab,
+                label: "Alto risco",
+                count: highRiskCount,
+              },
+              {
+                key: "partial" as MovementTab,
+                label: "Parciais",
+                count: partialCount,
+              },
             ] as { key: MovementTab; label: string; count: number }[]
           ).map(({ key, label, count }) => (
             <button
@@ -1501,7 +1957,9 @@ function StatementDetail({
 
         {/* Table */}
         {filteredMovements.length === 0 ? (
-          <div className="py-12 text-center text-sm text-stone-400">Nenhum movimento nesta categoria.</div>
+          <div className="py-12 text-center text-sm text-stone-400">
+            Nenhum movimento nesta categoria.
+          </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="min-w-full text-sm">
@@ -1509,13 +1967,13 @@ function StatementDetail({
                 <tr>
                   {(
                     [
-                      { label: "Data",       align: "left"  },
-                      { label: "Descrição",  align: "left"  },
-                      { label: "Tipo",       align: "left"  },
-                      { label: "Valor",      align: "right" },
+                      { label: "Data", align: "left" },
+                      { label: "Descrição", align: "left" },
+                      { label: "Tipo", align: "left" },
+                      { label: "Valor", align: "right" },
                       { label: "Saldo após", align: "right" },
-                      { label: "Estado",     align: "left"  },
-                      { label: "Ações",      align: "center" },
+                      { label: "Estado", align: "left" },
+                      { label: "Ações", align: "center" },
                     ] as { label: string; align: "left" | "right" | "center" }[]
                   ).map(({ label, align }) => (
                     <th
@@ -1532,7 +1990,8 @@ function StatementDetail({
                   <tr
                     key={m.id}
                     className={`hover:bg-[#FDF8F5] ${
-                      (m.riskLevel === "high" || m.riskLevel === "critical") && !m.isResolved
+                      (m.riskLevel === "high" || m.riskLevel === "critical") &&
+                      !m.isResolved
                         ? "bg-red-50/20"
                         : ""
                     }`}
@@ -1541,21 +2000,29 @@ function StatementDetail({
                       {formatDate(m.bookingDate)}
                     </td>
                     <td className="px-4 py-3 max-w-[240px]">
-                      <span className="block truncate text-stone-800 font-medium">{m.description}</span>
+                      <span className="block truncate text-stone-800 font-medium">
+                        {m.description}
+                      </span>
                       {m.notes && (
-                        <span className="text-xs text-stone-400 truncate block">{m.notes}</span>
-                      )}
-                      {m.matchedEntityId && m.reconciliationStatus === "sugestao" && (
-                        <span className="text-xs text-blue-500 truncate block">
-                          Sugestão: {m.matchedEntityId.slice(0, 8)}…{" "}
-                          {m.confidenceScore != null && `(${Math.round(m.confidenceScore * 100)}%)`}
+                        <span className="text-xs text-stone-400 truncate block">
+                          {m.notes}
                         </span>
                       )}
+                      {m.matchedEntityId &&
+                        m.reconciliationStatus === "sugestao" && (
+                          <span className="text-xs text-blue-500 truncate block">
+                            Sugestão: {m.matchedEntityId.slice(0, 8)}…{" "}
+                            {m.confidenceScore != null &&
+                              `(${Math.round(m.confidenceScore * 100)}%)`}
+                          </span>
+                        )}
                     </td>
                     <td className="px-4 py-3">
                       <span
                         className={`text-xs font-medium ${
-                          m.movementType === "debit" ? "text-red-600" : "text-emerald-600"
+                          m.movementType === "debit"
+                            ? "text-red-600"
+                            : "text-emerald-600"
                         }`}
                       >
                         {m.movementType === "debit" ? "Débito" : "Crédito"}
@@ -1563,7 +2030,11 @@ function StatementDetail({
                     </td>
                     <td className="px-4 py-3 text-right font-semibold whitespace-nowrap">
                       <span
-                        className={m.movementType === "debit" ? "text-red-700" : "text-emerald-700"}
+                        className={
+                          m.movementType === "debit"
+                            ? "text-red-700"
+                            : "text-emerald-700"
+                        }
                       >
                         {m.movementType === "debit" ? "−" : "+"}
                         {fromCents(m.amount)}
@@ -1576,25 +2047,31 @@ function StatementDetail({
                       <div className="flex flex-wrap items-center gap-1.5">
                         <ReconciliationBadge
                           status={
-                            m.movementType === "credit" && m.reconciliationStatus === "pendente_de_documento"
+                            m.movementType === "credit" &&
+                            m.reconciliationStatus === "pendente_de_documento"
                               ? "conciliado_sem_fatura"
                               : m.reconciliationStatus
                           }
                         />
-                        {m.reconciliationStatus === "conciliado_parcial" && m.reconciliationAmountDiff != null && (
-                          <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-800">
-                            Δ {fromCents(Math.abs(m.reconciliationAmountDiff))}
+                        {m.reconciliationStatus === "conciliado_parcial" &&
+                          m.reconciliationAmountDiff != null && (
+                            <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-800">
+                              Δ{" "}
+                              {fromCents(Math.abs(m.reconciliationAmountDiff))}
+                            </span>
+                          )}
+                        {m.movementType === "debit" ? (
+                          <RiskBadge level={m.riskLevel} />
+                        ) : (
+                          <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold bg-stone-100 text-stone-400">
+                            Sem Risco
                           </span>
                         )}
-                        {m.movementType === "debit"
-                          ? <RiskBadge level={m.riskLevel} />
-                          : <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold bg-stone-100 text-stone-400">Sem Risco</span>
-                        }
                       </div>
                     </td>
                     <td className="px-4 py-3 text-center whitespace-nowrap">
-                      {m.movementType === "debit" && (
-                        m.reconciliationStatus === "sugestao" ? (
+                      {m.movementType === "debit" &&
+                        (m.reconciliationStatus === "sugestao" ? (
                           <button
                             onClick={() => setClassifying(m)}
                             disabled={isClosed}
@@ -1618,8 +2095,7 @@ function StatementDetail({
                           >
                             Editar
                           </button>
-                        )
-                      )}
+                        ))}
                     </td>
                   </tr>
                 ))}
@@ -1667,10 +2143,14 @@ function StatementsList({
   return (
     <div className="space-y-4">
       {isLoading ? (
-        <div className="py-16 text-center text-sm text-stone-400">A carregar extratos…</div>
+        <div className="py-16 text-center text-sm text-stone-400">
+          A carregar extratos…
+        </div>
       ) : statements.length === 0 ? (
         <div className="py-16 text-center">
-          <p className="text-sm text-stone-400 mb-4">Nenhum extrato importado ainda.</p>
+          <p className="text-sm text-stone-400 mb-4">
+            Nenhum extrato importado ainda.
+          </p>
           <button
             onClick={onImport}
             className="rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-5 py-2.5 text-sm font-medium text-white hover:opacity-90"
@@ -1706,10 +2186,7 @@ function StatementCard({
   const diffOk = s.balanceDifference === 0;
   return (
     <div className="relative rounded-xl border border-[#F5C992]/40 bg-white shadow-sm hover:shadow-md hover:border-[#ED5C32]/30 transition-all">
-      <button
-        onClick={onClick}
-        className="text-left w-full p-4"
-      >
+      <button onClick={onClick} className="text-left w-full p-4">
         <div className="flex items-start justify-between mb-2">
           <div>
             <p className="font-semibold text-stone-800">{s.bankName}</p>
@@ -1727,11 +2204,15 @@ function StatementCard({
         <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
           <div>
             <span className="text-stone-400">Movimentos</span>
-            <p className="font-semibold text-stone-700">{s.importedMovementsCount}</p>
+            <p className="font-semibold text-stone-700">
+              {s.importedMovementsCount}
+            </p>
           </div>
           <div>
             <span className="text-stone-400">Diferença</span>
-            <p className={`font-semibold ${diffOk ? "text-emerald-600" : "text-red-600"}`}>
+            <p
+              className={`font-semibold ${diffOk ? "text-emerald-600" : "text-red-600"}`}
+            >
               {fromCents(s.balanceDifference)}
             </p>
           </div>
@@ -1740,12 +2221,19 @@ function StatementCard({
 
       {/* Delete button */}
       <button
-        onClick={(e) => { e.stopPropagation(); onDelete(); }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onDelete();
+        }}
         title="Eliminar extrato"
         className="absolute top-3 right-3 rounded-md p-1.5 text-stone-300 hover:bg-red-50 hover:text-red-500 transition-colors"
       >
         <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-          <path fillRule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clipRule="evenodd" />
+          <path
+            fillRule="evenodd"
+            d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z"
+            clipRule="evenodd"
+          />
         </svg>
       </button>
     </div>
@@ -1780,7 +2268,12 @@ export function BankStatementsView() {
   });
 
   function handleDelete(id: string) {
-    if (!window.confirm("Tens a certeza que queres eliminar este extrato e todos os seus movimentos? Esta ação não pode ser desfeita.")) return;
+    if (
+      !window.confirm(
+        "Tens a certeza que queres eliminar este extrato e todos os seus movimentos? Esta ação não pode ser desfeita.",
+      )
+    )
+      return;
     deleteMut.mutate(id);
   }
 
@@ -1790,9 +2283,13 @@ export function BankStatementsView() {
       <div className="border-b border-[#F5C992]/40 bg-white px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-stone-900">Conciliação Bancária</h1>
+            <h1 className="text-xl font-bold text-stone-900">
+              Conciliação Bancária
+            </h1>
             <p className="mt-0.5 text-sm text-stone-500">
-              {selectedId ? "Espelho do banco — movimentos e conciliação" : "Extratos importados"}
+              {selectedId
+                ? "Espelho do banco — movimentos e conciliação"
+                : "Extratos importados"}
             </p>
           </div>
           <button

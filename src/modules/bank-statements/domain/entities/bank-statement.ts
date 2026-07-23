@@ -81,7 +81,8 @@ export interface EntityLinkDTO {
   id: string;
   entityType: "invoice" | "payable_entry";
   entityId: string;
-  amountCents: number;
+  amountCents: number;           // entity's total at time of reconciliation
+  allocatedAmountCents: number;  // portion of movement allocated to this entity
   entityLabel: string;
 }
 
@@ -206,7 +207,8 @@ export interface MovementCandidateDTO {
   entityId: string;
   entityLabel: string;
   supplierId: string | null;
-  amountCents: number;
+  amountCents: number;       // entity's full amount
+  openBalanceCents: number;  // unpaid balance
   date: string;
   confidence: number;
 }
