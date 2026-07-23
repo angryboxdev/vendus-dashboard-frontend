@@ -11,6 +11,7 @@ import {
   type BankMovementDTO,
   type BankStatementSummaryDTO,
   type ClassifyMovementPayload,
+  type EntityLinkDTO,
   type JustificationType,
   type MovementCandidateDTO,
   type ReconciliationStatus,
@@ -46,6 +47,7 @@ function diffClass(diff: number): string {
 
 const STATUS_COLORS: Record<ReconciliationStatus, string> = {
   conciliado_com_fatura: "bg-emerald-50 text-emerald-700",
+  conciliado_parcial: "bg-yellow-50 text-yellow-700",
   conciliado_sem_fatura: "bg-teal-50 text-teal-700",
   sugestao: "bg-blue-50 text-blue-700",
   pendente_de_documento: "bg-amber-50 text-amber-700",
@@ -586,7 +588,7 @@ function ClassifyDrawer({
   movement: BankMovementDTO;
   onClose: () => void;
   onSave: (payload: ClassifyMovementPayload) => void;
-  onReconcile: (entityType: "invoice" | "payable_entry", entityId: string, supplierId: string | null) => void;
+  onReconcile: (entityLinks: Array<{ entityType: "invoice" | "payable_entry"; entityId: string; supplierId: string | null }>) => void;
   saving: boolean;
 }) {
   const { api } = useBankStatementsModule();
@@ -600,8 +602,8 @@ function ClassifyDrawer({
   const [activeTab, setActiveTab] = useState<ClassifyTab>("sistema");
 
   // ─── Tab A: Sistema ───────────────────────────────────────────────────────
-  const [selectedCandidate, setSelectedCandidate] = useState<MovementCandidateDTO | null>(null);
-  const [selectedInvoice, setSelectedInvoice] = useState<InvoiceDTO | null>(null);
+  const [selectedCandidates, setSelectedCandidates] = useState<MovementCandidateDTO[]>([]);
+  const [selectedInvoices, setSelectedInvoices] = useState<InvoiceDTO[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
@@ -715,11 +717,19 @@ function ClassifyDrawer({
     e.preventDefault();
 
     if (activeTab === "sistema") {
-      if (selectedCandidate) {
-        onReconcile(selectedCandidate.entityType, selectedCandidate.entityId, selectedCandidate.supplierId);
-      } else if (selectedInvoice) {
-        onReconcile("invoice", selectedInvoice.id, selectedInvoice.supplierId ?? null);
-      }
+      const links: Array<{ entityType: "invoice" | "payable_entry"; entityId: string; supplierId: string | null }> = [
+        ...selectedCandidates.map((c) => ({
+          entityType: c.entityType,
+          entityId: c.entityId,
+          supplierId: c.supplierId,
+        })),
+        ...selectedInvoices.map((inv) => ({
+          entityType: "invoice" as const,
+          entityId: inv.id,
+          supplierId: inv.supplierId ?? null,
+        })),
+      ];
+      if (links.length > 0) onReconcile(links);
       return;
     }
 
@@ -745,7 +755,7 @@ function ClassifyDrawer({
   }
 
   // ─── Validation ───────────────────────────────────────────────────────────
-  const canSubmitA = activeTab === "sistema" && (selectedCandidate !== null || selectedInvoice !== null);
+  const canSubmitA = activeTab === "sistema" && (selectedCandidates.length > 0 || selectedInvoices.length > 0);
   const canSubmitB = activeTab === "justificar" && (
     !requiresSupplier(subType) || !!supplierId
   ) && (
@@ -761,6 +771,15 @@ function ClassifyDrawer({
   const filteredSearchResults = invoiceSearchResults.filter(
     (inv) => !candidateEntityIds.has(inv.id)
   );
+
+  // Running total for Tab A
+  const selectedCandidateIds = new Set(selectedCandidates.map((c) => c.entityId));
+  const selectedInvoiceIds = new Set(selectedInvoices.map((i) => i.id));
+  const totalSelected =
+    selectedCandidates.reduce((s, c) => s + c.amountCents, 0) +
+    selectedInvoices.reduce((s, inv) => s + inv.totalWithVat, 0);
+  const amountDiff = movement.amount - totalSelected;
+  const withinTolerance = Math.abs(amountDiff) <= 100;
 
   return (
     <div className="fixed inset-0 z-50 flex" aria-modal="true">
@@ -813,6 +832,35 @@ function ClassifyDrawer({
             {/* ── Tab A: Sistema ─────────────────────────────────────────── */}
             {activeTab === "sistema" && (
               <>
+                {/* Currently linked entities */}
+                {movement.entityLinks.length > 0 && (
+                  <div>
+                    <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
+                      Entidades associadas
+                    </p>
+                    <div className="space-y-1.5">
+                      {movement.entityLinks.map((link) => (
+                        <div key={link.id} className="flex items-center justify-between rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-sm">
+                          <div className="min-w-0">
+                            <p className="font-medium text-stone-800 truncate">{link.entityLabel}</p>
+                            <p className="text-xs text-stone-500 mt-0.5">
+                              {link.entityType === "invoice" ? "Fatura" : "Conta a pagar"}
+                            </p>
+                          </div>
+                          <span className="text-sm font-semibold text-stone-700 ml-3 shrink-0">
+                            {fromCents(link.amountCents)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                    {movement.reconciliationAmountDiff != null && (
+                      <p className="mt-2 text-xs text-yellow-700 bg-yellow-50 rounded-md px-3 py-2">
+                        Diferença não coberta: {fromCents(Math.abs(movement.reconciliationAmountDiff))}
+                      </p>
+                    )}
+                  </div>
+                )}
+
                 {/* Auto-matched suggestions */}
                 <div>
                   <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
@@ -828,10 +876,13 @@ function ClassifyDrawer({
                         <EntityCard
                           key={c.entityId}
                           candidate={c}
-                          selected={selectedCandidate?.entityId === c.entityId}
+                          selected={selectedCandidateIds.has(c.entityId)}
                           onToggle={() => {
-                            setSelectedCandidate(selectedCandidate?.entityId === c.entityId ? null : c);
-                            setSelectedInvoice(null);
+                            setSelectedCandidates((prev) =>
+                              prev.some((x) => x.entityId === c.entityId)
+                                ? prev.filter((x) => x.entityId !== c.entityId)
+                                : [...prev, c]
+                            );
                           }}
                         />
                       ))}
@@ -863,10 +914,13 @@ function ClassifyDrawer({
                         <InvoiceCard
                           key={inv.id}
                           invoice={inv}
-                          selected={selectedInvoice?.id === inv.id}
+                          selected={selectedInvoiceIds.has(inv.id)}
                           onToggle={() => {
-                            setSelectedInvoice(selectedInvoice?.id === inv.id ? null : inv);
-                            setSelectedCandidate(null);
+                            setSelectedInvoices((prev) =>
+                              prev.some((x) => x.id === inv.id)
+                                ? prev.filter((x) => x.id !== inv.id)
+                                : [...prev, inv]
+                            );
                           }}
                         />
                       ))}
@@ -874,9 +928,26 @@ function ClassifyDrawer({
                   )}
                 </div>
 
-                {!selectedCandidate && !selectedInvoice && (
+                {/* Running total bar */}
+                {(selectedCandidates.length > 0 || selectedInvoices.length > 0) ? (
+                  <div className={`rounded-md px-3 py-2.5 text-xs ${withinTolerance ? "bg-emerald-50" : "bg-yellow-50"}`}>
+                    <div className="flex items-center justify-between font-medium">
+                      <span className={withinTolerance ? "text-emerald-700" : "text-yellow-700"}>
+                        {withinTolerance ? "Correspondência completa" : "Correspondência parcial"}
+                      </span>
+                      <span className={withinTolerance ? "text-emerald-700" : "text-yellow-700"}>
+                        {fromCents(totalSelected)} / {fromCents(movement.amount)}
+                      </span>
+                    </div>
+                    {!withinTolerance && (
+                      <p className="mt-0.5 text-yellow-600">
+                        Diferença: {fromCents(Math.abs(amountDiff))} — o movimento ficará com pendência.
+                      </p>
+                    )}
+                  </div>
+                ) : (
                   <p className="text-xs text-amber-600 bg-amber-50 rounded-md px-3 py-2">
-                    Selecciona uma fatura ou conta a pagar para associar a este movimento.
+                    Selecciona uma ou mais faturas / contas a pagar para associar a este movimento.
                   </p>
                 )}
               </>
@@ -1142,7 +1213,7 @@ function ClassifyDrawer({
 
 // ── Statement Detail ──────────────────────────────────────────────────────────
 
-type MovementTab = "all" | "unresolved" | "suggestions" | "high_risk";
+type MovementTab = "all" | "unresolved" | "suggestions" | "high_risk" | "partial";
 
 function StatementDetail({
   statementId,
@@ -1211,19 +1282,19 @@ function StatementDetail({
       setClassifying(null);
       showToast("Movimento classificado com sucesso");
     },
-    onError: (e: Error) => alert(`Erro: ${e.message}`),
+    onError: (e: Error) => showToast(e.message, "error"),
   });
 
   const reconcileMut = useMutation({
-    mutationFn: (args: { movementId: string; entityType: "invoice" | "payable_entry"; entityId: string; supplierId: string | null }) =>
-      api.reconcileMovement(args.movementId, args.entityType, args.entityId, args.supplierId),
+    mutationFn: (args: { movementId: string; entityLinks: Array<{ entityType: "invoice" | "payable_entry"; entityId: string; supplierId: string | null }> }) =>
+      api.reconcileMovement(args.movementId, args.entityLinks),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: ["bank-statement", statementId] });
       void qc.invalidateQueries({ queryKey: ["bank-statements"] });
       setClassifying(null);
       showToast("Movimento conciliado com sucesso");
     },
-    onError: (e: Error) => alert(`Erro: ${e.message}`),
+    onError: (e: Error) => showToast(e.message, "error"),
   });
 
 
@@ -1238,6 +1309,8 @@ function StatementDetail({
         return detail.movements.filter(
           (m) => m.riskLevel === "high" || m.riskLevel === "critical"
         );
+      case "partial":
+        return detail.movements.filter((m) => m.reconciliationStatus === "conciliado_parcial");
       default:
         return detail.movements;
     }
@@ -1250,6 +1323,8 @@ function StatementDetail({
     detail?.movements.filter(
       (m) => (m.riskLevel === "high" || m.riskLevel === "critical") && !m.isResolved
     ).length ?? 0;
+  const partialCount =
+    detail?.movements.filter((m) => m.reconciliationStatus === "conciliado_parcial").length ?? 0;
 
   if (isLoading) {
     return (
@@ -1397,6 +1472,7 @@ function StatementDetail({
               { key: "unresolved" as MovementTab, label: "Não resolvidos", count: unresolvedCount },
               { key: "suggestions" as MovementTab, label: "Sugestões", count: suggestionCount },
               { key: "high_risk" as MovementTab, label: "Alto risco", count: highRiskCount },
+              { key: "partial" as MovementTab, label: "Parciais", count: partialCount },
             ] as { key: MovementTab; label: string; count: number }[]
           ).map(({ key, label, count }) => (
             <button
@@ -1498,7 +1574,7 @@ function StatementDetail({
                       {fromCents(m.balanceAfter)}
                     </td>
                     <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         <ReconciliationBadge
                           status={
                             m.movementType === "credit" && m.reconciliationStatus === "pendente_de_documento"
@@ -1506,6 +1582,11 @@ function StatementDetail({
                               : m.reconciliationStatus
                           }
                         />
+                        {m.reconciliationStatus === "conciliado_parcial" && m.reconciliationAmountDiff != null && (
+                          <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold bg-yellow-100 text-yellow-800">
+                            Δ {fromCents(Math.abs(m.reconciliationAmountDiff))}
+                          </span>
+                        )}
                         {m.movementType === "debit"
                           ? <RiskBadge level={m.riskLevel} />
                           : <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold bg-stone-100 text-stone-400">Sem Risco</span>
@@ -1557,8 +1638,8 @@ function StatementDetail({
           onSave={(payload) =>
             classifyMut.mutate({ movementId: classifying.id, payload })
           }
-          onReconcile={(entityType, entityId, supplierId) =>
-            reconcileMut.mutate({ movementId: classifying.id, entityType, entityId, supplierId })
+          onReconcile={(entityLinks) =>
+            reconcileMut.mutate({ movementId: classifying.id, entityLinks })
           }
           saving={classifyMut.isPending || reconcileMut.isPending}
         />

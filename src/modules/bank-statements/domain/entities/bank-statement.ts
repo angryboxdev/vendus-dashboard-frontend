@@ -1,5 +1,6 @@
 export type ReconciliationStatus =
   | "conciliado_com_fatura"
+  | "conciliado_parcial"
   | "conciliado_sem_fatura"
   | "sugestao"
   | "pendente_de_documento"
@@ -32,6 +33,7 @@ export type MatchedEntityType =
 
 export const RECONCILIATION_STATUS_LABELS: Record<ReconciliationStatus, string> = {
   conciliado_com_fatura: "Conciliado c/ Fatura",
+  conciliado_parcial: "Conciliação Parcial",
   conciliado_sem_fatura: "Conciliado s/ Fatura",
   sugestao: "Sugestão",
   pendente_de_documento: "Pendente de Documento",
@@ -75,6 +77,14 @@ export const RESOLVED_STATUSES: ReadonlySet<ReconciliationStatus> = new Set([
 
 // ── DTOs ──────────────────────────────────────────────────────────────────────
 
+export interface EntityLinkDTO {
+  id: string;
+  entityType: "invoice" | "payable_entry";
+  entityId: string;
+  amountCents: number;
+  entityLabel: string;
+}
+
 export interface BankStatementSummaryDTO {
   id: string;
   bankName: string;
@@ -117,6 +127,8 @@ export interface BankMovementDTO {
   supplierId: string | null;
   vatRate: number | null;
   vatIncluded: boolean | null;
+  entityLinks: EntityLinkDTO[];
+  reconciliationAmountDiff: number | null;
 }
 
 export interface BankStatementDetailDTO extends BankStatementSummaryDTO {

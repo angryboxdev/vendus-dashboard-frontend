@@ -64,14 +64,10 @@ export class HttpBankStatementsApiAdapter implements BankStatementsApiPort {
 
   async reconcileMovement(
     movementId: string,
-    entityType: "invoice" | "payable_entry",
-    entityId: string,
-    supplierId?: string | null
+    entityLinks: Array<{ entityType: "invoice" | "payable_entry"; entityId: string; supplierId?: string | null }>
   ): Promise<void> {
     await apiPatchNoContent(`${BASE}/movements/${encodeURIComponent(movementId)}/reconcile`, {
-      entityType,
-      entityId,
-      ...(supplierId ? { supplierId } : {}),
+      entityLinks,
     });
   }
 

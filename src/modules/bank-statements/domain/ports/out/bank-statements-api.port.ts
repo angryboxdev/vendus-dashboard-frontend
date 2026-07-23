@@ -53,9 +53,7 @@ export interface BankStatementsApiPort {
 
   reconcileMovement(
     movementId: string,
-    entityType: "invoice" | "payable_entry",
-    entityId: string,
-    supplierId?: string | null
+    entityLinks: Array<{ entityType: "invoice" | "payable_entry"; entityId: string; supplierId?: string | null }>
   ): Promise<void>;
 
   classifyMovement(movementId: string, payload: ClassifyMovementPayload): Promise<void>;
