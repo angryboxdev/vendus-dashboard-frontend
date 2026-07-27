@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBankAccountsModule } from "../../bank-accounts.module.tsx";
-import type { BankDTO, AccountPreviewDTO } from "../../domain/entities/bank-account.ts";
+import type { BankDTO } from "../../domain/entities/bank-account.ts";
 import {
   BANK_LOGO_KEYS,
   BANK_LOGO_LABELS,
@@ -10,8 +10,6 @@ import {
   STATEMENT_FORMAT_LABELS,
   type BankLogoKey,
   type StatementFormat,
-  type BankAccountType,
-  type CheckingAccountType,
 } from "../../domain/entities/bank-account.ts";
 import { AccountFormDrawer } from "./BankAccountsView.tsx";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
@@ -267,15 +265,6 @@ export function BanksView() {
     onError: (e: Error) => showToast(e.message, "error"),
   });
 
-  const deleteMut = useMutation({
-    mutationFn: (id: string) => api.deleteBank(id),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["bank-accounts:banks"] });
-      showToast("Banco eliminado");
-    },
-    onError: (e: Error) => showToast(e.message, "error"),
-  });
-
   const createAccountMut = useMutation({
     mutationFn: ({
       bankId,
@@ -291,18 +280,6 @@ export function BanksView() {
     },
     onError: (e: Error) => showToast(e.message, "error"),
   });
-
-  function handleDelete(bank: BankDTO) {
-    if (bank.accountPreviews.length > 0) {
-      showToast(
-        `Não é possível eliminar "${bank.name}" enquanto tiver contas associadas.`,
-        "error",
-      );
-      return;
-    }
-    if (!window.confirm(`Eliminar o banco "${bank.name}"?`)) return;
-    deleteMut.mutate(bank.id);
-  }
 
   return (
     <div className="min-h-screen bg-[#FAF6F3]">
