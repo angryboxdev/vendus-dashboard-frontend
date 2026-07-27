@@ -1,9 +1,11 @@
 import type {
+  AccountMonthStatDTO,
   ApplyRulesResult,
   BankStatementDetailDTO,
   BankStatementSummaryDTO,
   ClassifyMovementPayload,
   CreateRulePayload,
+  DaySlotDTO,
   ImportStatementResult,
   MatchSuggestionDTO,
   MovementCandidateDTO,
@@ -71,4 +73,8 @@ export interface BankStatementsApiPort {
   listRules(): Promise<ReconciliationRuleDTO[]>;
   createRule(payload: CreateRulePayload): Promise<ReconciliationRuleDTO>;
   deleteRule(id: string): Promise<void>;
+
+  /** Calendar paradigm — new endpoints. */
+  getAccountCalendar(accountId: string, year: number): Promise<AccountMonthStatDTO[]>;
+  getAccountMonthDetail(accountId: string, year: number, month: number): Promise<DaySlotDTO[]>;
 }

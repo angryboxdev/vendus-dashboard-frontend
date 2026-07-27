@@ -1,32 +1,23 @@
-import { useState, useMemo, useRef, useEffect } from "react";
-import { createPortal } from "react-dom";
+import { useState, useMemo, useRef } from "react";
+import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
-import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
-import { useInvoicesModule } from "../../../invoices/invoices.module.tsx";
-import type { StatementPreview } from "../../domain/ports/out/bank-statements-api.port.ts";
-import type {
-  CostCenterGroup,
-  CostCenterCategory,
-} from "../../../financial-base/domain/entities/cost-center.ts";
-import type { Supplier } from "../../../financial-base/domain/entities/supplier.ts";
-import type { InvoiceDTO } from "../../../invoices/domain/entities/invoice.ts";
+import { useBankAccountsModule } from "../../../bank-accounts/bank-accounts.module.tsx";
 import {
   type BankMovementDTO,
   type BankStatementSummaryDTO,
   type ClassifyMovementPayload,
-  type JustificationType,
-  type MovementCandidateDTO,
   type ReconciliationStatus,
   type RiskLevel,
   type StatementStatus,
   RECONCILIATION_STATUS_LABELS,
-  JUSTIFICATION_TYPE_LABELS,
   RISK_LEVEL_LABELS,
   STATEMENT_STATUS_LABELS,
 } from "../../domain/entities/bank-statement.ts";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 import { useToast, ToastContainer } from "../../../../components/Toast.tsx";
+import { ImportModal } from "./ImportModal.tsx";
+import { ClassifyDrawer } from "./ClassifyDrawer.tsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -222,1379 +213,6 @@ function ProgressBar({ value }: { value: number }) {
   );
 }
 
-// ── Import Modal ──────────────────────────────────────────────────────────────
-
-function ImportModal({
-  open,
-  saving,
-  onClose,
-  onSubmit,
-}: {
-  open: boolean;
-  saving: boolean;
-  onClose: () => void;
-  onSubmit: (fd: FormData) => void;
-}) {
-  const { api } = useBankStatementsModule();
-
-  // Step 1: pick file; Step 2: confirm/fill metadata
-  const [step, setStep] = useState<1 | 2>(1);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewing, setPreviewing] = useState(false);
-  const [previewError, setPreviewError] = useState<string | null>(null);
-
-  // Metadata fields (pre-filled from preview)
-  const [bankName, setBankName] = useState("");
-  const [accountNumber, setAccountNumber] = useState("");
-  const [openingBalance, setOpeningBalance] = useState("");
-  const [closingBalance, setClosingBalance] = useState("");
-  const [periodStart, setPeriodStart] = useState("");
-  const [periodEnd, setPeriodEnd] = useState("");
-  const [movementsCount, setMovementsCount] = useState<number | null>(null);
-
-  // Reset when modal closes
-  useEffect(() => {
-    if (!open) {
-      setStep(1);
-      setSelectedFile(null);
-      setPreviewing(false);
-      setPreviewError(null);
-      setBankName("");
-      setAccountNumber("");
-      setOpeningBalance("");
-      setClosingBalance("");
-      setPeriodStart("");
-      setPeriodEnd("");
-      setMovementsCount(null);
-    }
-  }, [open]);
-
-  if (!open) return null;
-
-  async function handleAnalyse() {
-    if (!selectedFile) return;
-    setPreviewing(true);
-    setPreviewError(null);
-    try {
-      const preview: StatementPreview =
-        await api.previewStatement(selectedFile);
-      if (preview.bankName) setBankName(preview.bankName);
-      if (preview.accountNumber) setAccountNumber(preview.accountNumber);
-      if (preview.openingBalance != null)
-        setOpeningBalance((preview.openingBalance / 100).toFixed(2));
-      if (preview.closingBalance != null)
-        setClosingBalance((preview.closingBalance / 100).toFixed(2));
-      if (preview.periodStart) setPeriodStart(preview.periodStart);
-      if (preview.periodEnd) setPeriodEnd(preview.periodEnd);
-      setMovementsCount(preview.movementsCount);
-      setStep(2);
-    } catch (e) {
-      setPreviewError(
-        e instanceof Error ? e.message : "Erro ao analisar o ficheiro.",
-      );
-    } finally {
-      setPreviewing(false);
-    }
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!selectedFile) return;
-    const fd = new FormData();
-    fd.append("file", selectedFile);
-    if (bankName) fd.append("bankName", bankName);
-    if (accountNumber) fd.append("accountNumber", accountNumber);
-    if (openingBalance)
-      fd.append(
-        "openingBalance",
-        String(Math.round(parseFloat(openingBalance) * 100)),
-      );
-    if (closingBalance)
-      fd.append(
-        "closingBalance",
-        String(Math.round(parseFloat(closingBalance) * 100)),
-      );
-    if (periodStart) fd.append("periodStart", periodStart);
-    if (periodEnd) fd.append("periodEnd", periodEnd);
-    fd.append("currency", "EUR");
-    onSubmit(fd);
-  }
-
-  const labelCls = "block text-xs font-medium text-stone-500 mb-1";
-  const inputCls =
-    "w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]";
-
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
-      <div className="w-full max-w-lg rounded-2xl bg-white shadow-2xl">
-        {/* Header */}
-        <div className="flex items-center justify-between border-b border-[#F5C992]/40 px-6 py-4">
-          <div>
-            <h2 className="text-lg font-bold text-stone-800">
-              Importar Extrato Bancário
-            </h2>
-            <p className="text-xs text-stone-400 mt-0.5">
-              {step === 1
-                ? "Passo 1 de 2 — selecionar ficheiro"
-                : "Passo 2 de 2 — confirmar dados"}
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-md p-1 text-stone-400 hover:bg-stone-100"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Step 1 */}
-        {step === 1 && (
-          <div className="px-6 py-6 space-y-5">
-            <div>
-              <label className={labelCls}>Ficheiro CSV ou XLSX</label>
-              <input
-                type="file"
-                accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-                className="w-full text-sm text-stone-600"
-                onChange={(e) => {
-                  setSelectedFile(e.target.files?.[0] ?? null);
-                  setPreviewError(null);
-                }}
-              />
-              <p className="mt-1 text-xs text-stone-400">
-                Suporta CSV (Millennium BCP ou genérico PT) e Excel (.xlsx /
-                .xls).
-              </p>
-            </div>
-
-            {previewError && (
-              <p className="rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
-                {previewError}
-              </p>
-            )}
-
-            <div className="flex gap-3 border-t border-[#F5C992]/40 pt-4">
-              <button
-                type="button"
-                onClick={onClose}
-                className="flex-1 rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                disabled={!selectedFile || previewing}
-                onClick={handleAnalyse}
-                className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-              >
-                {previewing ? "A analisar…" : "Analisar ficheiro →"}
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Step 2 */}
-        {step === 2 && (
-          <form onSubmit={handleSubmit} className="px-6 py-4 space-y-4">
-            {/* Summary pill */}
-            {movementsCount != null && (
-              <div className="flex items-center gap-2 rounded-lg bg-[#FDF8F5] border border-[#F5C992]/40 px-4 py-2.5">
-                <svg
-                  className="h-4 w-4 text-[#ED5C32] shrink-0"
-                  viewBox="0 0 20 20"
-                  fill="currentColor"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-                <span className="text-sm text-stone-700">
-                  <span className="font-semibold">{movementsCount}</span>{" "}
-                  movimentos detetados em{" "}
-                  <span className="font-semibold">{selectedFile?.name}</span>
-                </span>
-              </div>
-            )}
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>
-                  Banco *
-                  {!bankName && (
-                    <span className="ml-1 text-amber-500">(não detetado)</span>
-                  )}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={bankName}
-                  onChange={(e) => setBankName(e.target.value)}
-                  className={inputCls}
-                  placeholder="ex: Millennium BCP"
-                />
-              </div>
-              <div>
-                <label className={labelCls}>
-                  Conta / IBAN *
-                  {!accountNumber && (
-                    <span className="ml-1 text-amber-500">(não detetado)</span>
-                  )}
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={accountNumber}
-                  onChange={(e) => setAccountNumber(e.target.value)}
-                  className={inputCls}
-                  placeholder="ex: PT50..."
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Saldo inicial (€) *</label>
-                <input
-                  type="number"
-                  required
-                  step="0.01"
-                  value={openingBalance}
-                  onChange={(e) => setOpeningBalance(e.target.value)}
-                  className={inputCls}
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Saldo final extrato (€) *</label>
-                <input
-                  type="number"
-                  required
-                  step="0.01"
-                  value={closingBalance}
-                  onChange={(e) => setClosingBalance(e.target.value)}
-                  className={inputCls}
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Período início</label>
-                <input
-                  type="date"
-                  value={periodStart}
-                  onChange={(e) => setPeriodStart(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Período fim</label>
-                <input
-                  type="date"
-                  value={periodEnd}
-                  onChange={(e) => setPeriodEnd(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-            </div>
-
-            <div className="flex gap-3 border-t border-[#F5C992]/40 pt-4">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="flex-1 rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
-              >
-                ← Voltar
-              </button>
-              <button
-                type="submit"
-                disabled={saving}
-                className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-              >
-                {saving ? "A importar…" : "Importar"}
-              </button>
-            </div>
-          </form>
-        )}
-      </div>
-    </div>,
-    document.body,
-  );
-}
-
-// ── Classify Drawer ───────────────────────────────────────────────────────────
-
-const VAT_RATES = [0, 6, 13, 23] as const;
-type VatMode = "included" | "excluded" | "exempt";
-
-type ClassifyTab = "sistema" | "justificar";
-
-// Sub-types shown in Tab B (excludes "fatura" which belongs to Tab A)
-const TAB_B_SUB_TYPES: JustificationType[] = [
-  "recibo_comprovativo",
-  "despesa_bancaria_automatica",
-  "contrato_recorrencia",
-  "transferencia_interna",
-  "emprestimo_financiamento",
-  "sem_justificativa",
-];
-
-// Which sub-types show each optional section
-function showsDocument(jt: JustificationType) {
-  return [
-    "recibo_comprovativo",
-    "despesa_bancaria_automatica",
-    "contrato_recorrencia",
-    "emprestimo_financiamento",
-  ].includes(jt);
-}
-function showsSupplier(jt: JustificationType) {
-  return [
-    "recibo_comprovativo",
-    "contrato_recorrencia",
-    "emprestimo_financiamento",
-  ].includes(jt);
-}
-function showsCostCenter(jt: JustificationType) {
-  return [
-    "recibo_comprovativo",
-    "despesa_bancaria_automatica",
-    "contrato_recorrencia",
-    "emprestimo_financiamento",
-  ].includes(jt);
-}
-function showsVat(jt: JustificationType) {
-  return [
-    "recibo_comprovativo",
-    "despesa_bancaria_automatica",
-    "contrato_recorrencia",
-    "emprestimo_financiamento",
-  ].includes(jt);
-}
-function showsTransferTarget(jt: JustificationType) {
-  return jt === "transferencia_interna";
-}
-function requiresSupplier(jt: JustificationType) {
-  return jt === "contrato_recorrencia";
-}
-function requiresCostCenter(jt: JustificationType) {
-  return showsCostCenter(jt);
-}
-function requiresNotes(jt: JustificationType) {
-  return jt === "sem_justificativa";
-}
-
-function EntityCard({
-  candidate,
-  onAdd,
-}: {
-  candidate: MovementCandidateDTO;
-  onAdd: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onAdd}
-      className="w-full text-left rounded-lg border border-stone-200 px-3 py-2.5 text-sm transition-colors hover:border-[#ED5C32] hover:bg-[#FDF8F5] group"
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-medium text-stone-800 truncate">
-          {candidate.entityLabel}
-        </span>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-stone-400">
-            {Math.round(candidate.confidence * 100)}%
-          </span>
-          <span className="text-xs font-medium text-[#ED5C32] opacity-0 group-hover:opacity-100 transition-opacity">
-            + Adicionar
-          </span>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 mt-0.5">
-        <span
-          className={`text-xs font-medium ${candidate.entityType === "invoice" ? "text-blue-600" : "text-violet-600"}`}
-        >
-          {candidate.entityType === "invoice" ? "Fatura" : "Conta a pagar"}
-        </span>
-        <span className="text-xs text-stone-300">·</span>
-        <span className="text-xs text-stone-500">
-          Total: {fromCents(candidate.amountCents)}
-        </span>
-        <span className="text-xs text-stone-300">·</span>
-        <span className="text-xs text-stone-500">
-          Em aberto: {fromCents(candidate.openBalanceCents)}
-        </span>
-        <span className="text-xs text-stone-300">·</span>
-        <span className="text-xs text-stone-400">
-          {formatDate(candidate.date)}
-        </span>
-      </div>
-    </button>
-  );
-}
-
-function InvoiceCard({
-  invoice,
-  onAdd,
-}: {
-  invoice: InvoiceDTO;
-  onAdd: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onAdd}
-      className="w-full text-left rounded-lg border border-stone-200 px-3 py-2.5 text-sm transition-colors hover:border-[#ED5C32] hover:bg-[#FDF8F5] group"
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span className="font-medium text-stone-800 truncate">
-          {invoice.supplierName}
-        </span>
-        <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-stone-400">
-            {fromCents(invoice.totalWithVat)}
-          </span>
-          <span className="text-xs font-medium text-[#ED5C32] opacity-0 group-hover:opacity-100 transition-opacity">
-            + Adicionar
-          </span>
-        </div>
-      </div>
-      <div className="flex items-center gap-2 mt-0.5">
-        <span className="text-xs font-medium text-blue-600">Fatura</span>
-        <span className="text-xs text-stone-300">·</span>
-        <span className="text-xs text-stone-500">
-          Nº {invoice.invoiceNumber}
-        </span>
-        <span className="text-xs text-stone-300">·</span>
-        <span className="text-xs text-stone-400">
-          {formatDate(invoice.invoiceDate)}
-        </span>
-      </div>
-    </button>
-  );
-}
-
-interface AllocationEntry {
-  entityType: "invoice" | "payable_entry";
-  entityId: string;
-  entityLabel: string;
-  supplierId: string | null;
-  totalCents: number; // entity full amount
-  openBalanceCents: number; // entity open balance (may be approximated for existing links)
-  allocatedCents: number; // amount the user wants to allocate (editable)
-}
-
-function ClassifyDrawer({
-  movement,
-  onClose,
-  onSave,
-  onReconcile,
-  saving,
-}: {
-  movement: BankMovementDTO;
-  onClose: () => void;
-  onSave: (payload: ClassifyMovementPayload) => void;
-  onReconcile: (
-    entityLinks: Array<{
-      entityType: "invoice" | "payable_entry";
-      entityId: string;
-      allocatedAmountCents: number;
-      supplierId: string | null;
-    }>,
-  ) => void;
-  saving: boolean;
-}) {
-  const { api } = useBankStatementsModule();
-  const fbApi = useFinancialBaseModule().api;
-  const invApi = useInvoicesModule().api;
-
-  const labelCls = "block text-xs font-medium text-stone-500 mb-1";
-  const inputCls =
-    "w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]";
-
-  // ─── Tab state ────────────────────────────────────────────────────────────
-  const [activeTab, setActiveTab] = useState<ClassifyTab>("sistema");
-
-  // ─── Tab A: Allocations ───────────────────────────────────────────────────
-  // Pre-populate from existing entity links (re-editing a previously reconciled movement).
-  const [allocations, setAllocations] = useState<AllocationEntry[]>(() =>
-    movement.entityLinks.map((l) => ({
-      entityType: l.entityType,
-      entityId: l.entityId,
-      entityLabel: l.entityLabel,
-      supplierId: null,
-      totalCents: l.amountCents,
-      // Approximate open balance: entity total - current allocation (conservative — may have other movements)
-      openBalanceCents: l.amountCents,
-      allocatedCents: l.allocatedAmountCents,
-    })),
-  );
-
-  const [searchQuery, setSearchQuery] = useState("");
-  const [debouncedSearch, setDebouncedSearch] = useState("");
-
-  useEffect(() => {
-    const t = setTimeout(() => setDebouncedSearch(searchQuery), 350);
-    return () => clearTimeout(t);
-  }, [searchQuery]);
-
-  const { data: candidates = [], isLoading: loadingCandidates } = useQuery({
-    queryKey: ["movement-candidates", movement.id],
-    queryFn: () => api.findMovementCandidates(movement.id),
-    staleTime: 60_000,
-  });
-
-  const { data: invoiceSearchResults = [], isLoading: loadingSearch } =
-    useQuery({
-      queryKey: ["invoices-search", debouncedSearch],
-      queryFn: () => invApi.listInvoices({ search: debouncedSearch }),
-      enabled: debouncedSearch.length >= 2,
-      staleTime: 30_000,
-    });
-
-  // ─── Tab B: Justificar ────────────────────────────────────────────────────
-  const [subType, setSubType] = useState<JustificationType>(
-    movement.justificationType && movement.justificationType !== "fatura"
-      ? movement.justificationType
-      : "recibo_comprovativo",
-  );
-  const [notes, setNotes] = useState(movement.notes ?? "");
-  const [transferTarget, setTransferTarget] = useState("");
-
-  // Cost center
-  const [groupId, setGroupId] = useState<string>(
-    movement.costCenterGroupId ?? "",
-  );
-  const [categoryId, setCategoryId] = useState<string>(
-    movement.costCenterCategoryId ?? "",
-  );
-
-  // Supplier
-  const [supplierId, setSupplierId] = useState<string>(
-    movement.supplierId ?? "",
-  );
-  const [supplierSearch, setSupplierSearch] = useState("");
-  const [supplierOpen, setSupplierOpen] = useState(false);
-
-  // VAT
-  const [vatMode, setVatMode] = useState<VatMode>("exempt");
-  const [vatRate, setVatRate] = useState<number>(23);
-
-  // Document upload
-  const [uploadFile, setUploadFile] = useState<File | null>(null);
-  const [uploading, setUploading] = useState(false);
-  const [documentUrl, setDocumentUrl] = useState<string | null>(
-    movement.documentUrl,
-  );
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  // ─── Reference data ───────────────────────────────────────────────────────
-  const { data: groups = [] } = useQuery<CostCenterGroup[]>({
-    queryKey: ["cost-center-groups"],
-    queryFn: () => fbApi.listCostCenterGroups({ isActive: true }),
-    staleTime: 300_000,
-  });
-
-  const { data: categories = [] } = useQuery<CostCenterCategory[]>({
-    queryKey: ["cost-center-categories", groupId],
-    queryFn: () => fbApi.listCostCenterCategories({ groupId, isActive: true }),
-    enabled: !!groupId,
-    staleTime: 300_000,
-  });
-
-  const { data: suppliers = [] } = useQuery<Supplier[]>({
-    queryKey: ["suppliers", supplierSearch],
-    queryFn: () =>
-      fbApi.listSuppliers({
-        search: supplierSearch || undefined,
-        status: "active",
-      }),
-    staleTime: 60_000,
-  });
-
-  const selectedSupplier = suppliers.find((s) => s.id === supplierId) ?? null;
-
-  // Auto-fill cost center from supplier
-  useEffect(() => {
-    if (selectedSupplier) {
-      if (selectedSupplier.defaultCostCenterGroupId && !groupId) {
-        setGroupId(selectedSupplier.defaultCostCenterGroupId);
-      }
-      if (selectedSupplier.defaultCostCenterCategoryId && !categoryId) {
-        setCategoryId(selectedSupplier.defaultCostCenterCategoryId);
-      }
-    }
-  }, [selectedSupplier, groupId, categoryId]);
-
-  // Reset category when group changes
-  function handleGroupChange(newGroupId: string) {
-    setGroupId(newGroupId);
-    setCategoryId("");
-  }
-
-  // ─── Document upload ──────────────────────────────────────────────────────
-  async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    setUploadFile(file);
-    setUploadError(null);
-    setUploading(true);
-    try {
-      const result = await api.uploadMovementDocument(movement.id, file);
-      setDocumentUrl(result.documentUrl);
-    } catch (err) {
-      setUploadError(
-        err instanceof Error ? err.message : "Erro ao carregar ficheiro.",
-      );
-      setUploadFile(null);
-    } finally {
-      setUploading(false);
-    }
-  }
-
-  // ─── Tab A helpers ────────────────────────────────────────────────────────
-
-  const allocatedEntityIds = new Set(allocations.map((a) => a.entityId));
-  const totalAllocated = allocations.reduce((s, a) => s + a.allocatedCents, 0);
-  const remaining = movement.amount - totalAllocated;
-  const withinTolerance = Math.abs(remaining) <= 100;
-  const overAllocated = totalAllocated > movement.amount;
-
-  function addAllocation(entry: Omit<AllocationEntry, "allocatedCents">) {
-    if (allocatedEntityIds.has(entry.entityId)) return; // already in list
-    const suggested = Math.min(entry.openBalanceCents, Math.max(0, remaining));
-    setAllocations((prev) => [
-      ...prev,
-      { ...entry, allocatedCents: suggested },
-    ]);
-  }
-
-  function removeAllocation(entityId: string) {
-    setAllocations((prev) => prev.filter((a) => a.entityId !== entityId));
-  }
-
-  function updateAllocatedCents(entityId: string, cents: number) {
-    setAllocations((prev) =>
-      prev.map((a) =>
-        a.entityId === entityId
-          ? { ...a, allocatedCents: Math.max(0, cents) }
-          : a,
-      ),
-    );
-  }
-
-
-  // ─── Submit ───────────────────────────────────────────────────────────────
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-
-    if (activeTab === "sistema") {
-      if (allocations.length > 0 && !overAllocated) {
-        onReconcile(
-          allocations.map((a) => ({
-            entityType: a.entityType,
-            entityId: a.entityId,
-            allocatedAmountCents: a.allocatedCents,
-            supplierId: a.supplierId,
-          })),
-        );
-      }
-      return;
-    }
-
-    // Tab B
-    const payload: ClassifyMovementPayload = {
-      justificationType: subType,
-      notes: notes || undefined,
-      documentUrl: documentUrl ?? undefined,
-    };
-
-    if (showsCostCenter(subType) && groupId)
-      payload.costCenterGroupId = groupId;
-    if (showsCostCenter(subType) && categoryId)
-      payload.costCenterCategoryId = categoryId;
-    if (showsSupplier(subType) && supplierId) payload.supplierId = supplierId;
-    if (showsVat(subType) && vatMode !== "exempt") {
-      payload.vatRate = vatRate;
-      payload.vatIncluded = vatMode === "included";
-    }
-    if (showsTransferTarget(subType) && transferTarget) {
-      payload.notes = transferTarget + (notes ? `\n${notes}` : "");
-    }
-
-    onSave(payload);
-  }
-
-  // ─── Validation ───────────────────────────────────────────────────────────
-  const canSubmitA =
-    activeTab === "sistema" &&
-    allocations.length > 0 &&
-    !overAllocated &&
-    allocations.every((a) => a.allocatedCents > 0);
-  const canSubmitB =
-    activeTab === "justificar" &&
-    (!requiresSupplier(subType) || !!supplierId) &&
-    (!requiresCostCenter(subType) || (!!groupId && !!categoryId)) &&
-    (!requiresNotes(subType) || !!notes.trim()) &&
-    !uploading;
-
-  const canSubmit = canSubmitA || canSubmitB;
-
-  // Filter search results: exclude already-allocated entities and candidates
-  const candidateEntityIds = new Set(candidates.map((c) => c.entityId));
-  const filteredSearchResults = invoiceSearchResults.filter(
-    (inv) => !candidateEntityIds.has(inv.id) && !allocatedEntityIds.has(inv.id),
-  );
-
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex" aria-modal="true">
-      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <aside className="flex h-full w-full max-w-lg flex-col bg-white shadow-2xl">
-        {/* Header */}
-        <div className="flex items-start justify-between border-b border-[#F5C992]/40 px-6 py-4 shrink-0">
-          <div>
-            <p className="text-xs font-medium text-stone-400">
-              Classificar movimento
-            </p>
-            <h2 className="text-base font-bold text-stone-800 mt-0.5 truncate max-w-sm">
-              {movement.description}
-            </h2>
-            <p className="text-sm text-stone-500 mt-0.5 flex items-center gap-2">
-              <span>{formatDate(movement.bookingDate)}</span>
-              <span
-                className={`font-semibold ${movement.movementType === "debit" ? "text-red-600" : "text-emerald-600"}`}
-              >
-                {movement.movementType === "debit" ? "−" : "+"}
-                {fromCents(movement.amount)}
-              </span>
-              <ReconciliationBadge status={movement.reconciliationStatus} />
-            </p>
-          </div>
-          <button
-            onClick={onClose}
-            className="rounded-md p-1 text-stone-400 hover:bg-stone-100 shrink-0 ml-2"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-[#F5C992]/40 px-6 shrink-0">
-          {(
-            [
-              ["sistema", "Conciliar com sistema"],
-              ["justificar", "Justificar despesa"],
-            ] as [ClassifyTab, string][]
-          ).map(([tab, label]) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`py-3 px-1 mr-6 text-sm font-medium border-b-2 transition-colors ${
-                activeTab === tab
-                  ? "border-[#ED5C32] text-[#ED5C32]"
-                  : "border-transparent text-stone-400 hover:text-stone-600"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        <form
-          onSubmit={handleSubmit}
-          className="flex flex-1 flex-col overflow-hidden"
-        >
-          <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
-            {/* ── Tab A: Conciliar com sistema ────────────────────────────── */}
-            {activeTab === "sistema" && (
-              <>
-                {/* ── Zona 1: Resumo de alocação ────────────────────────────── */}
-                <div
-                  className={`rounded-lg border px-4 py-3 ${overAllocated ? "border-red-200 bg-red-50" : withinTolerance && allocations.length > 0 ? "border-emerald-200 bg-emerald-50" : "border-stone-200 bg-stone-50"}`}
-                >
-                  <p
-                    className={`text-xs font-semibold uppercase tracking-wide mb-2 ${overAllocated ? "text-red-600" : "text-stone-500"}`}
-                  >
-                    Resumo de alocação
-                  </p>
-                  <div className="space-y-1 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-stone-500">Valor do movimento</span>
-                      <span className="font-semibold text-stone-800">
-                        {fromCents(movement.amount)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-stone-500">Total alocado</span>
-                      <span
-                        className={`font-semibold ${overAllocated ? "text-red-600" : "text-stone-800"}`}
-                      >
-                        {fromCents(totalAllocated)}
-                      </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-stone-500">Por alocar</span>
-                      <span
-                        className={`font-semibold ${remaining < 0 ? "text-red-600" : remaining === 0 ? "text-emerald-600" : "text-amber-600"}`}
-                      >
-                        {fromCents(Math.abs(remaining))}
-                        {remaining < 0 ? " (excesso)" : ""}
-                      </span>
-                    </div>
-                  </div>
-                  {allocations.length > 0 && (
-                    <div className="mt-2 h-1.5 rounded-full bg-stone-200 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${overAllocated ? "bg-red-500" : withinTolerance ? "bg-emerald-500" : "bg-amber-400"}`}
-                        style={{
-                          width: `${Math.min(100, Math.round((totalAllocated / movement.amount) * 100))}%`,
-                        }}
-                      />
-                    </div>
-                  )}
-                  {overAllocated && (
-                    <p className="mt-1.5 text-xs text-red-600">
-                      Total alocado excede o valor do movimento.
-                    </p>
-                  )}
-                  {!overAllocated &&
-                    remaining > 100 &&
-                    allocations.length > 0 && (
-                      <p className="mt-1.5 text-xs text-amber-600">
-                        Restam {fromCents(remaining)} por alocar — o movimento
-                        ficará parcialmente conciliado.
-                      </p>
-                    )}
-                  {withinTolerance && allocations.length > 0 && (
-                    <p className="mt-1.5 text-xs text-emerald-600">
-                      Movimento totalmente coberto.
-                    </p>
-                  )}
-                </div>
-
-                {/* ── Zona 2: Alocações ativas ──────────────────────────────── */}
-                {allocations.length > 0 && (
-                  <div>
-                    <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
-                      Faturas / contas a alocar ({allocations.length})
-                    </p>
-                    <div className="space-y-2">
-                      {allocations.map((a) => {
-                        const exceedsBalance =
-                          a.allocatedCents > a.openBalanceCents;
-                        return (
-                          <div
-                            key={a.entityId}
-                            className={`rounded-lg border px-3 py-2.5 ${exceedsBalance ? "border-red-200 bg-red-50" : "border-[#F5C992]/60 bg-[#FDF8F5]"}`}
-                          >
-                            <div className="flex items-start justify-between gap-2">
-                              <div className="min-w-0 flex-1">
-                                <p className="text-sm font-medium text-stone-800 truncate">
-                                  {a.entityLabel}
-                                </p>
-                                <p className="text-xs text-stone-400 mt-0.5">
-                                  {a.entityType === "invoice"
-                                    ? "Fatura"
-                                    : "Conta a pagar"}
-                                  {" · "}Total: {fromCents(a.totalCents)}
-                                  {" · "}Em aberto:{" "}
-                                  {fromCents(a.openBalanceCents)}
-                                </p>
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => removeAllocation(a.entityId)}
-                                className="shrink-0 text-stone-300 hover:text-red-400 mt-0.5"
-                                title="Remover"
-                              >
-                                <svg
-                                  className="h-4 w-4"
-                                  viewBox="0 0 20 20"
-                                  fill="currentColor"
-                                >
-                                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                                </svg>
-                              </button>
-                            </div>
-                            <div className="flex items-center gap-2 mt-2">
-                              <label className="text-xs text-stone-500 shrink-0">
-                                A alocar (€)
-                              </label>
-                              <input
-                                type="number"
-                                min="0.01"
-                                step="0.01"
-                                value={(a.allocatedCents / 100).toFixed(2)}
-                                onChange={(e) =>
-                                  updateAllocatedCents(
-                                    a.entityId,
-                                    Math.round(
-                                      parseFloat(e.target.value || "0") * 100,
-                                    ),
-                                  )
-                                }
-                                className={`flex-1 rounded-md border px-2 py-1 text-sm text-right focus:outline-none ${exceedsBalance ? "border-red-400 bg-red-50 text-red-700 focus:border-red-400" : "border-stone-300 bg-white focus:border-[#ED5C32]"}`}
-                              />
-                              <span className="text-xs shrink-0 w-32 text-right">
-                                {a.openBalanceCents - a.allocatedCents <= 0 ? (
-                                  <span className="text-emerald-600 font-medium">
-                                    ✓ Pago na totalidade
-                                  </span>
-                                ) : (
-                                  <span className="text-amber-600">
-                                    {fromCents(a.openBalanceCents - a.allocatedCents)}{" "}
-                                    em aberto
-                                  </span>
-                                )}
-                              </span>
-                            </div>
-                            {exceedsBalance && (
-                              <p className="text-xs text-red-600 mt-1">
-                                Excede o saldo em aberto (
-                                {fromCents(a.openBalanceCents)}).
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  </div>
-                )}
-
-                {allocations.length === 0 && (
-                  <p className="text-xs text-stone-400 bg-stone-50 rounded-md px-3 py-3 text-center">
-                    Seleciona faturas ou contas a pagar abaixo para associar a
-                    este movimento.
-                  </p>
-                )}
-
-                {/* ── Zona 3: Adicionar faturas ─────────────────────────────── */}
-                <div>
-                  <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
-                    Sugestões automáticas
-                  </p>
-                  {loadingCandidates && (
-                    <p className="text-xs text-stone-400 py-1">
-                      A procurar correspondências…
-                    </p>
-                  )}
-                  {!loadingCandidates &&
-                    candidates.filter(
-                      (c) => !allocatedEntityIds.has(c.entityId),
-                    ).length === 0 && (
-                      <p className="text-xs text-stone-400 py-1">
-                        Nenhuma correspondência automática encontrada.
-                      </p>
-                    )}
-                  {candidates.filter((c) => !allocatedEntityIds.has(c.entityId))
-                    .length > 0 && (
-                    <div className="space-y-1.5">
-                      {candidates
-                        .filter((c) => !allocatedEntityIds.has(c.entityId))
-                        .map((c) => (
-                          <EntityCard
-                            key={c.entityId}
-                            candidate={c}
-                            onAdd={() =>
-                              addAllocation({
-                                entityType: c.entityType,
-                                entityId: c.entityId,
-                                entityLabel: c.entityLabel,
-                                supplierId: c.supplierId,
-                                totalCents: c.amountCents,
-                                openBalanceCents: c.openBalanceCents,
-                              })
-                            }
-                          />
-                        ))}
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">
-                    Procurar faturas
-                  </p>
-                  <input
-                    type="search"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Nome do fornecedor ou nº de fatura…"
-                    className={inputCls}
-                  />
-                  {loadingSearch && debouncedSearch.length >= 2 && (
-                    <p className="text-xs text-stone-400 mt-2">A procurar…</p>
-                  )}
-                  {!loadingSearch &&
-                    debouncedSearch.length >= 2 &&
-                    filteredSearchResults.length === 0 && (
-                      <p className="text-xs text-stone-400 mt-2">
-                        Sem resultados para "{debouncedSearch}".
-                      </p>
-                    )}
-                  {filteredSearchResults.length > 0 && (
-                    <div className="mt-2 border border-stone-200 rounded-lg overflow-hidden">
-                      <div className="space-y-1.5 p-2 max-h-56 overflow-y-auto">
-                        {filteredSearchResults.map((inv) => (
-                          <InvoiceCard
-                            key={inv.id}
-                            invoice={inv}
-                            onAdd={() =>
-                              addAllocation({
-                                entityType: "invoice",
-                                entityId: inv.id,
-                                entityLabel: `${inv.supplierName} — ${inv.invoiceNumber}`,
-                                supplierId: inv.supplierId ?? null,
-                                totalCents: inv.totalWithVat,
-                                openBalanceCents: inv.totalWithVat,
-                              })
-                            }
-                          />
-                        ))}
-                      </div>
-                      <div className="border-t border-stone-100 bg-stone-50 px-3 py-1.5">
-                        <p className="text-xs text-stone-400">
-                          {filteredSearchResults.length} resultado{filteredSearchResults.length !== 1 ? "s" : ""}
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-
-            {/* ── Tab B: Justificar ──────────────────────────────────────── */}
-            {activeTab === "justificar" && (
-              <>
-                {/* Sub-type */}
-                <div>
-                  <label className={labelCls}>Tipo de justificação *</label>
-                  <select
-                    value={subType}
-                    onChange={(e) => {
-                      setSubType(e.target.value as JustificationType);
-                      setDocumentUrl(movement.documentUrl);
-                      setUploadFile(null);
-                    }}
-                    className={inputCls}
-                  >
-                    {TAB_B_SUB_TYPES.map((jt) => (
-                      <option key={jt} value={jt}>
-                        {JUSTIFICATION_TYPE_LABELS[jt]}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                {/* Document upload */}
-                {showsDocument(subType) && (
-                  <div>
-                    <label className={labelCls}>
-                      Comprovativo
-                      {subType === "recibo_comprovativo" ? " *" : " (opcional)"}
-                    </label>
-                    <div
-                      className="rounded-lg border-2 border-dashed border-stone-200 p-4 text-center cursor-pointer hover:border-[#ED5C32]/50 transition-colors"
-                      onClick={() => fileInputRef.current?.click()}
-                    >
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="application/pdf,image/*"
-                        className="hidden"
-                        onChange={handleFileSelect}
-                      />
-                      {uploading ? (
-                        <p className="text-xs text-stone-400">A carregar…</p>
-                      ) : documentUrl ? (
-                        <div className="flex items-center justify-center gap-2">
-                          <svg
-                            className="h-4 w-4 text-emerald-500"
-                            viewBox="0 0 20 20"
-                            fill="currentColor"
-                          >
-                            <path
-                              fillRule="evenodd"
-                              d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z"
-                              clipRule="evenodd"
-                            />
-                          </svg>
-                          <span className="text-xs text-emerald-600 font-medium">
-                            {uploadFile?.name ?? "Comprovativo carregado"}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setDocumentUrl(null);
-                              setUploadFile(null);
-                            }}
-                            className="text-xs text-stone-400 hover:text-red-500 ml-1"
-                          >
-                            ×
-                          </button>
-                        </div>
-                      ) : (
-                        <div>
-                          <p className="text-xs text-stone-500">
-                            Clique ou arraste PDF / imagem
-                          </p>
-                          <p className="text-xs text-stone-300 mt-0.5">
-                            máx. 10 MB
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                    {uploadError && (
-                      <p className="text-xs text-red-500 mt-1">{uploadError}</p>
-                    )}
-                  </div>
-                )}
-
-                {/* Supplier */}
-                {showsSupplier(subType) && (
-                  <div className="relative">
-                    <label className={labelCls}>
-                      Fornecedor
-                      {requiresSupplier(subType) ? " *" : " (opcional)"}
-                    </label>
-                    <input
-                      type="text"
-                      value={
-                        supplierId
-                          ? (selectedSupplier?.name ?? supplierId)
-                          : supplierSearch
-                      }
-                      onChange={(e) => {
-                        setSupplierId("");
-                        setSupplierSearch(e.target.value);
-                        setSupplierOpen(true);
-                      }}
-                      onFocus={() => setSupplierOpen(true)}
-                      placeholder="Pesquisar fornecedor…"
-                      className={inputCls}
-                    />
-                    {supplierId && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSupplierId("");
-                          setSupplierSearch("");
-                          setGroupId("");
-                          setCategoryId("");
-                        }}
-                        className="absolute right-2 top-7 text-stone-300 hover:text-red-400"
-                      >
-                        <svg
-                          className="h-4 w-4"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                        </svg>
-                      </button>
-                    )}
-                    {supplierOpen && !supplierId && suppliers.length > 0 && (
-                      <div className="absolute z-10 mt-1 w-full rounded-md border border-stone-200 bg-white shadow-lg max-h-44 overflow-y-auto">
-                        {suppliers.map((s) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            onClick={() => {
-                              setSupplierId(s.id);
-                              setSupplierSearch("");
-                              setSupplierOpen(false);
-                            }}
-                            className="w-full text-left px-3 py-2 text-sm text-stone-700 hover:bg-stone-50"
-                          >
-                            {s.name}
-                            {s.nif && (
-                              <span className="ml-2 text-xs text-stone-400">
-                                {s.nif}
-                              </span>
-                            )}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                    <a
-                      href="/financial/suppliers"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="mt-1 inline-flex items-center gap-1 text-xs text-[#ED5C32] hover:underline"
-                    >
-                      <svg
-                        className="h-3 w-3"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-                      </svg>
-                      Cadastrar novo fornecedor
-                    </a>
-                  </div>
-                )}
-
-                {/* Cost center */}
-                {showsCostCenter(subType) && (
-                  <div className="space-y-2">
-                    <div>
-                      <label className={labelCls}>Grupo de custo *</label>
-                      <select
-                        value={groupId}
-                        onChange={(e) => handleGroupChange(e.target.value)}
-                        className={inputCls}
-                        required
-                      >
-                        <option value="">Seleccionar grupo…</option>
-                        {groups.map((g) => (
-                          <option key={g.id} value={g.id}>
-                            {g.code} — {g.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelCls}>Categoria *</label>
-                      <select
-                        value={categoryId}
-                        onChange={(e) => setCategoryId(e.target.value)}
-                        className={inputCls}
-                        disabled={!groupId}
-                        required
-                      >
-                        <option value="">
-                          {groupId
-                            ? "Seleccionar categoria…"
-                            : "Primeiro selecciona o grupo"}
-                        </option>
-                        {categories.map((c) => (
-                          <option key={c.id} value={c.id}>
-                            {c.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  </div>
-                )}
-
-                {/* VAT */}
-                {showsVat(subType) && (
-                  <div>
-                    <label className={labelCls}>IVA</label>
-                    <div className="flex gap-2 mb-2">
-                      {(
-                        [
-                          ["included", "Inclui IVA"],
-                          ["excluded", "Não inclui IVA"],
-                          ["exempt", "Isento / N/A"],
-                        ] as [VatMode, string][]
-                      ).map(([mode, label]) => (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => setVatMode(mode)}
-                          className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${
-                            vatMode === mode
-                              ? "border-[#ED5C32] bg-[#FDF8F5] text-[#ED5C32]"
-                              : "border-stone-200 text-stone-500 hover:border-stone-300"
-                          }`}
-                        >
-                          {label}
-                        </button>
-                      ))}
-                    </div>
-                    {vatMode !== "exempt" && (
-                      <div className="flex gap-2">
-                        {VAT_RATES.map((r) => (
-                          <button
-                            key={r}
-                            type="button"
-                            onClick={() => setVatRate(r)}
-                            className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-medium ${
-                              vatRate === r
-                                ? "border-[#ED5C32] bg-[#FDF8F5] text-[#ED5C32]"
-                                : "border-stone-200 text-stone-500 hover:border-stone-300"
-                            }`}
-                          >
-                            {r}%
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Transfer target */}
-                {showsTransferTarget(subType) && (
-                  <div>
-                    <label className={labelCls}>Conta de destino</label>
-                    <input
-                      type="text"
-                      value={transferTarget}
-                      onChange={(e) => setTransferTarget(e.target.value)}
-                      placeholder="Ex: Conta poupança BCP IBAN PT50…"
-                      className={inputCls}
-                    />
-                  </div>
-                )}
-
-                {/* Notes */}
-                <div>
-                  <label className={labelCls}>
-                    Notas{requiresNotes(subType) ? " *" : " (opcional)"}
-                  </label>
-                  <textarea
-                    value={notes}
-                    onChange={(e) => setNotes(e.target.value)}
-                    rows={3}
-                    required={requiresNotes(subType)}
-                    className={inputCls}
-                    placeholder={
-                      requiresNotes(subType) ? "Motivo obrigatório" : "Opcional"
-                    }
-                  />
-                </div>
-              </>
-            )}
-          </div>
-
-          {/* Footer */}
-          <div className="flex gap-3 border-t border-[#F5C992]/40 px-6 py-4 shrink-0">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={saving || uploading || !canSubmit}
-              className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40"
-            >
-              {saving
-                ? "A guardar…"
-                : uploading
-                  ? "A carregar ficheiro…"
-                  : "Classificar"}
-            </button>
-          </div>
-        </form>
-      </aside>
-    </div>,
-    document.body,
-  );
-}
 
 // ── Statement Detail ──────────────────────────────────────────────────────────
 
@@ -2129,16 +747,35 @@ function StatementsList({
   onSelect,
   onImport,
   onDelete,
+  bankAccountId,
+  accountNumbers,
 }: {
   onSelect: (id: string) => void;
   onImport: () => void;
   onDelete: (id: string) => void;
+  bankAccountId?: string | null;
+  /** IBAN / accountNumber to also match legacy statements (bankAccountId = null) */
+  accountNumbers?: string[];
 }) {
   const { api } = useBankStatementsModule();
-  const { data: statements = [], isLoading } = useQuery({
+  const { data: allStatements = [], isLoading } = useQuery({
     queryKey: ["bank-statements"],
     queryFn: () => api.listStatements(),
   });
+  const statements =
+    bankAccountId || accountNumbers?.length
+      ? allStatements.filter((s) => {
+          // Explicitly linked to this account
+          if (s.bankAccountId === bankAccountId) return true;
+          // Legacy statement (no bankAccountId) matching by account number
+          if (s.bankAccountId === null && accountNumbers?.length) {
+            return accountNumbers.some(
+              (n) => n && s.accountNumber === n,
+            );
+          }
+          return false;
+        })
+      : allStatements;
 
   return (
     <div className="space-y-4">
@@ -2244,15 +881,39 @@ function StatementCard({
 
 export function BankStatementsView() {
   const { api } = useBankStatementsModule();
+  const bankAccountsApi = useBankAccountsModule().api;
+  const { bankId, accountId } = useParams<{ bankId: string; accountId: string }>();
+  const navigate = useNavigate();
   const qc = useQueryClient();
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showImport, setShowImport] = useState(false);
 
+  const { data: accountDetail } = useQuery({
+    queryKey: ["bank-accounts:account", accountId],
+    queryFn: () => bankAccountsApi.getAccount(accountId!),
+    enabled: !!accountId,
+  });
+
+  const { data: bankDetail } = useQuery({
+    queryKey: ["bank-accounts:bank", bankId],
+    queryFn: () => bankAccountsApi.getBank(bankId!),
+    enabled: !!bankId,
+  });
+
   const importMut = useMutation({
     mutationFn: (fd: FormData) => api.importStatement(fd),
-    onSuccess: (result) => {
+    onSuccess: async (result) => {
       void qc.invalidateQueries({ queryKey: ["bank-statements"] });
       setShowImport(false);
+      // If in account context and statement wasn't auto-linked, link it now
+      if (accountId && result.bankAccountId !== accountId) {
+        try {
+          await bankAccountsApi.linkStatement(result.id, accountId);
+          void qc.invalidateQueries({ queryKey: ["bank-statements"] });
+        } catch {
+          // non-critical, continue
+        }
+      }
       setSelectedId(result.id);
     },
     onError: (e: Error) => alert(`Erro ao importar: ${e.message}`),
@@ -2277,19 +938,58 @@ export function BankStatementsView() {
     deleteMut.mutate(id);
   }
 
+  const accountLabel =
+    accountDetail?.nickname ??
+    accountDetail?.iban ??
+    accountDetail?.accountNumber ??
+    (accountDetail?.lastFourDigits
+      ? `*${accountDetail.lastFourDigits}`
+      : null) ??
+    "Conta";
+
   return (
     <div className="min-h-screen bg-[#FAF6F3]">
       {/* Header */}
       <div className="border-b border-[#F5C992]/40 bg-white px-6 py-4">
+        {/* Breadcrumb when in account context */}
+        {accountId && (
+          <div className="mb-2 flex items-center gap-1.5 text-xs text-stone-500">
+            <button
+              onClick={() => navigate("/financial/bank-statements")}
+              className="hover:text-stone-700"
+            >
+              Bancos
+            </button>
+            <span className="text-stone-300">/</span>
+            <span className="font-medium text-stone-700">{accountLabel}</span>
+          </div>
+        )}
         <div className="flex items-center justify-between">
           <div>
+            {accountId && (
+              <button
+                onClick={() => navigate("/financial/bank-statements")}
+                className="mb-1 flex items-center gap-1 text-sm text-stone-500 hover:text-stone-700"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                  <path
+                    fillRule="evenodd"
+                    d="M17 10a.75.75 0 01-.75.75H5.612l4.158 3.96a.75.75 0 11-1.04 1.08l-5.5-5.25a.75.75 0 010-1.08l5.5-5.25a.75.75 0 111.04 1.08L5.612 9.25H16.25A.75.75 0 0117 10z"
+                    clipRule="evenodd"
+                  />
+                </svg>
+                Bancos
+              </button>
+            )}
             <h1 className="text-xl font-bold text-stone-900">
-              Conciliação Bancária
+              {accountId ? accountLabel : "Conciliação Bancária"}
             </h1>
             <p className="mt-0.5 text-sm text-stone-500">
               {selectedId
                 ? "Espelho do banco — movimentos e conciliação"
-                : "Extratos importados"}
+                : accountId
+                  ? "Extratos desta conta"
+                  : "Extratos importados"}
             </p>
           </div>
           <button
@@ -2316,6 +1016,14 @@ export function BankStatementsView() {
             onSelect={setSelectedId}
             onImport={() => setShowImport(true)}
             onDelete={handleDelete}
+            bankAccountId={accountId}
+            accountNumbers={
+              accountDetail
+                ? [accountDetail.iban, accountDetail.accountNumber].filter(
+                    Boolean,
+                  ) as string[]
+                : undefined
+            }
           />
         )}
       </div>
@@ -2325,6 +1033,10 @@ export function BankStatementsView() {
         saving={importMut.isPending}
         onClose={() => setShowImport(false)}
         onSubmit={(fd) => importMut.mutate(fd)}
+        contextBankName={bankDetail?.name}
+        contextAccountIdentifier={
+          accountDetail?.iban ?? accountDetail?.accountNumber ?? undefined
+        }
       />
 
       <PageFooter />

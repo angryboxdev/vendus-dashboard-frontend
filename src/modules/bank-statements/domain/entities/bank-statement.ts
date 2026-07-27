@@ -88,6 +88,7 @@ export interface EntityLinkDTO {
 
 export interface BankStatementSummaryDTO {
   id: string;
+  bankAccountId: string | null;
   bankName: string;
   accountNumber: string;
   periodStart: string; // ISO date
@@ -140,6 +141,9 @@ export interface BankStatementDetailDTO extends BankStatementSummaryDTO {
 
 export interface ImportStatementResult {
   id: string;
+  bankAccountId: string | null;
+  accountMatched: boolean;
+  parsedAccountNumber: string;
   bankName: string;
   accountNumber: string;
   importedMovementsCount: number;
@@ -211,6 +215,28 @@ export interface MovementCandidateDTO {
   openBalanceCents: number;  // unpaid balance
   date: string;
   confidence: number;
+}
+
+// ── Account calendar ──────────────────────────────────────────────────────────
+
+export interface AccountMonthStatDTO {
+  year: number;
+  month: number; // 1–12
+  totalDays: number;
+  coveredDays: number;
+  totalMovements: number;
+  reconciledMovements: number;
+  coveragePercent: number; // 0–100
+  reconciliationPercent: number; // 0–100
+}
+
+export interface DaySlotDTO {
+  date: string; // YYYY-MM-DD
+  movements: BankMovementDTO[];
+  totalDebitCents: number;
+  totalCreditCents: number;
+  totalMovements: number;
+  reconciledCount: number;
 }
 
 export interface CreateRulePayload {

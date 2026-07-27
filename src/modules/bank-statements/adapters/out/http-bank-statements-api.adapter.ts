@@ -7,11 +7,13 @@ import {
 } from "../../../../lib/api.ts";
 import type { BankStatementsApiPort, GetStatementParams, ListStatementsParams, StatementPreview } from "../../domain/ports/out/bank-statements-api.port.ts";
 import type {
+  AccountMonthStatDTO,
   ApplyRulesResult,
   BankStatementDetailDTO,
   BankStatementSummaryDTO,
   ClassifyMovementPayload,
   CreateRulePayload,
+  DaySlotDTO,
   ImportStatementResult,
   MatchSuggestionDTO,
   MovementCandidateDTO,
@@ -108,5 +110,13 @@ export class HttpBankStatementsApiAdapter implements BankStatementsApiPort {
 
   async deleteRule(id: string): Promise<void> {
     await apiDeleteNoContent(`${BASE}/rules/${encodeURIComponent(id)}`);
+  }
+
+  async getAccountCalendar(accountId: string, year: number): Promise<AccountMonthStatDTO[]> {
+    return apiGet(`${BASE}/accounts/${encodeURIComponent(accountId)}/calendar?year=${year}`);
+  }
+
+  async getAccountMonthDetail(accountId: string, year: number, month: number): Promise<DaySlotDTO[]> {
+    return apiGet(`${BASE}/accounts/${encodeURIComponent(accountId)}/calendar/${year}/${month}`);
   }
 }
