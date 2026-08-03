@@ -400,7 +400,7 @@ function OrderDrawer({
                     <div className="text-sm">
                       {(flag as unknown as { datetime?: number }).datetime && (
                         <p className="text-gray-800">
-                          {new Date((flag as { datetime: number }).datetime).toLocaleString("pt-PT", {
+                          {new Date((flag as unknown as { datetime: number }).datetime).toLocaleString("pt-PT", {
                             dateStyle: "short",
                             timeStyle: "medium",
                           })}
