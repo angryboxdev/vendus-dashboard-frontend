@@ -50,6 +50,8 @@ import { MonthDetailView } from "./modules/bank-statements/adapters/in/MonthDeta
 import { BankAccountsProvider } from "./modules/bank-accounts/bank-accounts.module.tsx";
 import { BanksView } from "./modules/bank-accounts/adapters/in/BanksView.tsx";
 import { BankAccountsView } from "./modules/bank-accounts/adapters/in/BankAccountsView.tsx";
+import { AirMenuProvider } from "./modules/air-menu/air-menu.module.tsx";
+import { AirMenuView } from "./modules/air-menu/adapters/in/AirMenuView.tsx";
 
 export default function App() {
   return (
@@ -166,6 +168,14 @@ export default function App() {
                         </PayableEntriesProvider>
                       </InvoicesProvider>
                     </FinancialBaseProvider>
+                  }
+                />
+                <Route
+                  path="/air-menu"
+                  element={
+                    <AirMenuProvider>
+                      <AirMenuView />
+                    </AirMenuProvider>
                   }
                 />
                 <Route path="/admin/users" element={<UsersPage />} />
