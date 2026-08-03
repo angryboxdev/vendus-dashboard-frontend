@@ -28,6 +28,9 @@ function makeClosing(overrides: Partial<CashClosing> = {}): CashClosing {
     managerNotes: null,
     reviewedAt: null,
     submittedAt: "2026-06-15T23:00:00Z",
+    airMenuUber: null,
+    airMenuGlovo: null,
+    airMenuBolt: null,
     ...overrides,
   };
 }
