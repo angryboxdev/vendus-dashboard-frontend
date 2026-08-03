@@ -120,11 +120,6 @@ export function ClosingDetailModal({ closing, onClose }: Props) {
     setEditMode(false);
   }
 
-  const diff =
-    closing.vendusTotal != null
-      ? Math.round((closing.totalCalculated - closing.vendusTotal) * 100) / 100
-      : null;
-
   const numericFields = [
     ["tpa", "TPA"],
     ["uber", "Uber Eats"],
@@ -204,14 +199,128 @@ export function ClosingDetailModal({ closing, onClose }: Props) {
               </div>
             ) : (
               <div className="divide-y divide-stone-50">
+                {/* Bloco 1: Canal Próprio (Vendus) */}
+                <div className="px-4 py-2 bg-stone-50">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                    Canal Próprio
+                  </span>
+                </div>
                 {(
                   [
                     ["TPA", closing.tpa],
-                    ["Uber Eats", closing.uber],
-                    ["Glovo", closing.glovo],
-                    ["Bolt Food", closing.bolt],
                     ["Eatz", closing.eatz],
                     ["Vendas a dinheiro", closing.cashSales],
+                  ] as [string, number][]
+                ).map(([label, val]) => (
+                  <div key={label} className="flex justify-between px-4 py-2.5">
+                    <span className="text-sm text-stone-500">{label}</span>
+                    <span className="text-sm tabular-nums text-stone-800">{fmtEur(val)}</span>
+                  </div>
+                ))}
+                {closing.vendusTotal != null && (() => {
+                  const ownSubtotal = Math.round((closing.tpa + closing.eatz + closing.cashSales) * 100) / 100;
+                  const ownDiff = Math.round((ownSubtotal - closing.vendusTotal) * 100) / 100;
+                  return (
+                    <>
+                      <div className="flex justify-between bg-stone-50 px-4 py-2.5">
+                        <span className="text-sm font-medium text-stone-600">Subtotal declarado</span>
+                        <span className="text-sm tabular-nums font-medium text-stone-800">{fmtEur(ownSubtotal)}</span>
+                      </div>
+                      <div className="flex justify-between px-4 py-2.5">
+                        <span className="text-sm text-stone-500">Total Vendus</span>
+                        <span className="text-sm tabular-nums text-stone-700">{fmtEur(closing.vendusTotal)}</span>
+                      </div>
+                      <div className="flex justify-between px-4 py-2.5">
+                        <span className="text-sm text-stone-500">Diferença</span>
+                        <span className={`text-sm font-semibold tabular-nums ${
+                          ownDiff === 0 ? "text-emerald-600" : ownDiff > 0 ? "text-[#ED5C32]" : "text-[#A3211A]"
+                        }`}>
+                          {(ownDiff >= 0 ? "+" : "") + fmtEur(ownDiff)}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
+
+                {/* Bloco 2: Canais Externos (AirMenu) */}
+                <div className="px-4 py-2 bg-stone-50">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                    Canais Externos
+                  </span>
+                </div>
+                {(
+                  [
+                    ["Uber Eats", closing.uber, closing.airMenuUber],
+                    ["Glovo", closing.glovo, closing.airMenuGlovo],
+                    ["Bolt Food", closing.bolt, closing.airMenuBolt],
+                  ] as [string, number, number | null][]
+                ).map(([label, declared, airMenu]) => {
+                  const deliveryDiff = airMenu != null ? Math.round((declared - airMenu) * 100) / 100 : null;
+                  return (
+                    <div key={label} className="px-4 py-2.5">
+                      <div className="flex justify-between">
+                        <span className="text-sm text-stone-500">{label}</span>
+                        <span className="text-sm tabular-nums text-stone-800">{fmtEur(declared)}</span>
+                      </div>
+                      {airMenu != null && (
+                        <div className="flex justify-between mt-0.5">
+                          <span className="text-xs text-stone-400 pl-2">↳ AirMenu</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs tabular-nums text-stone-500">{fmtEur(airMenu)}</span>
+                            {deliveryDiff !== null && (
+                              <span className={`text-xs font-medium tabular-nums ${
+                                deliveryDiff === 0 ? "text-emerald-600" : deliveryDiff > 0 ? "text-[#ED5C32]" : "text-[#A3211A]"
+                              }`}>
+                                {deliveryDiff === 0 ? "✓" : (deliveryDiff > 0 ? "+" : "") + fmtEur(deliveryDiff)}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {(() => {
+                  const declaredTotal = Math.round((closing.uber + closing.glovo + closing.bolt) * 100) / 100;
+                  const hasAirMenu = closing.airMenuUber != null || closing.airMenuGlovo != null || closing.airMenuBolt != null;
+                  const airMenuTotal = hasAirMenu
+                    ? Math.round(((closing.airMenuUber ?? 0) + (closing.airMenuGlovo ?? 0) + (closing.airMenuBolt ?? 0)) * 100) / 100
+                    : null;
+                  const deliveryTotalDiff = airMenuTotal != null ? Math.round((declaredTotal - airMenuTotal) * 100) / 100 : null;
+                  return (
+                    <>
+                      <div className="flex justify-between bg-stone-50 px-4 py-2.5">
+                        <span className="text-sm font-medium text-stone-600">Subtotal declarado</span>
+                        <span className="text-sm tabular-nums font-medium text-stone-800">{fmtEur(declaredTotal)}</span>
+                      </div>
+                      {airMenuTotal != null && (
+                        <div className="flex justify-between px-4 py-2.5">
+                          <span className="text-sm text-stone-500">Total AirMenu</span>
+                          <span className="text-sm tabular-nums text-stone-700">{fmtEur(airMenuTotal)}</span>
+                        </div>
+                      )}
+                      {deliveryTotalDiff != null && (
+                        <div className="flex justify-between px-4 py-2.5">
+                          <span className="text-sm text-stone-500">Diferença</span>
+                          <span className={`text-sm font-semibold tabular-nums ${
+                            deliveryTotalDiff === 0 ? "text-emerald-600" : deliveryTotalDiff > 0 ? "text-[#ED5C32]" : "text-[#A3211A]"
+                          }`}>
+                            {(deliveryTotalDiff >= 0 ? "+" : "") + fmtEur(deliveryTotalDiff)}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  );
+                })()}
+
+                {/* Gaveta */}
+                <div className="px-4 py-2 bg-stone-50">
+                  <span className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                    Movimentos de Caixa
+                  </span>
+                </div>
+                {(
+                  [
                     ["Entradas", closing.cashIn],
                     ["Saídas", closing.cashOut],
                     ["Gaveta (início)", closing.cashDrawerOpen],
@@ -223,6 +332,28 @@ export function ClosingDetailModal({ closing, onClose }: Props) {
                     <span className="text-sm tabular-nums text-stone-800">{fmtEur(val)}</span>
                   </div>
                 ))}
+                {(() => {
+                  const expectedDrawer = Math.round(
+                    (closing.cashDrawerOpen + closing.cashSales + closing.cashIn - closing.cashOut) * 100,
+                  ) / 100;
+                  const drawerDiff = Math.round((closing.cashDrawerTotal - expectedDrawer) * 100) / 100;
+                  return (
+                    <>
+                      <div className="flex justify-between px-4 py-2.5">
+                        <span className="text-sm text-stone-500">Gaveta esperada</span>
+                        <span className="text-sm tabular-nums text-stone-500">{fmtEur(expectedDrawer)}</span>
+                      </div>
+                      <div className="flex justify-between px-4 py-2.5">
+                        <span className="text-sm text-stone-500">Diferença gaveta</span>
+                        <span className={`text-sm font-semibold tabular-nums ${
+                          drawerDiff === 0 ? "text-emerald-600" : drawerDiff > 0 ? "text-[#ED5C32]" : "text-[#A3211A]"
+                        }`}>
+                          {drawerDiff === 0 ? "✓ 0,00 €" : (drawerDiff > 0 ? "+" : "") + fmtEur(drawerDiff)}
+                        </span>
+                      </div>
+                    </>
+                  );
+                })()}
 
                 {/* Total Calculado */}
                 <div className="flex justify-between bg-stone-50 px-4 py-3">
@@ -231,32 +362,6 @@ export function ClosingDetailModal({ closing, onClose }: Props) {
                     {fmtEur(closing.totalCalculated)}
                   </span>
                 </div>
-
-                {closing.vendusTotal != null && (
-                  <div className="flex justify-between px-4 py-2.5">
-                    <span className="text-sm text-stone-500">Total Vendus</span>
-                    <span className="text-sm tabular-nums text-stone-700">
-                      {fmtEur(closing.vendusTotal)}
-                    </span>
-                  </div>
-                )}
-
-                {diff != null && (
-                  <div className="flex justify-between px-4 py-2.5">
-                    <span className="text-sm text-stone-500">Diferença</span>
-                    <span
-                      className={`text-sm font-semibold tabular-nums ${
-                        diff === 0
-                          ? "text-emerald-600"
-                          : diff > 0
-                            ? "text-[#ED5C32]"
-                            : "text-[#A3211A]"
-                      }`}
-                    >
-                      {(diff >= 0 ? "+" : "") + fmtEur(diff)}
-                    </span>
-                  </div>
-                )}
 
                 {closing.sangriaAmount > 0 && (
                   <div className="flex justify-between bg-[#F1A93F]/10 px-4 py-2.5">

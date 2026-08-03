@@ -23,4 +23,8 @@ export interface CashClosing {
   managerNotes: string | null;
   reviewedAt: string | null;
   submittedAt: string;
+  /** Totais AirMenu por plataforma — null se AirMenu indisponível ou não configurado. */
+  airMenuUber: number | null;
+  airMenuGlovo: number | null;
+  airMenuBolt: number | null;
 }
