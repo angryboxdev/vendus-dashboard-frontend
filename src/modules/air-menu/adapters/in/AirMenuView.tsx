@@ -398,7 +398,7 @@ function OrderDrawer({
                       {flag.key}
                     </span>
                     <div className="text-sm">
-                      {(flag as { datetime?: number }).datetime && (
+                      {(flag as unknown as { datetime?: number }).datetime && (
                         <p className="text-gray-800">
                           {new Date((flag as { datetime: number }).datetime).toLocaleString("pt-PT", {
                             dateStyle: "short",
