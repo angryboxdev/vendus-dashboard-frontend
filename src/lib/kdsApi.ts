@@ -30,6 +30,8 @@ export interface Delivery {
   extraInfo: string;
   dateCreate?: string;
   dateUpdate?: string;
+  /** Unix ms — set by backend when AirMenu order is marked delivered; cleared on revert. */
+  deliveredAt?: number;
 }
 
 export async function getDeliveries(): Promise<Delivery[]> {
@@ -44,6 +46,18 @@ export async function updateDeliveryStatus(
   status: DeliveryStatus,
 ): Promise<void> {
   const res = await fetch(`${API_BASE}/api/kds/deliveries/${id}/status`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ status }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+}
+
+export async function updateAirMenuDeliveryStatus(
+  id: number,
+  status: DeliveryStatus,
+): Promise<void> {
+  const res = await fetch(`${API_BASE}/api/kds/air-menu-deliveries/${id}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),

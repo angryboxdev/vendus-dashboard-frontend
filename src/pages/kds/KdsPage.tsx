@@ -2,13 +2,28 @@ import { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   getDeliveries,
   updateDeliveryStatus,
+  updateAirMenuDeliveryStatus,
   type Delivery,
   type DeliveryStatus,
 } from "../../lib/kdsApi";
+import { API_BASE } from "../../lib/api";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const POLL_INTERVAL_MS = 5_000;
+
+const AIR_MENU_SOURCES = ["Glovo", "Uber Eats", "Bolt Food", "AirMenu"] as const;
+
+function isAirMenuDelivery(d: Delivery): boolean {
+  return (AIR_MENU_SOURCES as readonly string[]).includes(d.source);
+}
+
+const PLATFORM_BADGE: Record<string, string> = {
+  Glovo: "bg-orange-500/20 text-orange-400 border border-orange-500/40",
+  "Uber Eats": "bg-green-500/20 text-green-400 border border-green-500/40",
+  "Bolt Food": "bg-neutral-700 text-white border border-neutral-500",
+  AirMenu: "bg-blue-500/20 text-blue-400 border border-blue-500/40",
+};
 
 // Pizza base names (case-insensitive substring match)
 const PIZZA_BASE_NAMES = [
@@ -164,7 +179,11 @@ function fmtTime(d: Date): string {
 
 function parseUtcMs(dateCreate?: string): number {
   if (!dateCreate) return Date.now();
-  const d = new Date(dateCreate.replace(" ", "T") + "Z");
+  // ISO strings (AirMenu) já têm timezone — não adicionar "Z" de novo
+  const normalized = dateCreate.endsWith("Z") || /[+-]\d{2}:\d{2}$/.test(dateCreate)
+    ? dateCreate
+    : dateCreate.replace(" ", "T") + "Z";
+  const d = new Date(normalized);
   return isNaN(d.getTime()) ? Date.now() : d.getTime();
 }
 
@@ -237,10 +256,25 @@ function OrderCard({
 }) {
   const [itemStatuses, setItemStatuses] = useState<Record<number, ItemStatus>>({});
 
+  const airMenu = isAirMenuDelivery(delivery);
+
+  // Parse extraInfo to get provider order ID (Glovo/Uber/Bolt ID)
+  const providerOrderId: string | null = (() => {
+    if (!airMenu) return null;
+    try {
+      const info = JSON.parse(delivery.extraInfo) as { providerOrderId?: string | null; airMenuOrderId?: number };
+      return info.providerOrderId ?? null;
+    } catch { return null; }
+  })();
+
+  const displayOrderId = providerOrderId ?? `${delivery.reference > 0 ? delivery.reference : delivery.id}`;
+
   const cycleItem = (idx: number, name: string) => {
+    // AirMenu orders are always from a pizza restaurant — all items use the full pizza flow
+    const pizza = airMenu || isPizza(name);
     setItemStatuses((prev) => ({
       ...prev,
-      [idx]: nextItemStatus(prev[idx] ?? "idle", isPizza(name)),
+      [idx]: nextItemStatus(prev[idx] ?? "idle", pizza),
     }));
   };
 
@@ -273,6 +307,11 @@ function OrderCard({
           <span className={`text-lg font-bold ${STATUS_TEXT[delivery.status]}`}>
             {STATUS_LABEL[delivery.status]}
           </span>
+          {airMenu && (
+            <span className={`text-lg font-bold ${TITLE_TEXT[delivery.status]}`}>
+              #{displayOrderId}
+            </span>
+          )}
         </div>
         {delivery.status === "delivered" ? (
           <DeliveredDuration dateCreate={delivery.dateCreate} deliveredAt={deliveredAt} />
@@ -284,9 +323,17 @@ function OrderCard({
       {/* Card body */}
       <div className="flex flex-1 flex-col p-5">
         {/* Title */}
-        <p className={`mb-4 text-xl font-bold ${TITLE_TEXT[delivery.status]}`}>
-          {delivery.table?.name ?? (delivery.reference > 0 ? `#${delivery.reference}` : `#${delivery.id}`)}
-        </p>
+        <div className="mb-4">
+          {airMenu ? (
+            <span className={`rounded-full px-2.5 py-1 text-sm font-semibold ${PLATFORM_BADGE[delivery.source] ?? PLATFORM_BADGE["AirMenu"]}`}>
+              {delivery.source}
+            </span>
+          ) : (
+            <p className={`text-xl font-bold ${TITLE_TEXT[delivery.status]}`}>
+              {delivery.table?.name ?? (delivery.reference > 0 ? `#${delivery.reference}` : `#${delivery.id}`)}
+            </p>
+          )}
+        </div>
 
         {/* Items */}
         <ul className="space-y-2">
@@ -319,15 +366,15 @@ function OrderCard({
           )}
         </ul>
 
-        {/* Extra info */}
-        {delivery.extraInfo && (
+        {/* Extra info — só para pedidos Vendus com notas relevantes */}
+        {!airMenu && delivery.extraInfo && (
           <p className="mt-4 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-800">
             {delivery.extraInfo}
           </p>
         )}
 
-        {/* Source — só origens externas */}
-        {delivery.source && delivery.source !== "pos" && delivery.source !== "0" && (
+        {/* Source — só origens externas não-AirMenu */}
+        {!airMenu && delivery.source && delivery.source !== "pos" && delivery.source !== "0" && (
           <p className="mt-4 text-sm font-medium text-purple-600">{delivery.source}</p>
         )}
       </div>
@@ -345,20 +392,25 @@ export function KdsPage() {
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date());
   // Regista o momento em que cada delivery foi visto pela 1ª vez como "delivered"
   const deliveredAtRef = useRef<Map<number, number>>(new Map());
+  // Pedidos AirMenu recebidos via SSE — mantidos separados para não serem apagados pelo polling Vendus
+  const airMenuRef = useRef<Map<number, Delivery>>(new Map());
 
   const refresh = useCallback(async () => {
     try {
-      const data = await getDeliveries();
-      // mais antigas à esquerda
-      data.sort((a, b) => parseUtcMs(a.dateCreate) - parseUtcMs(b.dateCreate));
-      // regista quando cada delivered foi visto pela 1ª vez
+      const vendusData = await getDeliveries();
+      const airMenuData = Array.from(airMenuRef.current.values());
+
+      // Merge: Vendus + AirMenu (AirMenu IDs não colidem com Vendus)
+      const merged = [...vendusData, ...airMenuData];
+      merged.sort((a, b) => parseUtcMs(a.dateCreate) - parseUtcMs(b.dateCreate));
+
       const now = Date.now();
-      data.forEach((d) => {
+      merged.forEach((d) => {
         if (d.status === "delivered" && !deliveredAtRef.current.has(d.id)) {
           deliveredAtRef.current.set(d.id, now);
         }
       });
-      setDeliveries(data);
+      setDeliveries(merged);
       setLastRefresh(new Date());
       setError(null);
     } catch (e) {
@@ -368,21 +420,51 @@ export function KdsPage() {
     }
   }, []);
 
+  // Polling Vendus
   useEffect(() => {
     void refresh();
     const interval = setInterval(() => void refresh(), POLL_INTERVAL_MS);
     return () => clearInterval(interval);
   }, [refresh]);
 
+  // SSE — pedidos AirMenu em tempo real
+  useEffect(() => {
+    const url = `${API_BASE}/api/kds/stream`;
+    const es = new EventSource(url);
+
+    es.addEventListener("delivery", (e: MessageEvent) => {
+      const delivery = JSON.parse(e.data as string) as Delivery;
+      airMenuRef.current.set(delivery.id, delivery);
+      // Força re-render com o novo pedido
+      setDeliveries((prev) => {
+        const withoutThis = prev.filter((d) => d.id !== delivery.id);
+        const merged = [...withoutThis, delivery];
+        merged.sort((a, b) => parseUtcMs(a.dateCreate) - parseUtcMs(b.dateCreate));
+        return merged;
+      });
+    });
+
+    es.onerror = () => {
+      // O browser reconecta automaticamente — não precisamos fazer nada
+    };
+
+    return () => es.close();
+  }, []);
+
   const handleAdvance = async (delivery: Delivery) => {
     const next = nextStatus(delivery.status);
     if (!next) return;
     setUpdating((prev) => new Set(prev).add(delivery.id));
     try {
-      await updateDeliveryStatus(delivery.id, next);
-      await refresh();
+      if (isAirMenuDelivery(delivery)) {
+        await updateAirMenuDeliveryStatus(delivery.id, next);
+        // SSE will broadcast the update — no manual refresh needed
+      } else {
+        await updateDeliveryStatus(delivery.id, next);
+        await refresh();
+      }
     } catch {
-      // next poll will re-sync
+      // next poll / SSE will re-sync
     } finally {
       setUpdating((prev) => { const s = new Set(prev); s.delete(delivery.id); return s; });
     }
@@ -393,10 +475,15 @@ export function KdsPage() {
     if (!prev) return;
     setUpdating((prev2) => new Set(prev2).add(delivery.id));
     try {
-      await updateDeliveryStatus(delivery.id, prev);
-      await refresh();
+      if (isAirMenuDelivery(delivery)) {
+        await updateAirMenuDeliveryStatus(delivery.id, prev);
+        // SSE will broadcast the update — no manual refresh needed
+      } else {
+        await updateDeliveryStatus(delivery.id, prev);
+        await refresh();
+      }
     } catch {
-      // next poll will re-sync
+      // next poll / SSE will re-sync
     } finally {
       setUpdating((prev2) => { const s = new Set(prev2); s.delete(delivery.id); return s; });
     }
@@ -457,7 +544,7 @@ export function KdsPage() {
           .filter((d) => {
             if (d.status !== "delivered") return false;
             if (!d.dateCreate) return true;
-            const created = new Date(d.dateCreate.replace(" ", "T") + "Z");
+            const created = new Date(parseUtcMs(d.dateCreate));
             return created.toLocaleDateString("sv") === todayStr;
           })
           .reverse(); // mais recente à esquerda
@@ -484,7 +571,7 @@ export function KdsPage() {
                     onAdvance={() => void handleAdvance(d)}
                     onRevert={() => void handleRevert(d)}
                     isUpdating={updating.has(d.id)}
-                    deliveredAt={deliveredAtRef.current.get(d.id)}
+                    deliveredAt={d.deliveredAt ?? deliveredAtRef.current.get(d.id)}
                   />
                 ))
               )}
@@ -502,7 +589,7 @@ export function KdsPage() {
                       onAdvance={() => void handleAdvance(d)}
                       onRevert={() => void handleRevert(d)}
                       isUpdating={updating.has(d.id)}
-                      deliveredAt={deliveredAtRef.current.get(d.id)}
+                      deliveredAt={d.deliveredAt ?? deliveredAtRef.current.get(d.id)}
                     />
                   ))}
                 </div>
