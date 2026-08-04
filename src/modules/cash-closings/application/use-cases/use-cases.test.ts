@@ -31,6 +31,9 @@ function makeClosing(overrides: Partial<CashClosing> = {}): CashClosing {
     airMenuUber: null,
     airMenuGlovo: null,
     airMenuBolt: null,
+    vendusCalculated: 0,
+    airMenuCalculated: 0,
+    airMenuTotal: null,
     ...overrides,
   };
 }
