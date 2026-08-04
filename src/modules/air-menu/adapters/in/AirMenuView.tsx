@@ -1,4 +1,11 @@
-import { AirMenuAnalytics, Pagination } from "./AirMenuAnalytics.tsx";
+import {
+  KpiCards,
+  PlatformTable,
+  CategoryTable,
+  TopItemsTable,
+  TemporalChart,
+  Pagination,
+} from "./AirMenuAnalytics.tsx";
 import type {
   AirMenuDocumentType,
   AirMenuOrder,
@@ -10,7 +17,7 @@ import { OrderRow } from "./air-menu-shared.tsx";
 import { useAirMenuModule } from "../../air-menu.module.tsx";
 import { useAirMenuSummary } from "./use-air-menu-summary.ts";
 
-// ─── Date helpers ────────────────────────────────────────────────────────────
+// ─── Date helpers ─────────────────────────────────────────────────────────────
 
 function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 0, 0, 0, 0);
@@ -460,7 +467,7 @@ function OrderDrawer({
   );
 }
 
-// ─── Sub-components ───────────────────────────────────────────────────────────
+// ─── Enterprise tabs ──────────────────────────────────────────────────────────
 
 function EnterpriseTabs({
   enterprises,
@@ -490,6 +497,43 @@ function EnterpriseTabs({
   );
 }
 
+// ─── Tab navigation ───────────────────────────────────────────────────────────
+
+type Tab = "resumo" | "analise" | "documentos";
+
+const TAB_LABELS: Record<Tab, string> = {
+  resumo: "Resumo",
+  analise: "Análise",
+  documentos: "Documentos",
+};
+
+function TabBar({
+  active,
+  onChange,
+}: {
+  active: Tab;
+  onChange: (t: Tab) => void;
+}) {
+  const tabs: Tab[] = ["resumo", "analise", "documentos"];
+  return (
+    <div className="flex gap-1 border-b border-gray-200">
+      {tabs.map((t) => (
+        <button
+          key={t}
+          onClick={() => onChange(t)}
+          className={`px-4 py-2.5 text-sm font-medium transition-colors ${
+            active === t
+              ? "border-b-2 border-[#E8533F] text-[#E8533F]"
+              : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          {TAB_LABELS[t]}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ─── Main view ────────────────────────────────────────────────────────────────
 
 export function AirMenuView() {
@@ -497,12 +541,14 @@ export function AirMenuView() {
   const [enterprises, setEnterprises] = useState<AirMenuEnterprise[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loadingEnterprises, setLoadingEnterprises] = useState(true);
+  const [activeTab, setActiveTab] = useState<Tab>("resumo");
 
   const now = new Date();
   const [preset, setPreset] = useState<Preset>("today");
   const [customStart, setCustomStart] = useState<Date>(startOfDay(now));
   const [customEnd, setCustomEnd] = useState<Date>(endOfDay(now));
   const [docFilter, setDocFilter] = useState<DocFilter>("invoice");
+  const [commissions, setCommissions] = useState<Record<string, number>>({});
 
   const { start: startDate, end: endDate } = presetRange(
     preset,
@@ -559,6 +605,28 @@ export function AirMenuView() {
     ordersStart + ordersPageSize,
   );
 
+  const getCommission = (platform: string) => commissions[platform] ?? 30;
+
+  const totalCommission = analytics
+    ? analytics.byPlatform.reduce(
+        (sum, p) => sum + p.grossRevenue * (getCommission(p.platform) / 100),
+        0,
+      )
+    : 0;
+
+  const totalCancelled = analytics
+    ? analytics.byPlatform.reduce((sum, p) => sum + p.cancellationCount, 0)
+    : 0;
+
+  const handleCommissionChange = (platform: string, value: number) =>
+    setCommissions((prev) => ({ ...prev, [platform]: value }));
+
+  const tabSpinner = (
+    <div className="flex items-center justify-center py-16 text-gray-400">
+      A carregar…
+    </div>
+  );
+
   return (
     <div className="p-6">
       {/* Header */}
@@ -597,7 +665,7 @@ export function AirMenuView() {
           </div>
 
           {/* Date range */}
-          <div className="mb-6">
+          <div className="mb-4">
             <DateRangeSelector
               preset={preset}
               customStart={customStart}
@@ -606,89 +674,120 @@ export function AirMenuView() {
             />
           </div>
 
+          {/* Page tabs */}
+          <div className="mb-6">
+            <TabBar active={activeTab} onChange={setActiveTab} />
+          </div>
+
           {error && (
             <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
               {error}
             </div>
           )}
 
-          {/* Orders table — always rendered; spinner inside when loading */}
-          <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
-              <DocFilterTabs
-                active={docFilter}
-                onChange={(f) => {
-                  setDocFilter(f);
-                  setOrdersPage(1);
-                }}
-              />
-              <FilterSummary
-                orders={invoicedOrders}
-                docFilter={docFilter}
-              />
-            </div>
+          {/* ── Resumo ───────────────────────────────────────────────────── */}
+          {activeTab === "resumo" && (
+            loading ? tabSpinner : analytics ? (
+              <div className="space-y-6">
+                <KpiCards
+                  summary={analytics.summary}
+                  totalCommission={totalCommission}
+                  totalCancelled={totalCancelled}
+                  byVatRate={analytics.byVatRate}
+                  byPlatform={analytics.byPlatform}
+                />
+                <TemporalChart data={analytics.temporalDistribution} />
+              </div>
+            ) : null
+          )}
 
-            {loading ? (
-              <div className="flex items-center justify-center py-16 text-gray-400">
-                A carregar pedidos…
+          {/* ── Análise ──────────────────────────────────────────────────── */}
+          {activeTab === "analise" && (
+            loading ? tabSpinner : analytics ? (
+              <div className="space-y-6">
+                <PlatformTable
+                  data={analytics.byPlatform}
+                  commissions={commissions}
+                  onCommissionChange={handleCommissionChange}
+                  orders={invoicedOrders}
+                  onOrderDetail={setDetailOrder}
+                />
+                <CategoryTable
+                  data={analytics.byCategory}
+                  topItems={analytics.topItems}
+                />
+                <TopItemsTable data={analytics.topItems} />
               </div>
-            ) : filteredOrders.length === 0 ? (
-              <div className="flex items-center justify-center py-16 text-gray-400">
-                Sem pedidos no período selecionado.
+            ) : null
+          )}
+
+          {/* ── Documentos ───────────────────────────────────────────────── */}
+          {activeTab === "documentos" && (
+            <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+              <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
+                <DocFilterTabs
+                  active={docFilter}
+                  onChange={(f) => {
+                    setDocFilter(f);
+                    setOrdersPage(1);
+                  }}
+                />
+                <FilterSummary orders={invoicedOrders} docFilter={docFilter} />
               </div>
-            ) : (
-              <>
-                <table className="w-full text-left">
-                  <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    <tr>
-                      <th className="px-4 py-3">Plataforma</th>
-                      <th className="px-4 py-3">ID Plataforma</th>
-                      {docFilter === "all" && (
-                        <th className="px-4 py-3">Documento</th>
-                      )}
-                      <th className="px-4 py-3">Data Documento</th>
-                      <th className="px-4 py-3">Cliente</th>
-                      <th className="px-4 py-3">Itens</th>
-                      <th className="px-4 py-3">Total</th>
-                      <th className="px-4 py-3">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {visibleOrders.map((order) => (
-                      <OrderRow
-                        key={`${order.orderId}-${order.divisionName}`}
-                        order={order}
-                        onDetail={setDetailOrder}
-                        showDocumentCol={docFilter === "all"}
-                      />
-                    ))}
-                  </tbody>
-                </table>
-                <div className="border-t border-gray-100">
-                  <Pagination
-                    total={filteredOrders.length}
-                    page={ordersPage}
-                    pageSize={ordersPageSize}
-                    pageSizeOptions={[10, 25, 50, 100]}
-                    onPageChange={setOrdersPage}
-                    onPageSizeChange={(s) => {
-                      setOrdersPageSize(s);
-                      setOrdersPage(1);
-                    }}
-                  />
+
+              {loading ? (
+                <div className="flex items-center justify-center py-16 text-gray-400">
+                  A carregar pedidos…
                 </div>
-              </>
-            )}
-          </div>
-
-          {/* Analytics — always rendered with its own loading state */}
-          <AirMenuAnalytics
-            data={analytics}
-            loading={loading}
-            error={error}
-            orders={invoicedOrders}
-            onOrderDetail={setDetailOrder}
-          />
+              ) : filteredOrders.length === 0 ? (
+                <div className="flex items-center justify-center py-16 text-gray-400">
+                  Sem pedidos no período selecionado.
+                </div>
+              ) : (
+                <>
+                  <table className="w-full text-left">
+                    <thead className="bg-gray-50 text-xs font-semibold uppercase tracking-wide text-gray-500">
+                      <tr>
+                        <th className="px-4 py-3">Plataforma</th>
+                        <th className="px-4 py-3">ID Plataforma</th>
+                        {docFilter === "all" && (
+                          <th className="px-4 py-3">Documento</th>
+                        )}
+                        <th className="px-4 py-3">Data Documento</th>
+                        <th className="px-4 py-3">Cliente</th>
+                        <th className="px-4 py-3">Itens</th>
+                        <th className="px-4 py-3">Total</th>
+                        <th className="px-4 py-3">Ações</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibleOrders.map((order) => (
+                        <OrderRow
+                          key={`${order.orderId}-${order.divisionName}`}
+                          order={order}
+                          onDetail={setDetailOrder}
+                          showDocumentCol={docFilter === "all"}
+                        />
+                      ))}
+                    </tbody>
+                  </table>
+                  <div className="border-t border-gray-100">
+                    <Pagination
+                      total={filteredOrders.length}
+                      page={ordersPage}
+                      pageSize={ordersPageSize}
+                      pageSizeOptions={[10, 25, 50, 100]}
+                      onPageChange={setOrdersPage}
+                      onPageSizeChange={(s) => {
+                        setOrdersPageSize(s);
+                        setOrdersPage(1);
+                      }}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+          )}
         </>
       )}
 

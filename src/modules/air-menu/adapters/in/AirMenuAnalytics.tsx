@@ -97,7 +97,7 @@ export function Pagination({
 
 // ─── KPI Cards ────────────────────────────────────────────────────────────────
 
-function KpiCards({
+export function KpiCards({
   summary,
   totalCommission,
   totalCancelled,
@@ -390,7 +390,7 @@ function KpiCards({
 
 // ─── By Platform ──────────────────────────────────────────────────────────────
 
-function PlatformTable({
+export function PlatformTable({
   data,
   commissions,
   onCommissionChange,
@@ -569,7 +569,7 @@ function PlatformTable({
 
 // ─── By Category ──────────────────────────────────────────────────────────────
 
-function CategoryTable({
+export function CategoryTable({
   data,
   topItems,
 }: {
@@ -775,7 +775,7 @@ function CategoryTable({
 
 // ─── Top Items ────────────────────────────────────────────────────────────────
 
-function TopItemsTable({ data }: { data: AirMenuAnalyticsData["topItems"] }) {
+export function TopItemsTable({ data }: { data: AirMenuAnalyticsData["topItems"] }) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -828,7 +828,7 @@ function TopItemsTable({ data }: { data: AirMenuAnalyticsData["topItems"] }) {
 
 // ─── Temporal Distribution ────────────────────────────────────────────────────
 
-function TemporalChart({
+export function TemporalChart({
   data,
 }: {
   data: AirMenuAnalyticsData["temporalDistribution"];
@@ -875,78 +875,3 @@ function TemporalChart({
   );
 }
 
-// ─── Main export ──────────────────────────────────────────────────────────────
-
-export function AirMenuAnalytics({
-  data,
-  loading,
-  error,
-  orders,
-  onOrderDetail,
-}: {
-  data: AirMenuAnalyticsData | null;
-  loading: boolean;
-  error: string | null;
-  orders: AirMenuOrder[];
-  onOrderDetail: (o: AirMenuOrder) => void;
-}) {
-  // Commission state lives here so KpiCards can aggregate totals across platforms.
-  // Missing keys fall back to 30% — no explicit initialisation needed.
-  const [commissions, setCommissions] = useState<Record<string, number>>({});
-
-  const getCommission = (platform: string) => commissions[platform] ?? 30;
-
-  const totalCommission = data
-    ? data.byPlatform.reduce(
-        (sum, p) => sum + p.grossRevenue * (getCommission(p.platform) / 100),
-        0,
-      )
-    : 0;
-
-  const totalCancelled = data
-    ? data.byPlatform.reduce((sum, p) => sum + p.cancellationCount, 0)
-    : 0;
-
-  const handleCommissionChange = (platform: string, value: number) =>
-    setCommissions((prev) => ({ ...prev, [platform]: value }));
-
-  if (loading) {
-    return (
-      <div className="mt-6 flex items-center justify-center py-8 text-gray-400">
-        A carregar analytics…
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="mt-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-        Erro ao carregar analytics: {error}
-      </div>
-    );
-  }
-
-  if (!data) return null;
-
-  return (
-    <div className="mt-6 space-y-6">
-      <KpiCards
-        summary={data.summary}
-        totalCommission={totalCommission}
-        totalCancelled={totalCancelled}
-        byVatRate={data.byVatRate}
-        byPlatform={data.byPlatform}
-      />
-      <PlatformTable
-        data={data.byPlatform}
-        commissions={commissions}
-        onCommissionChange={handleCommissionChange}
-        orders={orders}
-        onOrderDetail={onOrderDetail}
-      />
-      <CategoryTable data={data.byCategory} topItems={data.topItems} />
-      <TopItemsTable data={data.topItems} />
-      <TemporalChart data={data.temporalDistribution} />
-    </div>
-  );
-}
