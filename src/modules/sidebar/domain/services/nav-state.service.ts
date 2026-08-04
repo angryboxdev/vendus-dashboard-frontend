@@ -82,6 +82,7 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
     },
     { kind: "item", path: "/cash-closings", label: "Fechos de Caixa" },
     { kind: "item", path: "/air-menu", label: "Air Menu" },
+    { kind: "item", path: "/vendus", label: "Vendus" },
   ];
 
   if (user.role === "admin") {

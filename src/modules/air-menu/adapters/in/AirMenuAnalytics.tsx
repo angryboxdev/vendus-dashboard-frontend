@@ -1,6 +1,7 @@
 import { Fragment, useState } from "react";
-import type { AirMenuOrder } from "../../domain/entities/air-menu-order.ts";
+
 import type { AirMenuAnalyticsData } from "../../domain/entities/air-menu-analytics.ts";
+import type { AirMenuOrder } from "../../domain/entities/air-menu-order.ts";
 import { OrderRow } from "./air-menu-shared.tsx";
 
 export type { AirMenuAnalyticsData };
@@ -38,7 +39,11 @@ export function Pagination({
   } else {
     pages.push(1);
     if (page > 3) pages.push("…");
-    for (let i = Math.max(2, page - 1); i <= Math.min(totalPages - 1, page + 1); i++) {
+    for (
+      let i = Math.max(2, page - 1);
+      i <= Math.min(totalPages - 1, page + 1);
+      i++
+    ) {
       pages.push(i);
     }
     if (page < totalPages - 2) pages.push("…");
@@ -51,16 +56,23 @@ export function Pagination({
         <span className="text-xs">Linhas por página</span>
         <select
           value={pageSize}
-          onChange={(e) => { onPageSizeChange(Number(e.target.value)); onPageChange(1); }}
+          onChange={(e) => {
+            onPageSizeChange(Number(e.target.value));
+            onPageChange(1);
+          }}
           className="rounded-lg border border-gray-200 px-2 py-1 text-sm"
         >
           {pageSizeOptions.map((s) => (
-            <option key={s} value={s}>{s}</option>
+            <option key={s} value={s}>
+              {s}
+            </option>
           ))}
         </select>
       </div>
       <div className="flex items-center gap-1">
-        <span className="mr-2 text-xs text-gray-400">{start}–{end} de {total}</span>
+        <span className="mr-2 text-xs text-gray-400">
+          {start}–{end} de {total}
+        </span>
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page === 1}
@@ -70,18 +82,22 @@ export function Pagination({
         </button>
         {pages.map((p, i) =>
           p === "…" ? (
-            <span key={`e${i}`} className="px-1 text-gray-300">…</span>
+            <span key={`e${i}`} className="px-1 text-gray-300">
+              …
+            </span>
           ) : (
             <button
               key={p}
               onClick={() => onPageChange(p as number)}
               className={`min-w-[28px] rounded-lg px-2 py-1 text-xs ${
-                p === page ? "bg-gray-800 font-semibold text-white" : "hover:bg-gray-100"
+                p === page
+                  ? "bg-gray-800 font-semibold text-white"
+                  : "hover:bg-gray-100"
               }`}
             >
               {p}
             </button>
-          )
+          ),
         )}
         <button
           onClick={() => onPageChange(page + 1)}
@@ -287,9 +303,9 @@ export function KpiCards({
         {/* Breakdown por Taxa de IVA */}
         {(() => {
           const ALL_RATES: { rate: number; color: string }[] = [
-            { rate: 23, color: "bg-violet-500" },
-            { rate: 13, color: "bg-violet-300" },
-            { rate: 0, color: "bg-violet-200" },
+            { rate: 23, color: "bg-violet-400" },
+            { rate: 13, color: "bg-violet-500" },
+            { rate: 6, color: "bg-violet-300" },
           ];
           const padded = ALL_RATES.map(({ rate, color }) => ({
             color,
@@ -512,7 +528,8 @@ export function PlatformTable({
                       <td colSpan={9} className="bg-gray-50 p-0">
                         {platformOrders.length === 0 ? (
                           <div className="flex items-center justify-center py-6 text-sm text-gray-400">
-                            Sem pedidos faturados para {row.platform} neste período.
+                            Sem pedidos faturados para {row.platform} neste
+                            período.
                           </div>
                         ) : (
                           <>
@@ -730,8 +747,12 @@ export function CategoryTable({
                                 <th className="px-6 py-2">Produto</th>
                                 <th className="px-4 py-2">Categoria</th>
                                 <th className="px-4 py-2 text-right">IVA</th>
-                                <th className="px-4 py-2 text-right">Qtd Vendida</th>
-                                <th className="px-4 py-2 text-right">Receita Bruta</th>
+                                <th className="px-4 py-2 text-right">
+                                  Qtd Vendida
+                                </th>
+                                <th className="px-4 py-2 text-right">
+                                  Receita Bruta
+                                </th>
                               </tr>
                             </thead>
                             <tbody>
@@ -775,7 +796,11 @@ export function CategoryTable({
 
 // ─── Top Items ────────────────────────────────────────────────────────────────
 
-export function TopItemsTable({ data }: { data: AirMenuAnalyticsData["topItems"] }) {
+export function TopItemsTable({
+  data,
+}: {
+  data: AirMenuAnalyticsData["topItems"];
+}) {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(10);
 
@@ -801,11 +826,18 @@ export function TopItemsTable({ data }: { data: AirMenuAnalyticsData["topItems"]
         </thead>
         <tbody>
           {pageData.map((item, i) => (
-            <tr key={item.plu} className="border-t border-gray-100 hover:bg-gray-50">
+            <tr
+              key={item.plu}
+              className="border-t border-gray-100 hover:bg-gray-50"
+            >
               <td className="px-4 py-3 text-gray-400">{start + i + 1}</td>
-              <td className="px-4 py-3 font-medium text-gray-800">{item.title}</td>
+              <td className="px-4 py-3 font-medium text-gray-800">
+                {item.title}
+              </td>
               <td className="px-4 py-3 text-gray-600">{item.category}</td>
-              <td className="px-4 py-3 text-right text-gray-600">{item.quantitySold}</td>
+              <td className="px-4 py-3 text-right text-gray-600">
+                {item.quantitySold}
+              </td>
               <td className="px-4 py-3 text-right font-medium text-gray-800">
                 {fmtEUR(item.grossRevenue)}
               </td>
@@ -819,7 +851,10 @@ export function TopItemsTable({ data }: { data: AirMenuAnalyticsData["topItems"]
           page={page}
           pageSize={pageSize}
           onPageChange={setPage}
-          onPageSizeChange={(s) => { setPageSize(s); setPage(1); }}
+          onPageSizeChange={(s) => {
+            setPageSize(s);
+            setPage(1);
+          }}
         />
       </div>
     </div>
@@ -874,4 +909,3 @@ export function TemporalChart({
     </div>
   );
 }
-

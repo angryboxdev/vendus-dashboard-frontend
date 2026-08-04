@@ -52,6 +52,8 @@ import { BanksView } from "./modules/bank-accounts/adapters/in/BanksView.tsx";
 import { BankAccountsView } from "./modules/bank-accounts/adapters/in/BankAccountsView.tsx";
 import { AirMenuProvider } from "./modules/air-menu/air-menu.module.tsx";
 import { AirMenuView } from "./modules/air-menu/adapters/in/AirMenuView.tsx";
+import { VendusProvider } from "./modules/vendus/vendus.module.tsx";
+import { VendusView } from "./modules/vendus/adapters/in/VendusView.tsx";
 
 export default function App() {
   return (
@@ -176,6 +178,14 @@ export default function App() {
                     <AirMenuProvider>
                       <AirMenuView />
                     </AirMenuProvider>
+                  }
+                />
+                <Route
+                  path="/vendus"
+                  element={
+                    <VendusProvider>
+                      <VendusView />
+                    </VendusProvider>
                   }
                 />
                 <Route path="/admin/users" element={<UsersPage />} />
