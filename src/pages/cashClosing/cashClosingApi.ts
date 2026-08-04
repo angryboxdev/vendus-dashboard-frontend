@@ -41,6 +41,12 @@ export type CashClosing = {
   reviewedAt: string | null;
   submittedAt: string;
   drawerDenominations: DrawerDenominations | null;
+  /** Sub-total dos canais Vendus declarados (TPA + Eatz + Dinheiro). */
+  vendusCalculated: number;
+  /** Sub-total dos canais AirMenu declarados (Uber + Glovo + Bolt). */
+  airMenuCalculated: number;
+  /** Soma dos totais AirMenu por plataforma (referência API). null se AirMenu indisponível. */
+  airMenuTotal: number | null;
 };
 
 export type VerifyPinResult = {
@@ -97,6 +103,20 @@ export type SubmitClosingBody = {
   sessionOpenedAt?: string | null;
   drawerDenominations?: DrawerDenominations | null;
 };
+
+export type AirMenuTotals = {
+  uber: number;
+  glovo: number;
+  bolt: number;
+};
+
+export async function getAirMenuTotals(date: string): Promise<AirMenuTotals | null> {
+  const url = `${API_BASE}/api/cash-closings/airmenu-totals?date=${encodeURIComponent(date)}`;
+  const res = await fetch(url);
+  if (!res.ok) return null;
+  const data = (await res.json()) as AirMenuTotals | null;
+  return data;
+}
 
 export async function submitClosing(body: SubmitClosingBody): Promise<CashClosing> {
   const url = `${API_BASE}${BASE}/submit`;

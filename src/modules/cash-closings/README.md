@@ -1,7 +1,7 @@
 # Módulo: cash-closings
 
 > Status: ativo
-> Última atualização: 2026-06-12
+> Última atualização: 2026-08-04
 
 ## Propósito
 
@@ -12,8 +12,12 @@ vistas do fecho de caixa.
 
 ## Conceitos do domínio
 
-- **CashClosing** — interface com todos os campos de um fecho (canais de
-  pagamento, gaveta, totais derivados, estado de revisão).
+- **CashClosing** — interface com todos os campos de um fecho: canais de
+  pagamento (tpa, uber, glovo, bolt, eatz, cashSales), gaveta, totais derivados
+  (`totalCalculated`, `vendusCalculated`, `airMenuCalculated`), referências de API
+  (`vendusTotal`, `airMenuUber/Glovo/Bolt`, `airMenuTotal`) e estado de revisão.
+  `vendusCalculated` = TPA + Eatz + dinheiro; `airMenuCalculated` = Uber + Glovo + Bolt;
+  `airMenuTotal` = soma dos três totais AirMenu (null se AirMenu indisponível).
 - **CashClosingStatus** — `"pending" | "approved" | "rejected"`.
 - **closings-period.ts** — serviço puro de datas: `getMondayOfWeek`,
   `getWeekDays`, `getMonthRange`, helpers de navegação (next/prev semana/mês)
@@ -30,8 +34,10 @@ vistas do fecho de caixa.
 
 ### Saída (dependências do domínio)
 
-- `CashClosingApiPort` — todas as operações HTTP: `listClosings`, `getClosing`,
-  `reviewClosing`, `verifyPin`, `getVendusTotal`, `submitClosing`.
+- `CashClosingApiPort` — todas as operações HTTP do módulo: `listClosings`,
+  `getClosing`, `reviewClosing`, `verifyPin`, `getVendusTotal`, `submitClosing`.
+  A operação `getAirMenuTotals` vive em `cashClosingApi.ts` (legado do kiosk)
+  por ser usada no contexto de pré-submissão do funcionário.
 
 ## Adapters
 
@@ -42,7 +48,11 @@ vistas do fecho de caixa.
     `DayDrawer` (múltiplos fechos) ou `ClosingDetailModal` directamente (1 fecho).
   - **Mês**: tabela paginada, click numa linha abre `ClosingDetailModal`.
 - `ClosingDetailModal` — painel lateral partilhado pelos dois modos; permite
-  aprovar/rejeitar e editar valores.
+  aprovar/rejeitar e editar valores. Exibe os campos em três secções:
+  **Canal Próprio** (TPA, Eatz, dinheiro → subtotal declarado, Total Vendus, Diferença),
+  **Canais Externos** (Uber, Glovo, Bolt com referência AirMenu por plataforma →
+  subtotal declarado, Total AirMenu, Diferença AirMenu) e
+  **Movimentos de Caixa** (entradas/saídas/gaveta/diferença de gaveta/sangria).
 - `StatusBadge` — componente exportado para reutilização.
 
 ### Saída
@@ -66,6 +76,8 @@ no componente, sem endpoint específico.
 `verifyPin`, `submitClosing` e `getVendusTotal` são pass-through sem lógica de
 cliente. Expô-los via `api` (sem use case wrapper) mantém o módulo simples sem
 violar a regra "sem fetch nos componentes" — o kiosk chama `module.api` via hook.
+`getAirMenuTotals` vive em `cashClosingApi.ts` (legado) e é chamado diretamente
+no step de review do kiosk para mostrar a referência AirMenu antes da submissão.
 
 **Identidade visual da marca.**
 Paleta `#A3211A → #ED5C32 → #EF8935 → #F1A93F → #F5C992` usada como accent;

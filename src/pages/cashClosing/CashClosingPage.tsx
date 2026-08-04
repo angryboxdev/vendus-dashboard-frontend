@@ -3,10 +3,12 @@ import {
   verifyPin,
   getSessions,
   submitClosing,
+  getAirMenuTotals,
   type VerifyPinResult,
   type CashClosing,
   type RegisterSessionDto,
   type DrawerDenominations,
+  type AirMenuTotals,
 } from "./cashClosingApi";
 import { PageFooter } from "../../components/PageFooter.tsx";
 
@@ -219,6 +221,7 @@ export function CashClosingPage() {
   // Sessions
   const [sessions, setSessions] = useState<RegisterSessionDto[]>([]);
   const [selectedSession, setSelectedSession] = useState<RegisterSessionDto | null>(null);
+  const [airMenuTotals, setAirMenuTotals] = useState<AirMenuTotals | null>(null);
 
   // Denomination state — for end-of-day drawer count (cashDrawerTotal)
   const [denomQty, setDenomQty] = useState<Record<string, number>>({});
@@ -252,7 +255,9 @@ export function CashClosingPage() {
     ALL_DENOMS.reduce((sum, d) => sum + d * (denomQty[String(d)] ?? 0), 0) * 100,
   ) / 100;
 
-  const totalCalculated = Math.round((tpa + uber + glovo + bolt + eatz + cashSales) * 100) / 100;
+  const vendusCalculated = Math.round((tpa + eatz + cashSales) * 100) / 100;
+  const airMenuCalculated = Math.round((uber + glovo + bolt) * 100) / 100;
+  const totalCalculated = Math.round((vendusCalculated + airMenuCalculated) * 100) / 100;
   const expectedCash = Math.round((cashDrawerOpen + cashSales + cashIn - cashOut) * 100) / 100;
   const cashDiff =
     cashDrawerTotal > 0 || expectedCash > 0
@@ -262,7 +267,7 @@ export function CashClosingPage() {
     cashDrawerTotal > 100 ? Math.round((cashDrawerTotal - 100) * 100) / 100 : 0;
   const diff =
     form.vendusTotal != null
-      ? Math.round((totalCalculated - form.vendusTotal) * 100) / 100
+      ? Math.round((vendusCalculated - form.vendusTotal) * 100) / 100
       : null;
 
   function resetAll() {
@@ -273,6 +278,7 @@ export function CashClosingPage() {
     setError("");
     setSessions([]);
     setSelectedSession(null);
+    setAirMenuTotals(null);
     setDenomQty({});
   }
 
@@ -316,8 +322,10 @@ export function CashClosingPage() {
   }
 
   // ---- Drawer → review ----
-  function goToReview() {
+  async function goToReview() {
     setField("vendusTotal", selectedSession?.total ?? null);
+    const totals = await getAirMenuTotals(form.closingDate).catch(() => null);
+    setAirMenuTotals(totals);
     setStep("review");
   }
 
@@ -595,17 +603,15 @@ export function CashClosingPage() {
               />
             )}
             <ReviewRow label="Funcionário" value={form.employee?.fullName ?? ""} />
+
+            {/* Canal Próprio (Vendus) */}
+            <div className="bg-stone-50 px-5 py-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-stone-400">Canal Próprio</span>
+            </div>
             <ReviewRow label="TPA" value={fmtEur(tpa)} />
-            <ReviewRow label="Uber Eats" value={fmtEur(uber)} />
-            <ReviewRow label="Glovo" value={fmtEur(glovo)} />
-            <ReviewRow label="Bolt Food" value={fmtEur(bolt)} />
             <ReviewRow label="Eatz" value={fmtEur(eatz)} />
             <ReviewRow label="Vendas a dinheiro" value={fmtEur(cashSales)} />
-            {cashIn > 0 && <ReviewRow label="Entradas" value={fmtEur(cashIn)} />}
-            {cashOut > 0 && <ReviewRow label="Saídas" value={fmtEur(cashOut)} />}
-            <ReviewRow label="Gaveta (início)" value={fmtEur(cashDrawerOpen)} />
-            <ReviewRow label="Gaveta (fim)" value={fmtEur(cashDrawerTotal)} />
-            <ReviewRow label="Total Calculado" value={fmtEur(totalCalculated)} highlight />
+            <ReviewRow label="Subtotal Vendus" value={fmtEur(vendusCalculated)} highlight />
             {form.vendusTotal != null && <ReviewRow label="Total Vendus" value={fmtEur(form.vendusTotal)} />}
             {diff != null && (
               <ReviewRow
@@ -614,7 +620,41 @@ export function CashClosingPage() {
                 diffColor={diff === 0 ? "green" : diff > 0 ? "blue" : "red"}
               />
             )}
-            <ReviewRow label="Total contado em caixa" value={fmtEur(cashDrawerTotal)} />
+
+            {/* Canais Externos (AirMenu) */}
+            <div className="bg-stone-50 px-5 py-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-stone-400">Canais Externos</span>
+            </div>
+            <ReviewRow label="Uber Eats" value={fmtEur(uber)} />
+            <ReviewRow label="Glovo" value={fmtEur(glovo)} />
+            <ReviewRow label="Bolt Food" value={fmtEur(bolt)} />
+            <ReviewRow label="Subtotal AirMenu" value={fmtEur(airMenuCalculated)} highlight />
+            {airMenuTotals != null && (() => {
+              const airMenuRefTotal = Math.round((airMenuTotals.uber + airMenuTotals.glovo + airMenuTotals.bolt) * 100) / 100;
+              const airMenuDiff = Math.round((airMenuCalculated - airMenuRefTotal) * 100) / 100;
+              return (
+                <>
+                  <ReviewRow label="Total AirMenu" value={fmtEur(airMenuRefTotal)} />
+                  <ReviewRow
+                    label="Diferença AirMenu"
+                    value={(airMenuDiff >= 0 ? "+" : "") + fmtEur(airMenuDiff)}
+                    diffColor={airMenuDiff === 0 ? "green" : airMenuDiff > 0 ? "blue" : "red"}
+                  />
+                </>
+              );
+            })()}
+
+            {/* Total geral */}
+            <ReviewRow label="Total Calculado" value={fmtEur(totalCalculated)} highlight />
+
+            {/* Movimentos de Caixa */}
+            <div className="bg-stone-50 px-5 py-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-stone-400">Movimentos de Caixa</span>
+            </div>
+            <ReviewRow label="Gaveta (início)" value={fmtEur(cashDrawerOpen)} />
+            {cashIn > 0 && <ReviewRow label="Entradas" value={fmtEur(cashIn)} />}
+            {cashOut > 0 && <ReviewRow label="Saídas" value={fmtEur(cashOut)} />}
+            <ReviewRow label="Gaveta (fim)" value={fmtEur(cashDrawerTotal)} />
             <ReviewRow label="Total esperado em caixa" value={fmtEur(expectedCash)} />
             {cashDiff !== null && (
               <ReviewRow
