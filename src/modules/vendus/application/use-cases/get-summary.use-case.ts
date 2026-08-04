@@ -3,7 +3,10 @@ import type { VendusApiPort } from "../../domain/ports/out/vendus-api.port.ts";
 import type { VendusSummaryResult } from "../../domain/entities/vendus-analytics.ts";
 
 export class GetSummaryUseCase implements GetSummaryPort {
-  constructor(private readonly api: VendusApiPort) {}
+  private readonly api: VendusApiPort;
+  constructor(api: VendusApiPort) {
+    this.api = api;
+  }
 
   execute(since: string, until: string): Promise<VendusSummaryResult> {
     return this.api.fetchSummary(since, until);

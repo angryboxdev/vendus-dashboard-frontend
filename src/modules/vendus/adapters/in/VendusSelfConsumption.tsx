@@ -39,14 +39,9 @@ export function SelfConsumptionKpiCards({
   analytics: VendusSelfConsumptionAnalytics;
 }) {
   const catTotal = analytics.byCategory.reduce((s, c) => s + c.qty, 0);
-  const avgPerRecord =
-    analytics.recordCount > 0
-      ? analytics.totalSpending / analytics.recordCount
-      : 0;
   const topEmployee = analytics.byEmployee[0];
   const maxEmpSpending = topEmployee?.totalSpending ?? 1;
   const distinctEmployees = analytics.byEmployee.length;
-  const activeCats = analytics.byCategory.filter((c) => c.qty > 0).length;
   const topOriginPct =
     analytics.totalSpending > 0 && topEmployee
       ? (topEmployee.totalSpending / analytics.totalSpending) * 100
