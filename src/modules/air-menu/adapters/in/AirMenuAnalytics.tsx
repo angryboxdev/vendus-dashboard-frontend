@@ -179,7 +179,7 @@ export function KpiCards({
         <div className="space-y-1 text-sm">
           <div className="flex items-baseline justify-between py-1.5">
             <span className="text-gray-600">Receita Bruta</span>
-            <span className="text-lg font-bold text-gray-800">
+            <span className="text-lg font-bold text-emerald-600">
               {fmtEUR(gross)}
             </span>
           </div>
@@ -242,7 +242,7 @@ export function KpiCards({
                 </p>
                 <div className="flex justify-between">
                   <div>
-                    <p className="text-3xl font-bold text-gray-800">
+                    <p className="text-2xl font-bold text-gray-800">
                       {summary.totalOrders}
                     </p>
                     <p className="mt-1 text-xs text-gray-400">
@@ -250,7 +250,7 @@ export function KpiCards({
                     </p>
                   </div>
                   <div>
-                    <p className="text-3xl font-bold text-emerald-600">
+                    <p className="text-2xl font-bold text-emerald-600">
                       {fmtEUR(summary.averageTicket)}
                     </p>
                     <p className="mt-1 text-xs text-gray-400 text-right">
