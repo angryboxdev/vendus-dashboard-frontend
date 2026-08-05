@@ -12,7 +12,7 @@ export interface VendusSummaryStats {
 }
 
 export interface VendusChannelStats {
-  channel: "salao" | "eatz";
+  channel: "salao" | "eatz" | "apps";
   documentCount: number;
   creditNoteCount: number;
   grossRevenue: number;
@@ -56,6 +56,7 @@ export interface VendusProductChannelBreakdown {
     salao: number;
     take_away: number;
     eatz: number;
+    apps: number;
   };
   grossRevenue: number;
 }

@@ -210,12 +210,13 @@ function ChannelMetricsCard({
   summary: VendusAnalytics["summary"];
 }) {
   const CHANNELS: {
-    channel: "salao" | "eatz";
+    channel: "salao" | "eatz" | "apps";
     label: string;
     color: string;
   }[] = [
     { channel: "salao", label: "Salão", color: "bg-blue-400" },
     { channel: "eatz", label: "Eatz", color: "bg-orange-400" },
+    { channel: "apps", label: "Apps", color: "bg-purple-400" },
   ];
 
   const padded = CHANNELS.map(({ channel, label, color }) => ({
@@ -318,7 +319,7 @@ function ChannelMetricsCard({
           </div>
         </div>
         {padded
-          .filter((c) => c.channel === "eatz")
+          .filter((c) => c.channel === "eatz" || (c.channel === "apps" && byChannel.some((x) => x.channel === "apps")))
           .map((c) => (
             <div key={c.label}>
               <div className="mb-1 flex items-center justify-between text-sm">
@@ -545,12 +546,14 @@ const CHANNEL_LABELS: Record<string, string> = {
   salao: "Salão",
   take_away: "Take Away",
   eatz: "Eatz",
+  apps: "Apps",
 };
 
 const CHANNEL_COLORS: Record<string, string> = {
   salao: "bg-blue-100 text-blue-700",
   take_away: "bg-red-100 text-red-700",
   eatz: "bg-green-100 text-green-700",
+  apps: "bg-purple-100 text-purple-700",
 };
 
 export function ChannelBadge({ channel }: { channel: string }) {
@@ -634,7 +637,8 @@ export function ChannelTable({
       docs: documents.filter((d) => d.channel === "take_away"),
     },
     { channel: "eatz", docs: documents.filter((d) => d.channel === "eatz") },
-  ];
+    { channel: "apps", docs: documents.filter((d) => d.channel === "apps") },
+  ].filter((g) => g.channel !== "apps" || g.docs.length > 0);
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
@@ -893,7 +897,7 @@ export function ProductsByChannelTable({
   const [pageSize, setPageSize] = useState(25);
 
   function exportCSV() {
-    const header = "Produto,Categoria,IVA,Salão,Take Away,Eatz,Total,Receita Bruta";
+    const header = "Produto,Categoria,IVA,Salão,Take Away,Eatz,Apps,Total,Receita Bruta";
     const sortedForExport = [...data].sort((a, b) => {
       const aPizza = a.category === "pizza";
       const bPizza = b.category === "pizza";
@@ -914,6 +918,7 @@ export function ProductsByChannelTable({
         p.byChannel.salao,
         p.byChannel.take_away,
         p.byChannel.eatz,
+        p.byChannel.apps,
         p.quantitySold,
         p.grossRevenue.toFixed(2),
       ].join(","),
@@ -955,6 +960,7 @@ export function ProductsByChannelTable({
               <th className="px-4 py-3 text-right">Salão</th>
               <th className="px-4 py-3 text-right">Take Away</th>
               <th className="px-4 py-3 text-right">Eatz</th>
+              <th className="px-4 py-3 text-right">Apps</th>
               <th className="px-4 py-3 text-right">Total</th>
               <th className="px-4 py-3 text-right">Receita Bruta</th>
             </tr>
@@ -979,6 +985,9 @@ export function ProductsByChannelTable({
                 </td>
                 <td className="px-4 py-3 text-right text-gray-600">
                   {p.byChannel.eatz || "—"}
+                </td>
+                <td className="px-4 py-3 text-right text-gray-600">
+                  {p.byChannel.apps || "—"}
                 </td>
                 <td className="px-4 py-3 text-right font-semibold text-gray-700">
                   {p.quantitySold}

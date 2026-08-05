@@ -5,10 +5,11 @@
  * - 'salao'     — consumo no restaurante
  * - 'eatz'      — delivery próprio (pagamento via método Eatz)
  * - 'take_away' — take-away (salão + item "embalagem")
+ * - 'apps'      — delivery via plataformas externas faturado no Vendus (histórico pré-AirMenu)
  *
- * Na UI, 'take_away' é agrupado com 'salao'.
+ * Na UI, 'take_away' é agrupado com 'salao'. 'apps' só aparece se houver documentos.
  */
-export type VendusChannel = "salao" | "eatz" | "take_away";
+export type VendusChannel = "salao" | "eatz" | "take_away" | "apps";
 
 // ─── Sub-types ────────────────────────────────────────────────────────────────
 
