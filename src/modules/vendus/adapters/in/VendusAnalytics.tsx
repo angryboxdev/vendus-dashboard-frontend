@@ -2,6 +2,7 @@ import { Fragment, useState } from "react";
 import type {
   VendusAnalytics,
   VendusChannelStats,
+  VendusProductChannelBreakdown,
 } from "../../domain/entities/vendus-analytics.ts";
 
 import type { VendusDetailedDocument } from "../../domain/entities/vendus-document.ts";
@@ -881,61 +882,115 @@ export function CategoryTable({
   );
 }
 
-// ─── Top Products Table ───────────────────────────────────────────────────────
+// ─── Products by Channel Table ────────────────────────────────────────────────
 
-export function TopProductsTable({
+export function ProductsByChannelTable({
   data,
 }: {
-  data: VendusAnalytics["topProducts"];
+  data: VendusProductChannelBreakdown[];
 }) {
   const [page, setPage] = useState(1);
-  const [pageSize, setPageSize] = useState(10);
+  const [pageSize, setPageSize] = useState(25);
+
+  function exportCSV() {
+    const header = "Produto,Categoria,IVA,Salão,Take Away,Eatz,Total,Receita Bruta";
+    const sortedForExport = [...data].sort((a, b) => {
+      const aPizza = a.category === "pizza";
+      const bPizza = b.category === "pizza";
+      if (aPizza !== bPizza) return aPizza ? -1 : 1;
+      if (aPizza) {
+        const aBase = a.title.replace(/ \([LS]\)$/, "");
+        const bBase = b.title.replace(/ \([LS]\)$/, "");
+        if (aBase !== bBase) return aBase.localeCompare(bBase, "pt");
+        return a.title < b.title ? -1 : 1; // (L) antes de (S)
+      }
+      return b.grossRevenue - a.grossRevenue;
+    });
+    const rows = sortedForExport.map((p) =>
+      [
+        `"${p.title.replace(/"/g, '""')}"`,
+        p.category,
+        `${p.vatRate}%`,
+        p.byChannel.salao,
+        p.byChannel.take_away,
+        p.byChannel.eatz,
+        p.quantitySold,
+        p.grossRevenue.toFixed(2),
+      ].join(","),
+    );
+    const csv = [header, ...rows].join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "produtos-por-canal.csv";
+    a.click();
+    URL.revokeObjectURL(url);
+  }
 
   const start = (page - 1) * pageSize;
   const pageData = data.slice(start, start + pageSize);
 
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-      <div className="border-b border-gray-100 px-4 py-3">
+      <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-400">
-          Produtos ({data.length})
+          Produtos por Canal ({data.length})
         </p>
+        <button
+          onClick={exportCSV}
+          className="rounded-lg bg-gray-100 px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-200"
+        >
+          Exportar CSV
+        </button>
       </div>
-      <table className="w-full text-sm">
-        <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
-          <tr>
-            <th className="px-4 py-3 text-left">#</th>
-            <th className="px-4 py-3 text-left">Produto</th>
-            <th className="px-4 py-3 text-left">Categoria</th>
-            <th className="px-4 py-3 text-right">IVA</th>
-            <th className="px-4 py-3 text-right">Qtd Vendida</th>
-            <th className="px-4 py-3 text-right">Receita Bruta</th>
-          </tr>
-        </thead>
-        <tbody>
-          {pageData.map((p, i) => (
-            <tr
-              key={p.reference}
-              className="border-t border-gray-100 hover:bg-gray-50"
-            >
-              <td className="px-4 py-3 text-gray-400">{start + i + 1}</td>
-              <td className="px-4 py-3 font-medium text-gray-800">{p.title}</td>
-              <td className="px-4 py-3">
-                <CategoryBadge category={p.category} />
-              </td>
-              <td className="px-4 py-3 text-right text-gray-500">
-                {p.vatRate}%
-              </td>
-              <td className="px-4 py-3 text-right text-gray-600">
-                {p.quantitySold}
-              </td>
-              <td className="px-4 py-3 text-right font-medium text-gray-800">
-                {fmtEUR(p.grossRevenue)}
-              </td>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead className="bg-gray-50 text-xs font-semibold uppercase text-gray-500">
+            <tr>
+              <th className="px-4 py-3 text-left">#</th>
+              <th className="px-4 py-3 text-left">Produto</th>
+              <th className="px-4 py-3 text-left">Categoria</th>
+              <th className="px-4 py-3 text-right">IVA</th>
+              <th className="px-4 py-3 text-right">Salão</th>
+              <th className="px-4 py-3 text-right">Take Away</th>
+              <th className="px-4 py-3 text-right">Eatz</th>
+              <th className="px-4 py-3 text-right">Total</th>
+              <th className="px-4 py-3 text-right">Receita Bruta</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {pageData.map((p, i) => (
+              <tr
+                key={p.reference || p.title}
+                className="border-t border-gray-100 hover:bg-gray-50"
+              >
+                <td className="px-4 py-3 text-gray-400">{start + i + 1}</td>
+                <td className="px-4 py-3 font-medium text-gray-800">{p.title}</td>
+                <td className="px-4 py-3">
+                  <CategoryBadge category={p.category} />
+                </td>
+                <td className="px-4 py-3 text-right text-gray-500">{p.vatRate}%</td>
+                <td className="px-4 py-3 text-right text-gray-600">
+                  {p.byChannel.salao || "—"}
+                </td>
+                <td className="px-4 py-3 text-right text-gray-600">
+                  {p.byChannel.take_away || "—"}
+                </td>
+                <td className="px-4 py-3 text-right text-gray-600">
+                  {p.byChannel.eatz || "—"}
+                </td>
+                <td className="px-4 py-3 text-right font-semibold text-gray-700">
+                  {p.quantitySold}
+                </td>
+                <td className="px-4 py-3 text-right font-medium text-gray-800">
+                  {fmtEUR(p.grossRevenue)}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
       <div className="border-t border-gray-100">
         <Pagination
           total={data.length}

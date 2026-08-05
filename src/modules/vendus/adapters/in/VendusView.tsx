@@ -3,7 +3,7 @@ import {
   KpiCards,
   ChannelTable,
   CategoryTable,
-  TopProductsTable,
+  ProductsByChannelTable,
   TemporalChart,
   Pagination,
   DocTypeBadge,
@@ -670,7 +670,7 @@ export function VendusView() {
               data={analytics.byCategory}
               topProducts={analytics.topProducts}
             />
-            <TopProductsTable data={analytics.topProducts} />
+            <ProductsByChannelTable data={analytics.productsByChannel} />
 
             {/* ── Autoconsumo ─────────────────────────────────────────────── */}
             <div className="border-t border-gray-200 pt-6">
