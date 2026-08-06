@@ -1,7 +1,7 @@
 # Módulo: financial-base
 
 > Status: ativo
-> Última atualização: 2026-06-22
+> Última atualização: 2026-08-06
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -21,15 +21,19 @@ módulo cria e mantém essa estrutura base.
 ```
 Manager (backoffice)
 ────────────────────────────────────────────────────
-1. Seed inicial carrega os 7 grupos e 28 subcategorias padrão
+1. Seed inicial carrega os 7 grupos, 28+ subcategorias e 7 canais padrão
    (ou manager cria manualmente novos grupos/subcategorias)
 2. Cada subcategoria tem regras financeiras:
    afeta DRE? afeta fluxo de caixa? afeta rentabilidade?
+   requer canal? (ex: MKT.05 — Anúncios por Marketplace obriga
+   a indicar a plataforma: Uber Eats, Glovo, Bolt…)
 3. Manager cria fornecedores com grupo+subcategoria por defeito
    (ex: Makro → OPD / CMV / Ingredientes)
 4. À medida que entram faturas, o sistema usa a classificação
    do fornecedor para sugerir o centro de custo
-5. Na tab "Análise", o manager vê quanto foi gasto por
+5. Quando a subcategoria exige canal, o selector aparece no
+   formulário de classificação e é obrigatório antes de guardar
+6. Na tab "Análise", o manager vê quanto foi gasto por
    subcategoria, cruzando as linhas de fatura classificadas
 ```
 
@@ -71,6 +75,8 @@ contas a pagar — esses módulos existem separadamente.
   `paymentTermsDays`, `defaultCostCenterGroupId` e `defaultCostCenterCategoryId`.
 - **SeedResult** — resultado do seed: `groupsCreated`, `categoriesCreated`, `groupsSkipped`,
   `categoriesSkipped` (retornado por `seedDefaultCostCenters()`).
+- **ChannelDTO** — canal de venda/distribuição com `id`, `code`, `name`, `isActive`.
+  Usado na classificação de linhas de fatura que requerem canal (ex: Uber Eats, Glovo, SALON).
 
 ## Ports
 
@@ -100,6 +106,9 @@ contas a pagar — esses módulos existem separadamente.
 - `updateSupplier(id, payload)` — actualizar
 - `setSupplierStatus(id, status)` — activar/desactivar
 
+**Canais**
+- `listChannels()` — lista todos os canais (SALON, TAKEAWAY, UBER_EATS, GLOVO, etc.)
+
 ## Adapters
 
 ### Entrada (UI)
@@ -122,7 +131,7 @@ contas a pagar — esses módulos existem separadamente.
 ### Saída
 
 - `HttpFinancialBaseApiAdapter` — implementa `FinancialBaseApiPort` usando
-  `apiGet`, `apiPost`, `apiPatch` de `src/lib/api.ts`.
+  `apiGet`, `apiPost`, `apiPatch` de `src/lib/api.ts`. Inclui `listChannels()` → `GET /api/financial-base/channels`.
 
 ## Decisões de design (ADR resumido)
 

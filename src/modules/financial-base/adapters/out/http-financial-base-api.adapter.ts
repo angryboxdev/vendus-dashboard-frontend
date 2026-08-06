@@ -13,6 +13,7 @@ import type {
   CreateCostCenterCategoryPayload,
   UpdateCostCenterCategoryPayload,
   SeedResult,
+  ChannelDTO,
 } from "../../domain/entities/cost-center.ts";
 import type { Supplier, CreateSupplierPayload, UpdateSupplierPayload } from "../../domain/entities/supplier.ts";
 
@@ -98,5 +99,11 @@ export class HttpFinancialBaseApiAdapter implements FinancialBaseApiPort {
 
   async setSupplierStatus(id: string, status: "active" | "inactive"): Promise<Supplier> {
     return apiPatch(`${BASE}/suppliers/${encodeURIComponent(id)}/status`, { status });
+  }
+
+  // ── Channels ─────────────────────────────────────────────────────────────────
+
+  async listChannels(): Promise<ChannelDTO[]> {
+    return apiGet(`${BASE}/channels`);
   }
 }

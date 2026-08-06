@@ -16,6 +16,7 @@ import type {
   InvoiceImportResultDTO,
   InvoiceAlertsDTO,
   ConfirmImportedInvoicePayload,
+  SuggestClassificationResult,
 } from "../../domain/entities/invoice.ts";
 
 const BASE = "/api/invoices";
@@ -80,5 +81,10 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
 
   async getInvoiceAlerts(): Promise<InvoiceAlertsDTO> {
     return apiGet(`${BASE}/alerts`);
+  }
+
+  async suggestLineClassification(supplierId: string, description?: string): Promise<SuggestClassificationResult | null> {
+    const qs = description ? `?description=${encodeURIComponent(description)}` : "";
+    return apiGet(`${BASE}/suggest-classification/${encodeURIComponent(supplierId)}${qs}`);
   }
 }

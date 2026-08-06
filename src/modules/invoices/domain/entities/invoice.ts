@@ -66,6 +66,12 @@ export interface InvoiceLineDTO {
   affectsDre: boolean;
   affectsCashflow: boolean;
   affectsProfitability: boolean;
+  financialType: string | null;
+  channelId: string | null;
+  requiresChannel: boolean;
+  requiresAllocation: boolean;
+  dreValue: number;
+  cashflowValue: number;
   createdAt: string;
 }
 
@@ -233,8 +239,15 @@ export interface ClassifyLinePayload {
     type?: InvoiceLineType;
     costCenterCategoryId?: string | null;
     stockItemId?: string | null;
+    channelId?: string | null;
   };
   saveAsRule?: boolean;
+}
+
+export interface SuggestClassificationResult {
+  costCenterCategoryId: string | null;
+  defaultLineType: string | null;
+  channelId: string | null;
 }
 
 export interface ListInvoicesParams {

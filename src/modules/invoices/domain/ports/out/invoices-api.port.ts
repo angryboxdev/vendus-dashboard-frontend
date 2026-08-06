@@ -8,6 +8,7 @@ import type {
   InvoiceImportResultDTO,
   InvoiceAlertsDTO,
   ConfirmImportedInvoicePayload,
+  SuggestClassificationResult,
 } from "../../entities/invoice.ts";
 
 export interface AddInvoiceLinePayload {
@@ -35,4 +36,5 @@ export interface InvoicesApiPort {
   importInvoice(file: File): Promise<InvoiceImportResultDTO>;
   confirmImportedInvoice(id: string, payload: ConfirmImportedInvoicePayload): Promise<InvoiceDTO>;
   getInvoiceAlerts(): Promise<InvoiceAlertsDTO>;
+  suggestLineClassification(supplierId: string, description?: string): Promise<SuggestClassificationResult | null>;
 }

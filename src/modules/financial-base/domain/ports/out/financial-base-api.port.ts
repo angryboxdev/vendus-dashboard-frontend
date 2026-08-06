@@ -6,6 +6,7 @@ import type {
   CreateCostCenterCategoryPayload,
   UpdateCostCenterCategoryPayload,
   SeedResult,
+  ChannelDTO,
 } from "../../entities/cost-center.ts";
 import type { Supplier, CreateSupplierPayload, UpdateSupplierPayload } from "../../entities/supplier.ts";
 
@@ -45,4 +46,7 @@ export interface FinancialBaseApiPort {
   createSupplier(payload: CreateSupplierPayload): Promise<Supplier>;
   updateSupplier(id: string, payload: UpdateSupplierPayload): Promise<Supplier>;
   setSupplierStatus(id: string, status: "active" | "inactive"): Promise<Supplier>;
+
+  // Channels
+  listChannels(): Promise<ChannelDTO[]>;
 }

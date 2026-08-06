@@ -17,7 +17,9 @@ import {
 import { ImportInvoiceModal } from "./ImportInvoiceModal.tsx";
 import { ReviewImportedInvoiceDrawer } from "./ReviewImportedInvoiceDrawer.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
-import type { CostCenterCategory } from "../../../financial-base/domain/entities/cost-center.ts";
+import type { CostCenterCategory, ChannelDTO } from "../../../financial-base/domain/entities/cost-center.ts";
+import { FINANCIAL_TYPE_LABELS, FINANCIAL_TYPE_COLORS } from "../../../financial-base/domain/entities/cost-center.ts";
+import type { FinancialType } from "../../../financial-base/domain/entities/cost-center.ts";
 import { usePayableEntriesModule } from "../../../payable-entries/payable-entries.module.tsx";
 import {
   type PayableEntryDTO,
@@ -208,6 +210,7 @@ interface ClassifyPanelProps {
   line: InvoiceLineDTO;
   invoiceId: string;
   categories: CostCenterCategory[];
+  channels: ChannelDTO[];
   onDone: (updated: InvoiceLineDTO) => void;
 }
 
@@ -215,25 +218,36 @@ function ClassifyPanel({
   line,
   invoiceId,
   categories,
+  channels,
   onDone,
 }: ClassifyPanelProps) {
   const { api } = useInvoicesModule();
   const [type, setType] = useState<InvoiceLineType>(line.type);
   const [catId, setCatId] = useState(line.costCenterCategoryId ?? "");
+  const [channelId, setChannelId] = useState(line.channelId ?? "");
   const [saveRule, setSaveRule] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const selectedCategory = categories.find((c) => c.id === catId);
+  const channelRequired = selectedCategory?.requiresChannel ?? false;
 
   async function handleSave() {
     setSaving(true);
+    setError(null);
     try {
       const updated = await api.classifyLine(invoiceId, line.id, {
         classify: {
           type,
           costCenterCategoryId: catId || null,
+          channelId: channelId || null,
         },
         saveAsRule: saveRule,
       });
       onDone(updated);
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : "Erro ao classificar";
+      setError(msg.includes("Canal") ? "Canal obrigatório para esta subcategoria." : msg);
     } finally {
       setSaving(false);
     }
@@ -270,7 +284,7 @@ function ClassifyPanel({
           </label>
           <select
             value={catId}
-            onChange={(e) => setCatId(e.target.value)}
+            onChange={(e) => { setCatId(e.target.value); setChannelId(""); }}
             className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
           >
             <option value="">— nenhuma —</option>
@@ -280,8 +294,32 @@ function ClassifyPanel({
               </option>
             ))}
           </select>
+          {selectedCategory && (
+            <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs ${FINANCIAL_TYPE_COLORS[selectedCategory.financialType as FinancialType]}`}>
+              {FINANCIAL_TYPE_LABELS[selectedCategory.financialType as FinancialType]}
+            </span>
+          )}
         </div>
       </div>
+      {(channelRequired || !!channelId) && (
+        <div>
+          <label className="mb-1 block text-xs font-medium text-stone-500">
+            Canal {channelRequired && <span className="text-red-500">*</span>}
+          </label>
+          <select
+            value={channelId}
+            onChange={(e) => setChannelId(e.target.value)}
+            className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+          >
+            <option value="">— nenhum —</option>
+            {channels.filter((ch) => ch.isActive).map((ch) => (
+              <option key={ch.id} value={ch.id}>
+                {ch.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
       <label className="flex items-center gap-2 text-xs text-stone-600">
         <input
           type="checkbox"
@@ -291,9 +329,10 @@ function ClassifyPanel({
         />
         Guardar como regra para este fornecedor
       </label>
+      {error && <p className="text-xs text-red-600">{error}</p>}
       <button
-        onClick={handleSave}
-        disabled={saving}
+        onClick={() => void handleSave()}
+        disabled={saving || (channelRequired && !channelId)}
         className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
       >
         {saving ? "A guardar…" : "Classificar"}
@@ -469,6 +508,7 @@ function AddLineForm({ invoiceId, categories, onDone, onCancel }: AddLineFormPro
 interface DetailDrawerProps {
   invoice: InvoiceDTO | null;
   categories: CostCenterCategory[];
+  channels: ChannelDTO[];
   linkedPayable?: PayableEntryDTO | null;
   onClose: () => void;
   onOpenMarkPaid: (inv: InvoiceDTO) => void;
@@ -477,6 +517,7 @@ interface DetailDrawerProps {
 function InvoiceDetailDrawer({
   invoice,
   categories,
+  channels,
   linkedPayable,
   onClose,
   onOpenMarkPaid,
@@ -727,6 +768,7 @@ function InvoiceDetailDrawer({
                         line={line}
                         invoiceId={invoice.id}
                         categories={categories}
+                        channels={channels}
                         onDone={handleLineUpdated}
                       />
                     </div>
@@ -1377,6 +1419,11 @@ export function InvoicesView() {
   const { data: categories = [] } = useQuery({
     queryKey: ["cost-center-categories"],
     queryFn: () => fbModule.api.listCostCenterCategories(),
+  });
+
+  const { data: channels = [] } = useQuery({
+    queryKey: ["channels"],
+    queryFn: () => fbModule.api.listChannels(),
   });
 
   const { data: suppliers = [] } = useQuery({
@@ -2030,6 +2077,7 @@ export function InvoicesView() {
           <InvoiceDetailDrawer
             invoice={detail}
             categories={categories}
+            channels={channels}
             linkedPayable={payableByInvoiceId.get(detail.id) ?? null}
             onClose={() => setDetail(null)}
             onOpenMarkPaid={setMarkPaidInvoice}

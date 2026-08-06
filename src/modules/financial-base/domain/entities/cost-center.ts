@@ -117,3 +117,10 @@ export interface SeedResult {
   groupsSkipped: number;
   categoriesSkipped: number;
 }
+
+export interface ChannelDTO {
+  id: string;
+  code: string;
+  name: string;
+  isActive: boolean;
+}

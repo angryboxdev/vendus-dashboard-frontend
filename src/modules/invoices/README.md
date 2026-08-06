@@ -1,7 +1,7 @@
 # Módulo: invoices
 
 > Status: ativo
-> Última atualização: 2026-07-01
+> Última atualização: 2026-08-06
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -56,7 +56,9 @@ Visibilidade diária:
   "Farinha T55" (stock) e "Tampa Inox" (equipamento). Classificar por linha permite
   relatórios precisos por área.
 - **Regra de classificação** — ao marcar "guardar como regra", o sistema memoriza
-  como classificar futuras faturas desse fornecedor.
+  subcategoria, tipo de linha e canal para futuras faturas do mesmo fornecedor com
+  descrição semelhante. A regra mais específica (descrição mais longa) tem prioridade;
+  existe sempre uma regra genérica por fornecedor como fallback.
 - **KPIs** — total faturado (c/ e s/ IVA), total vencido (€ + contagem), total
   pendente (€ + contagem). Visão imediata sobre o estado das contas.
 - **CC Padrão** — centro de custo padrão do fornecedor (configurado no cadastro de
@@ -79,8 +81,12 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 - **InvoiceDTO** — fatura com cabeçalho (fornecedor, NIF snapshot, valores, datas,
   estado, source, aiConfidence, requiresReview, costCenterGroupId, financialType,
   flags DRE/cashflow/profitability, currency, `isDirectDebit`, `directDebitDate`) e linhas opcionais.
-- **InvoiceLineDTO** — linha de detalhe com `type`, `costCenterCategoryId`,
-  valores monetários e flags `affectsDre`/`affectsCashflow`/`affectsProfitability`.
+- **InvoiceLineDTO** — linha de detalhe com `type`, `costCenterCategoryId`, valores monetários,
+  flags `affectsDre`/`affectsCashflow`/`affectsProfitability`, e campos V2: `financialType` (herdado
+  da subcategoria), `channelId`, `requiresChannel`, `requiresAllocation`, `dreValue` (s/ IVA, cêntimos),
+  `cashflowValue` (c/ IVA, cêntimos).
+- **SuggestClassificationResult** — sugestão de classificação para uma linha: `costCenterCategoryId`,
+  `defaultLineType`, `channelId` (todos anuláveis). Retornado por `suggestLineClassification()`.
 - **InvoiceImportResultDTO** — resultado do import: `invoice` (draft_ai), `aiConfidence`,
   `validationIssues`, `supplierMatch`, `extractedLines`.
 - **InvoiceAlertsDTO** — contagens e totais para: `overdue`, `dueToday`, `dueIn7Days`,
@@ -100,10 +106,11 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 
 - `InvoicesApiPort` — métodos HTTP:
   - CRUD base: `listInvoices(params?)`, `getInvoice(id)`, `createInvoice`, `updateInvoice`, `deleteInvoice`
-  - Linhas: `listInvoiceLines()`, `addLine`, `classifyLine`
+  - Linhas: `listInvoiceLines()`, `addLine`, `classifyLine` (aceita `channelId` no payload)
   - Ciclo de vida: `markInvoicePaid(id, paidAt?)`
   - Import IA: `importInvoice(file)` → `InvoiceImportResultDTO`; `confirmImportedInvoice(id, payload)`
   - Alertas: `getInvoiceAlerts()` → `InvoiceAlertsDTO`
+  - Sugestão: `suggestLineClassification(supplierId, description?)` → `SuggestClassificationResult | null`
 
 ## Adapters
 
@@ -152,7 +159,11 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
   - *Detalhes*: campos do cabeçalho; para faturas de débito direto mostra "Débito direto em" em vez de "Data de vencimento"; botão "Marcar como paga"; conta a pagar associada (se existir) com link para `/financial/payable-entries`.
   - *Linhas*: `AddLineForm` para adicionar novas linhas; `ClassifyPanel` inline por linha existente.
 
-- **`ClassifyPanel`** — painel inline por linha: tipo (`InvoiceLineType`), subcategoria de CC (`costCenterCategoryId`); opção de guardar como regra automática para o fornecedor.
+- **`ClassifyPanel`** — painel inline por linha: tipo (`InvoiceLineType`), subcategoria de CC
+  (`costCenterCategoryId`), canal (`channelId` — obrigatório quando `requiresChannel=true`);
+  badge do `financialType` herdado da subcategoria selecionada; erro inline se backend rejeitar
+  por canal em falta; botão desabilitado quando canal obrigatório mas não selecionado;
+  opção de guardar como regra automática para o fornecedor.
 
 ### Saída
 
@@ -204,7 +215,7 @@ KPI cards `px-5 py-4 shadow-sm text-xl`.
   `from`/`to` como filtros de data.
 - Ao fechar e reabrir o `InvoiceDetailDrawer`, as linhas são recarregadas. Considerar
   cache via `useQuery` com `queryKey: ["invoice-lines", id]`.
-- `setInvoiceStatus` e `suggestClassification` existem no backend mas não estão
-  expostos no `InvoicesApiPort` do frontend — adicionar quando necessário na UI.
+- `suggestLineClassification` está exposto no port/adapter mas ainda não é chamado
+  automaticamente ao abrir o `ClassifyPanel` — candidato a auto-preencher o formulário.
 - A regra de classificação guarda apenas uma entrada por fornecedor. Para fornecedores
   mistos (ex: Makro), o último "guardar como regra" sobrescreve o anterior.
