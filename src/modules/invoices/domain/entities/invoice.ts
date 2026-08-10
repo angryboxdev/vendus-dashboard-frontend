@@ -23,6 +23,19 @@ export type InvoiceLineType =
 
 export type InvoiceSource = "manual" | "pdf_import" | "image_import";
 export type AiExtractionStatus = "processing" | "done" | "failed";
+export type ReconciliationStatus = "none" | "pending_reconciliation" | "reconciled";
+export type LineDetailMode = "simple" | "detailed";
+export type PaymentMethod = "bank_transfer" | "direct_debit" | "mbway" | "card" | "cash" | "cheque" | "other";
+
+export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
+  bank_transfer: "Transferência bancária",
+  direct_debit: "Débito direto",
+  mbway: "Multibanco/MB Way",
+  card: "Cartão",
+  cash: "Numerário",
+  cheque: "Cheque",
+  other: "Outro",
+};
 
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   draft_ai: "Rascunho",
@@ -103,6 +116,12 @@ export interface InvoiceDTO {
   affectsCashflow: boolean;
   affectsProfitability: boolean;
   currency: string;
+  reconciliationStatus: ReconciliationStatus;
+  lineDetailMode: LineDetailMode;
+  paymentBankAccountId: string | null;
+  paymentMethod: string | null;
+  paymentNotes: string | null;
+  competenceDate: string | null;
   createdAt: string;
   updatedAt: string;
   lines?: InvoiceLineDTO[];
@@ -139,6 +158,7 @@ export interface InvoiceAlertsDTO {
   overdue: { count: number; totalAmount: number };
   dueToday: { count: number; totalAmount: number };
   dueIn7Days: { count: number; totalAmount: number };
+  pendingReconciliation: { count: number; totalAmount: number };
   noDueDateCount: number;
   noSupplierCount: number;
   pendingReviewCount: number;
@@ -234,6 +254,16 @@ export interface ConfirmImportedInvoicePayload {
   lines?: CreateInvoiceLinePayload[];
 }
 
+export interface UpdateInvoiceLinePayload {
+  description?: string;
+  quantity?: number;
+  unit?: string | null;
+  unitCostWithoutVat?: number;
+  vatRate?: number;
+  vatAmount?: number;
+  totalWithVat?: number;
+}
+
 export interface ClassifyLinePayload {
   classify: {
     type?: InvoiceLineType;
@@ -254,6 +284,7 @@ export interface ListInvoicesParams {
   supplierId?: string;
   costCenterId?: string;
   status?: InvoiceStatus;
+  reconciliationStatus?: ReconciliationStatus;
   from?: string;
   to?: string;
   isDirectDebit?: boolean;

@@ -1,7 +1,7 @@
 # Módulo: invoices
 
 > Status: ativo
-> Última atualização: 2026-08-06
+> Última atualização: 2026-08-07
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -50,6 +50,9 @@ Visibilidade diária:
 
 - **Estado da fatura** — *Rascunho IA* (aguarda revisão do manager), *Pendente Revisão*,
   *Pendente* (a pagar), *Paga*, *Vencida* (prazo ultrapassado), *Parcial*, *Cancelada*.
+- **Estado de conciliação** — orthogonal ao estado da fatura. *none* (não paga ou DD pendente),
+  *pending_reconciliation* (paga no sistema, ainda não confirmada no extrato bancário), *reconciled* (confirmada).
+- **Modo de linhas** — *simple* (linha única automática, não editável) ou *detailed* (linhas editáveis pelo manager).
 - **Importação via IA** — o manager envia o documento original; a IA extrai os dados
   automaticamente. O manager valida/corrige antes de confirmar.
 - **Linha de fatura** — detalhe do que foi comprado. Uma fatura da Makro pode ter

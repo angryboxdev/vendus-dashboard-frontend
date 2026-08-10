@@ -3,12 +3,14 @@ import type {
   InvoiceLineDTO,
   CreateInvoicePayload,
   UpdateInvoicePayload,
+  UpdateInvoiceLinePayload,
   ClassifyLinePayload,
   ListInvoicesParams,
   InvoiceImportResultDTO,
   InvoiceAlertsDTO,
   ConfirmImportedInvoicePayload,
   SuggestClassificationResult,
+  LineDetailMode,
 } from "../../entities/invoice.ts";
 
 export interface AddInvoiceLinePayload {
@@ -28,9 +30,12 @@ export interface InvoicesApiPort {
   listInvoiceLines(): Promise<InvoiceLineDTO[]>;
   getInvoice(id: string): Promise<InvoiceDTO>;
   addLine(invoiceId: string, payload: AddInvoiceLinePayload): Promise<InvoiceLineDTO>;
+  updateLine(invoiceId: string, lineId: string, payload: UpdateInvoiceLinePayload): Promise<InvoiceLineDTO>;
   createInvoice(payload: CreateInvoicePayload): Promise<InvoiceDTO>;
   updateInvoice(id: string, payload: UpdateInvoicePayload): Promise<InvoiceDTO>;
-  markInvoicePaid(id: string, paidAt?: string): Promise<InvoiceDTO>;
+  markInvoicePaid(id: string, paidAt?: string, bankAccountId?: string | null, paymentMethod?: string | null, paymentNotes?: string | null): Promise<InvoiceDTO>;
+  markInvoiceReconciled(id: string): Promise<InvoiceDTO>;
+  setLineDetailMode(id: string, mode: LineDetailMode): Promise<InvoiceDTO>;
   deleteInvoice(id: string): Promise<void>;
   classifyLine(invoiceId: string, lineId: string, payload: ClassifyLinePayload): Promise<InvoiceLineDTO>;
   importInvoice(file: File): Promise<InvoiceImportResultDTO>;

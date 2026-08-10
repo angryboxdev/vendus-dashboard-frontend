@@ -8,16 +8,22 @@ import {
   type InvoiceLineDTO,
   type InvoiceStatus,
   type InvoiceLineType,
+  type ReconciliationStatus,
+  type LineDetailMode,
+  type PaymentMethod,
   type CreateInvoicePayload,
   type CreateInvoiceLinePayload,
   type InvoiceImportResultDTO,
   INVOICE_STATUS_LABELS,
   INVOICE_LINE_TYPE_LABELS,
+  PAYMENT_METHOD_LABELS,
 } from "../../domain/entities/invoice.ts";
+import { useBankAccountsModule } from "../../../bank-accounts/bank-accounts.module.tsx";
+import type { BankDTO, AccountPreviewDTO } from "../../../bank-accounts/domain/entities/bank-account.ts";
 import { ImportInvoiceModal } from "./ImportInvoiceModal.tsx";
 import { ReviewImportedInvoiceDrawer } from "./ReviewImportedInvoiceDrawer.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
-import type { CostCenterCategory, ChannelDTO } from "../../../financial-base/domain/entities/cost-center.ts";
+import type { CostCenterGroup, CostCenterCategory, ChannelDTO } from "../../../financial-base/domain/entities/cost-center.ts";
 import { FINANCIAL_TYPE_LABELS, FINANCIAL_TYPE_COLORS } from "../../../financial-base/domain/entities/cost-center.ts";
 import type { FinancialType } from "../../../financial-base/domain/entities/cost-center.ts";
 import { usePayableEntriesModule } from "../../../payable-entries/payable-entries.module.tsx";
@@ -81,7 +87,30 @@ function StatusBadge({ status }: { status: InvoiceStatus }) {
   );
 }
 
+// ── ReconciliationBadge ────────────────────────────────────────────────────────
+
+const RECON_CONFIG: Record<ReconciliationStatus, { label: string; cls: string }> = {
+  none: { label: "", cls: "" },
+  pending_reconciliation: { label: "Ag. conciliação", cls: "bg-violet-50 text-violet-700" },
+  reconciled: { label: "Conciliada", cls: "bg-teal-50 text-teal-700" },
+};
+
+function ReconciliationBadge({ status }: { status: ReconciliationStatus }) {
+  if (status === "none") return null;
+  const { label, cls } = RECON_CONFIG[status];
+  return (
+    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
+      {label}
+    </span>
+  );
+}
+
 // ── MarkPaidModal ─────────────────────────────────────────────────────────────
+
+function bankAccountLabel(bank: BankDTO, acc: AccountPreviewDTO): string {
+  const name = acc.nickname ?? acc.label;
+  return acc.lastFourDigits ? `${name} (${bank.name}) •••• ${acc.lastFourDigits}` : `${name} (${bank.name})`;
+}
 
 function MarkPaidModal({
   invoice,
@@ -90,47 +119,159 @@ function MarkPaidModal({
   saving,
 }: {
   invoice: InvoiceDTO;
-  onConfirm: (paidAt: string) => void;
+  onConfirm: (paidAt: string, bankAccountId: string, paymentMethod: PaymentMethod, paymentNotes?: string) => void;
   onClose: () => void;
   saving: boolean;
 }) {
+  const { api: bankApi } = useBankAccountsModule();
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
   const [paidAt, setPaidAt] = useState(todayStr);
+  const [bankAccountId, setBankAccountId] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
+  const [paymentNotes, setPaymentNotes] = useState("");
+
+  const { data: banks = [] } = useQuery({
+    queryKey: ["banks-for-payment"],
+    queryFn: () => bankApi.listBanks(),
+  });
+
+  const allAccounts = useMemo(() => {
+    const result: { id: string; label: string }[] = [];
+    for (const bank of banks) {
+      for (const acc of bank.accountPreviews) {
+        if (acc.isActive) result.push({ id: acc.id, label: bankAccountLabel(bank, acc) });
+      }
+    }
+    return result;
+  }, [banks]);
+
+  const isValid = !!paidAt && !!bankAccountId && !!paymentMethod;
 
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" aria-modal="true">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl">
-        <h3 className="text-base font-bold text-stone-900">Marcar como paga</h3>
-        <p className="mt-1 truncate text-sm text-stone-500">
-          {invoice.supplierName} · {invoice.invoiceNumber}
-        </p>
-        <div className="mt-4">
-          <label className="mb-1 block text-xs font-medium text-stone-500">
-            Data de pagamento
-          </label>
-          <input
-            type="date"
-            value={paidAt}
-            onChange={(e) => setPaidAt(e.target.value)}
-            className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
-          />
+      <div className="relative w-full max-w-md rounded-xl bg-white shadow-2xl flex flex-col max-h-[90vh]">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 pt-5 pb-4">
+          <h3 className="text-base font-bold text-stone-900">Confirmar pagamento</h3>
+          <button onClick={onClose} className="rounded-md p-1 text-stone-400 hover:bg-stone-100">
+            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+            </svg>
+          </button>
         </div>
-        <div className="mt-5 flex gap-3">
-          <button
-            onClick={onClose}
-            className="flex-1 rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
-          >
-            Cancelar
-          </button>
-          <button
-            onClick={() => onConfirm(paidAt)}
-            disabled={saving || !paidAt}
-            className="flex-1 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-          >
-            {saving ? "A registar…" : "Confirmar"}
-          </button>
+
+        <div className="overflow-y-auto flex-1 px-6 pb-2 space-y-4">
+          {/* Info banner */}
+          <div className="rounded-lg border border-violet-200 bg-violet-50 px-3 py-2.5 text-xs text-violet-700">
+            <p className="font-medium">Ao confirmar, esta fatura ficará com o estado</p>
+            <p className="mt-0.5 font-bold">Aguardando conciliação</p>
+            <p className="mt-0.5 text-violet-600">e será conciliada automaticamente quando o movimento bancário for identificado.</p>
+          </div>
+
+          {/* Data de pagamento */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">
+              Data de pagamento <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="date"
+              value={paidAt}
+              onChange={(e) => setPaidAt(e.target.value)}
+              className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
+            />
+          </div>
+
+          {/* Conta bancária */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">
+              Conta bancária <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={bankAccountId}
+              onChange={(e) => setBankAccountId(e.target.value)}
+              className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
+            >
+              <option value="">— selecionar conta —</option>
+              {allAccounts.map((acc) => (
+                <option key={acc.id} value={acc.id}>{acc.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Método de pagamento */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">
+              Método <span className="text-red-500">*</span>
+            </label>
+            <select
+              value={paymentMethod}
+              onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
+              className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
+            >
+              <option value="">— selecionar método —</option>
+              {(Object.entries(PAYMENT_METHOD_LABELS) as [PaymentMethod, string][]).map(([k, v]) => (
+                <option key={k} value={k}>{v}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Observação */}
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-600">Observação</label>
+            <textarea
+              value={paymentNotes}
+              onChange={(e) => setPaymentNotes(e.target.value.slice(0, 200))}
+              rows={3}
+              placeholder="Pagamento via homebanking…"
+              className="w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32] resize-none"
+            />
+            <p className="mt-0.5 text-right text-xs text-stone-400">{paymentNotes.length}/200</p>
+          </div>
+
+          {/* Resumo */}
+          <div className="rounded-lg border border-stone-100 bg-stone-50 p-3 text-xs">
+            <p className="mb-2 font-semibold text-stone-600">Resumo do pagamento</p>
+            <dl className="divide-y divide-stone-100">
+              {[
+                { label: "Fornecedor", value: invoice.supplierName },
+                { label: "Nº de fatura", value: invoice.invoiceNumber },
+                { label: "Vencimento", value: formatDate(invoice.dueDate) },
+                { label: "Valor total", value: fromCents(invoice.totalWithVat) },
+              ].map(({ label, value }) => (
+                <div key={label} className="flex justify-between py-1.5">
+                  <dt className="text-stone-400">{label}</dt>
+                  <dd className="font-semibold text-stone-700">{value}</dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="px-6 pt-3 pb-5 space-y-3 border-t border-stone-100 mt-2">
+          <p className="flex items-start gap-1.5 text-xs text-stone-400">
+            <svg className="mt-0.5 h-3.5 w-3.5 shrink-0 text-stone-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a.75.75 0 000 1.5h.253a.25.25 0 01.244.304l-.459 2.066A1.75 1.75 0 0010.747 15H11a.75.75 0 000-1.5h-.253a.25.25 0 01-.244-.304l.459-2.066A1.75 1.75 0 009.253 9H9z" clipRule="evenodd" />
+            </svg>
+            O pagamento será registado no sistema e aguardará conciliação bancária.
+          </p>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="flex-1 rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => onConfirm(paidAt, bankAccountId, paymentMethod as PaymentMethod, paymentNotes || undefined)}
+              disabled={saving || !isValid}
+              className="flex-1 rounded-md bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {saving ? "A registar…" : "Confirmar pagamento"}
+            </button>
+          </div>
         </div>
       </div>
     </div>,
@@ -503,32 +644,158 @@ function AddLineForm({ invoiceId, categories, onDone, onCancel }: AddLineFormPro
   );
 }
 
+// ── Edit Line Form ─────────────────────────────────────────────────────────────
+
+function EditLineForm({
+  line,
+  invoiceId,
+  onDone,
+  onCancel,
+}: {
+  line: InvoiceLineDTO;
+  invoiceId: string;
+  onDone: (updated: InvoiceLineDTO) => void;
+  onCancel: () => void;
+}) {
+  const { api } = useInvoicesModule();
+  const [description, setDescription] = useState(line.description);
+  const [quantity, setQuantity]       = useState(String(line.quantity));
+  const [unit, setUnit]               = useState(line.unit ?? "");
+  const [unitCost, setUnitCost]       = useState(String(line.unitCostWithoutVat / 100));
+  const [vatRate, setVatRate]         = useState(String(line.vatRate));
+  const [saving, setSaving]           = useState(false);
+  const [error, setError]             = useState<string | null>(null);
+
+  const subtotal   = parseFloat(quantity || "0") * parseFloat(unitCost || "0");
+  const vatAmount  = Math.round(subtotal * (parseFloat(vatRate) / 100) * 100);
+  const totalCents = Math.round(subtotal * 100) + vatAmount;
+
+  async function handleSave() {
+    if (!description || !unitCost) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const updated = await api.updateLine(invoiceId, line.id, {
+        description,
+        quantity: parseFloat(quantity),
+        unit: unit || null,
+        unitCostWithoutVat: Math.round(parseFloat(unitCost) * 100),
+        vatRate: parseFloat(vatRate),
+        vatAmount,
+        totalWithVat: totalCents,
+      });
+      onDone(updated);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Erro ao guardar");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-3 rounded-lg border border-[#F5C992]/60 bg-[#FDF8F5] p-3 text-sm">
+      <p className="text-xs font-semibold text-stone-600">Editar linha</p>
+      <input
+        type="text"
+        value={description}
+        onChange={(e) => setDescription(e.target.value)}
+        placeholder="Descrição *"
+        className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+      />
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          type="number" min="0.001" step="any" value={quantity}
+          onChange={(e) => setQuantity(e.target.value)}
+          placeholder="Qtd *"
+          className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+        />
+        <input
+          type="text" value={unit}
+          onChange={(e) => setUnit(e.target.value)}
+          placeholder="Unidade (ex: kg)"
+          className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+        />
+      </div>
+      <div className="grid grid-cols-2 gap-2">
+        <input
+          type="number" min="0" step="any" value={unitCost}
+          onChange={(e) => setUnitCost(e.target.value)}
+          placeholder="Preço unit. s/ IVA (€) *"
+          className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+        />
+        <select
+          value={vatRate}
+          onChange={(e) => setVatRate(e.target.value)}
+          className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+        >
+          {["0", "6", "13", "23"].map((r) => (
+            <option key={r} value={r}>{r}% IVA</option>
+          ))}
+        </select>
+      </div>
+      {unitCost && (
+        <p className="text-xs text-stone-400">
+          Total: {fromCents(totalCents)}
+        </p>
+      )}
+      {error && <p className="text-xs text-red-600">{error}</p>}
+      <div className="flex gap-2">
+        <button
+          onClick={onCancel}
+          className="flex-1 rounded-md border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50"
+        >
+          Cancelar
+        </button>
+        <button
+          onClick={() => void handleSave()}
+          disabled={saving || !description || !unitCost}
+          className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+        >
+          {saving ? "A guardar…" : "Guardar"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Invoice Detail Drawer ──────────────────────────────────────────────────────
 
 interface DetailDrawerProps {
   invoice: InvoiceDTO | null;
   categories: CostCenterCategory[];
   channels: ChannelDTO[];
+  groups: CostCenterGroup[];
   linkedPayable?: PayableEntryDTO | null;
   onClose: () => void;
   onOpenMarkPaid: (inv: InvoiceDTO) => void;
+  onInvoiceUpdated?: (inv: InvoiceDTO) => void;
 }
 
 function InvoiceDetailDrawer({
   invoice,
   categories,
   channels,
+  groups,
   linkedPayable,
   onClose,
   onOpenMarkPaid,
+  onInvoiceUpdated,
 }: DetailDrawerProps) {
   const { api } = useInvoicesModule();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"details" | "lines">("details");
+  const [tab, setTab] = useState<"details" | "classificacao" | "lines">("details");
   const [lines, setLines] = useState<InvoiceLineDTO[]>([]);
   const [loadingLines, setLoadingLines] = useState(false);
   const [showAddLine, setShowAddLine] = useState(false);
+  const [reconcilingState, setReconcilingState] = useState<"idle" | "loading">("idle");
+  const [settingLineMode, setSettingLineMode] = useState<"idle" | "loading">("idle");
+  const [showPdf, setShowPdf] = useState(false);
+  const [editingLineId, setEditingLineId] = useState<string | null>(null);
+  const [editingClassification, setEditingClassification] = useState(false);
+  const [savingClassification, setSavingClassification] = useState(false);
+  const [classifyGroupId, setClassifyGroupId] = useState("");
+  const [classifyCategoryId, setClassifyCategoryId] = useState("");
 
   // Reload lines from API when switching to lines tab
   async function loadLines(inv: InvoiceDTO) {
@@ -541,7 +808,7 @@ function InvoiceDetailDrawer({
     }
   }
 
-  function handleTabChange(t: "details" | "lines") {
+  function handleTabChange(t: "details" | "classificacao" | "lines") {
     setTab(t);
     if (t === "lines" && invoice) void loadLines(invoice);
   }
@@ -558,14 +825,68 @@ function InvoiceDetailDrawer({
     void qc.invalidateQueries({ queryKey: ["invoice-lines-all"] });
   }
 
+  async function handleMarkReconciled() {
+    if (!invoice) return;
+    setReconcilingState("loading");
+    try {
+      const updated = await api.markInvoiceReconciled(invoice.id);
+      void qc.invalidateQueries({ queryKey: ["invoices"] });
+      void qc.invalidateQueries({ queryKey: ["invoice-alerts"] });
+      if (onInvoiceUpdated) onInvoiceUpdated(updated);
+    } finally {
+      setReconcilingState("idle");
+    }
+  }
+
+  async function handleToggleLineDetailMode(mode: LineDetailMode) {
+    if (!invoice) return;
+    setSettingLineMode("loading");
+    try {
+      const updated = await api.setLineDetailMode(invoice.id, mode);
+      void qc.invalidateQueries({ queryKey: ["invoices"] });
+      if (onInvoiceUpdated) onInvoiceUpdated(updated);
+    } finally {
+      setSettingLineMode("idle");
+    }
+  }
+
+  async function handleSaveClassification() {
+    if (!invoice) return;
+    setSavingClassification(true);
+    try {
+      const cat = categories.find((c) => c.id === classifyCategoryId);
+      const updated = await api.updateInvoice(invoice.id, {
+        costCenterGroupId: classifyGroupId || null,
+        costCenterCategoryId: classifyCategoryId || null,
+        financialType: cat?.financialType ?? null,
+        affectsDre: cat?.affectsDre ?? false,
+        affectsCashflow: cat?.affectsCashflow ?? false,
+        affectsProfitability: cat?.affectsProfitability ?? false,
+      });
+      void qc.invalidateQueries({ queryKey: ["invoices"] });
+      if (onInvoiceUpdated) onInvoiceUpdated(updated);
+      setEditingClassification(false);
+    } finally {
+      setSavingClassification(false);
+    }
+  }
+
   if (!invoice) return null;
 
   const ccMap = new Map(categories.map((c) => [c.id, c]));
+  const groupMap = new Map(groups.map((g) => [g.id, g]));
+
+  const classificationCategory = invoice.costCenterCategoryId ? ccMap.get(invoice.costCenterCategoryId) : null;
+  const classificationGroup = invoice.costCenterGroupId ? groupMap.get(invoice.costCenterGroupId) : null;
+
+  const isClassified = !!(invoice.costCenterGroupId || invoice.costCenterCategoryId || invoice.financialType);
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex" aria-modal="true">
       <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <aside className="flex h-full w-full max-w-2xl flex-col bg-white shadow-2xl">
+      <aside className={`flex h-full w-full bg-white shadow-2xl transition-[max-width] duration-300 ${showPdf && invoice.attachmentUrl ? "max-w-[1280px]" : "max-w-2xl"}`}>
+        {/* Left column */}
+        <div className="flex flex-1 flex-col overflow-hidden">
         {/* Header */}
         <div className="flex items-start justify-between border-b border-[#F5C992]/40 px-6 py-4">
           <div>
@@ -577,49 +898,76 @@ function InvoiceDetailDrawer({
               {invoice.invoiceNumber} · {formatDate(invoice.invoiceDate)}
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded-md p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-            </svg>
-          </button>
-        </div>
-
-        {/* Tabs */}
-        <div className="flex border-b border-[#F5C992]/40 px-6">
-          {(["details", "lines"] as const).map((t) => (
+          <div className="flex items-center gap-2">
+            {invoice.attachmentUrl && (
+              <button
+                onClick={() => setShowPdf((v) => !v)}
+                className={`rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${showPdf ? "border-stone-300 bg-stone-100 text-stone-700" : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"}`}
+              >
+                {showPdf ? "Fechar doc." : "Ver documento"}
+              </button>
+            )}
             <button
-              key={t}
-              onClick={() => handleTabChange(t)}
-              className={`-mb-px border-b-2 px-4 py-3 text-sm font-medium ${
-                tab === t
-                  ? "border-[#ED5C32] text-[#ED5C32]"
-                  : "border-transparent text-stone-500 hover:text-stone-700"
-              }`}
+              onClick={onClose}
+              className="rounded-md p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
             >
-              {t === "details" ? "Detalhes" : "Linhas"}
+              <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+              </svg>
             </button>
-          ))}
+          </div>
         </div>
 
-        {/* Body */}
-        <div className="flex-1 overflow-y-auto px-6 py-4">
+            {/* Tabs */}
+            <div className="flex border-b border-[#F5C992]/40 px-6">
+              {([
+                { key: "details", label: "Detalhes" },
+                { key: "classificacao", label: "Classificação" },
+                { key: "lines", label: "Linhas" },
+              ] as const).map(({ key, label }) => (
+                <button
+                  key={key}
+                  onClick={() => handleTabChange(key)}
+                  className={`-mb-px border-b-2 px-4 py-3 text-sm font-medium ${
+                    tab === key
+                      ? "border-[#ED5C32] text-[#ED5C32]"
+                      : "border-transparent text-stone-500 hover:text-stone-700"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            {/* Tab content */}
+            <div className="flex-1 overflow-y-auto px-6 py-4">
           {tab === "details" && (
             <div className="space-y-4">
-              {/* Status + actions */}
-              <div className="flex items-center justify-between">
-                <StatusBadge status={invoice.status} />
-                {(invoice.status === "pending" ||
-                  invoice.status === "overdue") && (
-                  <button
-                    onClick={() => onOpenMarkPaid(invoice)}
-                    className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
-                  >
-                    Marcar como paga
-                  </button>
-                )}
+              {/* Status + reconciliation + actions */}
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <StatusBadge status={invoice.status} />
+                  <ReconciliationBadge status={invoice.reconciliationStatus} />
+                </div>
+                <div className="flex items-center gap-2">
+                  {(invoice.status === "pending" || invoice.status === "overdue") && (
+                    <button
+                      onClick={() => onOpenMarkPaid(invoice)}
+                      className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                    >
+                      Marcar como paga
+                    </button>
+                  )}
+                  {invoice.reconciliationStatus === "pending_reconciliation" && (
+                    <button
+                      onClick={() => void handleMarkReconciled()}
+                      disabled={reconcilingState === "loading"}
+                      className="rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
+                    >
+                      {reconcilingState === "loading" ? "A conciliar…" : "Conciliar"}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {/* KPIs */}
@@ -665,6 +1013,10 @@ function InvoiceDetailDrawer({
                     label: "Data de pagamento",
                     value: formatDate(invoice.paidAt),
                   },
+                  ...(invoice.paidAt && invoice.reconciliationStatus !== "none" ? [{
+                    label: "Conciliação bancária",
+                    value: invoice.reconciliationStatus === "reconciled" ? "Conciliada" : "Aguardando confirmação no extrato",
+                  }] : []),
                   { label: "Notas", value: invoice.notes ?? "—" },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex justify-between py-2">
@@ -708,10 +1060,172 @@ function InvoiceDetailDrawer({
             </div>
           )}
 
+          {tab === "classificacao" && (
+            <div className="space-y-4">
+              {/* Badge + edit toggle */}
+              <div className="flex items-center justify-between">
+                <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${isClassified ? "bg-teal-50 text-teal-700" : "bg-stone-100 text-stone-500"}`}>
+                  {isClassified ? "Pré-classificada" : "Não classificada"}
+                </span>
+                {!editingClassification && (
+                  <button
+                    onClick={() => {
+                      setClassifyGroupId(invoice.costCenterGroupId ?? "");
+                      setClassifyCategoryId(invoice.costCenterCategoryId ?? "");
+                      setEditingClassification(true);
+                    }}
+                    className="text-xs font-medium text-[#ED5C32] hover:underline"
+                  >
+                    Editar
+                  </button>
+                )}
+              </div>
+
+              {editingClassification ? (
+                /* Edit form */
+                <div className="space-y-3 rounded-lg border border-[#F5C992]/60 bg-[#FDF8F5] p-3">
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-stone-600">Centro de custo</label>
+                    <select
+                      value={classifyGroupId}
+                      onChange={(e) => { setClassifyGroupId(e.target.value); setClassifyCategoryId(""); }}
+                      className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+                    >
+                      <option value="">— nenhum —</option>
+                      {groups.map((g) => (
+                        <option key={g.id} value={g.id}>{g.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="mb-1 block text-xs font-medium text-stone-600">Subcategoria</label>
+                    <select
+                      value={classifyCategoryId}
+                      onChange={(e) => setClassifyCategoryId(e.target.value)}
+                      className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+                    >
+                      <option value="">— nenhuma —</option>
+                      {categories
+                        .filter((c) => c.isActive && (!classifyGroupId || c.groupId === classifyGroupId))
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
+                        ))}
+                    </select>
+                    {classifyCategoryId && (() => {
+                      const cat = categories.find((c) => c.id === classifyCategoryId);
+                      return cat ? (
+                        <span className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs ${FINANCIAL_TYPE_COLORS[cat.financialType as FinancialType]}`}>
+                          {FINANCIAL_TYPE_LABELS[cat.financialType as FinancialType]}
+                        </span>
+                      ) : null;
+                    })()}
+                  </div>
+                  <div className="flex gap-2 pt-1">
+                    <button
+                      onClick={() => setEditingClassification(false)}
+                      className="flex-1 rounded-md border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50"
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      onClick={() => void handleSaveClassification()}
+                      disabled={savingClassification}
+                      className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                    >
+                      {savingClassification ? "A guardar…" : "Guardar"}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                /* Read-only view */
+                <dl className="divide-y divide-stone-100">
+                  <div className="flex justify-between py-2">
+                    <dt className="text-xs text-stone-400">Centro de custo</dt>
+                    <dd className="text-sm font-medium text-stone-700">{classificationGroup?.name ?? "—"}</dd>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <dt className="text-xs text-stone-400">Subcategoria</dt>
+                    <dd className="text-sm font-medium text-stone-700">
+                      {classificationCategory ? `${classificationCategory.code} — ${classificationCategory.name}` : "—"}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between py-2">
+                    <dt className="text-xs text-stone-400">Tipo financeiro</dt>
+                    <dd className="text-sm font-medium text-stone-700">
+                      {invoice.financialType
+                        ? (FINANCIAL_TYPE_LABELS[invoice.financialType as FinancialType] ?? invoice.financialType)
+                        : "—"}
+                    </dd>
+                  </div>
+                </dl>
+              )}
+
+              {/* Financial impact — only when classified */}
+              {isClassified && !editingClassification && (
+                <div>
+                  <p className="mb-2 text-xs font-semibold text-stone-500 uppercase tracking-wide">Impacto financeiro</p>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[
+                      { label: "DRE", active: invoice.affectsDre },
+                      { label: "Fluxo de Caixa", active: invoice.affectsCashflow },
+                      { label: "Rentabilidade", active: invoice.affectsProfitability },
+                    ].map(({ label, active }) => (
+                      <div
+                        key={label}
+                        className={`rounded-lg border p-2.5 text-center text-xs font-medium ${active ? "border-teal-200 bg-teal-50 text-teal-700" : "border-stone-100 bg-stone-50 text-stone-400"}`}
+                      >
+                        <p>{label}</p>
+                        <p className="mt-0.5 font-bold">{active ? "Sim" : "Não"}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {tab === "lines" && (
             <div className="space-y-3">
+              {/* Line detail mode toggle */}
+              <div className="flex items-center justify-between rounded-lg border border-stone-100 bg-stone-50 px-3 py-2">
+                <div>
+                  <p className="text-xs font-medium text-stone-700">Modo de linhas</p>
+                  <p className="text-xs text-stone-400">{invoice.lineDetailMode === "detailed" ? "Detalhado — linhas editáveis" : "Simples — linha única automática"}</p>
+                </div>
+                <button
+                  onClick={() => void handleToggleLineDetailMode(invoice.lineDetailMode === "detailed" ? "simple" : "detailed")}
+                  disabled={settingLineMode === "loading"}
+                  className="rounded-md border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50"
+                >
+                  {settingLineMode === "loading" ? "…" : invoice.lineDetailMode === "detailed" ? "Simplificar" : "Detalhar"}
+                </button>
+              </div>
+
+              {/* Simple mode warning */}
+              {invoice.lineDetailMode === "simple" && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+                  <p className="text-xs font-medium text-amber-700">Modo simples activo</p>
+                  <p className="mt-0.5 text-xs text-amber-600">Altera o modo de linhas acima para adicionar/editar linhas individualmente.</p>
+                </div>
+              )}
+
+              {/* Lines total vs invoice total */}
+              {lines.length > 0 && (() => {
+                const linesTotal = lines.reduce((s, l) => s + l.totalWithVat, 0);
+                const diff = linesTotal - invoice.totalWithVat;
+                const ok = Math.abs(diff) <= 1;
+                return (
+                  <div className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs ${ok ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"}`}>
+                    <span>Soma das linhas: <span className="font-semibold">{fromCents(linesTotal)}</span></span>
+                    <span>Fatura: <span className="font-semibold">{fromCents(invoice.totalWithVat)}</span></span>
+                    {!ok && <span className="font-semibold">Δ {fromCents(Math.abs(diff))}</span>}
+                    {ok && <span>✓</span>}
+                  </div>
+                );
+              })()}
+
               {/* Add line button */}
-              {!showAddLine && (
+              {!showAddLine && invoice.lineDetailMode === "detailed" && (
                 <button
                   onClick={() => setShowAddLine(true)}
                   className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-stone-300 py-2 text-xs font-medium text-stone-500 hover:border-[#ED5C32] hover:text-[#ED5C32]"
@@ -739,6 +1253,7 @@ function InvoiceDetailDrawer({
                   const cc = line.costCenterCategoryId
                     ? ccMap.get(line.costCenterCategoryId)
                     : null;
+                  const isEditingThisLine = editingLineId === line.id;
                   return (
                     <div
                       key={line.id}
@@ -748,36 +1263,81 @@ function InvoiceDetailDrawer({
                         <p className="text-sm font-medium text-stone-800">
                           {line.description}
                         </p>
-                        <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-600">
-                          {INVOICE_LINE_TYPE_LABELS[line.type]}
-                        </span>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          {invoice.lineDetailMode === "detailed" && !isEditingThisLine && (
+                            <button
+                              onClick={() => setEditingLineId(line.id)}
+                              className="text-xs font-medium text-[#ED5C32] hover:underline"
+                            >
+                              Editar
+                            </button>
+                          )}
+                          <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-600">
+                            {INVOICE_LINE_TYPE_LABELS[line.type]}
+                          </span>
+                        </div>
                       </div>
-                      <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-stone-500">
-                        <span>
-                          Qtd: {line.quantity}
-                          {line.unit ? ` ${line.unit}` : ""}
-                        </span>
-                        <span>
-                          Un s/IVA: {fromCents(line.unitCostWithoutVat)}
-                        </span>
-                        <span>IVA: {line.vatRate}%</span>
-                        <span>Total: {fromCents(line.totalWithVat)}</span>
-                        {cc && <span>CC: {cc.code}</span>}
-                      </div>
-                      <ClassifyPanel
-                        line={line}
-                        invoiceId={invoice.id}
-                        categories={categories}
-                        channels={channels}
-                        onDone={handleLineUpdated}
-                      />
+                      {!isEditingThisLine && (
+                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-stone-500">
+                          <span>
+                            Qtd: {line.quantity}
+                            {line.unit ? ` ${line.unit}` : ""}
+                          </span>
+                          <span>
+                            Un s/IVA: {fromCents(line.unitCostWithoutVat)}
+                          </span>
+                          <span>IVA: {line.vatRate}%</span>
+                          <span>Total: {fromCents(line.totalWithVat)}</span>
+                          {cc && <span>CC: {cc.code}</span>}
+                        </div>
+                      )}
+                      {isEditingThisLine ? (
+                        <EditLineForm
+                          line={line}
+                          invoiceId={invoice.id}
+                          onDone={(updated) => { handleLineUpdated(updated); setEditingLineId(null); }}
+                          onCancel={() => setEditingLineId(null)}
+                        />
+                      ) : (
+                        <ClassifyPanel
+                          line={line}
+                          invoiceId={invoice.id}
+                          categories={categories}
+                          channels={channels}
+                          onDone={handleLineUpdated}
+                        />
+                      )}
                     </div>
                   );
                 })
               )}
             </div>
           )}
-        </div>
+          </div>
+        </div>{/* end left column */}
+
+        {/* Inline PDF panel — right side, full height from header */}
+        {showPdf && invoice.attachmentUrl && (
+          <div className="flex w-[580px] shrink-0 flex-col border-l border-[#F5C992]/40">
+            <div className="flex items-center justify-between border-b border-[#F5C992]/40 px-4 py-2">
+              <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide">Documento original</p>
+              <a
+                href={invoice.attachmentUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs font-medium text-[#ED5C32] hover:underline"
+              >
+                Abrir em nova janela ↗
+              </a>
+            </div>
+            <iframe
+              src={invoice.attachmentUrl}
+              title="Documento original"
+              className="w-full flex-1"
+              style={{ border: "none" }}
+            />
+          </div>
+        )}
       </aside>
     </div>,
     document.body
@@ -1394,7 +1954,9 @@ export function InvoicesView() {
   );
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "">("");
   const [directDebitFilter, setDirectDebitFilter] = useState(false);
-  const [activeTab, setActiveTab] = useState<"all" | "today" | "week" | "overdue">("all");
+  const [activeTab, setActiveTab] = useState<"all" | "pending" | "overdue">("all");
+  const [quickFilter, setQuickFilter] = useState<"today" | "week" | "reconciliation" | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
   const [showCreate, setShowCreate] = useState(false);
   const [showImport, setShowImport] = useState(false);
@@ -1402,6 +1964,7 @@ export function InvoicesView() {
   const [detail, setDetail] = useState<InvoiceDTO | null>(null);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [markPaidInvoice, setMarkPaidInvoice] = useState<InvoiceDTO | null>(null);
+  const [reconcilingId, setReconcilingId] = useState<string | null>(null);
   const [deleteConfirmInvoice, setDeleteConfirmInvoice] = useState<InvoiceDTO | null>(null);
 
   // Data
@@ -1414,6 +1977,11 @@ export function InvoicesView() {
   const { data: alerts } = useQuery({
     queryKey: ["invoice-alerts"],
     queryFn: () => api.getInvoiceAlerts(),
+  });
+
+  const { data: groups = [] } = useQuery({
+    queryKey: ["cost-center-groups"],
+    queryFn: () => fbModule.api.listCostCenterGroups(),
   });
 
   const { data: categories = [] } = useQuery({
@@ -1506,16 +2074,29 @@ export function InvoicesView() {
     },
   });
 
-  async function handleMarkPaid(id: string, paidAt?: string) {
+  async function handleMarkPaid(id: string, paidAt?: string, bankAccountId?: string, paymentMethod?: string, paymentNotes?: string) {
     setMarkingPaidId(id);
     try {
-      const updated = await api.markInvoicePaid(id, paidAt);
+      const updated = await api.markInvoicePaid(id, paidAt, bankAccountId ?? null, paymentMethod ?? null, paymentNotes ?? null);
       void qc.invalidateQueries({ queryKey: ["invoices"] });
+      void qc.invalidateQueries({ queryKey: ["invoice-alerts"] });
       void qc.invalidateQueries({ queryKey: ["payable-entries"] });
       if (detail?.id === id) setDetail(updated);
       setMarkPaidInvoice(null);
     } finally {
       setMarkingPaidId(null);
+    }
+  }
+
+  async function handleMarkReconciled(id: string) {
+    setReconcilingId(id);
+    try {
+      const updated = await api.markInvoiceReconciled(id);
+      void qc.invalidateQueries({ queryKey: ["invoices"] });
+      void qc.invalidateQueries({ queryKey: ["invoice-alerts"] });
+      if (detail?.id === id) setDetail(updated);
+    } finally {
+      setReconcilingId(null);
     }
   }
 
@@ -1560,6 +2141,8 @@ export function InvoicesView() {
     const in7 = getIn7DaysStr();
     return {
       all: invoices.length,
+      pending: invoices.filter((i) => i.status === "pending").length,
+      overdue: invoices.filter((i) => i.status === "overdue").length,
       today: invoices.filter(
         (i) => i.dueDate === today && !["paid", "cancelled"].includes(i.status),
       ).length,
@@ -1570,55 +2153,58 @@ export function InvoicesView() {
           i.dueDate <= in7 &&
           !["paid", "cancelled"].includes(i.status),
       ).length,
-      overdue: invoices.filter((i) => i.status === "overdue").length,
+      reconciliation: invoices.filter((i) => i.reconciliationStatus === "pending_reconciliation").length,
     };
   }, [invoices]);
 
   const tabFiltered = useMemo(() => {
     const today = getTodayStr();
     const in7 = getIn7DaysStr();
+    let result = filtered;
     switch (activeTab) {
-      case "today":
-        return filtered.filter(
-          (i) => i.dueDate === today && !["paid", "cancelled"].includes(i.status),
-        );
-      case "week":
-        return filtered.filter(
-          (i) =>
-            i.dueDate != null &&
-            i.dueDate > today &&
-            i.dueDate <= in7 &&
-            !["paid", "cancelled"].includes(i.status),
-        );
+      case "pending":
+        result = result.filter((i) => i.status === "pending");
+        break;
       case "overdue":
-        return filtered.filter((i) => i.status === "overdue");
-      default:
-        return filtered;
+        result = result.filter((i) => i.status === "overdue");
+        break;
     }
-  }, [filtered, activeTab]);
+    if (quickFilter === "today") {
+      result = result.filter((i) => i.dueDate === today && !["paid", "cancelled"].includes(i.status));
+    } else if (quickFilter === "week") {
+      result = result.filter((i) => i.dueDate != null && i.dueDate > today && i.dueDate <= in7 && !["paid", "cancelled"].includes(i.status));
+    } else if (quickFilter === "reconciliation") {
+      result = result.filter((i) => i.reconciliationStatus === "pending_reconciliation");
+    }
+    return result;
+  }, [filtered, activeTab, quickFilter]);
 
-  function handleTabChange(tab: "all" | "today" | "week" | "overdue") {
+  function handleTabChange(tab: "all" | "pending" | "overdue") {
     setActiveTab(tab);
+    setQuickFilter(null);
     if (tab !== "all") setStatusFilter("");
+  }
+
+  function handleQuickFilter(f: "today" | "week" | "reconciliation") {
+    setQuickFilter((prev) => (prev === f ? null : f));
   }
 
   // KPIs
   const kpis = useMemo(() => {
-    const total = invoices.length;
-    const totalAmountCents = invoices.reduce((s, i) => s + i.totalWithVat, 0);
-    const totalAmountWithoutVatCents = invoices.reduce((s, i) => s + i.subtotalWithoutVat, 0);
+    const today = getTodayStr();
     const overdueList = invoices.filter((i) => i.status === "overdue");
     const pendingList = invoices.filter((i) => i.status === "pending");
-    const overdueAmountCents = overdueList.reduce((s, i) => s + i.totalWithVat, 0);
-    const pendingAmountCents = pendingList.reduce((s, i) => s + i.totalWithVat, 0);
+    const todayList = invoices.filter((i) => i.dueDate === today && !["paid", "cancelled"].includes(i.status));
+    const reconList = invoices.filter((i) => i.reconciliationStatus === "pending_reconciliation");
     return {
-      total,
-      totalAmountCents,
-      totalAmountWithoutVatCents,
-      overdue: overdueList.length,
-      overdueAmountCents,
       pending: pendingList.length,
-      pendingAmountCents,
+      pendingAmount: pendingList.reduce((s, i) => s + i.totalWithVat, 0),
+      overdue: overdueList.length,
+      overdueAmount: overdueList.reduce((s, i) => s + i.totalWithVat, 0),
+      today: todayList.length,
+      todayAmount: todayList.reduce((s, i) => s + i.totalWithVat, 0),
+      reconciliation: reconList.length,
+      reconciliationAmount: reconList.reduce((s, i) => s + i.totalWithVat, 0),
     };
   }, [invoices]);
 
@@ -1693,30 +2279,48 @@ export function InvoicesView() {
       </div>
 
       <div className="space-y-6 p-6">
-        {/* KPIs */}
+        {/* KPIs operacionais */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <KpiCard label="Total faturas" value={kpis.total} />
-          <KpiCard
-            label="Valor total"
-            value={fromCents(kpis.totalAmountCents)}
-            sub={`s/ IVA: ${fromCents(kpis.totalAmountWithoutVatCents)}`}
-          />
-          <KpiCard
-            label="Vencidas"
-            value={alerts ? fromCents(alerts.overdue.totalAmount) : fromCents(kpis.overdueAmountCents)}
-            sub={`${alerts?.overdue.count ?? kpis.overdue} vencida${(alerts?.overdue.count ?? kpis.overdue) !== 1 ? "s" : ""}`}
-            accentClass="text-red-600"
-          />
-          <KpiCard
-            label="Pendentes"
-            value={fromCents(kpis.pendingAmountCents)}
-            sub={`${kpis.pending} pendente${kpis.pending !== 1 ? "s" : ""}`}
-            accentClass="text-amber-600"
-          />
+          <button
+            onClick={() => handleTabChange("pending")}
+            className="text-left rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm hover:border-amber-300 transition-colors"
+          >
+            <p className="text-xs font-medium text-stone-500">Pendentes</p>
+            <p className="mt-1 text-xl font-bold text-amber-600">{fromCents(kpis.pendingAmount)}</p>
+            <p className="mt-0.5 text-xs text-stone-400">{kpis.pending} fatura{kpis.pending !== 1 ? "s" : ""}</p>
+          </button>
+          <button
+            onClick={() => handleTabChange("overdue")}
+            className="text-left rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm hover:border-red-300 transition-colors"
+          >
+            <p className="text-xs font-medium text-stone-500">Em atraso</p>
+            <p className="mt-1 text-xl font-bold text-red-600">{fromCents(kpis.overdueAmount)}</p>
+            <p className="mt-0.5 text-xs text-stone-400">{kpis.overdue} vencida{kpis.overdue !== 1 ? "s" : ""}</p>
+          </button>
+          <button
+            onClick={() => handleQuickFilter("today")}
+            className={`text-left rounded-xl border bg-white px-5 py-4 shadow-sm transition-colors ${quickFilter === "today" ? "border-orange-400 ring-1 ring-orange-200" : "border-[#F5C992]/40 hover:border-orange-300"}`}
+          >
+            <p className="text-xs font-medium text-stone-500">A vencer hoje</p>
+            <p className="mt-1 text-xl font-bold text-orange-600">{fromCents(kpis.todayAmount)}</p>
+            <p className="mt-0.5 text-xs text-stone-400">{kpis.today} fatura{kpis.today !== 1 ? "s" : ""}</p>
+          </button>
+          <button
+            onClick={() => handleQuickFilter("reconciliation")}
+            className={`text-left rounded-xl border bg-white px-5 py-4 shadow-sm transition-colors ${quickFilter === "reconciliation" ? "border-violet-400 ring-1 ring-violet-200" : "border-[#F5C992]/40 hover:border-violet-300"}`}
+          >
+            <p className="text-xs font-medium text-stone-500">Ag. conciliação</p>
+            <p className="mt-1 text-xl font-bold text-violet-600">
+              {alerts ? fromCents(alerts.pendingReconciliation.totalAmount) : fromCents(kpis.reconciliationAmount)}
+            </p>
+            <p className="mt-0.5 text-xs text-stone-400">
+              {alerts?.pendingReconciliation.count ?? kpis.reconciliation} fatura{(alerts?.pendingReconciliation.count ?? kpis.reconciliation) !== 1 ? "s" : ""}
+            </p>
+          </button>
         </div>
 
-        {/* Alert strip */}
-        {alerts && (alerts.pendingReviewCount > 0 || alerts.dueIn7Days.count > 0 || alerts.lowAiConfidenceCount > 0) && (
+        {/* Alert strip + quick filter chips */}
+        {alerts && (alerts.pendingReviewCount > 0 || alerts.dueIn7Days.count > 0 || alerts.lowAiConfidenceCount > 0 || alerts.pendingReconciliation.count > 0) && (
           <div className="flex flex-wrap gap-3">
             {alerts.pendingReviewCount > 0 && (
               <button
@@ -1728,10 +2332,13 @@ export function InvoicesView() {
               </button>
             )}
             {alerts.dueIn7Days.count > 0 && (
-              <div className="flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-medium text-amber-700">
+              <button
+                onClick={() => handleQuickFilter("week")}
+                className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${quickFilter === "week" ? "border-amber-400 bg-amber-100 text-amber-800" : "border-amber-200 bg-amber-50 text-amber-700 hover:bg-amber-100"}`}
+              >
                 <span className="h-2 w-2 rounded-full bg-amber-400" />
                 {alerts.dueIn7Days.count} vencem em 7 dias ({fromCents(alerts.dueIn7Days.totalAmount)})
-              </div>
+              </button>
             )}
             {alerts.lowAiConfidenceCount > 0 && (
               <div className="flex items-center gap-2 rounded-lg border border-orange-200 bg-orange-50 px-3 py-2 text-xs font-medium text-orange-700">
@@ -1773,8 +2380,7 @@ export function InvoicesView() {
               className="flex-1 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
             >
               <option value="all">Todas ({tabCounts.all})</option>
-              <option value="today">Hoje ({tabCounts.today})</option>
-              <option value="week">7 dias ({tabCounts.week})</option>
+              <option value="pending">Pendentes ({tabCounts.pending})</option>
               <option value="overdue">Vencidas ({tabCounts.overdue})</option>
             </select>
           </div>
@@ -1834,32 +2440,57 @@ export function InvoicesView() {
 
         {/* Table */}
         <div className="overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white">
-          {/* Tabs — desktop apenas */}
-          <div className="hidden sm:flex border-b border-[#F5C992]/40 px-2">
-            {(
-              [
-                { key: "all" as const, label: "Todas", shortLabel: "Todas", badgeCls: "bg-stone-100 text-stone-500" },
-                { key: "today" as const, label: "Vencem hoje", shortLabel: "Hoje", badgeCls: tabCounts.today > 0 ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-400" },
-                { key: "week" as const, label: "Vencem em 7 dias", shortLabel: "7 dias", badgeCls: tabCounts.week > 0 ? "bg-orange-100 text-orange-700" : "bg-stone-100 text-stone-400" },
-                { key: "overdue" as const, label: "Vencidas", shortLabel: "Vencidas", badgeCls: tabCounts.overdue > 0 ? "bg-red-100 text-red-700" : "bg-stone-100 text-stone-400" },
-              ]
-            ).map(({ key, label, shortLabel, badgeCls }) => (
-              <button
-                key={key}
-                onClick={() => handleTabChange(key)}
-                className={`-mb-px flex items-center gap-2 border-b-2 px-3 py-3 text-sm font-medium transition-colors sm:px-4 ${
-                  activeTab === key
-                    ? "border-[#ED5C32] text-[#ED5C32]"
-                    : "border-transparent text-stone-500 hover:text-stone-700"
-                }`}
-              >
-                <span className="sm:hidden">{shortLabel}</span>
-                <span className="hidden sm:inline">{label}</span>
-                <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums ${badgeCls}`}>
-                  {tabCounts[key]}
-                </span>
-              </button>
-            ))}
+          {/* Tabs + quick filters — desktop */}
+          <div className="hidden sm:flex flex-wrap items-center justify-between border-b border-[#F5C992]/40 px-2">
+            <div className="flex">
+              {(
+                [
+                  { key: "all" as const, label: "Todas", badgeCls: "bg-stone-100 text-stone-500" },
+                  { key: "pending" as const, label: "Pendentes", badgeCls: tabCounts.pending > 0 ? "bg-amber-100 text-amber-700" : "bg-stone-100 text-stone-400" },
+                  { key: "overdue" as const, label: "Em atraso", badgeCls: tabCounts.overdue > 0 ? "bg-red-100 text-red-700" : "bg-stone-100 text-stone-400" },
+                ]
+              ).map(({ key, label, badgeCls }) => (
+                <button
+                  key={key}
+                  onClick={() => handleTabChange(key)}
+                  className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTab === key
+                      ? "border-[#ED5C32] text-[#ED5C32]"
+                      : "border-transparent text-stone-500 hover:text-stone-700"
+                  }`}
+                >
+                  {label}
+                  <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums ${badgeCls}`}>
+                    {tabCounts[key]}
+                  </span>
+                </button>
+              ))}
+            </div>
+            {/* Quick filter chips */}
+            <div className="flex items-center gap-1.5 pr-2">
+              {(
+                [
+                  { key: "today" as const, label: "Hoje", count: tabCounts.today, cls: "amber" },
+                  { key: "week" as const, label: "7 dias", count: tabCounts.week, cls: "orange" },
+                  { key: "reconciliation" as const, label: "Ag. conciliação", count: tabCounts.reconciliation, cls: "violet" },
+                ] as const
+              ).map(({ key, label, count, cls }) => (
+                <button
+                  key={key}
+                  onClick={() => handleQuickFilter(key)}
+                  className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium transition-colors ${
+                    quickFilter === key
+                      ? cls === "amber" ? "border-amber-400 bg-amber-100 text-amber-800"
+                        : cls === "orange" ? "border-orange-400 bg-orange-100 text-orange-800"
+                        : "border-violet-400 bg-violet-100 text-violet-800"
+                      : "border-stone-200 bg-stone-50 text-stone-500 hover:border-stone-300 hover:text-stone-700"
+                  }`}
+                >
+                  {label}
+                  {count > 0 && <span className="font-semibold">{count}</span>}
+                </button>
+              ))}
+            </div>
           </div>
 
           {isLoading ? (
@@ -1875,24 +2506,56 @@ export function InvoicesView() {
               <table className="min-w-full text-sm">
                 <thead className="border-b border-[#F5C992]/40 bg-stone-50/60">
                   <tr>
+                    <th className="w-8 px-3 py-3">
+                      <input
+                        type="checkbox"
+                        checked={selectedIds.size > 0 && tabFiltered.every((i) => selectedIds.has(i.id))}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedIds(new Set(tabFiltered.map((i) => i.id)));
+                          else setSelectedIds(new Set());
+                        }}
+                        className="h-3.5 w-3.5 rounded border-stone-300 text-[#ED5C32] focus:ring-[#ED5C32]"
+                      />
+                    </th>
                     <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Estado</th>
                     <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Fornecedor</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Nº Fatura</th>
-                    <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Emissão</th>
+                    <th className="hidden sm:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Nº Fatura</th>
                     <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Vencimento</th>
-                    <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Pago em</th>
-                    <th className="hidden lg:table-cell px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">S/ IVA</th>
-                    <th className="hidden lg:table-cell px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">IVA</th>
                     <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">Total</th>
                     <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">CC Padrão</th>
                     <th className="sticky right-0 bg-stone-50/60 px-4 py-3 shadow-[-1px_0_0_0_rgba(245,201,146,0.4)]" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#F5C992]/30">
+                  {/* Batch action bar */}
+                  {selectedIds.size > 0 && (
+                    <tr className="bg-[#ED5C32]/5">
+                      <td colSpan={8} className="px-4 py-2">
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs font-medium text-stone-700">{selectedIds.size} selecionada{selectedIds.size !== 1 ? "s" : ""}</span>
+                          <button
+                            onClick={() => {
+                              const inv = tabFiltered.find((i) => selectedIds.has(i.id) && (i.status === "pending" || i.status === "overdue"));
+                              if (inv) setMarkPaidInvoice(inv);
+                            }}
+                            className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700"
+                          >
+                            Marcar pagas
+                          </button>
+                          <button
+                            onClick={() => setSelectedIds(new Set())}
+                            className="text-xs text-stone-400 hover:text-stone-600"
+                          >
+                            Cancelar
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                  )}
                   {tabFiltered.map((inv) => (
                     <tr
                       key={inv.id}
-                      className="group cursor-pointer hover:bg-[#FDF8F5]"
+                      className={`group cursor-pointer hover:bg-[#FDF8F5] ${selectedIds.has(inv.id) ? "bg-[#ED5C32]/5" : ""}`}
                       onClick={() => {
                         if (inv.status === "draft_ai" || inv.status === "pending_review") {
                           void handleRowReview(inv);
@@ -1901,8 +2564,27 @@ export function InvoicesView() {
                         }
                       }}
                     >
+                      <td
+                        className="w-8 px-3 py-3"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedIds.has(inv.id)}
+                          onChange={(e) => {
+                            const next = new Set(selectedIds);
+                            if (e.target.checked) next.add(inv.id);
+                            else next.delete(inv.id);
+                            setSelectedIds(next);
+                          }}
+                          className="h-3.5 w-3.5 rounded border-stone-300 text-[#ED5C32] focus:ring-[#ED5C32]"
+                        />
+                      </td>
                       <td className="hidden md:table-cell px-4 py-3">
-                        <StatusBadge status={inv.status} />
+                        <div className="flex flex-col gap-1">
+                          <StatusBadge status={inv.status} />
+                          {inv.reconciliationStatus !== "none" && <ReconciliationBadge status={inv.reconciliationStatus} />}
+                        </div>
                       </td>
                       <td className="px-4 py-3 font-medium text-stone-800">
                         <div className="flex items-center gap-2">
@@ -1918,25 +2600,13 @@ export function InvoicesView() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-xs text-stone-600 sm:text-sm">
+                      <td className="hidden sm:table-cell px-4 py-3 text-xs text-stone-600 sm:text-sm">
                         {inv.invoiceNumber}
-                      </td>
-                      <td className="hidden md:table-cell px-4 py-3 text-stone-600">
-                        {formatDate(inv.invoiceDate)}
                       </td>
                       <td className="hidden md:table-cell px-4 py-3 text-stone-600">
                         <span className={inv.status === "overdue" ? "font-medium text-red-600" : ""}>
                           {formatDate(inv.dueDate)}
                         </span>
-                      </td>
-                      <td className="hidden md:table-cell px-4 py-3 text-stone-600">
-                        {formatDate(inv.paidAt)}
-                      </td>
-                      <td className="hidden lg:table-cell px-4 py-3 text-right text-stone-700">
-                        {fromCents(inv.subtotalWithoutVat)}
-                      </td>
-                      <td className="hidden lg:table-cell px-4 py-3 text-right text-stone-500">
-                        {fromCents(inv.totalVat)}
                       </td>
                       <td className="px-4 py-3 text-right font-semibold text-stone-800">
                         {fromCents(inv.totalWithVat)}
@@ -1963,7 +2633,7 @@ export function InvoicesView() {
                         onClick={(e) => e.stopPropagation()}
                       >
                         <div className="flex items-center justify-end gap-0.5">
-                          {/* Marcar como paga — sempre primeiro */}
+                          {/* Marcar como paga */}
                           {(inv.status === "pending" || inv.status === "overdue") && (
                             <button
                               onClick={() => setMarkPaidInvoice(inv)}
@@ -1975,6 +2645,36 @@ export function InvoicesView() {
                               </svg>
                               <span className="hidden md:inline">Paga</span>
                             </button>
+                          )}
+
+                          {/* Conciliar */}
+                          {inv.reconciliationStatus === "pending_reconciliation" && (
+                            <button
+                              onClick={() => void handleMarkReconciled(inv.id)}
+                              disabled={reconcilingId === inv.id}
+                              title="Conciliar pagamento"
+                              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-violet-600 hover:bg-violet-50 disabled:opacity-50"
+                            >
+                              <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
+                              </svg>
+                              <span className="hidden md:inline">{reconcilingId === inv.id ? "…" : "Conciliar"}</span>
+                            </button>
+                          )}
+
+                          {/* PDF */}
+                          {inv.attachmentUrl && (
+                            <a
+                              href={inv.attachmentUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Ver PDF"
+                              className="rounded-md p-1.5 text-stone-400 hover:bg-stone-50 hover:text-stone-600"
+                            >
+                              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M4.5 2A1.5 1.5 0 003 3.5v13A1.5 1.5 0 004.5 18h11a1.5 1.5 0 001.5-1.5V7.621a1.5 1.5 0 00-.44-1.06l-4.12-4.122A1.5 1.5 0 0011.378 2H4.5zm2.25 8.5a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5zm0 3a.75.75 0 000 1.5h6.5a.75.75 0 000-1.5h-6.5zm0-6a.75.75 0 000 1.5h3a.75.75 0 000-1.5h-3z" clipRule="evenodd" />
+                              </svg>
+                            </a>
                           )}
 
                           {/* Ver / Rever */}
@@ -2078,16 +2778,18 @@ export function InvoicesView() {
             invoice={detail}
             categories={categories}
             channels={channels}
+            groups={groups}
             linkedPayable={payableByInvoiceId.get(detail.id) ?? null}
             onClose={() => setDetail(null)}
             onOpenMarkPaid={setMarkPaidInvoice}
+            onInvoiceUpdated={(updated) => setDetail(updated)}
           />
         )}
 
         {markPaidInvoice && (
           <MarkPaidModal
             invoice={markPaidInvoice}
-            onConfirm={(paidAt) => void handleMarkPaid(markPaidInvoice.id, paidAt)}
+            onConfirm={(paidAt, bankAccountId, paymentMethod, paymentNotes) => void handleMarkPaid(markPaidInvoice.id, paidAt, bankAccountId, paymentMethod, paymentNotes)}
             onClose={() => setMarkPaidInvoice(null)}
             saving={markingPaidId === markPaidInvoice.id}
           />

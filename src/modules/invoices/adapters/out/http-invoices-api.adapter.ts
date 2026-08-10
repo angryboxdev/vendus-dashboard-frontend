@@ -11,12 +11,14 @@ import type {
   InvoiceLineDTO,
   CreateInvoicePayload,
   UpdateInvoicePayload,
+  UpdateInvoiceLinePayload,
   ClassifyLinePayload,
   ListInvoicesParams,
   InvoiceImportResultDTO,
   InvoiceAlertsDTO,
   ConfirmImportedInvoicePayload,
   SuggestClassificationResult,
+  LineDetailMode,
 } from "../../domain/entities/invoice.ts";
 
 const BASE = "/api/invoices";
@@ -27,6 +29,7 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     if (params?.supplierId) q.set("supplierId", params.supplierId);
     if (params?.costCenterId) q.set("costCenterId", params.costCenterId);
     if (params?.status) q.set("status", params.status);
+    if (params?.reconciliationStatus) q.set("reconciliationStatus", params.reconciliationStatus);
     if (params?.from) q.set("from", params.from);
     if (params?.to) q.set("to", params.to);
     if (params?.search) q.set("search", params.search);
@@ -42,6 +45,10 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     return apiPost(`${BASE}/${encodeURIComponent(invoiceId)}/lines`, payload);
   }
 
+  async updateLine(invoiceId: string, lineId: string, payload: UpdateInvoiceLinePayload): Promise<InvoiceLineDTO> {
+    return apiPatch(`${BASE}/${encodeURIComponent(invoiceId)}/lines/${encodeURIComponent(lineId)}`, payload);
+  }
+
   async getInvoice(id: string): Promise<InvoiceDTO> {
     return apiGet(`${BASE}/${encodeURIComponent(id)}`);
   }
@@ -54,8 +61,21 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     return apiPatch(`${BASE}/${encodeURIComponent(id)}`, payload);
   }
 
-  async markInvoicePaid(id: string, paidAt?: string): Promise<InvoiceDTO> {
-    return apiPatch(`${BASE}/${encodeURIComponent(id)}/paid`, paidAt ? { paidAt } : {});
+  async markInvoicePaid(id: string, paidAt?: string, bankAccountId?: string | null, paymentMethod?: string | null, paymentNotes?: string | null): Promise<InvoiceDTO> {
+    const body: Record<string, unknown> = {};
+    if (paidAt) body.paidAt = paidAt;
+    if (bankAccountId != null) body.bankAccountId = bankAccountId;
+    if (paymentMethod != null) body.paymentMethod = paymentMethod;
+    if (paymentNotes != null) body.paymentNotes = paymentNotes;
+    return apiPatch(`${BASE}/${encodeURIComponent(id)}/paid`, body);
+  }
+
+  async markInvoiceReconciled(id: string): Promise<InvoiceDTO> {
+    return apiPatch(`${BASE}/${encodeURIComponent(id)}/reconcile`, {});
+  }
+
+  async setLineDetailMode(id: string, mode: LineDetailMode): Promise<InvoiceDTO> {
+    return apiPatch(`${BASE}/${encodeURIComponent(id)}/line-detail-mode`, { mode });
   }
 
   async deleteInvoice(id: string): Promise<void> {
