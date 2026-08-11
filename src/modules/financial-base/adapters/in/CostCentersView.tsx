@@ -1,4 +1,5 @@
 import { useState, Fragment } from "react";
+import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFinancialBaseModule } from "../../financial-base.module.tsx";
 import {
@@ -248,9 +249,8 @@ function GroupDrawer({ open, editing, onClose, onSave, saving }: GroupDrawerProp
           </div>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-stone-700">Ordem de apresentação</label>
-            <input
-              type="number"
-              min={0}
+            <NumericInput
+              decimals={0}
               value={sortOrder}
               onChange={(e) => setSortOrder(e.target.value)}
               placeholder="0"

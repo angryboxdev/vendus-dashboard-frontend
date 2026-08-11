@@ -9,6 +9,7 @@ import type {
 import type { Preparation, PreparationItem } from "./preparations.types";
 import type { StockBaseUnit, StockItem } from "./stock.types";
 import { apiDelete, apiGet, apiPost, apiPut } from "../../lib/api";
+import { NumericInput } from "../../components/NumericInput.tsx";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { PIZZA_CATEGORY_LABELS } from "./pizzas.types";
@@ -1162,10 +1163,8 @@ function PreparationDetailModal({
                   <label className="mb-1 block text-xs text-slate-500">
                     Quantidade ({preparation.yield_unit})
                   </label>
-                  <input
-                    type="number"
-                    min="0.001"
-                    step="0.001"
+                  <NumericInput
+                    decimals={3}
                     value={addQty}
                     onChange={(e) => setAddQty(e.target.value)}
                     className="w-24 rounded border border-slate-200 px-3 py-2 text-sm"
@@ -1207,10 +1206,8 @@ function PreparationDetailModal({
                           </td>
                           <td className="px-4 py-2 text-right">
                             {isEditing ? (
-                              <input
-                                type="number"
-                                step="0.001"
-                                min="0"
+                              <NumericInput
+                                decimals={3}
                                 value={editQty}
                                 onChange={(e) => setEditQty(e.target.value)}
                                 className="w-20 rounded border px-2 py-1 text-sm text-right"
@@ -1529,10 +1526,8 @@ function RecipeModal({
                   <label className="mb-1 block text-xs text-slate-500">
                     Qtd.
                   </label>
-                  <input
-                    type="number"
-                    min="0.001"
-                    step="0.001"
+                  <NumericInput
+                    decimals={3}
                     value={addQty}
                     onChange={(e) => setAddQty(e.target.value)}
                     className="w-24 rounded border border-slate-200 px-3 py-2 text-sm"
@@ -1581,10 +1576,8 @@ function RecipeModal({
                           </td>
                           <td className="px-4 py-2 text-right">
                             {isEditing ? (
-                              <input
-                                type="number"
-                                step="0.001"
-                                min="0"
+                              <NumericInput
+                                decimals={3}
                                 value={editSmallQty}
                                 onChange={(e) =>
                                   setEditSmallQty(e.target.value)
@@ -1602,10 +1595,8 @@ function RecipeModal({
                           </td>
                           <td className="px-4 py-2 text-right">
                             {isEditing ? (
-                              <input
-                                type="number"
-                                step="0.001"
-                                min="0"
+                              <NumericInput
+                                decimals={3}
                                 value={editLargeQty}
                                 onChange={(e) =>
                                   setEditLargeQty(e.target.value)

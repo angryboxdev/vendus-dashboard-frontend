@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { formatInvoiceDate, formatMoney } from "../../../../lib/format";
 import type { InvoiceImportHeader } from "../invoiceImport.types";
 import type { UpdateInvoiceImportPayload } from "../invoiceImport.types";
@@ -155,9 +156,7 @@ export function InvoiceHeaderSummary({ header, onSave }: Props) {
           </div>
           <div>
             <label className="text-xs text-slate-500">Subtotal</label>
-            <input
-              type="number"
-              step="0.01"
+            <NumericInput
               value={form.subtotal}
               onChange={set("subtotal")}
               className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
@@ -165,9 +164,7 @@ export function InvoiceHeaderSummary({ header, onSave }: Props) {
           </div>
           <div>
             <label className="text-xs text-slate-500">Impostos</label>
-            <input
-              type="number"
-              step="0.01"
+            <NumericInput
               value={form.tax_total}
               onChange={set("tax_total")}
               className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
@@ -175,9 +172,7 @@ export function InvoiceHeaderSummary({ header, onSave }: Props) {
           </div>
           <div className="sm:col-span-2 lg:col-span-3">
             <label className="text-xs text-slate-500">Total</label>
-            <input
-              type="number"
-              step="0.01"
+            <NumericInput
               value={form.total}
               onChange={set("total")}
               className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"

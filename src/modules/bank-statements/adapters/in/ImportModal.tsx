@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { createPortal } from "react-dom";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
 import type { StatementPreview } from "../../domain/ports/out/bank-statements-api.port.ts";
@@ -232,11 +233,11 @@ export function ImportModal({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Saldo inicial (€) *</label>
-                <input type="number" required step="0.01" value={openingBalance} onChange={(e) => setOpeningBalance(e.target.value)} className={inputCls} placeholder="0.00" />
+                <NumericInput required value={openingBalance} onChange={(e) => setOpeningBalance(e.target.value)} className={inputCls} placeholder="0.00" />
               </div>
               <div>
                 <label className={labelCls}>Saldo final extrato (€) *</label>
-                <input type="number" required step="0.01" value={closingBalance} onChange={(e) => setClosingBalance(e.target.value)} className={inputCls} placeholder="0.00" />
+                <NumericInput required value={closingBalance} onChange={(e) => setClosingBalance(e.target.value)} className={inputCls} placeholder="0.00" />
               </div>
             </div>
             <div className="grid grid-cols-2 gap-3">

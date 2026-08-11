@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePayableEntriesModule } from "../../payable-entries.module.tsx";
@@ -382,11 +383,8 @@ function CreatePayableDrawer({ open, saving, onClose, onSavePayable, onSaveInvoi
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className={labelCls}>Valor s/IVA (€) *</label>
-                    <input
-                      type="number"
+                    <NumericInput
                       required
-                      step="0.01"
-                      min="0"
                       value={subtotal}
                       onChange={(e) => setSubtotal(e.target.value)}
                       className={inputCls}
@@ -395,10 +393,7 @@ function CreatePayableDrawer({ open, saving, onClose, onSavePayable, onSaveInvoi
                   </div>
                   <div>
                     <label className={labelCls}>IVA (€)</label>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
+                    <NumericInput
                       value={vatAmount}
                       onChange={(e) => setVatAmount(e.target.value)}
                       className={inputCls}
@@ -431,11 +426,8 @@ function CreatePayableDrawer({ open, saving, onClose, onSavePayable, onSaveInvoi
                 </div>
                 <div>
                   <label className={labelCls}>Valor (€) *</label>
-                  <input
-                    type="number"
+                  <NumericInput
                     required
-                    step="0.01"
-                    min="0.01"
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     className={inputCls}

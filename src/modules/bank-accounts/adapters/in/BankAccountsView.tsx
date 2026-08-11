@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBankAccountsModule } from "../../bank-accounts.module.tsx";
@@ -349,9 +350,7 @@ export function AccountFormDrawer({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className={labelCls}>Limite de crédito (€)</label>
-                  <input
-                    type="number"
-                    step="0.01"
+                  <NumericInput
                     value={creditLimit}
                     onChange={(e) => setCreditLimit(e.target.value)}
                     className={inputCls}
@@ -360,10 +359,8 @@ export function AccountFormDrawer({
                 </div>
                 <div>
                   <label className={labelCls}>Dia de fecho (1–31)</label>
-                  <input
-                    type="number"
-                    min={1}
-                    max={31}
+                  <NumericInput
+                    decimals={0}
                     value={billingDay}
                     onChange={(e) => setBillingDay(e.target.value)}
                     className={inputCls}

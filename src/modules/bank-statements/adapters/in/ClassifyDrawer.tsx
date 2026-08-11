@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useMemo } from "react";
+import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
@@ -688,7 +689,7 @@ export function ClassifyDrawer({
                             </div>
                             <div className="flex items-center gap-2 mt-2">
                               <label className="text-xs text-stone-500 shrink-0">A alocar (€)</label>
-                              <input type="number" min="0.01" step="0.01"
+                              <NumericInput
                                 value={(a.allocatedCents / 100).toFixed(2)}
                                 onChange={(e) => updateAllocatedCents(a.entityId, Math.round(parseFloat(e.target.value || "0") * 100))}
                                 className={`flex-1 rounded-md border px-2 py-1 text-sm text-right focus:outline-none ${exceedsBalance ? "border-red-400 bg-red-50 text-red-700" : "border-stone-300 bg-white focus:border-[#ED5C32]"}`} />

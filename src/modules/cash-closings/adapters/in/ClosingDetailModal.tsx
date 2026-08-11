@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { NumericInput } from "../../../../components/NumericInput.tsx";
 import type { CashClosing, CashClosingStatus } from "../../domain/entities/cash-closing.ts";
 import { useCashClosingsModule } from "../../cash-closings.module.tsx";
 import type { ReviewClosingCommand } from "../../domain/ports/in/review-closing.port.ts";
@@ -174,10 +175,7 @@ export function ClosingDetailModal({ closing, onClose }: Props) {
                   {numericFields.map(([key, label]) => (
                     <div key={key} className="flex items-center gap-3">
                       <span className="w-28 shrink-0 text-xs text-stone-500">{label}</span>
-                      <input
-                        type="number"
-                        min="0"
-                        step="0.01"
+                      <NumericInput
                         value={editFields[key]}
                         onChange={(e) =>
                           setEditFields((f) => ({ ...f, [key]: e.target.value }))

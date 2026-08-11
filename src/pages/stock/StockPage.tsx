@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { NumericInput } from "../../components/NumericInput.tsx";
 
 import { apiGet, apiPost, apiPut } from "../../lib/api";
 import { formatEUR, formatNumber } from "../../lib/format";
@@ -892,10 +893,8 @@ function StockEditModal({
             <label className="mb-1 block text-xs text-slate-500">
               Stock mínimo
             </label>
-            <input
-              type="number"
-              min="0"
-              step="0.001"
+            <NumericInput
+              decimals={3}
               value={form.min_stock === 0 ? "" : form.min_stock}
               onChange={(e) =>
                 setForm((f) => ({
@@ -936,10 +935,7 @@ function StockEditModal({
               {STOCK_BASE_UNIT_LABELS[form.base_unit ?? item.base_unit] ?? "un"}{" "}
               (€)
             </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
+            <NumericInput
               value={
                 form.purchase_reference_unit_cost_with_vat == null ||
                 form.purchase_reference_unit_cost_with_vat === 0
@@ -965,10 +961,7 @@ function StockEditModal({
               {STOCK_BASE_UNIT_LABELS[form.base_unit ?? item.base_unit] ?? "un"}{" "}
               (€)
             </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
+            <NumericInput
               value={
                 form.purchase_reference_unit_cost_without_vat == null ||
                 form.purchase_reference_unit_cost_without_vat === 0
@@ -1044,10 +1037,7 @@ function StockEditModal({
               <label className="mb-1 block text-xs text-slate-500">
                 Preço de venda (€)
               </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
+              <NumericInput
                 value={
                   form.sale_price == null || form.sale_price === 0
                     ? ""
@@ -1215,9 +1205,8 @@ function UpdateStockModal({
                     </select>
                   </td>
                   <td className="py-2 pr-4">
-                    <input
-                      type="number"
-                      step="0.001"
+                    <NumericInput
+                      decimals={3}
                       value={row.quantity === 0 ? "" : row.quantity}
                       onChange={(e) =>
                         updateRow(idx, {
@@ -1251,10 +1240,7 @@ function UpdateStockModal({
                     </select>
                   </td>
                   <td className="py-2 pr-4">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
+                    <NumericInput
                       value={row.unitCostWithVat}
                       onChange={(e) =>
                         updateRow(idx, { unitCostWithVat: e.target.value })
@@ -1264,10 +1250,7 @@ function UpdateStockModal({
                     />
                   </td>
                   <td className="py-2 pr-4">
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
+                    <NumericInput
                       value={row.unitCostWithoutVat}
                       onChange={(e) =>
                         updateRow(idx, { unitCostWithoutVat: e.target.value })
@@ -1470,10 +1453,8 @@ function NewItemModal({
             <label className="mb-1 block text-xs text-slate-500">
               Stock mínimo
             </label>
-            <input
-              type="number"
-              min="0"
-              step="0.001"
+            <NumericInput
+              decimals={3}
               value={form.min_stock === 0 ? "" : form.min_stock}
               onChange={(e) =>
                 setForm((f) => ({
@@ -1489,10 +1470,7 @@ function NewItemModal({
               Custo de referência c/ IVA por{" "}
               {STOCK_BASE_UNIT_LABELS[form.base_unit] ?? "un"} (€)
             </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
+            <NumericInput
               value={
                 form.purchase_reference_unit_cost_with_vat == null ||
                 form.purchase_reference_unit_cost_with_vat === 0
@@ -1517,10 +1495,7 @@ function NewItemModal({
               Custo de referência s/ IVA por{" "}
               {STOCK_BASE_UNIT_LABELS[form.base_unit] ?? "un"} (€)
             </label>
-            <input
-              type="number"
-              step="0.01"
-              min="0"
+            <NumericInput
               value={
                 form.purchase_reference_unit_cost_without_vat == null ||
                 form.purchase_reference_unit_cost_without_vat === 0
@@ -1562,10 +1537,7 @@ function NewItemModal({
               <label className="mb-1 block text-xs text-slate-500">
                 Preço de venda (€)
               </label>
-              <input
-                type="number"
-                step="0.01"
-                min="0"
+              <NumericInput
                 value={
                   form.sale_price == null || form.sale_price === 0
                     ? ""
@@ -1589,9 +1561,8 @@ function NewItemModal({
             <label className="mb-1 block text-xs text-slate-500">
               Quantidade inicial (opcional)
             </label>
-            <input
-              type="number"
-              step="0.001"
+            <NumericInput
+              decimals={3}
               value={initialQty === 0 ? "" : initialQty}
               onChange={(e) => setInitialQty(Number(e.target.value) || 0)}
               className="w-full rounded border border-slate-200 px-3 py-2 text-sm"

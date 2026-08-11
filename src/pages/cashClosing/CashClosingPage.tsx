@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { NumericInput } from "../../components/NumericInput.tsx";
 import {
   verifyPin,
   getSessions,
@@ -100,10 +101,7 @@ function AmountInput({
     <div className="flex flex-col gap-1.5">
       <label className="text-sm font-medium text-stone-500">{label}</label>
       <div className="relative">
-        <input
-          type="number"
-          min="0"
-          step="0.01"
+        <NumericInput
           value={value}
           onChange={(e) => onChange(e.target.value)}
           className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 pr-10 text-right text-lg font-semibold text-stone-800 placeholder-stone-300 focus:border-[#ED5C32] focus:outline-none focus:ring-2 focus:ring-[#ED5C32]/10"

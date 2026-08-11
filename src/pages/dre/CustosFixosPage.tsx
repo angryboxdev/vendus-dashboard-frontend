@@ -1,4 +1,5 @@
 import { apiDelete, apiPost, apiPut } from "../../lib/api";
+import { NumericInput } from "../../components/NumericInput.tsx";
 import { useCallback, useEffect, useState } from "react";
 
 import type { CustosFixoItem } from "./custosFixos.types";
@@ -296,10 +297,7 @@ function CustosFixoEditRow({
         />
       </td>
       <td className="px-4 py-2">
-        <input
-          type="number"
-          step="0.01"
-          min="0"
+        <NumericInput
           value={editForm.valor === 0 ? "" : editForm.valor}
           onChange={(e) =>
             setEditForm((f) => ({
@@ -312,10 +310,7 @@ function CustosFixoEditRow({
         />
       </td>
       <td className="px-4 py-2">
-        <input
-          type="number"
-          step="0.01"
-          min="0"
+        <NumericInput
           value={editForm.valorSemIva === 0 ? "" : editForm.valorSemIva}
           onChange={(e) =>
             setEditForm((f) => ({

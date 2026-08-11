@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFinancialBaseModule } from "../../financial-base.module.tsx";
+import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { useInvoicesModule } from "../../../invoices/invoices.module.tsx";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 import type { CostCenterGroup, CostCenterCategory } from "../../domain/entities/cost-center.ts";
@@ -223,9 +224,8 @@ function SupplierDrawer({ open, editing, groups, categories, onClose, onSave, sa
             <label className="mb-1.5 block text-sm font-medium text-stone-700">
               Prazo de pagamento (dias)
             </label>
-            <input
-              type="number"
-              min={0}
+            <NumericInput
+              decimals={0}
               value={paymentTermsDays}
               onChange={(e) => setPaymentTermsDays(e.target.value)}
               placeholder="30"

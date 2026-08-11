@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { NumericInput } from "../../components/NumericInput.tsx";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useParams } from "react-router-dom";
 import {
@@ -113,10 +114,7 @@ function OrdersTab({ customerId }: { customerId: string }) {
               <label className="block text-xs font-medium text-slate-600 mb-1">
                 Valor (€)
               </label>
-              <input
-                type="number"
-                min="0"
-                step="0.01"
+              <NumericInput
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="0.00"

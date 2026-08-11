@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
+import { NumericInput } from "../../components/NumericInput.tsx";
 import {
   fetchClosings,
   patchClosing,
@@ -167,10 +168,7 @@ function ClosingDetailDrawer({
                 ).map(([key, label]) => (
                   <div key={key} className="flex items-center gap-3">
                     <span className="w-24 text-sm text-slate-500">{label}</span>
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                    <NumericInput
                       value={editFields[key]}
                       onChange={(e) =>
                         setEditFields((f) => ({ ...f, [key]: e.target.value }))

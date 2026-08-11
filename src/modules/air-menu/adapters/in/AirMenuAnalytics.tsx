@@ -1,4 +1,5 @@
 import { Fragment, useState } from "react";
+import { NumericInput } from "../../../../components/NumericInput.tsx";
 
 import type { AirMenuAnalyticsData } from "../../domain/entities/air-menu-analytics.ts";
 import type { AirMenuOrder } from "../../domain/entities/air-menu-order.ts";
@@ -501,11 +502,8 @@ export function PlatformTable({
                       className="px-4 py-3 text-right"
                       onClick={(e) => e.stopPropagation()}
                     >
-                      <input
-                        type="number"
-                        min={0}
-                        max={100}
-                        step={0.5}
+                      <NumericInput
+                        decimals={1}
                         value={commission}
                         onChange={(e) =>
                           onCommissionChange(
@@ -615,11 +613,8 @@ export function CategoryTable({
         </p>
         <label className="flex items-center gap-2 text-xs text-gray-500">
           Comissão global
-          <input
-            type="number"
-            min={0}
-            max={100}
-            step={0.5}
+          <NumericInput
+            decimals={1}
             value={commission}
             onChange={(e) => setCommission(Number(e.target.value))}
             className="w-14 rounded-lg border border-gray-200 px-2 py-1 text-right text-sm"

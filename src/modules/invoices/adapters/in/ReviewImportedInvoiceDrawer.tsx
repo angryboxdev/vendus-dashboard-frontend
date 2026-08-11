@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { useInvoicesModule } from "../../invoices.module.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
 import type {
@@ -316,12 +317,11 @@ function SupplierPanel({
             placeholder="IBAN"
             className={inputCls}
           />
-          <input
-            type="number"
+          <NumericInput
+            decimals={0}
             value={createPaymentDays}
             onChange={(e) => setCreatePaymentDays(e.target.value)}
             placeholder="Prazo pagamento (dias)"
-            min="0"
             className={inputCls}
           />
           {groups.length > 0 && (
@@ -498,31 +498,23 @@ function EditableLinesSection({ lines, onChange }: EditableLinesSectionProps) {
                     />
                   </td>
                   <td className="px-2 py-1.5">
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
+                    <NumericInput
+                      decimals={3}
                       value={l.quantity}
                       onChange={(e) => updateLine(l.key, "quantity", e.target.value)}
                       className={inputCls}
                     />
                   </td>
                   <td className="px-2 py-1.5">
-                    <input
-                      type="number"
-                      min="0"
-                      max="100"
-                      step="any"
+                    <NumericInput
+                      decimals={1}
                       value={l.vatRate}
                       onChange={(e) => updateLine(l.key, "vatRate", e.target.value)}
                       className={inputCls}
                     />
                   </td>
                   <td className="px-2 py-1.5">
-                    <input
-                      type="number"
-                      min="0"
-                      step="0.01"
+                    <NumericInput
                       value={l.totalWithVat}
                       onChange={(e) => updateLine(l.key, "totalWithVat", e.target.value)}
                       placeholder="0.00"
@@ -850,15 +842,15 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
                 <div>
                   <label className={labelCls}>Subtotal s/ IVA (€)</label>
-                  <input type="number" min="0" step="0.01" value={subtotalStr} onChange={(e) => setSubtotalStr(e.target.value)} className={inputCls} />
+                  <NumericInput value={subtotalStr} onChange={(e) => setSubtotalStr(e.target.value)} className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>IVA (€)</label>
-                  <input type="number" min="0" step="0.01" value={vatStr} onChange={(e) => setVatStr(e.target.value)} className={inputCls} />
+                  <NumericInput value={vatStr} onChange={(e) => setVatStr(e.target.value)} className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls}>Total c/ IVA (€)</label>
-                  <input type="number" min="0" step="0.01" value={totalStr} onChange={(e) => setTotalStr(e.target.value)} className={inputCls} />
+                  <NumericInput value={totalStr} onChange={(e) => setTotalStr(e.target.value)} className={inputCls} />
                 </div>
               </div>
             </div>

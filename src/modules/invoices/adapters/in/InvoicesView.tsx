@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -542,10 +543,8 @@ function AddLineForm({ invoiceId, categories, onDone, onCancel }: AddLineFormPro
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <input
-            type="number"
-            min="0.001"
-            step="any"
+          <NumericInput
+            decimals={3}
             value={quantity}
             onChange={(e) => setQuantity(e.target.value)}
             placeholder="Qtd *"
@@ -565,10 +564,7 @@ function AddLineForm({ invoiceId, categories, onDone, onCancel }: AddLineFormPro
       </div>
       <div className="grid grid-cols-2 gap-2">
         <div>
-          <input
-            type="number"
-            min="0"
-            step="any"
+          <NumericInput
             value={unitCost}
             onChange={(e) => setUnitCost(e.target.value)}
             placeholder="Preço unit. s/ IVA (€) *"
@@ -686,8 +682,9 @@ function EditLineForm({
         className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
       />
       <div className="grid grid-cols-2 gap-2">
-        <input
-          type="number" min="0.001" step="any" value={quantity}
+        <NumericInput
+          decimals={3}
+          value={quantity}
           onChange={(e) => setQuantity(e.target.value)}
           placeholder="Qtd *"
           className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
@@ -700,8 +697,8 @@ function EditLineForm({
         />
       </div>
       <div className="grid grid-cols-2 gap-2">
-        <input
-          type="number" min="0" step="any" value={unitCost}
+        <NumericInput
+          value={unitCost}
           onChange={(e) => setUnitCost(e.target.value)}
           placeholder="Preço unit. s/ IVA (€) *"
           className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
@@ -1541,11 +1538,8 @@ function CreateInvoiceDrawer({
             <div className="grid grid-cols-3 gap-3">
               <div>
                 <label className={labelCls}>Total s/ IVA (€)</label>
-                <input
-                  type="number"
+                <NumericInput
                   required
-                  step="0.01"
-                  min="0"
                   value={subtotal}
                   onChange={(e) => setSubtotal(e.target.value)}
                   className={inputCls}
@@ -1554,11 +1548,8 @@ function CreateInvoiceDrawer({
               </div>
               <div>
                 <label className={labelCls}>IVA (€)</label>
-                <input
-                  type="number"
+                <NumericInput
                   required
-                  step="0.01"
-                  min="0"
                   value={totalVat}
                   onChange={(e) => setTotalVat(e.target.value)}
                   className={inputCls}
@@ -1567,11 +1558,8 @@ function CreateInvoiceDrawer({
               </div>
               <div>
                 <label className={labelCls}>Total c/ IVA (€)</label>
-                <input
-                  type="number"
+                <NumericInput
                   required
-                  step="0.01"
-                  min="0"
                   value={totalWithVat}
                   onChange={(e) => setTotalWithVat(e.target.value)}
                   className={inputCls}
@@ -1645,10 +1633,8 @@ function CreateInvoiceDrawer({
                     ))}
                   </select>
                   <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="number"
-                      min="0.001"
-                      step="any"
+                    <NumericInput
+                      decimals={3}
                       value={lineBuilder.quantity}
                       onChange={(e) => setLineBuilder((b) => ({ ...b, quantity: e.target.value }))}
                       placeholder="Qtd *"
@@ -1663,10 +1649,7 @@ function CreateInvoiceDrawer({
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <input
-                      type="number"
-                      min="0"
-                      step="any"
+                    <NumericInput
                       value={lineBuilder.unitCost}
                       onChange={(e) => setLineBuilder((b) => ({ ...b, unitCost: e.target.value }))}
                       placeholder="Preço s/ IVA (€) *"

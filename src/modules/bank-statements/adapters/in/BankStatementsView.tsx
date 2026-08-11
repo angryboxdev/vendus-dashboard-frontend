@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef } from "react";
+import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
@@ -174,10 +175,8 @@ function EditableBalanceCard({
         )}
       </p>
       {editing ? (
-        <input
+        <NumericInput
           ref={inputRef}
-          type="number"
-          step="0.01"
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           onBlur={commit}

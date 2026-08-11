@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import React, { useMemo, useState } from "react";
+import { NumericInput } from "../../../components/NumericInput.tsx";
 import {
   createLeaveRequest,
   deleteLeaveRequest,
@@ -102,12 +103,12 @@ function BalanceWidget({
             <div className="mt-3 flex flex-wrap items-end gap-3">
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">Dias com direito</label>
-                <input type="number" min={0} value={entitled} onChange={(e) => setEntitled(e.target.value)}
+                <NumericInput decimals={0} value={entitled} onChange={(e) => setEntitled(e.target.value)}
                   className="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
               </div>
               <div>
                 <label className="mb-1 block text-xs font-medium text-slate-600">Transitados</label>
-                <input type="number" min={0} value={carried} onChange={(e) => setCarried(e.target.value)}
+                <NumericInput decimals={0} value={carried} onChange={(e) => setCarried(e.target.value)}
                   className="w-24 rounded-lg border border-slate-300 px-2 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500" />
               </div>
               <div className="flex gap-2">
