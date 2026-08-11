@@ -108,7 +108,7 @@ export function InvoiceHeaderSummary({ header, onSave }: Props) {
     }
   };
 
-  const set = (field: keyof FormState) => (e: React.ChangeEvent<HTMLInputElement>) => {
+  const set = (field: keyof FormState) => (e: { target: { value: string } }) => {
     setForm((prev) => ({ ...prev, [field]: e.target.value }));
   };
 
