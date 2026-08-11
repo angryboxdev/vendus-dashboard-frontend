@@ -70,10 +70,6 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     return apiPatch(`${BASE}/${encodeURIComponent(id)}/paid`, body);
   }
 
-  async markInvoiceReconciled(id: string): Promise<InvoiceDTO> {
-    return apiPatch(`${BASE}/${encodeURIComponent(id)}/reconcile`, {});
-  }
-
   async setLineDetailMode(id: string, mode: LineDetailMode): Promise<InvoiceDTO> {
     return apiPatch(`${BASE}/${encodeURIComponent(id)}/line-detail-mode`, { mode });
   }

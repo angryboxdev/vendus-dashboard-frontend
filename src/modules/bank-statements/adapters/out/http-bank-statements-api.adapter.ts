@@ -15,6 +15,7 @@ import type {
   CreateRulePayload,
   DaySlotDTO,
   ImportStatementResult,
+  InvoiceLinkedMovementDTO,
   MatchSuggestionDTO,
   MovementCandidateDTO,
   ReconciliationRuleDTO,
@@ -118,5 +119,18 @@ export class HttpBankStatementsApiAdapter implements BankStatementsApiPort {
 
   async getAccountMonthDetail(accountId: string, year: number, month: number): Promise<DaySlotDTO[]> {
     return apiGet(`${BASE}/accounts/${encodeURIComponent(accountId)}/calendar/${year}/${month}`);
+  }
+
+  async getMovementsLinkedToInvoice(invoiceId: string): Promise<InvoiceLinkedMovementDTO[]> {
+    return apiGet<InvoiceLinkedMovementDTO[]>(`${BASE}/invoices/${encodeURIComponent(invoiceId)}/movements`);
+  }
+
+  async getInvoiceOpenBalances(invoiceIds: string[]): Promise<Record<string, number>> {
+    if (invoiceIds.length === 0) return {};
+    return apiGet<Record<string, number>>(`${BASE}/invoices/open-balances?ids=${invoiceIds.map(encodeURIComponent).join(",")}`);
+  }
+
+  async unreconcileMovement(movementId: string): Promise<void> {
+    await apiDeleteNoContent(`${BASE}/movements/${encodeURIComponent(movementId)}/reconcile`);
   }
 }

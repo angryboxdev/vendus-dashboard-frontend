@@ -19,6 +19,8 @@ import {
   PAYMENT_METHOD_LABELS,
 } from "../../domain/entities/invoice.ts";
 import { useBankAccountsModule } from "../../../bank-accounts/bank-accounts.module.tsx";
+import { useBankStatementsModule } from "../../../bank-statements/bank-statements.module.tsx";
+import type { InvoiceLinkedMovementDTO } from "../../../bank-statements/domain/entities/bank-statement.ts";
 import type { BankDTO, AccountPreviewDTO } from "../../../bank-accounts/domain/entities/bank-account.ts";
 import { ImportInvoiceModal } from "./ImportInvoiceModal.tsx";
 import { ReviewImportedInvoiceDrawer } from "./ReviewImportedInvoiceDrawer.tsx";
@@ -89,17 +91,19 @@ function StatusBadge({ status }: { status: InvoiceStatus }) {
 
 // ── ReconciliationBadge ────────────────────────────────────────────────────────
 
-const RECON_CONFIG: Record<ReconciliationStatus, { label: string; cls: string }> = {
-  none: { label: "", cls: "" },
-  pending_reconciliation: { label: "Ag. conciliação", cls: "bg-violet-50 text-violet-700" },
-  reconciled: { label: "Conciliada", cls: "bg-teal-50 text-teal-700" },
+const RECON_CONFIG: Record<ReconciliationStatus, { label: string; cls: string; dot: string }> = {
+  none: { label: "", cls: "", dot: "" },
+  pending_reconciliation: { label: "Ag. conciliação", cls: "bg-violet-50 text-violet-700", dot: "bg-violet-500" },
+  partially_reconciled: { label: "Parcialmente conciliada", cls: "bg-amber-50 text-amber-700", dot: "bg-amber-500" },
+  reconciled: { label: "Conciliada", cls: "bg-teal-50 text-teal-700", dot: "bg-teal-500" },
 };
 
 function ReconciliationBadge({ status }: { status: ReconciliationStatus }) {
   if (status === "none") return null;
-  const { label, cls } = RECON_CONFIG[status];
+  const { label, cls, dot } = RECON_CONFIG[status];
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
       {label}
     </span>
   );
@@ -761,13 +765,13 @@ function InvoiceDetailDrawer({
   onInvoiceUpdated,
 }: DetailDrawerProps) {
   const { api } = useInvoicesModule();
+  const { api: bankApi } = useBankStatementsModule();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"details" | "classificacao" | "lines">("details");
   const [lines, setLines] = useState<InvoiceLineDTO[]>([]);
   const [loadingLines, setLoadingLines] = useState(false);
   const [showAddLine, setShowAddLine] = useState(false);
-  const [reconcilingState, setReconcilingState] = useState<"idle" | "loading">("idle");
   const [settingLineMode, setSettingLineMode] = useState<"idle" | "loading">("idle");
   const [showPdf, setShowPdf] = useState(false);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
@@ -775,6 +779,13 @@ function InvoiceDetailDrawer({
   const [savingClassification, setSavingClassification] = useState(false);
   const [classifyGroupId, setClassifyGroupId] = useState("");
   const [classifyCategoryId, setClassifyCategoryId] = useState("");
+
+  const isReconciled = invoice?.reconciliationStatus !== "none" && invoice?.reconciliationStatus != null;
+  const { data: linkedMovements = [] } = useQuery<InvoiceLinkedMovementDTO[]>({
+    queryKey: ["invoice-linked-movements", invoice?.id],
+    queryFn: () => bankApi.getMovementsLinkedToInvoice(invoice!.id),
+    enabled: isReconciled && !!invoice,
+  });
 
   // Reload lines from API when switching to lines tab
   async function loadLines(inv: InvoiceDTO) {
@@ -802,19 +813,6 @@ function InvoiceDetailDrawer({
     setShowAddLine(false);
     void qc.invalidateQueries({ queryKey: ["invoices"] });
     void qc.invalidateQueries({ queryKey: ["invoice-lines-all"] });
-  }
-
-  async function handleMarkReconciled() {
-    if (!invoice) return;
-    setReconcilingState("loading");
-    try {
-      const updated = await api.markInvoiceReconciled(invoice.id);
-      void qc.invalidateQueries({ queryKey: ["invoices"] });
-      void qc.invalidateQueries({ queryKey: ["invoice-alerts"] });
-      if (onInvoiceUpdated) onInvoiceUpdated(updated);
-    } finally {
-      setReconcilingState("idle");
-    }
   }
 
   async function handleToggleLineDetailMode(mode: LineDetailMode) {
@@ -937,15 +935,6 @@ function InvoiceDetailDrawer({
                       Marcar como paga
                     </button>
                   )}
-                  {invoice.reconciliationStatus === "pending_reconciliation" && (
-                    <button
-                      onClick={() => void handleMarkReconciled()}
-                      disabled={reconcilingState === "loading"}
-                      className="rounded-md bg-violet-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-violet-700 disabled:opacity-50"
-                    >
-                      {reconcilingState === "loading" ? "A conciliar…" : "Conciliar"}
-                    </button>
-                  )}
                 </div>
               </div>
 
@@ -992,10 +981,6 @@ function InvoiceDetailDrawer({
                     label: "Data de pagamento",
                     value: formatDate(invoice.paidAt),
                   },
-                  ...(invoice.paidAt && invoice.reconciliationStatus !== "none" ? [{
-                    label: "Conciliação bancária",
-                    value: invoice.reconciliationStatus === "reconciled" ? "Conciliada" : "Aguardando confirmação no extrato",
-                  }] : []),
                   { label: "Notas", value: invoice.notes ?? "—" },
                 ].map(({ label, value }) => (
                   <div key={label} className="flex justify-between py-2">
@@ -1006,6 +991,33 @@ function InvoiceDetailDrawer({
                   </div>
                 ))}
               </dl>
+
+              {/* Linked bank movements */}
+              {isReconciled && (
+                <div className="rounded-lg border border-teal-100 bg-teal-50/40 p-3 space-y-2">
+                  <p className="text-xs font-medium text-teal-700">
+                    Conciliação bancária
+                    <span className="ml-1.5 font-normal text-teal-600">
+                      — {RECON_CONFIG[invoice.reconciliationStatus].label}
+                    </span>
+                  </p>
+                  {linkedMovements.length === 0 ? (
+                    <p className="text-xs text-teal-600/70">A carregar movimentos…</p>
+                  ) : (
+                    <dl className="divide-y divide-teal-100/60 space-y-0">
+                      {linkedMovements.map((m) => (
+                        <div key={m.movementId} className="py-1.5 space-y-0.5">
+                          <div className="flex justify-between">
+                            <dt className="text-xs text-stone-400">{formatDate(m.bookingDate)}</dt>
+                            <dd className="text-xs font-medium text-teal-700">{fromCents(m.allocatedAmountCents)}</dd>
+                          </div>
+                          <p className="text-xs text-stone-500 truncate">{m.description}</p>
+                        </div>
+                      ))}
+                    </dl>
+                  )}
+                </div>
+              )}
 
               {/* Linked payable entry */}
               {linkedPayable ? (
@@ -1943,7 +1955,6 @@ export function InvoicesView() {
   const [detail, setDetail] = useState<InvoiceDTO | null>(null);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [markPaidInvoice, setMarkPaidInvoice] = useState<InvoiceDTO | null>(null);
-  const [reconcilingId, setReconcilingId] = useState<string | null>(null);
   const [deleteConfirmInvoice, setDeleteConfirmInvoice] = useState<InvoiceDTO | null>(null);
 
   // Data
@@ -2064,18 +2075,6 @@ export function InvoicesView() {
       setMarkPaidInvoice(null);
     } finally {
       setMarkingPaidId(null);
-    }
-  }
-
-  async function handleMarkReconciled(id: string) {
-    setReconcilingId(id);
-    try {
-      const updated = await api.markInvoiceReconciled(id);
-      void qc.invalidateQueries({ queryKey: ["invoices"] });
-      void qc.invalidateQueries({ queryKey: ["invoice-alerts"] });
-      if (detail?.id === id) setDetail(updated);
-    } finally {
-      setReconcilingId(null);
     }
   }
 
@@ -2560,7 +2559,7 @@ export function InvoicesView() {
                         />
                       </td>
                       <td className="hidden md:table-cell px-4 py-3">
-                        <div className="flex flex-col gap-1">
+                        <div className="flex flex-wrap items-center gap-1">
                           <StatusBadge status={inv.status} />
                           {inv.reconciliationStatus !== "none" && <ReconciliationBadge status={inv.reconciliationStatus} />}
                         </div>
@@ -2623,21 +2622,6 @@ export function InvoicesView() {
                                 <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
                               </svg>
                               <span className="hidden md:inline">Paga</span>
-                            </button>
-                          )}
-
-                          {/* Conciliar */}
-                          {inv.reconciliationStatus === "pending_reconciliation" && (
-                            <button
-                              onClick={() => void handleMarkReconciled(inv.id)}
-                              disabled={reconcilingId === inv.id}
-                              title="Conciliar pagamento"
-                              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-violet-600 hover:bg-violet-50 disabled:opacity-50"
-                            >
-                              <svg className="h-3.5 w-3.5 shrink-0" viewBox="0 0 20 20" fill="currentColor">
-                                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.857-9.809a.75.75 0 00-1.214-.882l-3.483 4.79-1.88-1.88a.75.75 0 10-1.06 1.061l2.5 2.5a.75.75 0 001.137-.089l4-5.5z" clipRule="evenodd" />
-                              </svg>
-                              <span className="hidden md:inline">{reconcilingId === inv.id ? "…" : "Conciliar"}</span>
                             </button>
                           )}
 

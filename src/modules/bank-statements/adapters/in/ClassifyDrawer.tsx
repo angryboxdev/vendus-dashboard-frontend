@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useMemo } from "react";
 import { createPortal } from "react-dom";
 import { useQuery } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
@@ -104,9 +104,12 @@ function EntityCard({ candidate, onAdd }: { candidate: MovementCandidateDTO; onA
           {candidate.entityType === "invoice" ? "Fatura" : "Conta a pagar"}
         </span>
         <span className="text-xs text-stone-300">·</span>
-        <span className="text-xs text-stone-500">Total: {fromCents(candidate.amountCents)}</span>
-        <span className="text-xs text-stone-300">·</span>
-        <span className="text-xs text-stone-500">Em aberto: {fromCents(candidate.openBalanceCents)}</span>
+        <span className="text-xs text-stone-500">
+          Em aberto: {fromCents(candidate.openBalanceCents)}
+          {candidate.openBalanceCents < candidate.amountCents && (
+            <span className="text-stone-400"> (de {fromCents(candidate.amountCents)})</span>
+          )}
+        </span>
         <span className="text-xs text-stone-300">·</span>
         <span className="text-xs text-stone-400">{formatDate(candidate.date)}</span>
       </div>
@@ -114,14 +117,18 @@ function EntityCard({ candidate, onAdd }: { candidate: MovementCandidateDTO; onA
   );
 }
 
-function InvoiceCard({ invoice, onAdd }: { invoice: InvoiceDTO; onAdd: () => void }) {
+function InvoiceCard({ invoice, openBalanceCents, onAdd }: { invoice: InvoiceDTO; openBalanceCents: number; onAdd: () => void }) {
+  const isPartial = openBalanceCents < invoice.totalWithVat;
   return (
     <button type="button" onClick={onAdd}
       className="w-full text-left rounded-lg border border-stone-200 px-3 py-2.5 text-sm transition-colors hover:border-[#ED5C32] hover:bg-[#FDF8F5] group">
       <div className="flex items-center justify-between gap-2">
         <span className="font-medium text-stone-800 truncate">{invoice.supplierName}</span>
         <div className="flex items-center gap-2 shrink-0">
-          <span className="text-xs text-stone-400">{fromCents(invoice.totalWithVat)}</span>
+          <span className="text-xs text-stone-400">
+            {fromCents(openBalanceCents)}
+            {isPartial && <span className="text-stone-300"> (de {fromCents(invoice.totalWithVat)})</span>}
+          </span>
           <span className="text-xs font-medium text-[#ED5C32] opacity-0 group-hover:opacity-100 transition-opacity">+ Adicionar</span>
         </div>
       </div>
@@ -155,6 +162,7 @@ export function ClassifyDrawer({
   onClose,
   onSave,
   onReconcile,
+  onUnreconcile,
   saving,
   inline = false,
 }: {
@@ -169,6 +177,7 @@ export function ClassifyDrawer({
       supplierId: string | null;
     }>,
   ) => void;
+  onUnreconcile?: () => void;
   saving: boolean;
   /** When true, renders inline (no portal/backdrop). Use for side-panel layouts. */
   inline?: boolean;
@@ -228,10 +237,28 @@ export function ClassifyDrawer({
     staleTime: 60_000,
   });
 
+  // Map entityId → openBalanceCents for invoices already known from auto-suggestions
+  const candidatesOpenBalanceMap = useMemo(
+    () => new Map(candidates.map((c) => [c.entityId, c.openBalanceCents])),
+    [candidates],
+  );
+
   const { data: invoiceSearchResults = [], isLoading: loadingSearch } = useQuery({
     queryKey: ["invoices-search", debouncedSearch],
     queryFn: () => invApi.listInvoices({ search: debouncedSearch }),
     enabled: debouncedSearch.length >= 2,
+    staleTime: 30_000,
+  });
+
+  // For search results not already known from auto-suggestions, fetch their real open balances
+  const unknownSearchIds = useMemo(
+    () => invoiceSearchResults.filter((inv) => !candidatesOpenBalanceMap.has(inv.id)).map((inv) => inv.id),
+    [invoiceSearchResults, candidatesOpenBalanceMap],
+  );
+  const { data: searchOpenBalances = {} } = useQuery<Record<string, number>>({
+    queryKey: ["invoice-open-balances", unknownSearchIds],
+    queryFn: () => api.getInvoiceOpenBalances(unknownSearchIds),
+    enabled: unknownSearchIds.length > 0,
     staleTime: 30_000,
   });
 
@@ -313,6 +340,20 @@ export function ClassifyDrawer({
   const withinTolerance = Math.abs(remaining) <= 100;
   const overAllocated = totalAllocated > movement.amount;
 
+  const [unreconciling, setUnreconciling] = useState(false);
+
+  async function handleUnreconcile() {
+    if (!confirm("Tens a certeza que queres anular a conciliação deste movimento?")) return;
+    setUnreconciling(true);
+    try {
+      await api.unreconcileMovement(movement.id);
+      onUnreconcile?.();
+      onClose();
+    } finally {
+      setUnreconciling(false);
+    }
+  }
+
   function addAllocation(entry: Omit<AllocationEntry, "allocatedCents">) {
     if (allocatedEntityIds.has(entry.entityId)) return;
     const suggested = Math.min(entry.openBalanceCents, Math.max(0, remaining));
@@ -372,7 +413,10 @@ export function ClassifyDrawer({
 
   const candidateEntityIds = new Set(candidates.map((c) => c.entityId));
   const filteredSearchResults = invoiceSearchResults.filter(
-    (inv) => !candidateEntityIds.has(inv.id) && !allocatedEntityIds.has(inv.id),
+    (inv) =>
+      !candidateEntityIds.has(inv.id) &&
+      !allocatedEntityIds.has(inv.id) &&
+      inv.reconciliationStatus !== "reconciled",
   );
 
   const panel = (
@@ -547,16 +591,24 @@ export function ClassifyDrawer({
             </div>
 
             {/* Footer */}
-            <div className="flex gap-3 border-t border-[#F5C992]/40 px-6 py-4 shrink-0">
-              <button type="button" onClick={onClose}
-                className="flex-1 rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">
-                Fechar
-              </button>
-              <button type="button"
-                onClick={() => { setIsEditMode(true); setActiveTab(defaultTab); }}
-                className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90">
-                Alterar classificação
-              </button>
+            <div className="flex flex-col gap-2 border-t border-[#F5C992]/40 px-6 py-4 shrink-0">
+              <div className="flex gap-3">
+                <button type="button" onClick={onClose}
+                  className="flex-1 rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">
+                  Fechar
+                </button>
+                <button type="button"
+                  onClick={() => { setIsEditMode(true); setActiveTab(defaultTab); }}
+                  className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90">
+                  Alterar classificação
+                </button>
+              </div>
+              {movement.entityLinks.length > 0 && (
+                <button type="button" onClick={() => void handleUnreconcile()} disabled={unreconciling}
+                  className="w-full rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">
+                  {unreconciling ? "A anular…" : "Anular conciliação"}
+                </button>
+              )}
             </div>
           </>
         ) : (
@@ -689,10 +741,13 @@ export function ClassifyDrawer({
                   {filteredSearchResults.length > 0 && (
                     <div className="mt-2 border border-stone-200 rounded-lg overflow-hidden">
                       <div className="space-y-1.5 p-2 max-h-56 overflow-y-auto">
-                        {filteredSearchResults.map((inv) => (
-                          <InvoiceCard key={inv.id} invoice={inv}
-                            onAdd={() => addAllocation({ entityType: "invoice", entityId: inv.id, entityLabel: `${inv.supplierName} — ${inv.invoiceNumber}`, supplierId: inv.supplierId ?? null, totalCents: inv.totalWithVat, openBalanceCents: inv.totalWithVat })} />
-                        ))}
+                        {filteredSearchResults.map((inv) => {
+                          const openBalanceCents = candidatesOpenBalanceMap.get(inv.id) ?? searchOpenBalances[inv.id] ?? inv.totalWithVat;
+                          return (
+                            <InvoiceCard key={inv.id} invoice={inv} openBalanceCents={openBalanceCents}
+                              onAdd={() => addAllocation({ entityType: "invoice", entityId: inv.id, entityLabel: `${inv.supplierName} — ${inv.invoiceNumber}`, supplierId: inv.supplierId ?? null, totalCents: inv.totalWithVat, openBalanceCents })} />
+                          );
+                        })}
                       </div>
                       <div className="border-t border-stone-100 bg-stone-50 px-3 py-1.5">
                         <p className="text-xs text-stone-400">{filteredSearchResults.length} resultado{filteredSearchResults.length !== 1 ? "s" : ""}</p>

@@ -7,6 +7,7 @@ import type {
   CreateRulePayload,
   DaySlotDTO,
   ImportStatementResult,
+  InvoiceLinkedMovementDTO,
   MatchSuggestionDTO,
   MovementCandidateDTO,
   MovementType,
@@ -77,4 +78,16 @@ export interface BankStatementsApiPort {
   /** Calendar paradigm — new endpoints. */
   getAccountCalendar(accountId: string, year: number): Promise<AccountMonthStatDTO[]>;
   getAccountMonthDetail(accountId: string, year: number, month: number): Promise<DaySlotDTO[]>;
+
+  /** Returns bank movements reconciled to the given invoice. */
+  getMovementsLinkedToInvoice(invoiceId: string): Promise<InvoiceLinkedMovementDTO[]>;
+
+  /**
+   * Returns the open balance (cents) for each invoice ID.
+   * Result key is invoiceId; invoices with no links have openBalance = totalWithVat.
+   */
+  getInvoiceOpenBalances(invoiceIds: string[]): Promise<Record<string, number>>;
+
+  /** Cancels reconciliation for a movement: removes all entity links and resets its status. */
+  unreconcileMovement(movementId: string): Promise<void>;
 }

@@ -313,6 +313,10 @@ export function MonthDetailView() {
             supplierId: string | null;
           }>,
         ) => reconcileMut.mutate({ movementId: classifying.id, entityLinks }),
+        onUnreconcile: () => {
+          void qc.invalidateQueries({ queryKey: ["bank-month", accountId, year, month] });
+          void qc.invalidateQueries({ queryKey: ["bank-calendar", accountId, year] });
+        },
         saving: classifyMut.isPending || reconcileMut.isPending,
       }
     : null;

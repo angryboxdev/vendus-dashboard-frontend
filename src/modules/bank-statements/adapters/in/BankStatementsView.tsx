@@ -734,6 +734,10 @@ function StatementDetail({
           onReconcile={(entityLinks) =>
             reconcileMut.mutate({ movementId: classifying.id, entityLinks })
           }
+          onUnreconcile={() => {
+            void qc.invalidateQueries({ queryKey: ["bank-statement", statementId] });
+            void qc.invalidateQueries({ queryKey: ["bank-statements"] });
+          }}
           saving={classifyMut.isPending || reconcileMut.isPending}
         />
       )}

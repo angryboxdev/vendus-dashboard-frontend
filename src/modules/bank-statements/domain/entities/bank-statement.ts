@@ -239,6 +239,14 @@ export interface DaySlotDTO {
   reconciledCount: number;
 }
 
+export interface InvoiceLinkedMovementDTO {
+  movementId: string;
+  bookingDate: string;          // YYYY-MM-DD
+  description: string;
+  allocatedAmountCents: number; // portion of the movement allocated to this invoice
+  movementType: MovementType;
+}
+
 export interface CreateRulePayload {
   name: string;
   descriptionContains: string;

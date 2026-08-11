@@ -23,7 +23,7 @@ export type InvoiceLineType =
 
 export type InvoiceSource = "manual" | "pdf_import" | "image_import";
 export type AiExtractionStatus = "processing" | "done" | "failed";
-export type ReconciliationStatus = "none" | "pending_reconciliation" | "reconciled";
+export type ReconciliationStatus = "none" | "pending_reconciliation" | "partially_reconciled" | "reconciled";
 export type LineDetailMode = "simple" | "detailed";
 export type PaymentMethod = "bank_transfer" | "direct_debit" | "mbway" | "card" | "cash" | "cheque" | "other";
 
