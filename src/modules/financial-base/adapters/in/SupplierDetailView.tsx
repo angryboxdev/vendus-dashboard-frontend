@@ -27,46 +27,23 @@ function initials(name: string): string {
     .join("");
 }
 
-// ── KpiCard ─────────────────────────────────────────────────────────────────
-
-function KpiCard({
-  label,
-  value,
-  sub,
-  highlight,
-}: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  highlight?: boolean;
-}) {
-  return (
-    <div className="flex-1 rounded-xl border border-stone-100 bg-white p-4 shadow-sm">
-      <p className="text-xs font-medium uppercase tracking-wide text-stone-400">{label}</p>
-      <p className={`mt-1.5 text-2xl font-bold ${highlight ? "text-orange-500" : "text-stone-900"}`}>
-        {value}
-      </p>
-      {sub && <p className="mt-0.5 text-xs text-stone-400">{sub}</p>}
-    </div>
-  );
-}
-
 // ── InvoiceStatusBadge ───────────────────────────────────────────────────────
 
-const STATUS_LABELS: Record<string, { label: string; cls: string }> = {
-  paid:           { label: "Paga",          cls: "bg-emerald-50 text-emerald-700" },
-  pending:        { label: "Pendente",      cls: "bg-orange-50 text-orange-600" },
-  overdue:        { label: "Vencida",       cls: "bg-red-50 text-red-600" },
-  partial:        { label: "Parcial",       cls: "bg-amber-50 text-amber-700" },
-  cancelled:      { label: "Anulada",       cls: "bg-stone-100 text-stone-500" },
-  draft_ai:       { label: "Rascunho IA",   cls: "bg-blue-50 text-blue-600" },
-  pending_review: { label: "Em revisão",    cls: "bg-violet-50 text-violet-600" },
+const STATUS_LABELS: Record<string, { label: string; cls: string; dot: string }> = {
+  paid:           { label: "Paga",        cls: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+  pending:        { label: "Pendente",    cls: "bg-amber-50 text-amber-700",     dot: "bg-amber-500"   },
+  overdue:        { label: "Vencida",     cls: "bg-red-50 text-red-600",         dot: "bg-red-500"     },
+  partial:        { label: "Parcial",     cls: "bg-amber-50 text-amber-700",     dot: "bg-amber-400"   },
+  cancelled:      { label: "Anulada",     cls: "bg-stone-100 text-stone-500",    dot: "bg-stone-400"   },
+  draft_ai:       { label: "Rascunho IA", cls: "bg-stone-100 text-stone-500",    dot: "bg-stone-400"   },
+  pending_review: { label: "Em revisão",  cls: "bg-violet-50 text-violet-600",   dot: "bg-violet-500"  },
 };
 
 function InvoiceStatusBadge({ status }: { status: string }) {
-  const info = STATUS_LABELS[status] ?? { label: status, cls: "bg-stone-100 text-stone-500" };
+  const info = STATUS_LABELS[status] ?? { label: status, cls: "bg-stone-100 text-stone-500", dot: "bg-stone-400" };
   return (
-    <span className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${info.cls}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${info.cls}`}>
+      <span className={`h-1.5 w-1.5 rounded-full ${info.dot}`} />
       {info.label}
     </span>
   );
@@ -137,7 +114,7 @@ export function SupplierDetailView() {
   const groupMap    = new Map(groups.map((g) => [g.id, g]));
   const categoryMap = new Map(categories.map((c) => [c.id, c]));
 
-  const group    = supplier.defaultCostCenterGroupId    ? groupMap.get(supplier.defaultCostCenterGroupId)    : undefined;
+  const group    = supplier.defaultCostCenterGroupId    ? groupMap.get(supplier.defaultCostCenterGroupId)       : undefined;
   const category = supplier.defaultCostCenterCategoryId ? categoryMap.get(supplier.defaultCostCenterCategoryId) : undefined;
 
   const isActive = supplier.status === "active";
@@ -224,29 +201,45 @@ export function SupplierDetailView() {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-5 p-6">
+      <div className="space-y-6 p-6">
         {/* KPI Cards */}
-        <div className="flex gap-4">
-          <KpiCard
-            label="Total faturado"
-            value={formatEUR(supplier.stats.totalBilled)}
-            sub={supplier.stats.invoiceCount > 0 ? `${supplier.stats.invoiceCount} fatura${supplier.stats.invoiceCount !== 1 ? "s" : ""}` : undefined}
-          />
-          <KpiCard
-            label="Total pago"
-            value={formatEUR(supplier.stats.totalPaid)}
-            sub={supplier.stats.lastPaymentDate ? `Último: ${formatDate(supplier.stats.lastPaymentDate)}` : undefined}
-          />
-          <KpiCard
-            label="Total pendente"
-            value={formatEUR(supplier.stats.totalPending)}
-            highlight={supplier.stats.totalPending > 0}
-          />
-          <KpiCard
-            label="Faturas"
-            value={supplier.stats.invoiceCount}
-            sub={supplier.stats.lastInvoiceDate ? `Última: ${formatDate(supplier.stats.lastInvoiceDate)}` : undefined}
-          />
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
+            <p className="text-xs font-medium text-stone-500">Total faturado</p>
+            <p className="mt-1 text-xl font-bold text-[#ED5C32]">{formatEUR(supplier.stats.totalBilled)}</p>
+            <p className="mt-0.5 text-xs text-stone-400">
+              {supplier.stats.invoiceCount > 0
+                ? `${supplier.stats.invoiceCount} fatura${supplier.stats.invoiceCount !== 1 ? "s" : ""}`
+                : "Sem faturas"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
+            <p className="text-xs font-medium text-stone-500">Total pago</p>
+            <p className="mt-1 text-xl font-bold text-emerald-600">{formatEUR(supplier.stats.totalPaid)}</p>
+            <p className="mt-0.5 text-xs text-stone-400">
+              {supplier.stats.lastPaymentDate
+                ? `Último: ${formatDate(supplier.stats.lastPaymentDate)}`
+                : "Sem pagamentos"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
+            <p className="text-xs font-medium text-stone-500">Total pendente</p>
+            <p className={`mt-1 text-xl font-bold ${supplier.stats.totalPending > 0 ? "text-amber-600" : "text-stone-400"}`}>
+              {formatEUR(supplier.stats.totalPending)}
+            </p>
+            <p className="mt-0.5 text-xs text-stone-400">
+              {supplier.stats.totalPending > 0 ? "Em aberto" : "Sem pendências"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
+            <p className="text-xs font-medium text-stone-500">Faturas</p>
+            <p className="mt-1 text-xl font-bold text-stone-700">{supplier.stats.invoiceCount}</p>
+            <p className="mt-0.5 text-xs text-stone-400">
+              {supplier.stats.lastInvoiceDate
+                ? `Última: ${formatDate(supplier.stats.lastInvoiceDate)}`
+                : "Nenhuma fatura"}
+            </p>
+          </div>
         </div>
 
         {/* Main content: invoices + sidebar */}
@@ -254,30 +247,30 @@ export function SupplierDetailView() {
           {/* Invoices */}
           <div className="min-w-0 flex-1">
             {supplier.invoices.length === 0 ? (
-              <div className="rounded-xl border border-stone-100 bg-white py-16 text-center shadow-sm">
+              <div className="rounded-xl border border-[#F5C992]/40 bg-white py-16 text-center shadow-sm">
                 <p className="text-sm text-stone-400">Nenhuma fatura registada para este fornecedor.</p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-xl border border-stone-100 bg-white shadow-sm">
-                <div className="border-b border-stone-100 px-4 py-3">
+              <div className="overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white shadow-sm">
+                <div className="border-b border-[#F5C992]/40 px-4 py-3">
                   <h3 className="text-sm font-semibold text-stone-700">
                     Faturas ({supplier.invoices.length})
                   </h3>
                 </div>
                 <table className="min-w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-stone-100 bg-stone-50 text-left text-xs font-medium uppercase tracking-wide text-stone-400">
-                      <th className="px-4 py-3">Nº Fatura</th>
-                      <th className="px-4 py-3">Emissão</th>
-                      <th className="px-4 py-3">Vencimento</th>
-                      <th className="px-4 py-3 text-right">Valor</th>
-                      <th className="px-4 py-3">Estado</th>
-                      <th className="px-4 py-3">Ações</th>
+                  <thead className="border-b border-[#F5C992]/40 bg-stone-50/60">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Nº Fatura</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Emissão</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Vencimento</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">Valor</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Estado</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Ações</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-50">
+                  <tbody className="divide-y divide-[#F5C992]/30">
                     {supplier.invoices.map((inv) => (
-                      <tr key={inv.id} className="transition-colors hover:bg-stone-50/60">
+                      <tr key={inv.id} className="transition-colors hover:bg-[#FDF8F5]">
                         <td className="px-4 py-3 font-mono text-xs font-medium text-stone-700">
                           {inv.invoiceNumber}
                         </td>

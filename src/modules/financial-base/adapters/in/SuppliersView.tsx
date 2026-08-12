@@ -32,39 +32,6 @@ function StatusBadge({ status }: { status: "active" | "inactive" }) {
   );
 }
 
-// ── KpiCard ────────────────────────────────────────────────────────────────────
-
-function KpiCard({
-  icon,
-  label,
-  value,
-  sub,
-  subHighlight,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: React.ReactNode;
-  sub?: string;
-  subHighlight?: boolean;
-}) {
-  return (
-    <div className="flex flex-1 items-center gap-4 rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#FDF0E8] text-[#ED5C32]">
-        {icon}
-      </div>
-      <div className="min-w-0">
-        <p className="text-sm text-stone-500">{label}</p>
-        <p className="mt-0.5 text-2xl font-bold text-stone-900">{value}</p>
-        {sub && (
-          <p className={`mt-0.5 text-xs ${subHighlight ? "font-medium text-[#ED5C32]" : "text-stone-400"}`}>
-            {sub}
-          </p>
-        )}
-      </div>
-    </div>
-  );
-}
-
 // ── Pagination ─────────────────────────────────────────────────────────────────
 
 function Pagination({
@@ -83,7 +50,7 @@ function Pagination({
   const from = total === 0 ? 0 : (page - 1) * pageSize + 1;
   const to = Math.min(page * pageSize, total);
   return (
-    <div className="flex items-center justify-between border-t border-stone-100 px-4 py-3 text-sm text-stone-500">
+    <div className="flex items-center justify-between border-t border-[#F5C992]/30 px-4 py-3 text-sm text-stone-500">
       <span>Mostrando {from} a {to} de {total} resultado{total !== 1 ? "s" : ""}</span>
       <div className="flex items-center gap-1">
         <button
@@ -137,13 +104,13 @@ export function SuppliersView() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const [drawerOpen,   setDrawerOpen]   = useState(false);
-  const [editing,      setEditing]      = useState<Supplier | null>(null);
-  const [activeTab,    setActiveTab]    = useState<ActiveTab>("all");
-  const [search,       setSearch]       = useState("");
+  const [drawerOpen,    setDrawerOpen]    = useState(false);
+  const [editing,       setEditing]       = useState<Supplier | null>(null);
+  const [activeTab,     setActiveTab]     = useState<ActiveTab>("all");
+  const [search,        setSearch]        = useState("");
   const [filterCcGroup, setFilterCcGroup] = useState("");
-  const [filterPrazo,  setFilterPrazo]  = useState<"" | "com" | "sem">("");
-  const [page,         setPage]         = useState(1);
+  const [filterPrazo,   setFilterPrazo]   = useState<"" | "com" | "sem">("");
+  const [page,          setPage]          = useState(1);
 
   const { data: suppliers = [], isLoading } = useQuery({
     queryKey: ["suppliers-with-stats"],
@@ -165,20 +132,18 @@ export function SuppliersView() {
 
   // KPIs computados a partir da lista completa (sem filtros)
   const kpis = useMemo(() => {
-    const total = suppliers.length;
-    const active = suppliers.filter((s) => s.status === "active").length;
-    const inactive = total - active;
-    const withPending = suppliers.filter((s) => s.stats.totalPending > 0).length;
+    const total          = suppliers.length;
+    const active         = suppliers.filter((s) => s.status === "active").length;
+    const inactive       = total - active;
+    const withPending    = suppliers.filter((s) => s.stats.totalPending > 0).length;
     const totalPendingAmt = suppliers.reduce((acc, s) => acc + s.stats.totalPending, 0);
-    const totalBilled = suppliers.reduce((acc, s) => acc + s.stats.totalBilled, 0);
+    const totalBilled    = suppliers.reduce((acc, s) => acc + s.stats.totalBilled, 0);
     return { total, active, inactive, withPending, totalPendingAmt, totalBilled };
   }, [suppliers]);
 
-  // Filtragem
-  const filtered = useMemo(() => {
+  // Filtragem base (sem tab de status — para contar por tab)
+  const baseFiltered = useMemo(() => {
     return suppliers.filter((s) => {
-      if (activeTab === "active" && s.status !== "active") return false;
-      if (activeTab === "inactive" && s.status !== "inactive") return false;
       if (search) {
         const q = search.toLowerCase();
         if (
@@ -193,7 +158,22 @@ export function SuppliersView() {
       if (filterPrazo === "sem" && s.paymentTermsDays != null) return false;
       return true;
     });
-  }, [suppliers, activeTab, search, filterCcGroup, filterPrazo]);
+  }, [suppliers, search, filterCcGroup, filterPrazo]);
+
+  const tabCounts = useMemo(() => ({
+    all:      baseFiltered.length,
+    active:   baseFiltered.filter((s) => s.status === "active").length,
+    inactive: baseFiltered.filter((s) => s.status === "inactive").length,
+  }), [baseFiltered]);
+
+  // Filtragem final (com tab)
+  const filtered = useMemo(() => {
+    return baseFiltered.filter((s) => {
+      if (activeTab === "active"   && s.status !== "active")   return false;
+      if (activeTab === "inactive" && s.status !== "inactive") return false;
+      return true;
+    });
+  }, [baseFiltered, activeTab]);
 
   // Paginação
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
@@ -250,139 +230,121 @@ export function SuppliersView() {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col gap-5 p-6">
+      <div className="space-y-6 p-6">
         {/* KPI Cards */}
-        <div className="flex gap-4">
-          <KpiCard
-            icon={
-              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
-              </svg>
-            }
-            label="Fornecedores ativos"
-            value={kpis.active}
-            sub={pct(kpis.active, kpis.total)}
-          />
-          <KpiCard
-            icon={
-              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M22 10.5h-6m-2.25-4.125a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zM4 19.235v-.11a6.375 6.375 0 0112.75 0v.109A12.318 12.318 0 0110.374 21c-2.331 0-4.512-.645-6.374-1.766z" />
-              </svg>
-            }
-            label="Fornecedores inativos"
-            value={kpis.inactive}
-            sub={pct(kpis.inactive, kpis.total)}
-          />
-          <KpiCard
-            icon={
-              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
-              </svg>
-            }
-            label="Com faturas pendentes"
-            value={kpis.withPending}
-            sub={kpis.totalPendingAmt > 0 ? `Total pendente ${formatEUR(kpis.totalPendingAmt)}` : "Sem pendências"}
-            subHighlight={kpis.totalPendingAmt > 0}
-          />
-          <KpiCard
-            icon={
-              <svg className="h-6 w-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M14.25 7.756a4.5 4.5 0 100 8.488M7.5 10.5h5.25m-5.25 3h5.25M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            }
-            label="Total faturado"
-            value={formatEUR(kpis.totalBilled)}
-            sub="Histórico total"
-          />
+        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
+            <p className="text-xs font-medium text-stone-500">Fornecedores ativos</p>
+            <p className="mt-1 text-xl font-bold text-emerald-600">{kpis.active}</p>
+            <p className="mt-0.5 text-xs text-stone-400">{pct(kpis.active, kpis.total)}</p>
+          </div>
+          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
+            <p className="text-xs font-medium text-stone-500">Fornecedores inativos</p>
+            <p className="mt-1 text-xl font-bold text-stone-400">{kpis.inactive}</p>
+            <p className="mt-0.5 text-xs text-stone-400">{pct(kpis.inactive, kpis.total)}</p>
+          </div>
+          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
+            <p className="text-xs font-medium text-stone-500">Com faturas pendentes</p>
+            <p className="mt-1 text-xl font-bold text-amber-600">{kpis.withPending}</p>
+            <p className="mt-0.5 text-xs text-stone-400">
+              {kpis.totalPendingAmt > 0 ? `Total ${formatEUR(kpis.totalPendingAmt)}` : "Sem pendências"}
+            </p>
+          </div>
+          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
+            <p className="text-xs font-medium text-stone-500">Total faturado</p>
+            <p className="mt-1 text-xl font-bold text-[#ED5C32]">{formatEUR(kpis.totalBilled)}</p>
+            <p className="mt-0.5 text-xs text-stone-400">Histórico total</p>
+          </div>
         </div>
 
-        {/* Tabs + Filters */}
-        <div className="overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white shadow-sm">
+        {/* Filters */}
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="relative">
+            <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
+            </svg>
+            <input
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+              placeholder="Pesquisar por nome, NIF ou email..."
+              className="w-64 rounded-md border border-stone-300 bg-white py-1.5 pl-9 pr-4 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
+            />
+          </div>
+
+          <div className="relative">
+            <select
+              value={filterCcGroup}
+              onChange={(e) => { setFilterCcGroup(e.target.value); setPage(1); }}
+              className="appearance-none rounded-md border border-stone-300 bg-white py-1.5 pl-3 pr-8 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
+            >
+              <option value="">Centro de custo padrão</option>
+              {groups.filter((g) => g.isActive).map((g) => (
+                <option key={g.id} value={g.id}>{g.code} — {g.name}</option>
+              ))}
+            </select>
+            <svg className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          </div>
+
+          <div className="relative">
+            <select
+              value={filterPrazo}
+              onChange={(e) => { setFilterPrazo(e.target.value as "" | "com" | "sem"); setPage(1); }}
+              className="appearance-none rounded-md border border-stone-300 bg-white py-1.5 pl-3 pr-8 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
+            >
+              <option value="">Prazo</option>
+              <option value="com">Com prazo definido</option>
+              <option value="sem">Sem prazo definido</option>
+            </select>
+            <svg className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+            </svg>
+          </div>
+
+          {hasFilters && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="flex items-center gap-1 text-sm text-stone-400 transition-colors hover:text-stone-600"
+            >
+              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+              </svg>
+              Limpar filtros
+            </button>
+          )}
+        </div>
+
+        {/* Table */}
+        <div className="overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white">
           {/* Tabs */}
-          <div className="flex items-center justify-between border-b border-stone-100 px-4">
-            <div className="flex gap-0">
-              {(["all", "active", "inactive"] as const).map((tab) => {
-                const labels: Record<ActiveTab, string> = { all: "Todos", active: "Ativos", inactive: "Inativos" };
-                return (
-                  <button
-                    key={tab}
-                    onClick={() => handleTabChange(tab)}
-                    className={`px-4 py-3 text-sm font-medium transition-colors border-b-2 ${
-                      activeTab === tab
-                        ? "border-[#ED5C32] text-[#ED5C32]"
-                        : "border-transparent text-stone-500 hover:text-stone-700"
-                    }`}
-                  >
-                    {labels[tab]}
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Filters */}
-          <div className="flex flex-wrap items-center gap-2 border-b border-stone-100 px-4 py-3">
-            {/* Search */}
-            <div className="relative">
-              <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-stone-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M9 3.5a5.5 5.5 0 100 11 5.5 5.5 0 000-11zM2 9a7 7 0 1112.452 4.391l3.328 3.329a.75.75 0 11-1.06 1.06l-3.329-3.328A7 7 0 012 9z" clipRule="evenodd" />
-              </svg>
-              <input
-                value={search}
-                onChange={(e) => { setSearch(e.target.value); setPage(1); }}
-                placeholder="Pesquisar por nome, NIF ou email..."
-                className="w-64 rounded-lg border border-stone-200 bg-white py-1.5 pl-9 pr-4 text-sm text-stone-700 shadow-sm outline-none transition focus:border-[#ED5C32]"
-              />
-            </div>
-
-            {/* CC Padrão filter */}
-            <div className="relative">
-              <select
-                value={filterCcGroup}
-                onChange={(e) => { setFilterCcGroup(e.target.value); setPage(1); }}
-                className="appearance-none rounded-lg border border-stone-200 bg-white py-1.5 pl-3 pr-8 text-sm text-stone-700 shadow-sm outline-none transition focus:border-[#ED5C32]"
-              >
-                <option value="">Centro de custo padrão</option>
-                {groups.filter((g) => g.isActive).map((g) => (
-                  <option key={g.id} value={g.id}>{g.code} — {g.name}</option>
-                ))}
-              </select>
-              <svg className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-              </svg>
-            </div>
-
-            {/* Prazo filter */}
-            <div className="relative">
-              <select
-                value={filterPrazo}
-                onChange={(e) => { setFilterPrazo(e.target.value as "" | "com" | "sem"); setPage(1); }}
-                className="appearance-none rounded-lg border border-stone-200 bg-white py-1.5 pl-3 pr-8 text-sm text-stone-700 shadow-sm outline-none transition focus:border-[#ED5C32]"
-              >
-                <option value="">Prazo</option>
-                <option value="com">Com prazo definido</option>
-                <option value="sem">Sem prazo definido</option>
-              </select>
-              <svg className="pointer-events-none absolute right-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-stone-400" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
-              </svg>
-            </div>
-
-            {hasFilters && (
+          <div className="flex border-b border-[#F5C992]/40 px-2">
+            {(
+              [
+                { key: "all"      as const, label: "Todos",    badgeCls: "bg-stone-100 text-stone-500"    },
+                { key: "active"   as const, label: "Ativos",   badgeCls: "bg-emerald-100 text-emerald-700" },
+                { key: "inactive" as const, label: "Inativos", badgeCls: "bg-stone-100 text-stone-400"    },
+              ]
+            ).map(({ key, label, badgeCls }) => (
               <button
-                type="button"
-                onClick={clearFilters}
-                className="flex items-center gap-1 text-sm text-stone-400 transition-colors hover:text-stone-600"
+                key={key}
+                onClick={() => handleTabChange(key)}
+                className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium transition-colors ${
+                  activeTab === key
+                    ? "border-[#ED5C32] text-[#ED5C32]"
+                    : "border-transparent text-stone-500 hover:text-stone-700"
+                }`}
               >
-                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                  <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                </svg>
-                Limpar filtros
+                {label}
+                <span className={`rounded-full px-1.5 py-0.5 text-xs font-semibold tabular-nums ${badgeCls}`}>
+                  {tabCounts[key]}
+                </span>
               </button>
-            )}
+            ))}
           </div>
 
-          {/* Table */}
+          {/* Table content */}
           {isLoading ? (
             <div className="flex items-center justify-center py-16 text-sm text-stone-400">A carregar…</div>
           ) : filtered.length === 0 ? (
@@ -403,26 +365,26 @@ export function SuppliersView() {
           ) : (
             <>
               <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-stone-100 bg-stone-50/60 text-left text-xs font-semibold uppercase tracking-wide text-stone-400">
-                      <th className="px-4 py-3">Nome</th>
-                      <th className="px-4 py-3">NIF</th>
-                      <th className="px-4 py-3">Contacto</th>
-                      <th className="px-4 py-3">CC padrão</th>
-                      <th className="px-4 py-3 text-center">Faturas</th>
-                      <th className="px-4 py-3 text-right">Total faturado</th>
-                      <th className="px-4 py-3 text-right">Total pendente</th>
-                      <th className="px-4 py-3">Prazo</th>
-                      <th className="px-4 py-3">Estado</th>
+                <table className="min-w-full text-sm">
+                  <thead className="border-b border-[#F5C992]/40 bg-stone-50/60">
+                    <tr>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Nome</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">NIF</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Contacto</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">CC padrão</th>
+                      <th className="px-4 py-3 text-center text-xs font-semibold uppercase tracking-wide text-stone-500">Faturas</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">Total faturado</th>
+                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">Total pendente</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Prazo</th>
+                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Estado</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-stone-50">
+                  <tbody className="divide-y divide-[#F5C992]/30">
                     {pageData.map((s: SupplierWithStats) => {
-                      const group    = s.defaultCostCenterGroupId    ? groupMap.get(s.defaultCostCenterGroupId)    : null;
+                      const group    = s.defaultCostCenterGroupId    ? groupMap.get(s.defaultCostCenterGroupId)       : null;
                       const category = s.defaultCostCenterCategoryId ? categoryMap.get(s.defaultCostCenterCategoryId) : null;
                       return (
-                        <tr key={s.id} className="group transition-colors hover:bg-[#FAF6F3]/60">
+                        <tr key={s.id} className="group cursor-pointer transition-colors hover:bg-[#FDF8F5]">
                           <td className="px-4 py-3">
                             <button
                               type="button"
@@ -467,7 +429,7 @@ export function SuppliersView() {
                           </td>
                           <td className="px-4 py-3 text-right">
                             {s.stats.totalPending > 0 ? (
-                              <span className="font-medium text-[#ED5C32]">{formatEUR(s.stats.totalPending)}</span>
+                              <span className="font-medium text-amber-600">{formatEUR(s.stats.totalPending)}</span>
                             ) : (
                               <span className="text-stone-300">—</span>
                             )}
