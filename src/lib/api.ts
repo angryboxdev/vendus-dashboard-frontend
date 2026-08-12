@@ -104,6 +104,11 @@ export async function apiDelete(path: string): Promise<void> {
   await apiDeleteNoContent(path);
 }
 
+export async function apiGetBlob(path: string): Promise<Blob> {
+  const res = await request(path);
+  return res.blob();
+}
+
 /** POST multipart (ex.: upload de ficheiro). Não definir Content-Type — o browser define o boundary. */
 export async function apiPostFormData<T>(
   path: string,

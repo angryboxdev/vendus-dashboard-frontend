@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPatch } from "../../../../lib/api.ts";
+import { apiGet, apiGetBlob, apiPost, apiPatch } from "../../../../lib/api.ts";
 import type {
   FinancialBaseApiPort,
   ListCostCenterGroupsParams,
@@ -15,7 +15,13 @@ import type {
   SeedResult,
   ChannelDTO,
 } from "../../domain/entities/cost-center.ts";
-import type { Supplier, CreateSupplierPayload, UpdateSupplierPayload } from "../../domain/entities/supplier.ts";
+import type {
+  Supplier,
+  SupplierWithStats,
+  SupplierDetail,
+  CreateSupplierPayload,
+  UpdateSupplierPayload,
+} from "../../domain/entities/supplier.ts";
 
 const BASE = "/api/financial-base";
 
@@ -85,8 +91,20 @@ export class HttpFinancialBaseApiAdapter implements FinancialBaseApiPort {
     return apiGet(`${BASE}/suppliers${qs ? `?${qs}` : ""}`);
   }
 
+  async listSuppliersWithStats(params?: ListSuppliersParams): Promise<SupplierWithStats[]> {
+    const q = new URLSearchParams();
+    if (params?.status) q.set("status", params.status);
+    if (params?.search) q.set("search", params.search);
+    q.set("includeStats", "true");
+    return apiGet(`${BASE}/suppliers?${q.toString()}`);
+  }
+
   async getSupplier(id: string): Promise<Supplier> {
     return apiGet(`${BASE}/suppliers/${encodeURIComponent(id)}`);
+  }
+
+  async getSupplierDetail(id: string): Promise<SupplierDetail> {
+    return apiGet(`${BASE}/suppliers/${encodeURIComponent(id)}/detail`);
   }
 
   async createSupplier(payload: CreateSupplierPayload): Promise<Supplier> {
@@ -99,6 +117,22 @@ export class HttpFinancialBaseApiAdapter implements FinancialBaseApiPort {
 
   async setSupplierStatus(id: string, status: "active" | "inactive"): Promise<Supplier> {
     return apiPatch(`${BASE}/suppliers/${encodeURIComponent(id)}/status`, { status });
+  }
+
+  async downloadSupplierStatement(id: string, params?: { startDate?: string; endDate?: string }): Promise<void> {
+    const q = new URLSearchParams();
+    if (params?.startDate) q.set("startDate", params.startDate);
+    if (params?.endDate) q.set("endDate", params.endDate);
+    const qs = q.toString();
+    const blob = await apiGetBlob(`${BASE}/suppliers/${encodeURIComponent(id)}/statement-pdf${qs ? `?${qs}` : ""}`);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `extrato-fornecedor.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 
   // ── Channels ─────────────────────────────────────────────────────────────────

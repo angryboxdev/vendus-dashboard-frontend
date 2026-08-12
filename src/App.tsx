@@ -40,6 +40,7 @@ import { CrmParametersPage } from "./pages/crm/CrmParametersPage";
 import { FinancialBaseProvider } from "./modules/financial-base/financial-base.module.tsx";
 import { CostCentersView } from "./modules/financial-base/adapters/in/CostCentersView.tsx";
 import { SuppliersView } from "./modules/financial-base/adapters/in/SuppliersView.tsx";
+import { SupplierDetailView } from "./modules/financial-base/adapters/in/SupplierDetailView.tsx";
 import { InvoicesProvider } from "./modules/invoices/invoices.module.tsx";
 import { InvoicesView } from "./modules/invoices/adapters/in/InvoicesView.tsx";
 import { PayableEntriesProvider } from "./modules/payable-entries/payable-entries.module.tsx";
@@ -158,6 +159,7 @@ export default function App() {
                               <Routes>
                                 <Route path="cost-centers" element={<CostCentersView />} />
                                 <Route path="suppliers" element={<SuppliersView />} />
+                                <Route path="suppliers/:id" element={<SupplierDetailView />} />
                                 <Route path="invoices" element={<InvoicesView />} />
                                 <Route path="payable-entries" element={<PayableEntriesView />} />
                                 <Route path="bank-statements" element={<BanksView />} />

@@ -8,7 +8,13 @@ import type {
   SeedResult,
   ChannelDTO,
 } from "../../entities/cost-center.ts";
-import type { Supplier, CreateSupplierPayload, UpdateSupplierPayload } from "../../entities/supplier.ts";
+import type {
+  Supplier,
+  SupplierWithStats,
+  SupplierDetail,
+  CreateSupplierPayload,
+  UpdateSupplierPayload,
+} from "../../entities/supplier.ts";
 
 export interface ListCostCenterGroupsParams {
   isActive?: boolean;
@@ -42,10 +48,13 @@ export interface FinancialBaseApiPort {
 
   // Suppliers
   listSuppliers(params?: ListSuppliersParams): Promise<Supplier[]>;
+  listSuppliersWithStats(params?: ListSuppliersParams): Promise<SupplierWithStats[]>;
   getSupplier(id: string): Promise<Supplier>;
+  getSupplierDetail(id: string): Promise<SupplierDetail>;
   createSupplier(payload: CreateSupplierPayload): Promise<Supplier>;
   updateSupplier(id: string, payload: UpdateSupplierPayload): Promise<Supplier>;
   setSupplierStatus(id: string, status: "active" | "inactive"): Promise<Supplier>;
+  downloadSupplierStatement(id: string, params?: { startDate?: string; endDate?: string }): Promise<void>;
 
   // Channels
   listChannels(): Promise<ChannelDTO[]>;
