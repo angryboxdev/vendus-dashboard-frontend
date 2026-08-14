@@ -1760,20 +1760,22 @@ interface InvoiceCalendarViewProps {
   invoicesByDate: Map<string, InvoiceDTO[]>;
   noDueDateInvoices: InvoiceDTO[];
   month: Date;
+  selectedDay: string | null;
   onPrevMonth: () => void;
   onNextMonth: () => void;
   onToday: () => void;
-  onInvoiceClick: (inv: InvoiceDTO) => void;
+  onDayClick: (dateStr: string, invoices: InvoiceDTO[]) => void;
 }
 
 function InvoiceCalendarView({
   invoicesByDate,
   noDueDateInvoices,
   month,
+  selectedDay,
   onPrevMonth,
   onNextMonth,
   onToday,
-  onInvoiceClick,
+  onDayClick,
 }: InvoiceCalendarViewProps) {
   const year = month.getFullYear();
   const monthIdx = month.getMonth();
@@ -1841,6 +1843,7 @@ function InvoiceCalendarView({
             const dateStr = `${year}-${String(monthIdx + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
             const dayInvs = invoicesByDate.get(dateStr) ?? [];
             const isToday = dateStr === todayStr;
+            const isSelected = dateStr === selectedDay;
             const hasOverdue = dayInvs.some((inv) => inv.status === "overdue");
             const visible = dayInvs.slice(0, 3);
             const extra = dayInvs.length - visible.length;
@@ -1848,16 +1851,23 @@ function InvoiceCalendarView({
             return (
               <div
                 key={dateStr}
-                className={`min-h-[110px] p-1.5 ${isToday ? "bg-orange-50/50" : ""}`}
+                onClick={() => dayInvs.length > 0 && onDayClick(dateStr, dayInvs)}
+                className={`min-h-[110px] p-1.5 transition-colors ${
+                  dayInvs.length > 0 ? "cursor-pointer hover:bg-stone-50" : ""
+                } ${isToday ? "bg-orange-50/50" : ""} ${
+                  isSelected ? "ring-2 ring-inset ring-[#ED5C32]" : ""
+                }`}
               >
                 <div className="mb-1 flex justify-end">
                   <span
                     className={`flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold ${
                       isToday
                         ? "bg-[#ED5C32] text-white"
-                        : hasOverdue && dayInvs.length > 0
-                          ? "text-red-500"
-                          : "text-stone-400"
+                        : isSelected
+                          ? "bg-stone-800 text-white"
+                          : hasOverdue && dayInvs.length > 0
+                            ? "text-red-500"
+                            : "text-stone-400"
                     }`}
                   >
                     {day}
@@ -1865,18 +1875,17 @@ function InvoiceCalendarView({
                 </div>
                 <div className="space-y-0.5">
                   {visible.map((inv) => (
-                    <button
+                    <div
                       key={inv.id}
-                      onClick={() => onInvoiceClick(inv)}
                       title={`${inv.supplierName} · ${fromCents(inv.totalWithVat)}`}
-                      className="flex w-full items-center gap-1 rounded px-1.5 py-0.5 text-left transition-opacity hover:opacity-75"
+                      className="flex w-full items-center gap-1 rounded px-1.5 py-0.5"
                       style={{ backgroundColor: STATUS_CHIP_BG[inv.status] }}
                     >
                       <span className={`h-1.5 w-1.5 flex-shrink-0 rounded-full ${STATUS_DOT[inv.status]}`} />
                       <span className="min-w-0 truncate text-[10px] font-medium leading-tight text-stone-700">
                         {inv.supplierName}
                       </span>
-                    </button>
+                    </div>
                   ))}
                   {extra > 0 && (
                     <p className="pl-1 text-[9px] font-medium text-stone-400">+{extra} mais</p>
@@ -1885,6 +1894,22 @@ function InvoiceCalendarView({
               </div>
             );
           })}
+        </div>
+
+        {/* Legend */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 border-t border-[#F5C992]/30 bg-stone-50/40 px-4 py-2.5">
+          <span className="text-[10px] font-semibold uppercase tracking-wide text-stone-400">Legenda</span>
+          {[
+            { dot: "bg-red-500", label: "Em atraso" },
+            { dot: "bg-amber-500", label: "Pendente" },
+            { dot: "bg-emerald-500", label: "Paga" },
+            { dot: "bg-violet-500", label: "Ag. conciliação" },
+          ].map(({ dot, label }) => (
+            <span key={label} className="flex items-center gap-1.5 text-[10px] text-stone-500">
+              <span className={`h-2 w-2 rounded-full ${dot}`} />
+              {label}
+            </span>
+          ))}
         </div>
       </div>
 
@@ -1896,18 +1921,225 @@ function InvoiceCalendarView({
           </p>
           <div className="flex flex-wrap gap-1.5">
             {noDueDateInvoices.map((inv) => (
-              <button
+              <span
                 key={inv.id}
-                onClick={() => onInvoiceClick(inv)}
-                className="flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-2.5 py-1 text-xs font-medium text-stone-600 hover:bg-stone-50"
+                className="flex items-center gap-1.5 rounded-full border border-stone-200 bg-white px-2.5 py-1 text-xs font-medium text-stone-600"
               >
                 <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[inv.status]}`} />
                 {inv.supplierName}
-              </button>
+              </span>
             ))}
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ── Calendar Day Panel ─────────────────────────────────────────────────────────
+
+const DOW_LONG_PT = ["Domingo","Segunda-feira","Terça-feira","Quarta-feira","Quinta-feira","Sexta-feira","Sábado"];
+const MONTH_LONG_PT = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+
+function formatDayHeader(dateStr: string): string {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dow = new Date(y, m - 1, d).getDay();
+  return `${DOW_LONG_PT[dow]}, ${d} de ${MONTH_LONG_PT[m - 1]} de ${y}`;
+}
+
+interface CalendarDayGroup {
+  label: string;
+  dotCls: string;
+  headerCls: string;
+  countCls: string;
+  invoices: InvoiceDTO[];
+}
+
+interface CalendarDayPanelProps {
+  dateStr: string;
+  invoices: InvoiceDTO[];
+  onClose: () => void;
+  onView: (inv: InvoiceDTO) => void;
+  onPay: (inv: InvoiceDTO) => void;
+}
+
+function CalendarDayPanel({ dateStr, invoices, onClose, onView, onPay }: CalendarDayPanelProps) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
+
+  const groups: CalendarDayGroup[] = [
+    {
+      label: "Em atraso",
+      dotCls: "bg-red-500",
+      headerCls: "text-red-700",
+      countCls: "bg-red-100 text-red-700",
+      invoices: invoices.filter((inv) => inv.status === "overdue"),
+    },
+    {
+      label: "Pendentes",
+      dotCls: "bg-amber-500",
+      headerCls: "text-amber-700",
+      countCls: "bg-amber-100 text-amber-700",
+      invoices: invoices.filter((inv) =>
+        ["pending", "partial", "pending_review", "review", "draft_ai"].includes(inv.status),
+      ),
+    },
+    {
+      label: "Aguardando conciliação",
+      dotCls: "bg-violet-500",
+      headerCls: "text-violet-700",
+      countCls: "bg-violet-100 text-violet-700",
+      invoices: invoices.filter(
+        (inv) => inv.status === "paid" && inv.reconciliationStatus === "pending_reconciliation",
+      ),
+    },
+    {
+      label: "Pagas",
+      dotCls: "bg-emerald-500",
+      headerCls: "text-emerald-700",
+      countCls: "bg-emerald-100 text-emerald-700",
+      invoices: invoices.filter(
+        (inv) => inv.status === "paid" && inv.reconciliationStatus !== "pending_reconciliation",
+      ),
+    },
+  ].filter((g) => g.invoices.length > 0);
+
+  const totalAmount = invoices.reduce((s, i) => s + i.totalWithVat, 0);
+  const pendingAmount = invoices
+    .filter((i) => ["pending", "partial"].includes(i.status))
+    .reduce((s, i) => s + i.totalWithVat, 0);
+  const overdueAmount = invoices
+    .filter((i) => i.status === "overdue")
+    .reduce((s, i) => s + i.totalWithVat, 0);
+
+  function toggleGroup(label: string) {
+    setCollapsed((prev) => ({ ...prev, [label]: !prev[label] }));
+  }
+
+  return (
+    <div className="flex w-full flex-col overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white">
+      {/* Header */}
+      <div className="flex items-start justify-between border-b border-[#F5C992]/30 px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold text-stone-800">{formatDayHeader(dateStr)}</p>
+          <p className="mt-0.5 text-xs text-stone-400">
+            {invoices.length} fatura{invoices.length !== 1 ? "s" : ""}
+          </p>
+        </div>
+        <button
+          onClick={onClose}
+          className="mt-0.5 rounded-md p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+        >
+          <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+            <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+          </svg>
+        </button>
+      </div>
+
+      {/* Summary */}
+      <div className="grid grid-cols-3 divide-x divide-[#F5C992]/30 border-b border-[#F5C992]/30 bg-stone-50/40">
+        <div className="px-3 py-2.5 text-center">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400">Total</p>
+          <p className="mt-0.5 text-sm font-bold text-stone-800">{fromCents(totalAmount)}</p>
+        </div>
+        <div className="px-3 py-2.5 text-center">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400">Pendente</p>
+          <p className="mt-0.5 text-sm font-bold text-amber-600">{fromCents(pendingAmount)}</p>
+        </div>
+        <div className="px-3 py-2.5 text-center">
+          <p className="text-[10px] font-medium uppercase tracking-wide text-stone-400">Em atraso</p>
+          <p className="mt-0.5 text-sm font-bold text-red-600">{fromCents(overdueAmount)}</p>
+        </div>
+      </div>
+
+      {/* Groups */}
+      <div className="flex-1 overflow-y-auto">
+        {groups.map((group) => (
+          <div key={group.label} className="border-b border-[#F5C992]/20 last:border-0">
+            {/* Group header */}
+            <button
+              onClick={() => toggleGroup(group.label)}
+              className="flex w-full items-center justify-between px-4 py-2.5 hover:bg-stone-50"
+            >
+              <span className={`flex items-center gap-2 text-xs font-semibold ${group.headerCls}`}>
+                <span className={`h-2 w-2 rounded-full ${group.dotCls}`} />
+                {group.label}
+              </span>
+              <div className="flex items-center gap-2">
+                <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${group.countCls}`}>
+                  {group.invoices.length}
+                </span>
+                <svg
+                  className={`h-3.5 w-3.5 text-stone-400 transition-transform ${collapsed[group.label] ? "-rotate-90" : ""}`}
+                  viewBox="0 0 20 20"
+                  fill="currentColor"
+                >
+                  <path fillRule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clipRule="evenodd" />
+                </svg>
+              </div>
+            </button>
+
+            {/* Invoice rows */}
+            {!collapsed[group.label] && (
+              <div className="divide-y divide-stone-100">
+                {group.invoices.map((inv) => (
+                  <div key={inv.id} className="px-4 py-2.5">
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-xs font-semibold text-stone-800">{inv.supplierName}</p>
+                        <p className="mt-0.5 text-[10px] text-stone-400">{inv.invoiceNumber}</p>
+                        <p className="mt-0.5 text-[10px] text-stone-400">
+                          <svg className="mr-0.5 inline h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd" />
+                          </svg>
+                          Vencimento: {formatDate(inv.dueDate)}
+                        </p>
+                      </div>
+                      <p className="shrink-0 text-sm font-bold text-stone-800">{fromCents(inv.totalWithVat)}</p>
+                    </div>
+                    {/* Actions */}
+                    <div className="mt-2 flex items-center gap-1.5">
+                      {!["paid", "cancelled"].includes(inv.status) && (
+                        <button
+                          onClick={() => onPay(inv)}
+                          className="flex items-center gap-1 rounded-md border border-emerald-200 bg-emerald-50 px-2 py-1 text-[10px] font-semibold text-emerald-700 hover:bg-emerald-100 transition-colors"
+                        >
+                          <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+                          </svg>
+                          Pagar
+                        </button>
+                      )}
+                      <button
+                        onClick={() => onView(inv)}
+                        className="flex items-center gap-1 rounded-md border border-stone-200 bg-white px-2 py-1 text-[10px] font-semibold text-stone-600 hover:bg-stone-50 transition-colors"
+                      >
+                        <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                          <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+                          <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41z" clipRule="evenodd" />
+                        </svg>
+                        Ver
+                      </button>
+                      {inv.attachmentUrl && (
+                        <a
+                          href={inv.attachmentUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 rounded-md border border-stone-200 bg-white px-2 py-1 text-[10px] font-semibold text-stone-600 hover:bg-stone-50 transition-colors"
+                        >
+                          <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
+                            <path fillRule="evenodd" d="M3 17a1 1 0 011-1h12a1 1 0 110 2H4a1 1 0 01-1-1zm3.293-7.707a1 1 0 011.414 0L9 10.586V3a1 1 0 112 0v7.586l1.293-1.293a1 1 0 111.414 1.414l-3 3a1 1 0 01-1.414 0l-3-3a1 1 0 010-1.414z" clipRule="evenodd" />
+                          </svg>
+                          PDF
+                        </a>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
@@ -1926,6 +2158,7 @@ export function InvoicesView() {
   const [calendarMonth, setCalendarMonth] = useState<Date>(
     () => new Date(new Date().getFullYear(), new Date().getMonth(), 1),
   );
+  const [selectedCalendarDay, setSelectedCalendarDay] = useState<{ dateStr: string; invoices: InvoiceDTO[] } | null>(null);
   const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "">("");
   const [directDebitFilter, setDirectDebitFilter] = useState(false);
   const [activeTab, setActiveTab] = useState<"all" | "pending" | "overdue">("all");
@@ -2015,6 +2248,12 @@ export function InvoicesView() {
       ),
     [invoices],
   );
+
+  // Keep selected day invoices fresh when underlying data updates
+  const selectedCalendarDayInvoices = useMemo(() => {
+    if (!selectedCalendarDay) return null;
+    return invoicesByDueDate.get(selectedCalendarDay.dateStr) ?? null;
+  }, [selectedCalendarDay, invoicesByDueDate]);
 
   // Auto-open drawer when navigated with ?open=<invoiceId>
   useEffect(() => {
@@ -2184,7 +2423,7 @@ export function InvoicesView() {
             {/* View mode toggle */}
             <div className="flex rounded-md border border-stone-200 bg-stone-50 p-0.5">
               <button
-                onClick={() => setViewMode("table")}
+                onClick={() => { setViewMode("table"); setSelectedCalendarDay(null); }}
                 title="Vista tabela"
                 className={`flex items-center gap-1.5 rounded px-2.5 py-1.5 text-xs font-medium transition-colors sm:px-3 ${
                   viewMode === "table"
@@ -2669,21 +2908,44 @@ export function InvoicesView() {
 
         {/* Calendar mode */}
         {viewMode === "calendar" && (
-          <InvoiceCalendarView
-            invoicesByDate={invoicesByDueDate}
-            noDueDateInvoices={noDueDateInvoices}
-            month={calendarMonth}
-            onPrevMonth={() =>
-              setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1))
-            }
-            onNextMonth={() =>
-              setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1))
-            }
-            onToday={() =>
-              setCalendarMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1))
-            }
-            onInvoiceClick={(inv) => setDetail(inv)}
-          />
+          <div className={`flex gap-4 items-start ${selectedCalendarDay ? "xl:grid xl:grid-cols-[1fr,360px]" : ""}`}>
+            <div className="min-w-0 flex-1">
+              <InvoiceCalendarView
+                invoicesByDate={invoicesByDueDate}
+                noDueDateInvoices={noDueDateInvoices}
+                month={calendarMonth}
+                selectedDay={selectedCalendarDay?.dateStr ?? null}
+                onPrevMonth={() => {
+                  setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() - 1, 1));
+                  setSelectedCalendarDay(null);
+                }}
+                onNextMonth={() => {
+                  setCalendarMonth((m) => new Date(m.getFullYear(), m.getMonth() + 1, 1));
+                  setSelectedCalendarDay(null);
+                }}
+                onToday={() => {
+                  setCalendarMonth(new Date(new Date().getFullYear(), new Date().getMonth(), 1));
+                  setSelectedCalendarDay(null);
+                }}
+                onDayClick={(dateStr, dayInvoices) =>
+                  setSelectedCalendarDay((prev) =>
+                    prev?.dateStr === dateStr ? null : { dateStr, invoices: dayInvoices },
+                  )
+                }
+              />
+            </div>
+            {selectedCalendarDay && selectedCalendarDayInvoices && (
+              <div className="w-full xl:w-auto xl:sticky xl:top-4">
+                <CalendarDayPanel
+                  dateStr={selectedCalendarDay.dateStr}
+                  invoices={selectedCalendarDayInvoices}
+                  onClose={() => setSelectedCalendarDay(null)}
+                  onView={(inv) => setDetail(inv)}
+                  onPay={(inv) => setMarkPaidInvoice(inv)}
+                />
+              </div>
+            )}
+          </div>
         )}
 
         {/* Drawers */}

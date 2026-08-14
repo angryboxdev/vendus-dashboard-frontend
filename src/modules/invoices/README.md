@@ -1,7 +1,7 @@
 # Módulo: invoices
 
 > Status: ativo
-> Última atualização: 2026-08-07
+> Última atualização: 2026-08-14
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -136,9 +136,16 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
     - Grid mensal Seg→Dom com navegação mês a mês e botão "Hoje".
     - Cada célula mostra chips das faturas com `dueDate` nesse dia (fallback: `paidAt` se não houver `dueDate`). Cor do chip = status da fatura.
     - Máximo 3 chips por célula; `+N mais` se houver mais.
-    - Dia de hoje destacado com círculo laranja (`#ED5C32`); dias com faturas vencidas com número a vermelho.
-    - Clicar num chip abre o `InvoiceDetailDrawer`.
-    - Secção abaixo: faturas sem `dueDate` nem `paidAt` em pills clicáveis.
+    - Dia de hoje destacado com círculo laranja (`#ED5C32`); dia selecionado com anel laranja e círculo escuro; dias com faturas vencidas com número a vermelho.
+    - **Clicar numa célula de dia** (célula inteira, não chip individual) abre o `CalendarDayPanel` à direita do calendário. Clicar no mesmo dia novamente fecha o painel. Navegar de mês limpa a seleção.
+    - **`CalendarDayPanel`**: painel lateral em grid responsivo (`xl:grid-cols-[1fr,360px]`).
+      - Cabeçalho: data completa em português (ex: "Quinta-feira, 6 de agosto de 2026") + contagem de faturas + botão fechar.
+      - Resumo do dia: Total · Pendente · Em atraso (valores em euros).
+      - Faturas agrupadas em secções colapsáveis: **Em atraso** → **Pendentes** → **Aguardando conciliação** → **Pagas**. Só mostra grupos com faturas. "Aguardando conciliação" = `status === "paid"` e `reconciliationStatus === "pending_reconciliation"`.
+      - Por fatura: nome do fornecedor, número, data de vencimento, valor + ações **Pagar** (abre `MarkPaidModal`), **Ver** (abre `InvoiceDetailDrawer`), **PDF** (link externo, só se `attachmentUrl` existir).
+      - Dados derivados via `useMemo` sobre a query principal — ficam frescos se os dados mudarem.
+    - **Legenda** no rodapé do calendário: Em atraso (vermelho) · Pendente (âmbar) · Paga (verde) · Ag. conciliação (violeta).
+    - Secção abaixo: faturas sem `dueDate` nem `paidAt` em pills (apenas visuais — para abrir, usar a vista tabela).
 
 - **`ImportInvoiceModal`** — modal de drag-and-drop para envio de PDF/imagem:
   - Aceita `application/pdf`, `image/jpeg`, `image/png`, `image/webp`.
