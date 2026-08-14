@@ -770,6 +770,7 @@ function InvoiceDetailDrawer({
   const [loadingLines, setLoadingLines] = useState(false);
   const [showAddLine, setShowAddLine] = useState(false);
   const [settingLineMode, setSettingLineMode] = useState<"idle" | "loading">("idle");
+  const [showSimpleConfirm, setShowSimpleConfirm] = useState(false);
   const [showPdf, setShowPdf] = useState(false);
   const [editingLineId, setEditingLineId] = useState<string | null>(null);
   const [editingClassification, setEditingClassification] = useState(false);
@@ -823,6 +824,15 @@ function InvoiceDetailDrawer({
       if (mode === "simple") setLines([]);
     } finally {
       setSettingLineMode("idle");
+    }
+  }
+
+  function handleLineModeToggleClick() {
+    if (!invoice) return;
+    if (invoice.lineDetailMode === "detailed" && lines.length > 0) {
+      setShowSimpleConfirm(true);
+    } else {
+      void handleToggleLineDetailMode(invoice.lineDetailMode === "detailed" ? "simple" : "detailed");
     }
   }
 
@@ -1184,7 +1194,7 @@ function InvoiceDetailDrawer({
                 <button
                   role="switch"
                   aria-checked={invoice.lineDetailMode === "detailed"}
-                  onClick={() => void handleToggleLineDetailMode(invoice.lineDetailMode === "detailed" ? "simple" : "detailed")}
+                  onClick={handleLineModeToggleClick}
                   disabled={settingLineMode === "loading"}
                   className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
                     invoice.lineDetailMode === "detailed" ? "bg-[#ED5C32]" : "bg-stone-300"
@@ -1484,6 +1494,37 @@ function InvoiceDetailDrawer({
             </div>
           )}
           </div>
+
+          {/* Modal de confirmação: detailed → simple */}
+          {showSimpleConfirm && (
+            <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+              <div className="mx-4 w-full max-w-sm rounded-xl border border-stone-200 bg-white p-6 shadow-xl">
+                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-amber-100">
+                  <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                  </svg>
+                </div>
+                <h3 className="mb-1 text-sm font-semibold text-stone-800">Voltar ao modo resumo?</h3>
+                <p className="mb-5 text-sm text-stone-500">
+                  As <span className="font-medium text-stone-700">{lines.length} {lines.length === 1 ? "linha" : "linhas"}</span> do modo detalhado serão apagadas permanentemente. Pode voltar ao modo detalhado quando quiser e recomeçar do zero.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setShowSimpleConfirm(false)}
+                    className="flex-1 rounded-lg border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={() => { setShowSimpleConfirm(false); void handleToggleLineDetailMode("simple"); }}
+                    className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                  >
+                    Apagar e simplificar
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>{/* end left column */}
 
         {/* Inline PDF panel — right side, full height from header */}
