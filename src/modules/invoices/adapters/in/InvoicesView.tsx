@@ -819,6 +819,8 @@ function InvoiceDetailDrawer({
       const updated = await api.setLineDetailMode(invoice.id, mode);
       void qc.invalidateQueries({ queryKey: ["invoices"] });
       if (onInvoiceUpdated) onInvoiceUpdated(updated);
+      // Ao voltar para simple, o backend apaga as linhas — limpar estado local
+      if (mode === "simple") setLines([]);
     } finally {
       setSettingLineMode("idle");
     }
@@ -1174,130 +1176,310 @@ function InvoiceDetailDrawer({
 
           {tab === "lines" && (
             <div className="space-y-3">
-              {/* Line detail mode toggle */}
-              <div className="flex items-center justify-between rounded-lg border border-stone-100 bg-stone-50 px-3 py-2">
-                <div>
-                  <p className="text-xs font-medium text-stone-700">Modo de linhas</p>
-                  <p className="text-xs text-stone-400">{invoice.lineDetailMode === "detailed" ? "Detalhado — linhas editáveis" : "Simples — linha única automática"}</p>
-                </div>
+              {/* Toggle: Modo simples ↔ Modo detalhado */}
+              <div className="flex items-center gap-3 rounded-lg border border-stone-100 bg-stone-50 px-4 py-3">
+                <span className={`text-xs font-medium ${invoice.lineDetailMode === "simple" ? "text-stone-700" : "text-stone-400"}`}>
+                  Modo simples
+                </span>
                 <button
+                  role="switch"
+                  aria-checked={invoice.lineDetailMode === "detailed"}
                   onClick={() => void handleToggleLineDetailMode(invoice.lineDetailMode === "detailed" ? "simple" : "detailed")}
                   disabled={settingLineMode === "loading"}
-                  className="rounded-md border border-stone-300 bg-white px-2.5 py-1 text-xs font-medium text-stone-600 hover:bg-stone-100 disabled:opacity-50"
+                  className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors disabled:opacity-50 ${
+                    invoice.lineDetailMode === "detailed" ? "bg-[#ED5C32]" : "bg-stone-300"
+                  }`}
                 >
-                  {settingLineMode === "loading" ? "…" : invoice.lineDetailMode === "detailed" ? "Simplificar" : "Detalhar"}
+                  <span className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform ${
+                    invoice.lineDetailMode === "detailed" ? "translate-x-[18px]" : "translate-x-0.5"
+                  }`} />
                 </button>
+                <span className={`text-xs font-medium ${invoice.lineDetailMode === "detailed" ? "text-stone-700" : "text-stone-400"}`}>
+                  Modo detalhado
+                </span>
+                {invoice.lineDetailMode === "detailed" && (
+                  <span className="text-xs text-stone-400">Permite ver e editar todos os detalhes de cada linha da fatura.</span>
+                )}
               </div>
 
-              {/* Simple mode warning */}
+
+              {/* ── SIMPLE MODE ── */}
               {invoice.lineDetailMode === "simple" && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
-                  <p className="text-xs font-medium text-amber-700">Modo simples activo</p>
-                  <p className="mt-0.5 text-xs text-amber-600">Altera o modo de linhas acima para adicionar/editar linhas individualmente.</p>
+                <div className="space-y-3">
+                  {/* Status banner */}
+                  <div className="flex items-start gap-3 rounded-lg border border-[#F5C992]/60 bg-[#FAF6F3] px-4 py-3">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[#ED5C32]/10">
+                      <svg className="h-4 w-4 text-[#ED5C32]" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-stone-700">Detalhamento em linhas: desativado</p>
+                      <p className="mt-0.5 text-xs text-stone-500">Sem detalhamento, a linha é gerada automaticamente a partir do total da fatura.</p>
+                    </div>
+                  </div>
+
+                  {/* Auto-line card */}
+                  <div className="rounded-lg border border-stone-200 bg-white p-4 shadow-sm">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-medium text-stone-800">Linha automática (resumo)</span>
+                        <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-500">Gerada automaticamente</span>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className="flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-2 py-0.5 text-xs text-emerald-700">
+                          <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                          </svg>
+                          Bloqueada
+                        </span>
+                        <span className="text-base font-bold text-stone-800">{fromCents(invoice.totalWithVat)}</span>
+                      </div>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-stone-400">
+                      <span>Qtd: 1</span>
+                      <span>Un: un</span>
+                      <span>Valor unit.: {fromCents(invoice.totalWithVat)}</span>
+                      <span>Total: {fromCents(invoice.totalWithVat)}</span>
+                      {invoice.costCenterCategoryId && ccMap.get(invoice.costCenterCategoryId) && (
+                        <span>CC: {ccMap.get(invoice.costCenterCategoryId)!.code}</span>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Inherited classification info */}
+                  <div className="rounded-lg border border-amber-100 bg-amber-50 p-4">
+                    <div className="mb-3 flex items-start gap-2">
+                      <svg className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                      </svg>
+                      <div>
+                        <p className="text-xs font-semibold text-amber-800">Valor e classificação herdados da fatura</p>
+                        <p className="mt-0.5 text-xs text-amber-700">O valor total e as classificações são herdados da fatura. Não é possível criar linhas manuais com valores ou classificações diferentes.</p>
+                      </div>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 text-xs">
+                      <div>
+                        <p className="text-stone-400">Valor herdado</p>
+                        <p className="mt-0.5 font-semibold text-stone-700">{fromCents(invoice.totalWithVat)}</p>
+                      </div>
+                      <div>
+                        <p className="text-stone-400">Tipo</p>
+                        {invoice.financialType ? (
+                          <p className={`mt-0.5 font-medium ${FINANCIAL_TYPE_COLORS[invoice.financialType as FinancialType] ?? "text-stone-500"}`}>
+                            {FINANCIAL_TYPE_LABELS[invoice.financialType as FinancialType] ?? invoice.financialType}{" "}
+                            <span className="text-stone-400">(herdado)</span>
+                          </p>
+                        ) : (
+                          <p className="mt-0.5 text-stone-400">—</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-stone-400">Subcategoria</p>
+                        {(() => {
+                          const cat = invoice.costCenterCategoryId ? ccMap.get(invoice.costCenterCategoryId) : null;
+                          return cat ? (
+                            <p className="mt-0.5 font-medium text-stone-700">
+                              {cat.code} — {cat.name}{" "}
+                              <span className="text-stone-400">(herdada)</span>
+                              {cat.financialType && (
+                                <span className={`ml-1 ${FINANCIAL_TYPE_COLORS[cat.financialType as FinancialType] ?? "text-stone-500"}`}>
+                                  {FINANCIAL_TYPE_LABELS[cat.financialType as FinancialType] ?? cat.financialType}
+                                </span>
+                              )}
+                            </p>
+                          ) : (
+                            <p className="mt-0.5 text-stone-400">—</p>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Consistency guarantee */}
+                  <div className="flex items-start gap-2 rounded-lg border border-stone-200 bg-stone-50 px-4 py-3">
+                    <svg className="mt-0.5 h-4 w-4 shrink-0 text-stone-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                    </svg>
+                    <div>
+                      <p className="text-xs font-semibold text-stone-600">Consistência garantida</p>
+                      <p className="mt-0.5 text-xs text-stone-400">Esta linha reflete exatamente o total da fatura. Não é possível criar linhas com valores ou classificações diferentes.</p>
+                    </div>
+                  </div>
                 </div>
               )}
 
-              {/* Lines total vs invoice total */}
-              {lines.length > 0 && (() => {
-                const linesTotal = lines.reduce((s, l) => s + l.totalWithVat, 0);
-                const diff = linesTotal - invoice.totalWithVat;
-                const ok = Math.abs(diff) <= 1;
-                return (
-                  <div className={`flex items-center justify-between rounded-lg border px-3 py-2 text-xs ${ok ? "border-emerald-200 bg-emerald-50 text-emerald-700" : "border-red-200 bg-red-50 text-red-700"}`}>
-                    <span>Soma das linhas: <span className="font-semibold">{fromCents(linesTotal)}</span></span>
-                    <span>Fatura: <span className="font-semibold">{fromCents(invoice.totalWithVat)}</span></span>
-                    {!ok && <span className="font-semibold">Δ {fromCents(Math.abs(diff))}</span>}
-                    {ok && <span>✓</span>}
-                  </div>
-                );
-              })()}
-
-              {/* Add line button */}
-              {!showAddLine && invoice.lineDetailMode === "detailed" && (
-                <button
-                  onClick={() => setShowAddLine(true)}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-stone-300 py-2 text-xs font-medium text-stone-500 hover:border-[#ED5C32] hover:text-[#ED5C32]"
-                >
-                  <span className="text-base leading-none">+</span> Adicionar linha
-                </button>
-              )}
-
-              {/* Inline add-line form */}
-              {showAddLine && (
-                <AddLineForm
-                  invoiceId={invoice.id}
-                  categories={categories}
-                  onDone={handleLineAdded}
-                  onCancel={() => setShowAddLine(false)}
-                />
-              )}
-
-              {loadingLines ? (
-                <p className="text-sm text-stone-400">A carregar linhas…</p>
-              ) : lines.length === 0 ? (
-                <p className="text-sm text-stone-400">Sem linhas registadas.</p>
-              ) : (
-                lines.map((line) => {
-                  const cc = line.costCenterCategoryId
-                    ? ccMap.get(line.costCenterCategoryId)
-                    : null;
-                  const isEditingThisLine = editingLineId === line.id;
-                  return (
-                    <div
-                      key={line.id}
-                      className="space-y-2 rounded-lg border border-stone-200 bg-white p-3"
+              {/* ── DETAILED MODE ── */}
+              {invoice.lineDetailMode === "detailed" && (
+                <div className="space-y-3">
+                  {/* Add line button */}
+                  {!showAddLine && (
+                    <button
+                      onClick={() => setShowAddLine(true)}
+                      className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-stone-300 py-2 text-xs font-medium text-stone-500 hover:border-[#ED5C32] hover:text-[#ED5C32]"
                     >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium text-stone-800">
-                          {line.description}
-                        </p>
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          {invoice.lineDetailMode === "detailed" && !isEditingThisLine && (
-                            <button
-                              onClick={() => setEditingLineId(line.id)}
-                              className="text-xs font-medium text-[#ED5C32] hover:underline"
-                            >
-                              Editar
-                            </button>
-                          )}
-                          <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-600">
-                            {INVOICE_LINE_TYPE_LABELS[line.type]}
-                          </span>
-                        </div>
-                      </div>
-                      {!isEditingThisLine && (
-                        <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-stone-500">
-                          <span>
-                            Qtd: {line.quantity}
-                            {line.unit ? ` ${line.unit}` : ""}
-                          </span>
-                          <span>
-                            Un s/IVA: {fromCents(line.unitCostWithoutVat)}
-                          </span>
-                          <span>IVA: {line.vatRate}%</span>
-                          <span>Total: {fromCents(line.totalWithVat)}</span>
-                          {cc && <span>CC: {cc.code}</span>}
-                        </div>
-                      )}
-                      {isEditingThisLine ? (
-                        <EditLineForm
-                          line={line}
-                          invoiceId={invoice.id}
-                          onDone={(updated) => { handleLineUpdated(updated); setEditingLineId(null); }}
-                          onCancel={() => setEditingLineId(null)}
-                        />
-                      ) : (
-                        <ClassifyPanel
-                          line={line}
-                          invoiceId={invoice.id}
-                          categories={categories}
-                          channels={channels}
-                          onDone={handleLineUpdated}
-                        />
-                      )}
-                    </div>
-                  );
-                })
+                      <span className="text-base leading-none">+</span> Adicionar linha
+                    </button>
+                  )}
+
+                  {/* Inline add-line form */}
+                  {showAddLine && (
+                    <AddLineForm
+                      invoiceId={invoice.id}
+                      categories={categories}
+                      onDone={handleLineAdded}
+                      onCancel={() => setShowAddLine(false)}
+                    />
+                  )}
+
+                  {/* Lines list */}
+                  {loadingLines ? (
+                    <p className="text-sm text-stone-400">A carregar linhas…</p>
+                  ) : lines.length === 0 ? (
+                    <p className="text-sm text-stone-400">Sem linhas registadas.</p>
+                  ) : (
+                    <>
+                      {lines.map((line) => {
+                        const cc = line.costCenterCategoryId ? ccMap.get(line.costCenterCategoryId) : null;
+                        const isEditingThisLine = editingLineId === line.id;
+                        return (
+                          <div key={line.id} className="space-y-2 rounded-lg border border-stone-200 bg-white p-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-sm font-medium text-stone-800">{line.description}</p>
+                              <div className="flex shrink-0 items-center gap-1.5">
+                                {!isEditingThisLine && (
+                                  <button
+                                    onClick={() => setEditingLineId(line.id)}
+                                    className="text-xs font-medium text-[#ED5C32] hover:underline"
+                                  >
+                                    Editar
+                                  </button>
+                                )}
+                                <span className="rounded-full bg-stone-100 px-2 py-0.5 text-xs text-stone-600">
+                                  {INVOICE_LINE_TYPE_LABELS[line.type]}
+                                </span>
+                              </div>
+                            </div>
+                            {!isEditingThisLine && (
+                              <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-stone-500">
+                                <span>Qtd: {line.quantity}{line.unit ? ` ${line.unit}` : ""}</span>
+                                <span>Un s/IVA: {fromCents(line.unitCostWithoutVat)}</span>
+                                <span>IVA: {line.vatRate}%</span>
+                                <span>Total: {fromCents(line.totalWithVat)}</span>
+                                {cc && <span>CC: {cc.code}</span>}
+                              </div>
+                            )}
+                            {isEditingThisLine ? (
+                              <EditLineForm
+                                line={line}
+                                invoiceId={invoice.id}
+                                onDone={(updated) => { handleLineUpdated(updated); setEditingLineId(null); }}
+                                onCancel={() => setEditingLineId(null)}
+                              />
+                            ) : (
+                              <ClassifyPanel
+                                line={line}
+                                invoiceId={invoice.id}
+                                categories={categories}
+                                channels={channels}
+                                onDone={handleLineUpdated}
+                              />
+                            )}
+                          </div>
+                        );
+                      })}
+
+                      {/* Lines summary + comparison panel */}
+                      {(() => {
+                        const subtotal = lines.reduce((s, l) => s + (l.totalWithVat - l.vatAmount), 0);
+                        const vat = lines.reduce((s, l) => s + l.vatAmount, 0);
+                        const total = lines.reduce((s, l) => s + l.totalWithVat, 0);
+                        const mismatch =
+                          Math.abs(total - invoice.totalWithVat) > 1 ||
+                          Math.abs(vat - invoice.totalVat) > 1 ||
+                          Math.abs(subtotal - invoice.subtotalWithoutVat) > 1;
+                        return (
+                          <div className="space-y-3">
+                            {/* Subtotals row */}
+                            <div className="flex items-end justify-between border-t border-stone-100 pt-3">
+                              <p className="text-xs text-stone-400">{lines.length} {lines.length === 1 ? "linha" : "linhas"}</p>
+                              <div className="space-y-0.5 text-right">
+                                <div className="flex items-center justify-end gap-6 text-xs text-stone-500">
+                                  <span>Subtotal s/ IVA</span>
+                                  <span className="w-24 text-right">{fromCents(subtotal)}</span>
+                                </div>
+                                <div className="flex items-center justify-end gap-6 text-xs text-stone-500">
+                                  <span>Total de IVA</span>
+                                  <span className="w-24 text-right">{fromCents(vat)}</span>
+                                </div>
+                                <div className="flex items-center justify-end gap-6 text-sm font-bold text-stone-800">
+                                  <span>Total das linhas</span>
+                                  <span className={`w-24 text-right ${!mismatch ? "text-emerald-600" : "text-red-600"}`}>{fromCents(total)}</span>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Comparison panel */}
+                            <div className="flex gap-3">
+                              <div className={`flex-1 rounded-lg border p-4 ${!mismatch ? "border-emerald-200 bg-emerald-50" : "border-red-200 bg-red-50"}`}>
+                                <div className="mb-2 flex items-center gap-2">
+                                  {!mismatch ? (
+                                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500">
+                                      <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                                      </svg>
+                                    </div>
+                                  ) : (
+                                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500">
+                                      <svg className="h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                                        <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                      </svg>
+                                    </div>
+                                  )}
+                                  <p className={`text-sm font-semibold ${!mismatch ? "text-emerald-800" : "text-red-800"}`}>
+                                    {!mismatch ? "Totais conferem" : "Totais divergem"}
+                                  </p>
+                                </div>
+                                <p className={`mb-3 text-xs ${!mismatch ? "text-emerald-700" : "text-red-700"}`}>
+                                  {!mismatch ? "O total da fatura é igual ao total das linhas." : "A soma das linhas não corresponde ao total da fatura."}
+                                </p>
+                                <div className="flex items-center gap-3">
+                                  <div className="text-center">
+                                    <p className="text-xs text-stone-400">Total da fatura</p>
+                                    <p className={`text-sm font-bold ${!mismatch ? "text-emerald-700" : "text-red-700"}`}>{fromCents(invoice.totalWithVat)}</p>
+                                  </div>
+                                  <div className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${!mismatch ? "bg-emerald-100 text-emerald-600" : "bg-red-100 text-red-600"}`}>
+                                    {!mismatch ? "=" : "≠"}
+                                  </div>
+                                  <div className="text-center">
+                                    <p className="text-xs text-stone-400">Total das linhas</p>
+                                    <p className={`text-sm font-bold ${!mismatch ? "text-emerald-700" : "text-red-700"}`}>{fromCents(total)}</p>
+                                  </div>
+                                </div>
+                                <p className={`mt-3 flex items-center gap-1.5 text-xs ${!mismatch ? "text-emerald-600" : "text-red-600"}`}>
+                                  <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+                                  </svg>
+                                  {!mismatch
+                                    ? "A fatura só pode ser guardada quando os totais conferem exatamente."
+                                    : "Corrija as linhas antes de guardar ou mudar para modo simples."}
+                                </p>
+                              </div>
+                              {/* Side note */}
+                              <div className="w-36 shrink-0 rounded-lg border border-amber-200 bg-amber-50 p-3">
+                                <p className="mb-1.5 text-xs font-semibold text-amber-800">Se os totais não conferirem:</p>
+                                <ul className="space-y-1 text-xs text-amber-700">
+                                  <li className="flex gap-1"><span>•</span><span>Não será possível guardar a fatura.</span></li>
+                                  <li className="flex gap-1"><span>•</span><span>Verifique linhas, IVA e arredondamentos.</span></li>
+                                </ul>
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })()}
+                    </>
+                  )}
+                </div>
               )}
             </div>
           )}

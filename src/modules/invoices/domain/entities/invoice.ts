@@ -125,6 +125,12 @@ export interface InvoiceDTO {
   createdAt: string;
   updatedAt: string;
   lines?: InvoiceLineDTO[];
+  linesSummary?: {
+    subtotalWithoutVat: number;
+    totalVat: number;
+    totalWithVat: number;
+    totalsMismatch: boolean;
+  };
 }
 
 export interface SupplierMatchDTO {

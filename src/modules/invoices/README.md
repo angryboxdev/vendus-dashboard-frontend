@@ -37,7 +37,12 @@ Fluxo de importação via IA:
 Fluxo manual:
 1. Manager clica "Nova manual" e introduz os dados
 2. A fatura fica em estado "Pendente"
-3. Manager classifica as linhas por tipo e centro de custo
+3. Manager abre o tab "Linhas" e escolhe como pretende detalhar:
+   — Modo simples (default): a fatura tem uma só linha, gerada automaticamente
+     a partir dos totais do cabeçalho; a classificação é feita aí.
+   — Modo detalhado: manager adiciona cada linha manualmente (ex: "Farinha T55",
+     "Tampa Inox"); classifica cada uma por tipo e centro de custo; o sistema
+     verifica se as somas fecham com os totais da fatura.
 4. Quando paga, clica "Marcar como paga" → estado Paga
 
 Visibilidade diária:
@@ -52,7 +57,8 @@ Visibilidade diária:
   *Pendente* (a pagar), *Paga*, *Vencida* (prazo ultrapassado), *Parcial*, *Cancelada*.
 - **Estado de conciliação** — orthogonal ao estado da fatura. *none* (não paga ou DD pendente),
   *pending_reconciliation* (paga no sistema, ainda não confirmada no extrato bancário), *reconciled* (confirmada).
-- **Modo de linhas** — *simple* (linha única automática, não editável) ou *detailed* (linhas editáveis pelo manager).
+- **Modo de linhas** — cada fatura tem o seu próprio toggle. *Resumo* (default): o sistema gera automaticamente uma linha única com base nos totais da fatura; o manager classifica-a no próprio cabeçalho. *Detalhado*: o manager introduz cada artigo ou serviço separadamente e classifica linha a linha. Mudar para resumo apaga as linhas do modo detalhado — o manager pode voltar a detalhado quando quiser e começar de novo.
+- **Conferência de totais** — em modo detalhado, o rodapé da lista de linhas mostra o somatório das linhas (subtotal s/IVA, IVA, total c/IVA) lado a lado com os totais do cabeçalho da fatura. Enquanto os valores não coincidirem (tolerância de 1 cêntimo), o painel fica a vermelho — sinal de que faltam ou sobram linhas.
 - **Importação via IA** — o manager envia o documento original; a IA extrai os dados
   automaticamente. O manager valida/corrige antes de confirmar.
 - **Linha de fatura** — detalhe do que foi comprado. Uma fatura da Makro pode ter
@@ -83,7 +89,8 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 
 - **InvoiceDTO** — fatura com cabeçalho (fornecedor, NIF snapshot, valores, datas,
   estado, source, aiConfidence, requiresReview, costCenterGroupId, financialType,
-  flags DRE/cashflow/profitability, currency, `isDirectDebit`, `directDebitDate`) e linhas opcionais.
+  flags DRE/cashflow/profitability, currency, `isDirectDebit`, `directDebitDate`, `lineDetailMode`) e linhas opcionais.
+  Quando `lineDetailMode=detailed` e as linhas são carregadas, inclui também `linesSummary = { subtotalWithoutVat, totalVat, totalWithVat, totalsMismatch }` — usado pelo frontend para o painel de comparação de totais.
 - **InvoiceLineDTO** — linha de detalhe com `type`, `costCenterCategoryId`, valores monetários,
   flags `affectsDre`/`affectsCashflow`/`affectsProfitability`, e campos V2: `financialType` (herdado
   da subcategoria), `channelId`, `requiresChannel`, `requiresAllocation`, `dreValue` (s/ IVA, cêntimos),
@@ -109,7 +116,8 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 
 - `InvoicesApiPort` — métodos HTTP:
   - CRUD base: `listInvoices(params?)`, `getInvoice(id)`, `createInvoice`, `updateInvoice`, `deleteInvoice`
-  - Linhas: `listInvoiceLines()`, `addLine`, `classifyLine` (aceita `channelId` no payload)
+  - Linhas: `listInvoiceLines()`, `addLine`, `updateLine`, `classifyLine` (aceita `channelId` no payload)
+  - Modo de linhas: `setLineDetailMode(id, mode)` → `InvoiceDTO` — transição *simple → detailed* é livre; *detailed → simple* apaga as linhas no backend
   - Ciclo de vida: `markInvoicePaid(id, paidAt?)`
   - Import IA: `importInvoice(file)` → `InvoiceImportResultDTO`; `confirmImportedInvoice(id, payload)`
   - Alertas: `getInvoiceAlerts()` → `InvoiceAlertsDTO`
@@ -165,9 +173,9 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
   - Seleção de fornecedor (dropdown) ou nome livre.
   - Campos de cabeçalho + secção de linhas inline.
 
-- **`InvoiceDetailDrawer`** — drawer de detalhe com dois tabs:
+- **`InvoiceDetailDrawer`** — drawer de detalhe com dois tabs (Detalhes, Classificação, Linhas):
   - *Detalhes*: campos do cabeçalho; para faturas de débito direto mostra "Débito direto em" em vez de "Data de vencimento"; botão "Marcar como paga"; conta a pagar associada (se existir) com link para `/financial/payable-entries`.
-  - *Linhas*: `AddLineForm` para adicionar novas linhas; `ClassifyPanel` inline por linha existente.
+  - *Linhas*: toggle switch Modo simples / Modo detalhado; em modo simples mostra linha automática bloqueada, painel de herança de classificação e garantia de consistência; em modo detalhado mostra lista de linhas editável, rodapé com subtotal s/IVA + IVA + total das linhas, e painel de comparação com o total da fatura (verde/vermelho).
 
 - **`ClassifyPanel`** — painel inline por linha: tipo (`InvoiceLineType`), subcategoria de CC
   (`costCenterCategoryId`), canal (`channelId` — obrigatório quando `requiresChannel=true`);
@@ -207,6 +215,20 @@ o manager saber se a classificação esperada está configurada.
 **`ClassifyPanel` inline por linha (sem modal separado).**
 A classificação é frequente. Ter o painel directamente visível elimina um nível
 de navegação e torna o fluxo mais rápido.
+
+**Toggle de modo de linhas destrói sem pedir confirmação (detailed → simple).**
+Ao voltar para modo simples, o backend apaga todas as linhas. Não é apresentado
+nenhum diálogo de confirmação — o utilizador pode voltar a detailed e recomeçar
+o detalhamento sem perder os dados do cabeçalho da fatura. Esta opção evita
+fricção desnecessária: linhas de uma sessão de detalhamento a meio não têm valor
+enquanto os totais não fecharem.
+
+**Painel de comparação de totais calculado client-side.**
+Em modo detailed, o rodapé do tab Linhas mostra subtotal s/IVA, IVA e total das
+linhas calculados sobre o estado local `lines` (não sobre `linesSummary` do DTO).
+Isto garante que o painel reflecte imediatamente adições/edições de linhas sem
+aguardar um refetch. `linesSummary` do DTO existe para consumo futuro por outras
+vistas (ex: lista de faturas, exportação).
 
 **Identidade visual consistente com o grupo financeiro.**
 Bordas `border-[#F5C992]/40`, fundo `#FAF6F3`, gradiente `from-[#ED5C32] to-[#EF8935]`,
