@@ -4,7 +4,6 @@ export type InvoiceStatus =
   | "pending"
   | "paid"
   | "overdue"
-  | "partial"
   | "cancelled"
   | "review";
 
@@ -43,7 +42,6 @@ export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
   pending: "Pendente",
   paid: "Paga",
   overdue: "Vencida",
-  partial: "Parcial",
   cancelled: "Cancelada",
   review: "Em revisão",
 };
@@ -130,6 +128,16 @@ export interface InvoiceDTO {
     totalVat: number;
     totalWithVat: number;
     totalsMismatch: boolean;
+  };
+  classificationSummary: {
+    mode: "unique" | "mixed" | "none";
+    entries: Array<{
+      costCenterCategoryId: string;
+      code: string;
+      name: string;
+      financialType: string | null;
+      totalWithVat: number;
+    }>;
   };
 }
 

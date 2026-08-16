@@ -9,6 +9,7 @@ import type { InvoicesApiPort, AddInvoiceLinePayload } from "../../domain/ports/
 import type {
   InvoiceDTO,
   InvoiceLineDTO,
+  InvoiceStatus,
   CreateInvoicePayload,
   UpdateInvoicePayload,
   UpdateInvoiceLinePayload,
@@ -68,6 +69,10 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     if (paymentMethod != null) body.paymentMethod = paymentMethod;
     if (paymentNotes != null) body.paymentNotes = paymentNotes;
     return apiPatch(`${BASE}/${encodeURIComponent(id)}/paid`, body);
+  }
+
+  async setInvoiceStatus(id: string, status: InvoiceStatus): Promise<InvoiceDTO> {
+    return apiPatch(`${BASE}/${encodeURIComponent(id)}/status`, { status });
   }
 
   async setLineDetailMode(id: string, mode: LineDetailMode): Promise<InvoiceDTO> {

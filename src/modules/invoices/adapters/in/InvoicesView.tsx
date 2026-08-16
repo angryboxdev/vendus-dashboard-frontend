@@ -69,7 +69,6 @@ const STATUS_COLORS: Record<InvoiceStatus, string> = {
   pending: "bg-amber-50 text-amber-700",
   paid: "bg-emerald-50 text-emerald-700",
   overdue: "bg-red-50 text-red-700",
-  partial: "bg-blue-50 text-blue-700",
   cancelled: "bg-stone-100 text-stone-500",
   review: "bg-purple-50 text-purple-700",
 };
@@ -80,11 +79,9 @@ const STATUS_DOT: Record<InvoiceStatus, string> = {
   pending: "bg-amber-500",
   paid: "bg-emerald-500",
   overdue: "bg-red-500",
-  partial: "bg-blue-500",
   cancelled: "bg-stone-400",
   review: "bg-purple-500",
 };
-
 
 function StatusBadge({ status }: { status: InvoiceStatus }) {
   return (
@@ -162,10 +159,14 @@ function MarkPaidModal({
   const { api: bankApi } = useBankAccountsModule();
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
-  const [paidAt, setPaidAt] = useState(todayStr);
-  const [bankAccountId, setBankAccountId] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
-  const [paymentNotes, setPaymentNotes] = useState("");
+  const [paidAt, setPaidAt] = useState(invoice.paidAt ?? todayStr);
+  const [bankAccountId, setBankAccountId] = useState(
+    invoice.paymentBankAccountId ?? "",
+  );
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">(
+    (invoice.paymentMethod as PaymentMethod) ?? "",
+  );
+  const [paymentNotes, setPaymentNotes] = useState(invoice.paymentNotes ?? "");
 
   const { data: banks = [] } = useQuery({
     queryKey: ["banks-for-payment"],
@@ -198,7 +199,9 @@ function MarkPaidModal({
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-4">
           <h3 className="text-base font-bold text-stone-900">
-            Confirmar pagamento
+            {invoice.status === "paid"
+              ? "Editar pagamento"
+              : "Confirmar pagamento"}
           </h3>
           <button
             onClick={onClose}
@@ -878,6 +881,7 @@ interface DetailDrawerProps {
   channels: ChannelDTO[];
   groups: CostCenterGroup[];
   linkedPayable?: PayableEntryDTO | null;
+  bankAccounts: { id: string; label: string }[];
   onClose: () => void;
   onOpenMarkPaid: (inv: InvoiceDTO) => void;
   onInvoiceUpdated?: (inv: InvoiceDTO) => void;
@@ -889,6 +893,7 @@ function InvoiceDetailDrawer({
   channels,
   groups,
   linkedPayable,
+  bankAccounts,
   onClose,
   onOpenMarkPaid,
   onInvoiceUpdated,
@@ -897,9 +902,7 @@ function InvoiceDetailDrawer({
   const { api: bankApi } = useBankStatementsModule();
   const navigate = useNavigate();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<"details" | "classificacao" | "lines">(
-    "details",
-  );
+  const [tab, setTab] = useState<"details" | "lines">("details");
   const [lines, setLines] = useState<InvoiceLineDTO[]>([]);
   const [loadingLines, setLoadingLines] = useState(false);
   const [showAddLine, setShowAddLine] = useState(false);
@@ -913,6 +916,20 @@ function InvoiceDetailDrawer({
   const [savingClassification, setSavingClassification] = useState(false);
   const [classifyGroupId, setClassifyGroupId] = useState("");
   const [classifyCategoryId, setClassifyCategoryId] = useState("");
+  // Invoice completo (com classificationSummary calculado a partir das linhas reais)
+  const [fullInvoice, setFullInvoice] = useState<InvoiceDTO | null>(null);
+  const [undoingPaid, setUndoingPaid] = useState(false);
+  const [showUndoPaidConfirm, setShowUndoPaidConfirm] = useState(false);
+
+  // Fetch eager do invoice completo ao abrir o drawer
+  useEffect(() => {
+    if (!invoice) return;
+    setFullInvoice(null);
+    void api.getInvoice(invoice.id).then(setFullInvoice);
+  }, [invoice?.id]);
+
+  // Para renderização: usar fullInvoice (com classificationSummary real) quando disponível
+  const inv = fullInvoice ?? invoice!;
 
   const isReconciled =
     invoice?.reconciliationStatus !== "none" &&
@@ -934,7 +951,7 @@ function InvoiceDetailDrawer({
     }
   }
 
-  function handleTabChange(t: "details" | "classificacao" | "lines") {
+  function handleTabChange(t: "details" | "lines") {
     setTab(t);
     if (t === "lines" && invoice) void loadLines(invoice);
   }
@@ -1009,11 +1026,7 @@ function InvoiceDetailDrawer({
     ? groupMap.get(invoice.costCenterGroupId)
     : null;
 
-  const isClassified = !!(
-    invoice.costCenterGroupId ||
-    invoice.costCenterCategoryId ||
-    invoice.financialType
-  );
+  const isClassified = inv.classificationSummary.mode !== "none";
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex" aria-modal="true">
@@ -1033,6 +1046,15 @@ function InvoiceDetailDrawer({
               <p className="text-sm text-stone-500">
                 {invoice.invoiceNumber} · {formatDate(invoice.invoiceDate)}
               </p>
+              <p className="mt-1 text-xs text-stone-400">
+                Data de vencimento: {formatDate(invoice.dueDate)} · Data de
+                pagamento: {formatDate(invoice.paidAt)}
+              </p>
+              {invoice.notes && (
+                <p className="mt-0.5 text-xs text-stone-400">
+                  Notas: {invoice.notes}
+                </p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               {invoice.attachmentUrl && (
@@ -1063,7 +1085,6 @@ function InvoiceDetailDrawer({
             {(
               [
                 { key: "details", label: "Detalhes" },
-                { key: "classificacao", label: "Classificação" },
                 { key: "lines", label: "Linhas" },
               ] as const
             ).map(({ key, label }) => (
@@ -1084,357 +1105,461 @@ function InvoiceDetailDrawer({
           {/* Tab content */}
           <div className="flex-1 overflow-y-auto px-6 py-4">
             {tab === "details" && (
-              <div className="space-y-4">
-                {/* Status + reconciliation + actions */}
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <StatusBadge status={invoice.status} />
-                    <ReconciliationBadge
-                      status={invoice.reconciliationStatus}
-                    />
+              <div className="space-y-3">
+                {/* Actions */}
+                {(invoice.status === "pending" ||
+                  invoice.status === "overdue") && (
+                  <div className="flex justify-end">
+                    <button
+                      onClick={() => onOpenMarkPaid(invoice)}
+                      className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
+                    >
+                      Marcar como paga
+                    </button>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {(invoice.status === "pending" ||
-                      invoice.status === "overdue") && (
-                      <button
-                        onClick={() => onOpenMarkPaid(invoice)}
-                        className="rounded-md bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700"
-                      >
-                        Marcar como paga
-                      </button>
-                    )}
-                  </div>
-                </div>
+                )}
 
-                {/* KPIs */}
-                <div className="grid grid-cols-3 gap-3">
-                  <div className="rounded-lg border border-stone-100 bg-stone-50 p-3 text-center">
-                    <p className="text-xs text-stone-400">S/ IVA</p>
-                    <p className="mt-0.5 text-sm font-semibold text-stone-800">
-                      {fromCents(invoice.subtotalWithoutVat)}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-stone-100 bg-stone-50 p-3 text-center">
-                    <p className="text-xs text-stone-400">IVA</p>
-                    <p className="mt-0.5 text-sm font-semibold text-stone-800">
-                      {fromCents(invoice.totalVat)}
-                    </p>
-                  </div>
-                  <div className="rounded-lg border border-stone-100 bg-stone-50 p-3 text-center">
-                    <p className="text-xs text-stone-400">Total</p>
-                    <p className="mt-0.5 text-sm font-bold text-stone-800">
-                      {fromCents(invoice.totalWithVat)}
-                    </p>
-                  </div>
-                </div>
-
-                {/* Fields */}
-                <dl className="divide-y divide-stone-100">
-                  {[
-                    { label: "Fornecedor", value: invoice.supplierName },
-                    { label: "Nº de fatura", value: invoice.invoiceNumber },
-                    {
-                      label: "Data de emissão",
-                      value: formatDate(invoice.invoiceDate),
-                    },
-                    ...(!invoice.isDirectDebit
-                      ? [
-                          {
-                            label: "Data de vencimento",
-                            value: formatDate(invoice.dueDate),
-                          },
-                        ]
-                      : []),
-                    ...(invoice.isDirectDebit
-                      ? [
-                          {
-                            label: "Débito direto em",
-                            value: formatDate(invoice.directDebitDate),
-                          },
-                        ]
-                      : []),
-                    {
-                      label: "Data de pagamento",
-                      value: formatDate(invoice.paidAt),
-                    },
-                    { label: "Notas", value: invoice.notes ?? "—" },
-                  ].map(({ label, value }) => (
-                    <div key={label} className="flex justify-between py-2">
-                      <dt className="text-xs text-stone-400">{label}</dt>
-                      <dd className="text-sm font-medium text-stone-700">
-                        {value}
-                      </dd>
-                    </div>
-                  ))}
-                </dl>
-
-                {/* Linked bank movements */}
-                {isReconciled && (
-                  <div className="rounded-lg border border-teal-100 bg-teal-50/40 p-3 space-y-2">
-                    <p className="text-xs font-medium text-teal-700">
-                      Conciliação bancária
-                      <span className="ml-1.5 font-normal text-teal-600">
-                        — {RECON_CONFIG[invoice.reconciliationStatus].label}
-                      </span>
-                    </p>
-                    {linkedMovements.length === 0 ? (
-                      <p className="text-xs text-teal-600/70">
-                        A carregar movimentos…
+                {/* Cards — 2 colunas masonry: distribuição esquerda→direita por ordem */}
+                {(() => {
+                  const cardTotais = (
+                    <div
+                      key="totais"
+                      className="rounded-lg border border-stone-200 p-4 space-y-2"
+                    >
+                      <p className="text-xs font-semibold text-stone-500">
+                        Totais da fatura
                       </p>
-                    ) : (
-                      <dl className="divide-y divide-teal-100/60 space-y-0">
-                        {linkedMovements.map((m) => (
-                          <div
-                            key={m.movementId}
-                            className="py-1.5 space-y-0.5"
+                      <div className="space-y-1.5">
+                        <div className="flex justify-between text-xs text-stone-500">
+                          <span>Sem IVA</span>
+                          <span>{fromCents(invoice.subtotalWithoutVat)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-stone-500">
+                          <span>IVA</span>
+                          <span>{fromCents(invoice.totalVat)}</span>
+                        </div>
+                      </div>
+                      <div className="border-t border-stone-100 pt-2 flex justify-between">
+                        <span className="text-sm font-semibold text-stone-800">
+                          Total
+                        </span>
+                        <span className="text-sm font-bold text-stone-800">
+                          {fromCents(invoice.totalWithVat)}
+                        </span>
+                      </div>
+                    </div>
+                  );
+
+                  const cardClassificacao = (
+                    <div
+                      key="classificacao"
+                      className="rounded-lg border border-stone-200 p-4 space-y-2.5"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-stone-500">
+                          Classificação
+                        </p>
+                        {inv.classificationSummary.mode === "mixed" ? (
+                          <button
+                            onClick={() => handleTabChange("lines")}
+                            className="text-xs text-stone-400 hover:text-stone-600"
                           >
-                            <div className="flex justify-between">
-                              <dt className="text-xs text-stone-400">
-                                {formatDate(m.bookingDate)}
-                              </dt>
-                              <dd className="text-xs font-medium text-teal-700">
-                                {fromCents(m.allocatedAmountCents)}
-                              </dd>
+                            Editar nas Linhas →
+                          </button>
+                        ) : (
+                          !editingClassification && (
+                            <button
+                              onClick={() => {
+                                setClassifyGroupId(
+                                  invoice.costCenterGroupId ?? "",
+                                );
+                                setClassifyCategoryId(
+                                  invoice.costCenterCategoryId ?? "",
+                                );
+                                setEditingClassification(true);
+                              }}
+                              className="text-xs font-medium text-[#ED5C32] hover:underline"
+                            >
+                              Editar
+                            </button>
+                          )
+                        )}
+                      </div>
+
+                      {inv.classificationSummary.mode === "unique" && (
+                        <span className="inline-flex items-center rounded-full bg-teal-50 px-2 py-0.5 text-[11px] font-medium text-teal-700">
+                          Classificação única
+                        </span>
+                      )}
+                      {inv.classificationSummary.mode === "mixed" && (
+                        <span className="inline-flex items-center rounded-full bg-violet-50 px-2 py-0.5 text-[11px] font-medium text-violet-700">
+                          Classificação mista ·{" "}
+                          {inv.classificationSummary.entries.length} categorias
+                        </span>
+                      )}
+                      {inv.classificationSummary.mode === "none" &&
+                        !editingClassification && (
+                          <span className="inline-flex items-center rounded-full bg-stone-100 px-2 py-0.5 text-[11px] font-medium text-stone-500">
+                            Não classificada
+                          </span>
+                        )}
+
+                      {editingClassification ? (
+                        <div className="space-y-2.5 rounded-lg border border-[#F5C992]/60 bg-[#FDF8F5] p-3">
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-stone-600">
+                              Centro de custo
+                            </label>
+                            <select
+                              value={classifyGroupId}
+                              onChange={(e) => {
+                                setClassifyGroupId(e.target.value);
+                                setClassifyCategoryId("");
+                              }}
+                              className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+                            >
+                              <option value="">— nenhum —</option>
+                              {groups.map((g) => (
+                                <option key={g.id} value={g.id}>
+                                  {g.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+                          <div>
+                            <label className="mb-1 block text-xs font-medium text-stone-600">
+                              Subcategoria
+                            </label>
+                            <select
+                              value={classifyCategoryId}
+                              onChange={(e) =>
+                                setClassifyCategoryId(e.target.value)
+                              }
+                              className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+                            >
+                              <option value="">— nenhuma —</option>
+                              {categories
+                                .filter(
+                                  (c) =>
+                                    c.isActive &&
+                                    (!classifyGroupId ||
+                                      c.groupId === classifyGroupId),
+                                )
+                                .map((c) => (
+                                  <option key={c.id} value={c.id}>
+                                    {c.code} — {c.name}
+                                  </option>
+                                ))}
+                            </select>
+                            {classifyCategoryId &&
+                              (() => {
+                                const cat = categories.find(
+                                  (c) => c.id === classifyCategoryId,
+                                );
+                                return cat ? (
+                                  <span
+                                    className={`mt-1 inline-block rounded-full px-2 py-0.5 text-[10px] font-medium ${FINANCIAL_TYPE_COLORS[cat.financialType as FinancialType]}`}
+                                  >
+                                    {
+                                      FINANCIAL_TYPE_LABELS[
+                                        cat.financialType as FinancialType
+                                      ]
+                                    }
+                                  </span>
+                                ) : null;
+                              })()}
+                          </div>
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => setEditingClassification(false)}
+                              className="flex-1 rounded-md border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50"
+                            >
+                              Cancelar
+                            </button>
+                            <button
+                              onClick={() => void handleSaveClassification()}
+                              disabled={savingClassification}
+                              className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
+                            >
+                              {savingClassification ? "A guardar…" : "Guardar"}
+                            </button>
+                          </div>
+                        </div>
+                      ) : inv.classificationSummary.mode !== "none" ? (
+                        <div className="divide-y divide-stone-100">
+                          {inv.classificationSummary.entries.map((entry) => (
+                            <div
+                              key={entry.costCenterCategoryId}
+                              className="flex items-start justify-between gap-2 py-2 first:pt-0"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-stone-700 truncate">
+                                  {entry.code} — {entry.name}
+                                </p>
+                                {entry.financialType && (
+                                  <span
+                                    className={`mt-0.5 inline-block rounded-full px-1.5 py-0.5 text-[10px] font-medium ${FINANCIAL_TYPE_COLORS[entry.financialType as FinancialType] ?? "bg-stone-100 text-stone-500"}`}
+                                  >
+                                    {FINANCIAL_TYPE_LABELS[
+                                      entry.financialType as FinancialType
+                                    ] ?? entry.financialType}
+                                  </span>
+                                )}
+                              </div>
+                              {inv.classificationSummary.mode === "mixed" && (
+                                <p className="shrink-0 text-xs font-semibold text-stone-700">
+                                  {fromCents(entry.totalWithVat)}
+                                </p>
+                              )}
                             </div>
-                            <p className="text-xs text-stone-500 truncate">
-                              {m.description}
-                            </p>
+                          ))}
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+
+                  const cardConciliacao = isReconciled ? (
+                    <div
+                      key="conciliacao"
+                      className="rounded-lg border border-stone-200 p-4 space-y-2"
+                    >
+                      <div className="flex items-center justify-between">
+                        <p className="text-xs font-semibold text-stone-500">
+                          Conciliação bancária
+                        </p>
+                        <span
+                          className={`inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium ${RECON_CONFIG[invoice.reconciliationStatus].cls}`}
+                        >
+                          {RECON_CONFIG[invoice.reconciliationStatus].label}
+                        </span>
+                      </div>
+                      {linkedMovements.length === 0 ? (
+                        <p className="text-xs text-stone-400">
+                          A carregar movimentos…
+                        </p>
+                      ) : (
+                        <div className="divide-y divide-stone-100">
+                          {linkedMovements.map((m) => (
+                            <div
+                              key={m.movementId}
+                              className="flex items-start justify-between gap-2 py-2 first:pt-0"
+                            >
+                              <div className="min-w-0">
+                                <p className="text-xs font-medium text-stone-700">
+                                  {formatDate(m.bookingDate)}
+                                </p>
+                                <p className="text-[11px] text-stone-400 truncate">
+                                  {m.description}
+                                </p>
+                              </div>
+                              <p className="shrink-0 text-xs font-semibold text-stone-700">
+                                {fromCents(m.allocatedAmountCents)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  ) : null;
+
+                  const cardPayable = linkedPayable ? (
+                    <div
+                      key="payable"
+                      className="rounded-lg border border-stone-200 p-4 space-y-2"
+                    >
+                      <p className="text-xs font-semibold text-stone-500">
+                        Conta a Pagar associada
+                      </p>
+                      <div className="divide-y divide-stone-100">
+                        {[
+                          {
+                            label: "Vencimento",
+                            value: formatDate(linkedPayable.dueDate),
+                          },
+                          {
+                            label: "Pago em",
+                            value: formatDate(linkedPayable.paidAt),
+                          },
+                          {
+                            label: "Valor",
+                            value: (linkedPayable.amount / 100).toLocaleString(
+                              "pt-PT",
+                              { style: "currency", currency: "EUR" },
+                            ),
+                          },
+                        ].map(({ label, value }) => (
+                          <div
+                            key={label}
+                            className="flex justify-between py-2 first:pt-0"
+                          >
+                            <dt className="text-xs text-stone-400">{label}</dt>
+                            <dd className="text-xs font-medium text-stone-700">
+                              {value}
+                            </dd>
                           </div>
                         ))}
-                      </dl>
-                    )}
-                  </div>
-                )}
-
-                {/* Linked payable entry */}
-                {linkedPayable ? (
-                  <div className="rounded-lg border border-amber-100 bg-amber-50/60 p-3 space-y-2">
-                    <p className="text-xs font-medium text-amber-700">
-                      Conta a Pagar associada
-                    </p>
-                    <dl className="divide-y divide-amber-100/60">
-                      {[
-                        {
-                          label: "Estado",
-                          value: PAYABLE_STATUS_LABELS[linkedPayable.status],
-                        },
-                        {
-                          label: "Vencimento",
-                          value: formatDate(linkedPayable.dueDate),
-                        },
-                        {
-                          label: "Pago em",
-                          value: formatDate(linkedPayable.paidAt),
-                        },
-                        {
-                          label: "Valor",
-                          value: (linkedPayable.amount / 100).toLocaleString(
-                            "pt-PT",
-                            { style: "currency", currency: "EUR" },
-                          ),
-                        },
-                      ].map(({ label, value }) => (
-                        <div
-                          key={label}
-                          className="flex justify-between py-1.5"
-                        >
-                          <dt className="text-xs text-stone-400">{label}</dt>
-                          <dd className="text-xs font-medium text-stone-700">
-                            {value}
-                          </dd>
-                        </div>
-                      ))}
-                    </dl>
-                    <button
-                      onClick={() => {
-                        onClose();
-                        navigate("/financial/payable-entries");
-                      }}
-                      className="text-xs font-medium text-amber-700 hover:text-amber-900 underline"
-                    >
-                      Ver contas a pagar →
-                    </button>
-                  </div>
-                ) : invoice.dueDate ? (
-                  <div className="rounded-lg border border-stone-100 bg-stone-50 p-3">
-                    <p className="text-xs text-stone-400">
-                      Sem conta a pagar associada a esta fatura.
-                    </p>
-                  </div>
-                ) : null}
-              </div>
-            )}
-
-            {tab === "classificacao" && (
-              <div className="space-y-4">
-                {/* Badge + edit toggle */}
-                <div className="flex items-center justify-between">
-                  <span
-                    className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${isClassified ? "bg-teal-50 text-teal-700" : "bg-stone-100 text-stone-500"}`}
-                  >
-                    {isClassified ? "Pré-classificada" : "Não classificada"}
-                  </span>
-                  {!editingClassification && (
-                    <button
-                      onClick={() => {
-                        setClassifyGroupId(invoice.costCenterGroupId ?? "");
-                        setClassifyCategoryId(
-                          invoice.costCenterCategoryId ?? "",
-                        );
-                        setEditingClassification(true);
-                      }}
-                      className="text-xs font-medium text-[#ED5C32] hover:underline"
-                    >
-                      Editar
-                    </button>
-                  )}
-                </div>
-
-                {editingClassification ? (
-                  /* Edit form */
-                  <div className="space-y-3 rounded-lg border border-[#F5C992]/60 bg-[#FDF8F5] p-3">
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-stone-600">
-                        Centro de custo
-                      </label>
-                      <select
-                        value={classifyGroupId}
-                        onChange={(e) => {
-                          setClassifyGroupId(e.target.value);
-                          setClassifyCategoryId("");
+                      </div>
+                      <button
+                        onClick={() => {
+                          onClose();
+                          navigate("/financial/payable-entries");
                         }}
-                        className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+                        className="text-xs font-medium text-[#ED5C32] hover:underline"
                       >
-                        <option value="">— nenhum —</option>
-                        {groups.map((g) => (
-                          <option key={g.id} value={g.id}>
-                            {g.name}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                    <div>
-                      <label className="mb-1 block text-xs font-medium text-stone-600">
-                        Subcategoria
-                      </label>
-                      <select
-                        value={classifyCategoryId}
-                        onChange={(e) => setClassifyCategoryId(e.target.value)}
-                        className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
-                      >
-                        <option value="">— nenhuma —</option>
-                        {categories
-                          .filter(
-                            (c) =>
-                              c.isActive &&
-                              (!classifyGroupId ||
-                                c.groupId === classifyGroupId),
-                          )
-                          .map((c) => (
-                            <option key={c.id} value={c.id}>
-                              {c.code} — {c.name}
-                            </option>
-                          ))}
-                      </select>
-                      {classifyCategoryId &&
-                        (() => {
-                          const cat = categories.find(
-                            (c) => c.id === classifyCategoryId,
-                          );
-                          return cat ? (
-                            <span
-                              className={`mt-1 inline-block rounded-full px-2 py-0.5 text-xs ${FINANCIAL_TYPE_COLORS[cat.financialType as FinancialType]}`}
-                            >
-                              {
-                                FINANCIAL_TYPE_LABELS[
-                                  cat.financialType as FinancialType
-                                ]
-                              }
-                            </span>
-                          ) : null;
-                        })()}
-                    </div>
-                    <div className="flex gap-2 pt-1">
-                      <button
-                        onClick={() => setEditingClassification(false)}
-                        className="flex-1 rounded-md border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50"
-                      >
-                        Cancelar
-                      </button>
-                      <button
-                        onClick={() => void handleSaveClassification()}
-                        disabled={savingClassification}
-                        className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
-                      >
-                        {savingClassification ? "A guardar…" : "Guardar"}
+                        Ver contas a pagar →
                       </button>
                     </div>
-                  </div>
-                ) : (
-                  /* Read-only view */
-                  <dl className="divide-y divide-stone-100">
-                    <div className="flex justify-between py-2">
-                      <dt className="text-xs text-stone-400">
-                        Centro de custo
-                      </dt>
-                      <dd className="text-sm font-medium text-stone-700">
-                        {classificationGroup?.name ?? "—"}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between py-2">
-                      <dt className="text-xs text-stone-400">Subcategoria</dt>
-                      <dd className="text-sm font-medium text-stone-700">
-                        {classificationCategory
-                          ? `${classificationCategory.code} — ${classificationCategory.name}`
-                          : "—"}
-                      </dd>
-                    </div>
-                    <div className="flex justify-between py-2">
-                      <dt className="text-xs text-stone-400">
-                        Tipo financeiro
-                      </dt>
-                      <dd className="text-sm font-medium text-stone-700">
-                        {invoice.financialType
-                          ? (FINANCIAL_TYPE_LABELS[
-                              invoice.financialType as FinancialType
-                            ] ?? invoice.financialType)
-                          : "—"}
-                      </dd>
-                    </div>
-                  </dl>
-                )}
+                  ) : null;
 
-                {/* Financial impact — only when classified */}
-                {isClassified && !editingClassification && (
-                  <div>
-                    <p className="mb-2 text-xs font-semibold text-stone-500 uppercase tracking-wide">
-                      Impacto financeiro
-                    </p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[
-                        { label: "DRE", active: invoice.affectsDre },
-                        {
-                          label: "Fluxo de Caixa",
-                          active: invoice.affectsCashflow,
-                        },
-                        {
-                          label: "Rentabilidade",
-                          active: invoice.affectsProfitability,
-                        },
-                      ].map(({ label, active }) => (
-                        <div
-                          key={label}
-                          className={`rounded-lg border p-2.5 text-center text-xs font-medium ${active ? "border-teal-200 bg-teal-50 text-teal-700" : "border-stone-100 bg-stone-50 text-stone-400"}`}
-                        >
-                          <p>{label}</p>
-                          <p className="mt-0.5 font-bold">
-                            {active ? "Sim" : "Não"}
-                          </p>
-                        </div>
-                      ))}
+                  const cardPayamento =
+                    invoice.status === "paid" && invoice.paidAt
+                      ? (() => {
+                          const accountLabel = invoice.paymentBankAccountId
+                            ? (bankAccounts.find(
+                                (a) => a.id === invoice.paymentBankAccountId,
+                              )?.label ?? "—")
+                            : "—";
+                          const recon =
+                            RECON_CONFIG[invoice.reconciliationStatus];
+                          return (
+                            <div
+                              key="pagamento"
+                              className="rounded-lg border border-stone-200 p-4 space-y-2"
+                            >
+                              <p className="text-xs font-semibold text-stone-500">
+                                Pagamento
+                              </p>
+                              <div className="divide-y divide-stone-100">
+                                {[
+                                  {
+                                    label: "Pago em",
+                                    value: formatDate(invoice.paidAt),
+                                  },
+                                  {
+                                    label: "Método",
+                                    value: invoice.paymentMethod
+                                      ? (PAYMENT_METHOD_LABELS[
+                                          invoice.paymentMethod as PaymentMethod
+                                        ] ?? invoice.paymentMethod)
+                                      : "—",
+                                  },
+                                  { label: "Conta", value: accountLabel },
+                                ].map(({ label, value }) => (
+                                  <div
+                                    key={label}
+                                    className="flex justify-between py-2 first:pt-0"
+                                  >
+                                    <dt className="text-xs text-stone-400">
+                                      {label}
+                                    </dt>
+                                    <dd className="text-xs font-medium text-stone-700">
+                                      {value}
+                                    </dd>
+                                  </div>
+                                ))}
+                              </div>
+                              <div className="flex gap-2 pt-1">
+                                <button
+                                  onClick={() => onOpenMarkPaid(invoice)}
+                                  className="flex-1 rounded-md border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50"
+                                >
+                                  Editar pagamento
+                                </button>
+                                <button
+                                  disabled={undoingPaid}
+                                  onClick={() => setShowUndoPaidConfirm(true)}
+                                  className="flex-1 rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 disabled:opacity-50"
+                                >
+                                  {undoingPaid ? "A desfazer…" : "Desfazer"}
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })()
+                      : null;
+
+                  const missing: string[] = [
+                    !cardPayamento && "Sem pagamento registado",
+                    !cardPayable && "Sem conta a pagar associada",
+                    !cardConciliacao && "Sem conciliação bancária",
+                  ].filter(Boolean) as string[];
+
+                  const cardMissing =
+                    missing.length > 0 ? (
+                      <div
+                        key="missing"
+                        className="rounded-lg border border-dashed border-stone-200 p-4 space-y-2"
+                      >
+                        <p className="text-xs font-semibold text-stone-400">
+                          Informação em falta
+                        </p>
+                        <ul className="space-y-1.5">
+                          {missing.map((label) => (
+                            <li
+                              key={label}
+                              className="flex items-center gap-2 text-xs text-stone-400"
+                            >
+                              <span className="h-1 w-1 rounded-full bg-stone-300 shrink-0" />
+                              {label}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : null;
+
+                  const cards = [
+                    cardTotais,
+                    cardClassificacao,
+                    cardPayamento,
+                    cardPayable,
+                    cardConciliacao,
+                    cardMissing,
+                  ].filter(Boolean);
+                  const leftCards = cards.filter((_, i) => i % 2 === 0);
+                  const rightCards = cards.filter((_, i) => i % 2 !== 0);
+
+                  return (
+                    <div className="grid grid-cols-2 gap-3 items-start">
+                      <div className="flex flex-col gap-3">{leftCards}</div>
+                      <div className="flex flex-col gap-3">{rightCards}</div>
                     </div>
+                  );
+                })()}
+
+                {/* Impacto financeiro */}
+                <div className="flex items-center justify-between rounded-lg border border-stone-100 bg-stone-50 px-4 py-2.5">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-stone-400 shrink-0">
+                    Impacto financeiro
+                  </p>
+                  <div className="flex items-center gap-1.5">
+                    {[
+                      { label: "DRE", value: invoice.affectsDre },
+                      {
+                        label: "Fluxo de Caixa",
+                        value: invoice.affectsCashflow,
+                      },
+                      {
+                        label: "Rentabilidade",
+                        value: invoice.affectsProfitability,
+                      },
+                    ].map(({ label, value }, i, arr) => (
+                      <span
+                        key={label}
+                        className="flex items-center gap-1 text-xs"
+                      >
+                        <span className="text-stone-500">{label}:</span>
+                        <span
+                          className={`font-semibold ${value ? "text-teal-600" : "text-stone-400"}`}
+                        >
+                          {value ? "Sim" : "Não"}
+                        </span>
+                        {i < arr.length - 1 && (
+                          <span className="ml-1.5 text-stone-200">|</span>
+                        )}
+                      </span>
+                    ))}
                   </div>
-                )}
+                </div>
               </div>
             )}
 
@@ -2033,6 +2158,59 @@ function InvoiceDetailDrawer({
           </div>
         )}
       </aside>
+
+      {showUndoPaidConfirm && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4"
+          aria-modal="true"
+        >
+          <div
+            className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+            onClick={() => setShowUndoPaidConfirm(false)}
+          />
+          <div className="relative w-full max-w-sm rounded-xl bg-white shadow-2xl p-6 flex flex-col gap-4">
+            <div className="flex flex-col gap-1">
+              <h3 className="text-base font-bold text-stone-900">
+                Desfazer pagamento
+              </h3>
+              <p className="text-sm text-stone-500">
+                A fatura vai voltar ao estado{" "}
+                <span className="font-medium text-stone-700">Pendente</span> e o
+                pagamento registado será removido. Esta ação não pode ser
+                desfeita.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowUndoPaidConfirm(false)}
+                className="flex-1 rounded-md border border-stone-300 px-3 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
+              >
+                Cancelar
+              </button>
+              <button
+                disabled={undoingPaid}
+                onClick={async () => {
+                  setUndoingPaid(true);
+                  try {
+                    const updated = await api.setInvoiceStatus(
+                      invoice.id,
+                      "pending",
+                    );
+                    setShowUndoPaidConfirm(false);
+                    onInvoiceUpdated?.(updated);
+                    qc.invalidateQueries({ queryKey: ["invoices"] });
+                  } finally {
+                    setUndoingPaid(false);
+                  }
+                }}
+                className="flex-1 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-100 disabled:opacity-50"
+              >
+                {undoingPaid ? "A desfazer…" : "Desfazer pagamento"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body,
   );
@@ -2544,7 +2722,6 @@ const STATUS_CHIP_BG: Record<InvoiceStatus, string> = {
   pending: "#fffbeb",
   paid: "#f0fdf4",
   overdue: "#fef2f2",
-  partial: "#eff6ff",
   cancelled: "#f5f5f4",
   review: "#faf5ff",
 };
@@ -2829,7 +3006,7 @@ function CalendarDayPanel({
       headerCls: "text-amber-700",
       countCls: "bg-amber-100 text-amber-700",
       invoices: invoices.filter((inv) =>
-        ["pending", "partial", "pending_review", "review", "draft_ai"].includes(
+        ["pending", "pending_review", "review", "draft_ai"].includes(
           inv.status,
         ),
       ),
@@ -2860,7 +3037,7 @@ function CalendarDayPanel({
 
   const totalAmount = invoices.reduce((s, i) => s + i.totalWithVat, 0);
   const pendingAmount = invoices
-    .filter((i) => ["pending", "partial"].includes(i.status))
+    .filter((i) => i.status === "pending")
     .reduce((s, i) => s + i.totalWithVat, 0);
   const overdueAmount = invoices
     .filter((i) => i.status === "overdue")
@@ -4478,6 +4655,7 @@ export function InvoicesView() {
             channels={channels}
             groups={groups}
             linkedPayable={payableByInvoiceId.get(detail.id) ?? null}
+            bankAccounts={bankAccounts}
             onClose={() => setDetail(null)}
             onOpenMarkPaid={setMarkPaidInvoice}
             onInvoiceUpdated={(updated) => setDetail(updated)}

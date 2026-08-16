@@ -1,7 +1,7 @@
 # Módulo: invoices
 
 > Status: ativo
-> Última atualização: 2026-08-16
+> Última atualização: 2026-08-16 (redesign drawer de detalhes; classificationSummary; card Pagamento; setInvoiceStatus)
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -88,7 +88,8 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 - **InvoiceDTO** — fatura com cabeçalho (fornecedor, NIF snapshot, valores, datas,
   estado, source, aiConfidence, requiresReview, costCenterGroupId, financialType,
   flags DRE/cashflow/profitability, currency, `isDirectDebit`, `directDebitDate`, `lineDetailMode`) e linhas opcionais.
-  Quando `lineDetailMode=detailed` e as linhas são carregadas, inclui também `linesSummary = { subtotalWithoutVat, totalVat, totalWithVat, totalsMismatch }` — usado pelo frontend para o painel de comparação de totais.
+  - `classificationSummary` (obrigatório): `{ mode: "unique"|"mixed"|"none", entries: [...] }`. Derivado das linhas reais em `GetInvoice`; derivado do `costCenterCategoryId` do cabeçalho em `ListInvoices`. O drawer faz eager fetch de `getInvoice` ao abrir para garantir o summary com base nas linhas reais.
+  - `linesSummary` (opcional): presente apenas quando `lineDetailMode=detailed` e linhas carregadas. `{ subtotalWithoutVat, totalVat, totalWithVat, totalsMismatch }` — usado para o painel de comparação de totais no tab Linhas.
 - **InvoiceLineDTO** — linha de detalhe com `type`, `costCenterCategoryId`, valores monetários,
   flags `affectsDre`/`affectsCashflow`/`affectsProfitability`, e campos V2: `financialType` (herdado
   da subcategoria), `channelId`, `requiresChannel`, `requiresAllocation`, `dreValue` (s/ IVA, cêntimos),
@@ -100,7 +101,7 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 - **InvoiceAlertsDTO** — contagens e totais para: `overdue`, `dueToday`, `dueIn7Days`,
   `noDueDateCount`, `noSupplierCount`, `pendingReviewCount`, `lowAiConfidenceCount`,
   `valueDiscrepancyCount`.
-- **InvoiceStatus** — `draft_ai | pending_review | pending | paid | overdue | partial | cancelled | review`.
+- **InvoiceStatus** — `draft_ai | pending_review | pending | paid | overdue | cancelled | review`.
 - **InvoiceSource** — `manual | pdf_import | image_import`.
 - **VALIDATION_ISSUE_LABELS** — mapa de chaves de validação para texto PT:
   `no_due_date`, `no_supplier_match`, `low_ai_confidence`, `value_discrepancy`, `duplicate_invoice`.
@@ -116,7 +117,7 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
   - CRUD base: `listInvoices(params?)`, `getInvoice(id)`, `createInvoice`, `updateInvoice`, `deleteInvoice`
   - Linhas: `listInvoiceLines()`, `addLine`, `updateLine`, `classifyLine` (aceita `channelId` no payload)
   - Modo de linhas: `setLineDetailMode(id, mode)` → `InvoiceDTO` — transição *simple → detailed* é livre; *detailed → simple* apaga as linhas no backend
-  - Ciclo de vida: `markInvoicePaid(id, paidAt?)`
+  - Ciclo de vida: `markInvoicePaid(id, paidAt?)`; `setInvoiceStatus(id, status)` — usado pelo "Desfazer pagamento" para repor `pending`
   - Import IA: `importInvoice(file)` → `InvoiceImportResultDTO`; `confirmImportedInvoice(id, payload)`
   - Alertas: `getInvoiceAlerts()` → `InvoiceAlertsDTO`
   - Sugestão: `suggestLineClassification(supplierId, description?)` → `SuggestClassificationResult | null`
@@ -179,9 +180,19 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
   - Seleção de fornecedor (dropdown) ou nome livre.
   - Campos de cabeçalho + secção de linhas inline.
 
-- **`InvoiceDetailDrawer`** — drawer de detalhe com dois tabs (Detalhes, Classificação, Linhas):
-  - *Detalhes*: campos do cabeçalho; para faturas de débito direto mostra "Débito direto em" em vez de "Data de vencimento"; botão "Marcar como paga"; conta a pagar associada (se existir) com link para `/financial/payable-entries`.
-  - *Linhas*: toggle switch Modo simples / Modo detalhado; em modo simples mostra linha automática bloqueada, painel de herança de classificação e garantia de consistência; em modo detalhado mostra lista de linhas editável, rodapé com subtotal s/IVA + IVA + total das linhas, e painel de comparação com o total da fatura (verde/vermelho).
+- **`InvoiceDetailDrawer`** — drawer de detalhe com dois tabs: **Detalhes** e **Linhas**.
+  - *Header*: fornecedor, nº fatura, data de emissão, data de vencimento, data de pagamento, notas — sempre visíveis.
+  - *Detalhes* — layout masonry de 2 colunas; os cards são distribuídos esquerda→direita por ordem fixa:
+    1. **Totais da fatura** (sempre) — subtotal s/IVA, IVA, total.
+    2. **Classificação** (sempre) — badge *única/mista/nenhuma*; editor inline de CC + subcategoria; "Editar nas Linhas →" para modo misto.
+    3. **Pagamento** (quando paga) — Pago em / Método / Conta; botões "Editar pagamento" (abre `MarkPaidModal` pré-preenchido) e "Desfazer pagamento" (abre `UndoPaidConfirmModal` → `setInvoiceStatus("pending")`).
+    4. **Conta a Pagar associada** (quando existe) — Vencimento / Pago em / Valor; link para `/financial/payable-entries`.
+    5. **Conciliação bancária** (quando conciliada/parcialmente) — badge de estado; lista de movimentos bancários associados.
+    - Card **Informação em falta**: aparece sempre em último; lista os cards opcionais ausentes (sem pagamento, sem conta a pagar, sem conciliação).
+    - **Impacto financeiro**: barra no rodapé — `DRE: Sim|Não | Fluxo de Caixa: Sim|Não | Rentabilidade: Sim|Não`.
+    - Botão "Marcar como paga" visível apenas para faturas `pending` ou `overdue`.
+  - *Linhas* — igual ao comportamento anterior: toggle simples/detalhado, lista editável, painel de comparação de totais.
+  - Recebe prop `bankAccounts: { id, label }[]` do pai para resolver o nome da conta de pagamento.
 
 - **`ClassifyPanel`** — painel inline por linha: tipo (`InvoiceLineType`), subcategoria de CC
   (`costCenterCategoryId`), canal (`channelId` — obrigatório quando `requiresChannel=true`);
@@ -200,9 +211,11 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 Em vez de duplicar queries, o provider foi movido para o nó pai `/financial/*` no
 `App.tsx`. Qualquer vista dentro do grupo financeiro pode usar `useInvoicesModule()`.
 
-**Linhas carregadas on-demand no detalhe.**
-A listagem não inclui linhas. São carregadas apenas quando o tab "Linhas" é
-activado no `InvoiceDetailDrawer` via `getInvoice(id)`.
+**Eager fetch do invoice completo ao abrir o drawer.**
+Ao abrir o `InvoiceDetailDrawer`, é feito imediatamente um `getInvoice(id)` para obter o `classificationSummary` calculado a partir das linhas reais. Os dados da listagem têm `classificationSummary` calculado apenas a partir do `costCenterCategoryId` do cabeçalho (sem linhas). O eager fetch sobrepõe esses dados assim que a resposta chega; entretanto o drawer usa os dados da listagem como fallback.
+
+**Linhas carregadas on-demand no tab Linhas.**
+As linhas detalhadas são carregadas apenas quando o tab "Linhas" é activado.
 
 **Vista calendário usa `dueDate ?? paidAt` como base temporal.**
 O calendário mostra faturas no seu dia de vencimento. Se não houver `dueDate`
@@ -239,8 +252,13 @@ enquanto os totais não fecharem.
 Em modo detailed, o rodapé do tab Linhas mostra subtotal s/IVA, IVA e total das
 linhas calculados sobre o estado local `lines` (não sobre `linesSummary` do DTO).
 Isto garante que o painel reflecte imediatamente adições/edições de linhas sem
-aguardar um refetch. `linesSummary` do DTO existe para consumo futuro por outras
-vistas (ex: lista de faturas, exportação).
+aguardar um refetch. `linesSummary` do DTO é usado pelo card de Totais no tab Detalhes.
+
+**`MarkPaidModal` pré-preenchido ao editar pagamento.**
+Ao clicar "Editar pagamento" no card Pagamento, o modal inicializa com os valores actuais da fatura (`paidAt`, `paymentBankAccountId`, `paymentMethod`, `paymentNotes`). O mesmo modal serve para registar e editar pagamentos — o título muda consoante `invoice.status === "paid"`.
+
+**`UndoPaidConfirmModal` inline no drawer.**
+O modal de confirmação de "Desfazer pagamento" é renderizado dentro do `createPortal` do drawer (z-60, acima do drawer z-50). Ao confirmar, chama `api.setInvoiceStatus(id, "pending")` e notifica o pai via `onInvoiceUpdated`.
 
 **Identidade visual consistente com o grupo financeiro.**
 Bordas `border-[#F5C992]/40`, fundo `#FAF6F3`, gradiente `from-[#ED5C32] to-[#EF8935]`.
