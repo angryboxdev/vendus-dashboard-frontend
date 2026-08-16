@@ -85,13 +85,6 @@ const STATUS_DOT: Record<InvoiceStatus, string> = {
   review: "bg-purple-500",
 };
 
-function MobileStatusDot({ status }: { status: InvoiceStatus }) {
-  return (
-    <span
-      className={`inline-block h-2.5 w-2.5 shrink-0 rounded-full ${STATUS_DOT[status]}`}
-    />
-  );
-}
 
 function StatusBadge({ status }: { status: InvoiceStatus }) {
   return (
@@ -3134,7 +3127,7 @@ export function InvoicesView() {
       api.listInvoices(statusFilter ? { status: statusFilter } : undefined),
   });
 
-  const { data: alerts } = useQuery({
+  useQuery({
     queryKey: ["invoice-alerts"],
     queryFn: () => api.getInvoiceAlerts(),
   });
@@ -3330,7 +3323,7 @@ export function InvoicesView() {
       );
     if (monthFilter) {
       result = result.filter((inv) => {
-        const date = inv.issueDate ?? inv.dueDate ?? inv.paidAt;
+        const date = inv.invoiceDate ?? inv.dueDate ?? inv.paidAt;
         return date ? date.startsWith(monthFilter) : false;
       });
     }
@@ -4204,7 +4197,7 @@ export function InvoicesView() {
                               )}
                             </div>
                             <p className="mt-0.5 text-xs text-stone-400">
-                              {formatDate(inv.issueDate ?? null)}
+                              {formatDate(inv.invoiceDate)}
                             </p>
                           </td>
 
