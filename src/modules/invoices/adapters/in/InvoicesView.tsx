@@ -40,10 +40,7 @@ import {
 } from "../../../financial-base/domain/entities/cost-center.ts";
 import type { FinancialType } from "../../../financial-base/domain/entities/cost-center.ts";
 import { usePayableEntriesModule } from "../../../payable-entries/payable-entries.module.tsx";
-import {
-  type PayableEntryDTO,
-  PAYABLE_STATUS_LABELS,
-} from "../../../payable-entries/domain/entities/payable-entry.ts";
+import type { PayableEntryDTO } from "../../../payable-entries/domain/entities/payable-entry.ts";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -1017,16 +1014,6 @@ function InvoiceDetailDrawer({
   if (!invoice) return null;
 
   const ccMap = new Map(categories.map((c) => [c.id, c]));
-  const groupMap = new Map(groups.map((g) => [g.id, g]));
-
-  const classificationCategory = invoice.costCenterCategoryId
-    ? ccMap.get(invoice.costCenterCategoryId)
-    : null;
-  const classificationGroup = invoice.costCenterGroupId
-    ? groupMap.get(invoice.costCenterGroupId)
-    : null;
-
-  const isClassified = inv.classificationSummary.mode !== "none";
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex" aria-modal="true">
@@ -1419,8 +1406,6 @@ function InvoiceDetailDrawer({
                                 (a) => a.id === invoice.paymentBankAccountId,
                               )?.label ?? "—")
                             : "—";
-                          const recon =
-                            RECON_CONFIG[invoice.reconciliationStatus];
                           return (
                             <div
                               key="pagamento"
