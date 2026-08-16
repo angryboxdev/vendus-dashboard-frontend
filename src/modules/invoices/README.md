@@ -1,7 +1,7 @@
 # Módulo: invoices
 
 > Status: ativo
-> Última atualização: 2026-08-14
+> Última atualização: 2026-08-16
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -45,10 +45,10 @@ Fluxo manual:
      verifica se as somas fecham com os totais da fatura.
 4. Quando paga, clica "Marcar como paga" → estado Paga
 
-Visibilidade diária:
-- Tabs rápidos (Vencem hoje / Vencem em 7 dias / Vencidas) com contagem
+Visibilidade operacional:
+- Tabs de estado (Por pagar / Aguardando conciliação / Concluídas / Todas) com contagem
 - Vista calendário: faturas distribuídas por dia de vencimento
-- Strip de alertas: vencidas, a vencer, baixa confiança IA, pendentes de revisão
+- Urgência de vencimento por linha: "Em atraso" (vermelho) / "Hoje" (laranja) / "N dias" (âmbar/cinzento)
 ```
 
 **Conceitos-chave para o negócio:**
@@ -68,8 +68,6 @@ Visibilidade diária:
   subcategoria, tipo de linha e canal para futuras faturas do mesmo fornecedor com
   descrição semelhante. A regra mais específica (descrição mais longa) tem prioridade;
   existe sempre uma regra genérica por fornecedor como fallback.
-- **KPIs** — total faturado (c/ e s/ IVA), total vencido (€ + contagem), total
-  pendente (€ + contagem). Visão imediata sobre o estado das contas.
 - **CC Padrão** — centro de custo padrão do fornecedor (configurado no cadastro de
   fornecedores); mostrado na tabela como referência rápida de classificação.
 - **Débito direto** — modalidade em que o fornecedor debita automaticamente a conta
@@ -128,18 +126,26 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 ### Entrada (UI)
 
 - **`InvoicesView`** — página `/financial/invoices`:
-  - **KPIs** (4 cards): total de faturas, valor total (c/ IVA + s/ IVA), vencidas (€ + contagem), pendentes (€ + contagem).
   - **Toggle Tabela / Calendário** — segmented control no header para alternar entre as duas vistas.
-  - **Alert strip** — aparece quando há alertas ativos: vencidas, a vencer em 7 dias, baixa confiança IA, pendentes de revisão. Clicável (filtra tabela por estado).
   - **Vista Tabela**:
-    - Tabs com badge de contagem: *Todas*, *Vencem hoje*, *Vencem em 7 dias*, *Vencidas*.
-      - "Vencem hoje": `dueDate === hoje` e status não `paid`/`cancelled`.
-      - "Vencem em 7 dias": `dueDate > hoje` e `<= hoje+7` e status não `paid`/`cancelled`.
-      - "Vencidas": `status === "overdue"`.
-      - Mudar para tab não-"Todas" limpa o filtro de estado.
-    - Filtros: pesquisa (fornecedor/nº); dropdown de estado (só visível na tab "Todas"); toggle **"Débito direto"** (filtra client-side por `isDirectDebit=true`).
-    - Colunas: Estado, Fornecedor (com badge **DD** e tooltip para faturas de débito direto), Nº Fatura, Emissão, Vencimento, Pago em, S/ IVA, IVA, Total, **CC Padrão**.
-      - **CC Padrão**: mostra o `code` da categoria de CC padrão do fornecedor (derivado de `supplier.defaultCostCenterCategoryId`); tooltip com o nome completo; `—` se não configurado.
+    - Tabs com badge de contagem: *Por pagar*, *Aguardando conciliação*, *Concluídas*, *Todas*.
+      - "Por pagar": status `pending | overdue | draft_ai | pending_review | review` **e** `reconciliationStatus !== "pending_reconciliation"`.
+      - "Aguardando conciliação": `reconciliationStatus === "pending_reconciliation"`.
+      - "Concluídas": status `paid | cancelled` **e** `reconciliationStatus !== "pending_reconciliation"`.
+      - "Todas": todas as faturas sem filtro de estado.
+      - Mudar de tab preserva todos os filtros ativos; só reseta `page` e seleção de linhas.
+    - **Barra de filtros**:
+      - Pesquisa (fornecedor/nº fatura).
+      - *Todos os estados*: select com `appearance-none` + chevron SVG customizado; filtra por `InvoiceStatus`.
+      - *Todas as contas*: select com `appearance-none` + chevron SVG customizado; filtra por `paymentBankAccountId` (contas bancárias cadastradas na conciliação bancária).
+      - *Month picker*: botão que abre dropdown com navegação de ano + grelha 3×4 de meses; filtra por `issueDate ?? dueDate ?? paidAt` com `startsWith(YYYY-MM)`.
+      - *Filtros*: abre painel lateral (drawer) com filtros avançados — Fornecedor, Intervalo de valor, Classificação (CC padrão do fornecedor), Data de vencimento (De/Até), Débito direto. O botão fica laranja e exibe badge com contagem quando há filtros avançados ativos.
+    - **Colunas**: Checkbox | Fatura (`invoiceNumber` + `issueDate` abaixo) | Fornecedor | Vencimento (data + urgência: "Em atraso" vermelho / "Hoje" laranja / "N dias" âmbar) | Classificação (CC padrão do fornecedor: `● CODE — Name`) | Valor total | Ações.
+      - **Coluna Estado** (badges `StatusBadge` + `ReconciliationBadge`): visível **apenas** na tab "Todas".
+      - **Badge DD**: aparece junto ao `invoiceNumber` para faturas com `isDirectDebit=true` (roxo, texto "DD").
+      - **Coluna Classificação**: mostra o `code` e `name` da categoria de CC padrão do fornecedor (derivado de `supplier.defaultCostCenterCategoryId` → `categoryById`); `—` se não configurado.
+    - **Ações por linha**: kebab menu ("...") via `createPortal` em `document.body` com posicionamento `fixed` (escapa do contexto `overflow-x-auto` da tabela). Overlay transparente fecha o menu ao clicar fora.
+    - **Paginação client-side**: 10 linhas por página; mostra "Mostrando X a Y de Z faturas"; botões Anterior/Próxima.
   - **Vista Calendário**:
     - Grid mensal Seg→Dom com navegação mês a mês e botão "Hoje".
     - Cada célula mostra chips das faturas com `dueDate` nesse dia (fallback: `paidAt` se não houver `dueDate`). Cor do chip = status da fatura.
@@ -203,11 +209,17 @@ O calendário mostra faturas no seu dia de vencimento. Se não houver `dueDate`
 (ex: fatura já paga sem prazo definido), usa `paidAt` como fallback. Faturas sem
 nenhuma data ficam numa secção separada abaixo do calendário.
 
-**Tabs de filtragem temporal não usam o servidor.**
-As contagens e filtros de "Vencem hoje / 7 dias / Vencidas" são calculados
-client-side sobre os dados já carregados. Evita chamadas adicionais à API.
+**Tabs e filtros calculados client-side.**
+As contagens e filtros de estado/conciliação são calculados client-side sobre os
+dados já carregados. Evita chamadas adicionais à API. Os filtros persistem entre
+tabs — só `page` e seleção de linhas são resetados ao mudar de tab.
 
-**Coluna CC Padrão derivada do fornecedor, não da fatura.**
+**Kebab menu via createPortal.**
+O menu de ações ("...") de cada linha é renderizado em `document.body` via
+`createPortal` com posicionamento `fixed` calculado por `getBoundingClientRect()`.
+Resolve o problema de clipping causado pelo `overflow-x-auto` da tabela.
+
+**Coluna Classificação derivada do CC padrão do fornecedor, não da fatura.**
 A coluna mostra `supplier.defaultCostCenterCategoryId` resolvido via `categoryById`
 (mapa de categorias já carregado). É informativa — serve de referência visual para
 o manager saber se a classificação esperada está configurada.
@@ -231,8 +243,9 @@ aguardar um refetch. `linesSummary` do DTO existe para consumo futuro por outras
 vistas (ex: lista de faturas, exportação).
 
 **Identidade visual consistente com o grupo financeiro.**
-Bordas `border-[#F5C992]/40`, fundo `#FAF6F3`, gradiente `from-[#ED5C32] to-[#EF8935]`,
-KPI cards `px-5 py-4 shadow-sm text-xl`.
+Bordas `border-[#F5C992]/40`, fundo `#FAF6F3`, gradiente `from-[#ED5C32] to-[#EF8935]`.
+Selects com `appearance-none` + chevron SVG customizado para uniformidade visual com
+outros inputs da app.
 
 ## Como testar
 
@@ -241,10 +254,9 @@ KPI cards `px-5 py-4 shadow-sm text-xl`.
 
 ## Pontos de atenção / dívidas conhecidas
 
-- Testes de UI não implementados. A lógica de filtragem dos tabs e agrupamento do
-  calendário são candidatas a extração para um serviço puro e testes unitários.
-- Não há paginação na listagem — aceitável para o volume actual; o backend já suporta
-  `from`/`to` como filtros de data.
+- Testes de UI não implementados. A lógica de filtragem (tabs, filtros avançados,
+  agrupamento do calendário) é candidata a extração para funções puras e testes
+  unitários com Vitest.
 - Ao fechar e reabrir o `InvoiceDetailDrawer`, as linhas são recarregadas. Considerar
   cache via `useQuery` com `queryKey: ["invoice-lines", id]`.
 - `suggestLineClassification` está exposto no port/adapter mas ainda não é chamado
