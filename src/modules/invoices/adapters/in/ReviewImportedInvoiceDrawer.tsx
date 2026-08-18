@@ -511,7 +511,7 @@ function calcLineTotals(l: DraftLine) {
 function draftLineToPayload(l: DraftLine): CreateInvoiceLinePayload {
   const qty = parseFloat(l.quantity || "1") || 1;
   const unitCost = parseFloat(l.unitCost || "0");
-  const { totalWithoutVat, vatAmount, totalWithVat } = calcLineTotals(l);
+  const { vatAmount, totalWithVat } = calcLineTotals(l);
   return {
     description: l.description.trim(),
     type: l.type,

@@ -448,7 +448,7 @@ interface ClassifyPanelProps {
   onDone: (updated: InvoiceLineDTO) => void;
 }
 
-function ClassifyPanel({
+function _ClassifyPanel({
   line,
   invoiceId,
   categories,
@@ -978,7 +978,7 @@ interface DetailDrawerProps {
 function InvoiceDetailDrawer({
   invoice,
   categories,
-  channels,
+  channels: _channels,
   groups,
   linkedPayable,
   bankAccounts,
