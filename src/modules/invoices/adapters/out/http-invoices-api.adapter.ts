@@ -83,6 +83,10 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     return apiDeleteNoContent(`${BASE}/${encodeURIComponent(id)}`);
   }
 
+  async deleteLine(invoiceId: string, lineId: string): Promise<void> {
+    return apiDeleteNoContent(`${BASE}/${encodeURIComponent(invoiceId)}/lines/${encodeURIComponent(lineId)}`);
+  }
+
   async classifyLine(invoiceId: string, lineId: string, payload: ClassifyLinePayload): Promise<InvoiceLineDTO> {
     return apiPatch(
       `${BASE}/${encodeURIComponent(invoiceId)}/lines/${encodeURIComponent(lineId)}/classify`,

@@ -38,6 +38,7 @@ export interface InvoicesApiPort {
   setInvoiceStatus(id: string, status: InvoiceStatus): Promise<InvoiceDTO>;
   setLineDetailMode(id: string, mode: LineDetailMode): Promise<InvoiceDTO>;
   deleteInvoice(id: string): Promise<void>;
+  deleteLine(invoiceId: string, lineId: string): Promise<void>;
   classifyLine(invoiceId: string, lineId: string, payload: ClassifyLinePayload): Promise<InvoiceLineDTO>;
   importInvoice(file: File): Promise<InvoiceImportResultDTO>;
   confirmImportedInvoice(id: string, payload: ConfirmImportedInvoicePayload): Promise<InvoiceDTO>;
