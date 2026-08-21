@@ -37,7 +37,7 @@ const FINANCIAL_ITEMS: NavItem[] = [
   { kind: "item", path: "/financial/cost-centers", label: "Centros de Custo" },
   { kind: "item", path: "/financial/suppliers", label: "Fornecedores" },
   { kind: "item", path: "/financial/invoices", label: "Faturas" },
-  { kind: "item", path: "/financial/obligations", label: "Obrigações Financeiras" },
+  { kind: "item", path: "/financial/recurrences", label: "Recorrências" },
   { kind: "item", path: "/financial/bank-statements", label: "Conciliação Bancária" },
 ];
 

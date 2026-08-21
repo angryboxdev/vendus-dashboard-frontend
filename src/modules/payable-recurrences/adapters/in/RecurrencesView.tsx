@@ -375,7 +375,7 @@ export function RecurrencesView() {
                           )}
                           <button
                             onClick={() =>
-                              navigate(`/financial/payable-recurrences/${r.id}`)
+                              navigate(`/financial/recurrences/${r.id}`)
                             }
                             className="rounded px-2 py-1 text-xs font-medium text-[#ED5C32] hover:bg-orange-50"
                           >

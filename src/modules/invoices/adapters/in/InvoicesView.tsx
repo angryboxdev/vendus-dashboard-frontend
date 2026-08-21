@@ -1450,7 +1450,7 @@ function InvoiceDetailDrawer({
                         onClick={() => {
                           onClose();
                           navigate(
-                            `/financial/obligations/payable-recurrences/${linkedRecurrenceOcc.occurrence.recurrenceId}`,
+                            `/financial/recurrences/${linkedRecurrenceOcc.occurrence.recurrenceId}`,
                           );
                         }}
                         className="text-xs font-medium text-[#ED5C32] hover:underline"

@@ -838,7 +838,7 @@ export function RecurrenceDetailView() {
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <button
-              onClick={() => navigate("/financial/obligations")}
+              onClick={() => navigate("/financial/recurrences")}
               className="mt-0.5 rounded-md p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
             >
               <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
