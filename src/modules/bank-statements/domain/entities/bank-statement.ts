@@ -2,6 +2,7 @@ export type ReconciliationStatus =
   | "conciliado_com_fatura"
   | "conciliado_parcial"
   | "conciliado_sem_fatura"
+  | "justificado"
   | "sugestao"
   | "pendente_de_documento"
   | "saida_nao_justificada"
@@ -25,6 +26,7 @@ export type StatementSourceType = "csv" | "xlsx" | "manual";
 export type MatchedEntityType =
   | "invoice"
   | "payable_entry"
+  | "recurrence_occurrence"
   | "receipt"
   | "internal_transfer"
   | "manual_entry";
@@ -35,6 +37,7 @@ export const RECONCILIATION_STATUS_LABELS: Record<ReconciliationStatus, string> 
   conciliado_com_fatura: "Conciliado c/ Fatura",
   conciliado_parcial: "Conciliação Parcial",
   conciliado_sem_fatura: "Conciliado s/ Fatura",
+  justificado: "Justificado",
   sugestao: "Sugestão",
   pendente_de_documento: "Pendente de Documento",
   saida_nao_justificada: "Saída Não Justificada",
@@ -71,6 +74,7 @@ export const STATEMENT_STATUS_LABELS: Record<StatementStatus, string> = {
 export const RESOLVED_STATUSES: ReadonlySet<ReconciliationStatus> = new Set([
   "conciliado_com_fatura",
   "conciliado_sem_fatura",
+  "justificado",
   "transferencia_interna",
   "ignorado_com_motivo",
 ]);
@@ -178,6 +182,18 @@ export interface ReconciliationRuleDTO {
   riskLevel: RiskLevel;
   isActive: boolean;
   createdAt: string;
+}
+
+export interface OccurrenceCandidateDTO {
+  id: string;
+  recurrenceId: string;
+  recurrenceName: string;
+  supplierId: string | null;
+  supplierName: string;
+  period: string;              // YYYY-MM
+  effectiveAmountCents: number;
+  dueDate: string;             // YYYY-MM-DD
+  status: string;
 }
 
 // ── Payloads ──────────────────────────────────────────────────────────────────

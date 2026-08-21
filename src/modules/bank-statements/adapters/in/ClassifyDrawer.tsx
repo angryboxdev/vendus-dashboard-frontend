@@ -16,6 +16,7 @@ import {
   type ClassifyMovementPayload,
   type JustificationType,
   type MovementCandidateDTO,
+  type OccurrenceCandidateDTO,
   type ReconciliationStatus,
   RECONCILIATION_STATUS_LABELS,
   JUSTIFICATION_TYPE_LABELS,
@@ -39,6 +40,7 @@ const STATUS_COLORS: Record<ReconciliationStatus, string> = {
   conciliado_com_fatura: "bg-emerald-50 text-emerald-700",
   conciliado_parcial: "bg-yellow-50 text-yellow-700",
   conciliado_sem_fatura: "bg-teal-50 text-teal-700",
+  justificado: "bg-sky-50 text-sky-700",
   sugestao: "bg-blue-50 text-blue-700",
   pendente_de_documento: "bg-amber-50 text-amber-700",
   saida_nao_justificada: "bg-red-50 text-red-700",
@@ -83,6 +85,7 @@ function showsVat(jt: JustificationType) {
   return ["recibo_comprovativo", "despesa_bancaria_automatica", "contrato_recorrencia", "emprestimo_financiamento"].includes(jt);
 }
 function showsTransferTarget(jt: JustificationType) { return jt === "transferencia_interna"; }
+function showsOccurrence(jt: JustificationType) { return jt === "contrato_recorrencia"; }
 function requiresSupplier(jt: JustificationType) { return jt === "contrato_recorrencia"; }
 function requiresCostCenter(jt: JustificationType) { return showsCostCenter(jt); }
 function requiresNotes(jt: JustificationType) { return jt === "sem_justificativa"; }
@@ -275,6 +278,11 @@ export function ClassifyDrawer({
   const [supplierId, setSupplierId] = useState<string>(movement.supplierId ?? "");
   const [supplierSearch, setSupplierSearch] = useState("");
   const [supplierOpen, setSupplierOpen] = useState(false);
+  const [occurrenceId, setOccurrenceId] = useState<string>(
+    movement.matchedEntityType === "recurrence_occurrence" ? (movement.matchedEntityId ?? "") : ""
+  );
+  const [occurrenceSearch, setOccurrenceSearch] = useState("");
+  const [occurrenceOpen, setOccurrenceOpen] = useState(false);
   const [vatMode, setVatMode] = useState<VatMode>("exempt");
   const [vatRate, setVatRate] = useState<number>(23);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -301,6 +309,15 @@ export function ClassifyDrawer({
     queryFn: () => fbApi.listSuppliers({ search: supplierSearch || undefined, status: "active" }),
     staleTime: 60_000,
   });
+
+  const { data: occurrenceCandidates = [] } = useQuery<OccurrenceCandidateDTO[]>({
+    queryKey: ["occurrence-candidates", occurrenceSearch],
+    queryFn: () => api.searchOccurrenceCandidates({ q: occurrenceSearch || undefined }),
+    enabled: showsOccurrence(subType),
+    staleTime: 30_000,
+  });
+
+  const selectedOccurrence = occurrenceCandidates.find((o) => o.id === occurrenceId) ?? null;
 
   const selectedSupplier = suppliers.find((s) => s.id === supplierId) ?? null;
 
@@ -344,7 +361,10 @@ export function ClassifyDrawer({
   const [unreconciling, setUnreconciling] = useState(false);
 
   async function handleUnreconcile() {
-    if (!confirm("Tens a certeza que queres anular a conciliação deste movimento?")) return;
+    const msg = movement.entityLinks.length > 0
+      ? "Tens a certeza que queres anular a conciliação deste movimento?"
+      : "Tens a certeza que queres anular a justificação deste movimento? O movimento voltará ao estado não justificado.";
+    if (!confirm(msg)) return;
     setUnreconciling(true);
     try {
       await api.unreconcileMovement(movement.id);
@@ -394,6 +414,10 @@ export function ClassifyDrawer({
     if (showsCostCenter(subType) && groupId) payload.costCenterGroupId = groupId;
     if (showsCostCenter(subType) && categoryId) payload.costCenterCategoryId = categoryId;
     if (showsSupplier(subType) && supplierId) payload.supplierId = supplierId;
+    if (showsOccurrence(subType) && occurrenceId) {
+      payload.matchedEntityType = "recurrence_occurrence";
+      payload.matchedEntityId = occurrenceId;
+    }
     if (showsVat(subType) && vatMode !== "exempt") {
       payload.vatRate = vatRate;
       payload.vatIncluded = vatMode === "included";
@@ -451,7 +475,7 @@ export function ClassifyDrawer({
               {/* How it was classified */}
               {movement.entityLinks.length > 0 ? (
                 <div>
-                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-400 mb-3">Conciliado com o sistema</p>
+                  <p className="text-xs font-semibold uppercase tracking-wide text-stone-400 mb-3">Justificado com fatura</p>
                   <div className="space-y-2">
                     {movement.entityLinks.map((link) => (
                       <div key={link.id} className="rounded-lg border border-emerald-100 bg-emerald-50/50 px-4 py-3">
@@ -537,6 +561,23 @@ export function ClassifyDrawer({
                     )}
                   </div>
 
+                  {/* Linked recurrence occurrence */}
+                  {movement.matchedEntityType === "recurrence_occurrence" && selectedOccurrence && (
+                    <div className="mt-3 rounded-lg border border-sky-100 bg-sky-50/60 px-4 py-3">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-sky-600 mb-2">Recorrência vinculada</p>
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-stone-800 truncate">{selectedOccurrence.recurrenceName}</p>
+                          <p className="text-xs text-stone-500 mt-0.5">
+                            {selectedOccurrence.period}
+                            {selectedOccurrence.supplierName && ` · ${selectedOccurrence.supplierName}`}
+                          </p>
+                        </div>
+                        <p className="text-sm font-semibold text-stone-800 shrink-0">{fromCents(selectedOccurrence.effectiveAmountCents)}</p>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Notes */}
                   {movement.notes && (
                     <div className="mt-3 rounded-lg border border-stone-100 bg-stone-50 px-4 py-3">
@@ -604,10 +645,10 @@ export function ClassifyDrawer({
                   Alterar classificação
                 </button>
               </div>
-              {movement.entityLinks.length > 0 && (
+              {(movement.entityLinks.length > 0 || !!movement.justificationType) && (
                 <button type="button" onClick={() => void handleUnreconcile()} disabled={unreconciling}
                   className="w-full rounded-md border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-50">
-                  {unreconciling ? "A anular…" : "Anular conciliação"}
+                  {unreconciling ? "A anular…" : movement.entityLinks.length > 0 ? "Anular conciliação" : "Anular justificação"}
                 </button>
               )}
             </div>
@@ -617,7 +658,7 @@ export function ClassifyDrawer({
         {/* Tabs */}
         <div className="flex border-b border-[#F5C992]/40 shrink-0">
           {(
-            [["sistema", "Conciliar com sistema"], ["justificar", "Justificar despesa"]] as [ClassifyTab, string][]
+            [["sistema", "Justificar com fatura"], ["justificar", "Justificar despesa"]] as [ClassifyTab, string][]
           ).map(([tab, label]) => (
             <button key={tab} type="button" onClick={() => setActiveTab(tab)}
               className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
@@ -831,6 +872,57 @@ export function ClassifyDrawer({
                       </svg>
                       Cadastrar novo fornecedor
                     </a>
+                  </div>
+                )}
+
+                {showsOccurrence(subType) && (
+                  <div className="relative">
+                    <label className={labelCls}>Ocorrência de recorrência (opcional)</label>
+                    {occurrenceId && selectedOccurrence ? (
+                      <div className="flex items-center justify-between gap-2 rounded-lg border border-[#ED5C32] bg-[#FDF8F5] px-3 py-2">
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-stone-800 truncate">{selectedOccurrence.recurrenceName}</p>
+                          <p className="text-xs text-stone-400">
+                            {selectedOccurrence.period} · {(selectedOccurrence.effectiveAmountCents / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                          </p>
+                        </div>
+                        <button type="button" onClick={() => { setOccurrenceId(""); setOccurrenceSearch(""); }}
+                          className="shrink-0 text-stone-300 hover:text-red-400">
+                          <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                            <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                          </svg>
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <input type="text"
+                          value={occurrenceSearch}
+                          onChange={(e) => { setOccurrenceSearch(e.target.value); setOccurrenceOpen(true); }}
+                          onFocus={() => setOccurrenceOpen(true)}
+                          placeholder="Pesquisar por recorrência ou fornecedor…"
+                          className={inputCls} />
+                        {occurrenceOpen && occurrenceCandidates.length > 0 && (
+                          <div className="absolute z-10 mt-1 w-full rounded-md border border-stone-200 bg-white shadow-lg max-h-52 overflow-y-auto">
+                            {occurrenceCandidates.map((o) => (
+                              <button key={o.id} type="button"
+                                onClick={() => { setOccurrenceId(o.id); setOccurrenceSearch(""); setOccurrenceOpen(false); }}
+                                className="w-full text-left px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 border-b border-stone-50 last:border-0">
+                                <p className="font-medium truncate">{o.recurrenceName}</p>
+                                <p className="text-xs text-stone-400">
+                                  {o.period} · {(o.effectiveAmountCents / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" })}
+                                  {o.supplierName && ` · ${o.supplierName}`}
+                                </p>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                        {occurrenceOpen && occurrenceCandidates.length === 0 && occurrenceSearch.length > 0 && (
+                          <div className="absolute z-10 mt-1 w-full rounded-md border border-stone-200 bg-white shadow-lg px-3 py-2 text-sm text-stone-400">
+                            Nenhuma ocorrência encontrada
+                          </div>
+                        )}
+                      </>
+                    )}
                   </div>
                 )}
 

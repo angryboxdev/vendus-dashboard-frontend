@@ -18,6 +18,7 @@ import type {
   InvoiceLinkedMovementDTO,
   MatchSuggestionDTO,
   MovementCandidateDTO,
+  OccurrenceCandidateDTO,
   ReconciliationRuleDTO,
 } from "../../domain/entities/bank-statement.ts";
 
@@ -132,5 +133,15 @@ export class HttpBankStatementsApiAdapter implements BankStatementsApiPort {
 
   async unreconcileMovement(movementId: string): Promise<void> {
     await apiDeleteNoContent(`${BASE}/movements/${encodeURIComponent(movementId)}/reconcile`);
+  }
+
+  async searchOccurrenceCandidates(params: { q?: string; dateFrom?: string; dateTo?: string; limit?: number }): Promise<OccurrenceCandidateDTO[]> {
+    const q = new URLSearchParams();
+    if (params.q) q.set("q", params.q);
+    if (params.dateFrom) q.set("dateFrom", params.dateFrom);
+    if (params.dateTo) q.set("dateTo", params.dateTo);
+    if (params.limit) q.set("limit", String(params.limit));
+    const qs = q.toString();
+    return apiGet<OccurrenceCandidateDTO[]>(`${BASE}/occurrences/candidates${qs ? `?${qs}` : ""}`);
   }
 }

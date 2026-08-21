@@ -1,7 +1,7 @@
 # Módulo: bank-statements (Frontend)
 
 > Status: ativo
-> Última atualização: 2026-07-23
+> Última atualização: 2026-08-21
 
 ---
 
@@ -23,13 +23,22 @@ Gestor
 4. Aplica regras automáticas
 5. Pede sugestões de correspondência
 6. Por cada movimento não resolvido, clica "Classificar":
-   a. Tab "Conciliar com sistema" — seleciona uma ou mais faturas/contas a pagar
+   a. Tab "Justificar com fatura" — seleciona uma ou mais faturas/contas a pagar
       (candidatos automáticos + pesquisa livre por nome/número).
-      O sistema só mostra entidades ainda não conciliadas com outro movimento;
-      tentar associar uma fatura já tomada resulta em erro visível em toast.
-   b. Tab "Justificar despesa" — escolhe sub-tipo, opcionalmente
-      sobe comprovativo, seleciona fornecedor, centro de custo
-      (grupo → categoria) e registo de IVA
+      O sistema só mostra entidades com saldo em aberto;
+      tentar associar uma fatura já totalmente conciliada resulta em erro visível em toast.
+   b. Tab "Justificar despesa" — escolhe sub-tipo:
+      • Comprovativo / recibo pontual — sobe ficheiro PDF ou imagem
+      • Taxa bancária automática — regista sem documento
+      • Contrato recorrente — seleciona a recorrência e a ocorrência do mês; a ocorrência
+        fica marcada com badge "Banco" na lista de recorrências
+      • Transferência interna — preenche notas
+      • Empréstimo / financiamento — regista com centro de custo
+   - Se já resolvido → o painel mostra um resumo com tipo de justificação, entidade
+     associada (fatura ou ocorrência de contrato), fornecedor e centro de custo; com opções:
+     • "Alterar classificação" — re-abre o formulário
+     • "Anular conciliação" (se ligado a faturas) — remove links e repõe pendente
+     • "Anular justificação" (se justificado sem fatura) — repõe pendente sem alterar faturas
 7. Fecha extrato quando diferença = 0
 ```
 
@@ -37,10 +46,11 @@ Gestor
 
 - **Extrato** — conjunto de movimentos de um período, de uma conta bancária.
 - **Movimento** — linha do extrato (débito ou crédito) com estado de reconciliação.
-- **Conciliação** — associação de um movimento a um ou mais documentos (faturas ou contas a pagar) ou classificação manual.
+- **Conciliação** — associação de um movimento a um ou mais documentos (faturas ou contas a pagar) ou justificação manual.
+- **Justificado** — estado de um débito explicado manualmente sem fatura formal (comprovativo, taxa bancária, contrato recorrente, empréstimo). Conta como resolvido para efeitos de progresso, com label distinto de "Conciliado com fatura".
 - **Conciliação parcial** — movimento já associado a entidades, mas com diferença de montante superior a 1€; não conta como resolvido.
-- **Exclusividade de conciliação** — cada fatura ou conta a pagar só pode estar associada a um movimento de cada vez. O sistema oculta automaticamente entidades já tomadas e devolve erro (toast) se o utilizador tentar associar uma fatura já conciliada.
-- **Progresso** — % de movimentos em estado "resolvido" (conciliado c/ ou s/ fatura, transferência interna, ignorado).
+- **Anular justificação** — ação distinta de "Anular conciliação": repõe o movimento como pendente sem tocar em nenhuma fatura (pois não havia fatura ligada).
+- **Progresso** — % de movimentos em estado "resolvido" (conciliado c/ fatura, justificado, transferência interna, ignorado).
 - **Regra automática** — padrão de texto que classifica movimentos automaticamente.
 - **Comprovativo** — ficheiro (PDF/imagem) que justifica uma despesa sem fatura no sistema.
 - **Centro de custo** — hierarquia grupo → categoria que classifica a despesa para efeitos de DRE/cashflow.
@@ -55,11 +65,13 @@ Adapter de entrada (UI) que expõe as operações do backend `bank-statements` a
 ## Conceitos do domínio
 
 Definidos em `domain/entities/bank-statement.ts`:
-- `ReconciliationStatus` — inclui `conciliado_parcial` (não resolvido), `JustificationType`, `RiskLevel`, `MovementType`, `StatementStatus`
+- `ReconciliationStatus` — inclui `justificado` (novo, para justificações manuais sem fatura), `conciliado_parcial` (não resolvido), `JustificationType`, `RiskLevel`, `MovementType`, `StatementStatus`
+- `RECONCILIATION_STATUS_LABELS` — inclui `justificado: "Justificado"`
+- `RESOLVED_STATUSES` — inclui `justificado`
 - `EntityLinkDTO` — ligação entre um movimento e uma entidade (`entityType`, `entityId`, `amountCents`, `entityLabel`)
 - `BankMovementDTO` — inclui `entityLinks: EntityLinkDTO[]` e `reconciliationAmountDiff: number | null` (diferença montante vs soma dos links; `null` se não aplicável)
 - `BankStatementSummaryDTO`, `BankStatementDetailDTO`
-- `ClassifyMovementPayload` — inclui `documentUrl?`, `costCenterGroupId?`, `costCenterCategoryId?`, `supplierId?`, `vatRate?`, `vatIncluded?`
+- `ClassifyMovementPayload` — inclui `documentUrl?`, `costCenterGroupId?`, `costCenterCategoryId?`, `supplierId?`, `vatRate?`, `vatIncluded?`, `matchedEntityId?`, `matchedEntityType?`
 - Label maps e `RESOLVED_STATUSES`
 
 ## Ports
@@ -85,8 +97,10 @@ Definidos em `domain/entities/bank-statement.ts`:
   - `StatementDetail` — espelho do banco: KPIs de saldos, tabs de movimentos, tabela com badges, ações
   - `ImportModal` — upload de CSV/XLSX + metadados (bankName, accountNumber, openingBalance, closingBalance, período)
   - `ClassifyDrawer` — painel lateral com dois tabs:
-    - **"Conciliar com sistema"** — candidatos automáticos (`findMovementCandidates`) + pesquisa livre de faturas por nome do fornecedor ou número; deduplicação entre as duas listas
-    - **"Justificar despesa"** — sub-tipos (`recibo_comprovativo`, `despesa_bancaria_automatica`, `contrato_recorrencia`, `transferencia_interna`, `emprestimo_financiamento`, `sem_justificativa`); upload de comprovativo em dois passos; combobox de fornecedor com auto-fill de centro de custo; cascata grupo→categoria; registo de IVA (três modos: incluído/excluído/isento + botões de taxa)
+    - **"Justificar com fatura"** (renomeado de "Conciliar com sistema") — candidatos automáticos (`findMovementCandidates`) + pesquisa livre de faturas por nome do fornecedor ou número; deduplicação entre as duas listas
+    - **"Justificar despesa"** — sub-tipos (`recibo_comprovativo`, `despesa_bancaria_automatica`, `contrato_recorrencia`, `transferencia_interna`, `emprestimo_financiamento`, `sem_justificativa`); upload de comprovativo em dois passos; combobox de fornecedor com auto-fill de centro de custo; cascata grupo→categoria; registo de IVA (três modos: incluído/excluído/isento + botões de taxa); para `contrato_recorrencia`, lista de ocorrências de recorrências candidatas via `GET /bank-statements/occurrences/candidates`
+  - Vista de resumo (movimento já classificado): exibe card da ocorrência de recorrência vinculada quando `matchedEntityType === "recurrence_occurrence"`
+  - Botão "Anular justificação" exibido quando `justificationType` está definido mas não há `entityLinks` (distinto de "Anular conciliação" que aparece quando há links)
   - Linhas com status `sugestao` mostram apenas "Classificar" (não há botão "Confirmar" separado)
 
 ### Saída
@@ -101,6 +115,8 @@ Definidos em `domain/entities/bank-statement.ts`:
 - **Provider aninhado dentro de `PayableEntriesProvider`**: segue o padrão dos outros módulos financeiros em `App.tsx`.
 - **Upload de comprovativo em dois passos**: `POST /movements/:id/document` devolve `{ documentUrl }`; essa URL é depois incluída no `classifyMovement`. O domínio recebe um comando coeso sem dependência de I/O de storage.
 - **Cross-module UI sem port dedicado**: `ClassifyDrawer` usa `useFinancialBaseModule()` e `useInvoicesModule()` directamente (válido porque todos os providers estão no scope da árvore). Os IDs ficam guardados no movimento; o lookup reverso (nomes) é feito no frontend via join local.
+- **Candidatos de ocorrências via endpoint dedicado**: `contrato_recorrencia` chama `GET /bank-statements/occurrences/candidates` (não `GET /payable-recurrences/occurrences`) — o backend expõe o endpoint no próprio módulo para evitar dependência directa do frontend em dois módulos distintos para a mesma acção de classificação. A query só é activada quando `subType === "contrato_recorrencia"` (flag `enabled` no `useQuery`).
+- **`justificado` como status distinto de `conciliado_sem_fatura`**: `STATUS_COLORS` em `ClassifyDrawer`, `BankStatementsView` e `MonthDetailView` mapeiam `justificado → bg-sky-50 text-sky-700`.
 - **VAT como taxa + flag**: armazena `vatRate` (número %) + `vatIncluded` (boolean | null); o valor base é calculado nos relatórios sem necessidade de re-submissão.
 - **Erros de negócio como toast, não como alert**: `onError` das mutations usa `showToast(e.message, "error")`. O `ToastContainer` tem `z-[200]` para aparecer acima de modais e drawers (`z-50`).
 - **`balanceAfter` calculado ao vivo**: o backend recalcula a coluna "Saldo após" de cada movimento a partir do `openingBalance` — o frontend não precisa de recalcular nem de re-fetch extra ao editar o saldo inicial.

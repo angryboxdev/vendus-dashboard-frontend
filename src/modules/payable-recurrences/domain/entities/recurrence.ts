@@ -85,6 +85,13 @@ export interface RecurrenceDTO {
   updatedAt: string;
 }
 
+export interface LinkedBankMovement {
+  id: string;
+  bookingDate: string; // YYYY-MM-DD
+  amountCents: number;
+  description: string;
+}
+
 export interface OccurrenceDTO {
   id: string;
   recurrenceId: string;
@@ -102,6 +109,7 @@ export interface OccurrenceDTO {
   paymentNotes: string | null;
   notes: string | null;
   documentUrl: string | null;
+  linkedBankMovement: LinkedBankMovement | null;
   createdAt: string;
   updatedAt: string;
 }

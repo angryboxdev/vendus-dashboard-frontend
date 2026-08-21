@@ -9,7 +9,8 @@ Gere recorrências financeiras (contratos, serviços recorrentes, salários, etc
 ## Conceitos do domínio
 
 - **RecurrenceDTO** — compromisso periódico com fornecedor; tem tipo, frequência, valor estimado e dia de vencimento.
-- **OccurrenceDTO** — instância mensal de uma recorrência; passa por estados: `forecast | awaiting_invoice | invoice_linked | paid | cancelled`. Estado terminal: `paid`.
+- **OccurrenceDTO** — instância mensal de uma recorrência; passa por estados: `forecast | awaiting_invoice | invoice_linked | paid | cancelled`. Estado terminal: `paid`. Inclui `linkedBankMovement: { id, bookingDate, amountCents, description } | null` — preenchido quando um débito bancário foi justificado com esta ocorrência.
+- **linkedBankMovement** — quando presente, indica que o pagamento desta ocorrência foi identificado no extrato bancário. Exibido como badge "Banco" na coluna homónima da tabela de ocorrências de `RecurrenceDetailView`.
 - **nextDueDate** — calcula a próxima data de vencimento a partir do `dayOfMonth` e da data atual.
 - **expectedDocumentLabel** — deriva o tipo de documento esperado (Fatura, Contrato, etc.) a partir de `requireInvoice` e `type`.
 - **autoCreatePayable** — só disponível para tipos que não sejam `variable_invoice` ou `fiscal`; enforçado no UI.
@@ -34,7 +35,7 @@ Não há use cases formais; a lógica de UI é orquestrada diretamente nos adapt
 
 ### Entrada (UI)
 - `RecurrencesView` — página de listagem em `/financial/payable-recurrences`, com KPIs, filtros e tabela.
-- `RecurrenceDetailView` — página de detalhe em `/financial/payable-recurrences/:id`, com resumo, ocorrências mensais, documentos e próximos pagamentos.
+- `RecurrenceDetailView` — página de detalhe em `/financial/payable-recurrences/:id`, com resumo, ocorrências mensais, documentos e próximos pagamentos. A tabela de ocorrências inclui coluna "Banco": quando `linkedBankMovement` está preenchido, exibe badge com valor e data do débito bancário identificado; caso contrário exibe "—".
 - `RecurrenceDrawer` — drawer lateral reutilizável para criar e editar recorrências; usa `useFinancialBaseModule` para obter fornecedores e centros de custo.
 
 ### Saída

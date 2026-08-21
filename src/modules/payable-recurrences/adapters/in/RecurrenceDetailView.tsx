@@ -583,6 +583,21 @@ function OccurrenceRow({
           <span className="text-stone-300 text-sm">—</span>
         )}
       </td>
+      <td className="px-3 py-2.5">
+        {occ.linkedBankMovement ? (
+          <span
+            title={`${occ.linkedBankMovement.description} · ${occ.linkedBankMovement.bookingDate}`}
+            className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-0.5 text-[11px] text-sky-700 font-medium whitespace-nowrap"
+          >
+            <span className="h-1.5 w-1.5 rounded-full bg-sky-400 shrink-0" />
+            {fromCents(occ.linkedBankMovement.amountCents)}
+            <span className="text-sky-300">·</span>
+            Justificado
+          </span>
+        ) : (
+          <span className="text-stone-300 text-sm">—</span>
+        )}
+      </td>
       <td className="px-3 py-2.5 text-xs text-stone-600 whitespace-nowrap">
         {occ.paidAt ? occ.paidAt.slice(0, 10) : <span className="text-stone-300">—</span>}
       </td>
@@ -1044,7 +1059,7 @@ export function RecurrenceDetailView() {
                   <table className="min-w-full text-sm">
                     <thead className="bg-stone-50/60">
                       <tr>
-                        {["Mês", "Estado", "Previsto", "Fatura", "Pagamento", "Ações"].map((h) => (
+                        {["Mês", "Estado", "Previsto", "Fatura", "Banco", "Pagamento", "Ações"].map((h) => (
                           <th key={h} className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-stone-400 whitespace-nowrap">
                             {h}
                           </th>

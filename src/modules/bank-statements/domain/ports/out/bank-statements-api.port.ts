@@ -11,6 +11,7 @@ import type {
   MatchSuggestionDTO,
   MovementCandidateDTO,
   MovementType,
+  OccurrenceCandidateDTO,
   ReconciliationRuleDTO,
   ReconciliationStatus,
   RiskLevel,
@@ -90,4 +91,10 @@ export interface BankStatementsApiPort {
 
   /** Cancels reconciliation for a movement: removes all entity links and resets its status. */
   unreconcileMovement(movementId: string): Promise<void>;
+
+  /**
+   * Searches recurrence occurrences without an invoice, for use in the
+   * "contrato_recorrencia" justify flow.
+   */
+  searchOccurrenceCandidates(params: { q?: string; dateFrom?: string; dateTo?: string; limit?: number }): Promise<OccurrenceCandidateDTO[]>;
 }

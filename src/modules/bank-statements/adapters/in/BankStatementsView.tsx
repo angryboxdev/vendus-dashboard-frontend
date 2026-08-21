@@ -47,6 +47,7 @@ const STATUS_COLORS: Record<ReconciliationStatus, string> = {
   conciliado_com_fatura: "bg-emerald-50 text-emerald-700",
   conciliado_parcial: "bg-yellow-50 text-yellow-700",
   conciliado_sem_fatura: "bg-teal-50 text-teal-700",
+  justificado: "bg-sky-50 text-sky-700",
   sugestao: "bg-blue-50 text-blue-700",
   pendente_de_documento: "bg-amber-50 text-amber-700",
   saida_nao_justificada: "bg-red-50 text-red-700",
