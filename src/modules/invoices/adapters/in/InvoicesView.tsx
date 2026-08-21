@@ -39,8 +39,12 @@ import {
   FINANCIAL_TYPE_COLORS,
 } from "../../../financial-base/domain/entities/cost-center.ts";
 import type { FinancialType } from "../../../financial-base/domain/entities/cost-center.ts";
-import { usePayableEntriesModule } from "../../../payable-entries/payable-entries.module.tsx";
-import type { PayableEntryDTO } from "../../../payable-entries/domain/entities/payable-entry.ts";
+import { usePayableRecurrencesModule } from "../../../payable-recurrences/payable-recurrences.module.tsx";
+import type { OccurrenceWithRecurrenceDTO } from "../../../payable-recurrences/domain/entities/recurrence.ts";
+import {
+  OCCURRENCE_STATUS_LABELS,
+  formatPeriod,
+} from "../../../payable-recurrences/domain/entities/recurrence.ts";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -816,7 +820,6 @@ interface DetailDrawerProps {
   categories: CostCenterCategory[];
   channels: ChannelDTO[];
   groups: CostCenterGroup[];
-  linkedPayable?: PayableEntryDTO | null;
   bankAccounts: { id: string; label: string }[];
   onClose: () => void;
   onOpenMarkPaid: (inv: InvoiceDTO) => void;
@@ -828,7 +831,6 @@ function InvoiceDetailDrawer({
   categories,
   channels: _channels,
   groups,
-  linkedPayable,
   bankAccounts,
   onClose,
   onOpenMarkPaid,
@@ -836,6 +838,7 @@ function InvoiceDetailDrawer({
 }: DetailDrawerProps) {
   const { api } = useInvoicesModule();
   const { api: bankApi } = useBankStatementsModule();
+  const { api: recurrencesApi } = usePayableRecurrencesModule();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [tab, setTab] = useState<"details" | "lines">("details");
@@ -884,6 +887,11 @@ function InvoiceDetailDrawer({
     queryKey: ["invoice-linked-movements", invoice?.id],
     queryFn: () => bankApi.getMovementsLinkedToInvoice(invoice!.id),
     enabled: isReconciled && !!invoice,
+  });
+  const { data: linkedRecurrenceOcc } = useQuery<OccurrenceWithRecurrenceDTO | null>({
+    queryKey: ["occurrence-by-invoice", invoice?.id],
+    queryFn: () => recurrencesApi.getOccurrenceByInvoiceId(invoice!.id),
+    enabled: !!invoice,
   });
 
   // Reload lines from API when switching to lines tab
@@ -1403,30 +1411,28 @@ function InvoiceDetailDrawer({
                     </div>
                   ) : null;
 
-                  const cardPayable = linkedPayable ? (
+
+                  const cardRecorrencia = linkedRecurrenceOcc ? (
                     <div
-                      key="payable"
+                      key="recorrencia"
                       className="rounded-lg border border-stone-200 p-4 space-y-2"
                     >
                       <p className="text-xs font-semibold text-stone-500">
-                        Conta a Pagar associada
+                        Recorrência associada
                       </p>
                       <div className="divide-y divide-stone-100">
                         {[
                           {
-                            label: "Vencimento",
-                            value: formatDate(linkedPayable.dueDate),
+                            label: "Nome",
+                            value: linkedRecurrenceOcc.recurrenceName,
                           },
                           {
-                            label: "Pago em",
-                            value: formatDate(linkedPayable.paidAt),
+                            label: "Período",
+                            value: formatPeriod(linkedRecurrenceOcc.occurrence.period),
                           },
                           {
-                            label: "Valor",
-                            value: (linkedPayable.amount / 100).toLocaleString(
-                              "pt-PT",
-                              { style: "currency", currency: "EUR" },
-                            ),
+                            label: "Estado",
+                            value: OCCURRENCE_STATUS_LABELS[linkedRecurrenceOcc.occurrence.status],
                           },
                         ].map(({ label, value }) => (
                           <div
@@ -1443,11 +1449,13 @@ function InvoiceDetailDrawer({
                       <button
                         onClick={() => {
                           onClose();
-                          navigate("/financial/payable-entries");
+                          navigate(
+                            `/financial/obligations/payable-recurrences/${linkedRecurrenceOcc.occurrence.recurrenceId}`,
+                          );
                         }}
                         className="text-xs font-medium text-[#ED5C32] hover:underline"
                       >
-                        Ver contas a pagar →
+                        Ver recorrência →
                       </button>
                     </div>
                   ) : null;
@@ -1519,7 +1527,7 @@ function InvoiceDetailDrawer({
 
                   const missing: string[] = [
                     !cardPayamento && "Sem pagamento registado",
-                    !cardPayable && "Sem conta a pagar associada",
+                    !cardRecorrencia && "Sem recorrência associada",
                     !cardConciliacao && "Sem conciliação bancária",
                   ].filter(Boolean) as string[];
 
@@ -1550,7 +1558,7 @@ function InvoiceDetailDrawer({
                     cardTotais,
                     cardClassificacao,
                     cardPayamento,
-                    cardPayable,
+                    cardRecorrencia,
                     cardConciliacao,
                     cardMissing,
                   ].filter(Boolean);
@@ -3355,7 +3363,6 @@ function CalendarDayPanel({
 export function InvoicesView() {
   const { api } = useInvoicesModule();
   const fbModule = useFinancialBaseModule();
-  const { api: payableApi } = usePayableEntriesModule();
   const { api: bankApi } = useBankAccountsModule();
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -3462,20 +3469,6 @@ export function InvoicesView() {
     queryKey: ["suppliers"],
     queryFn: () => fbModule.api.listSuppliers(),
   });
-
-  // Payable entries cross-reference — build Map<invoiceId, PayableEntryDTO>
-  const { data: allPayables = [] } = useQuery({
-    queryKey: ["payable-entries"],
-    queryFn: () => payableApi.listPayableEntries(),
-  });
-
-  const payableByInvoiceId = useMemo(() => {
-    const map = new Map<string, PayableEntryDTO>();
-    for (const p of allPayables) {
-      if (p.invoiceId) map.set(p.invoiceId, p);
-    }
-    return map;
-  }, [allPayables]);
 
   const supplierById = useMemo(
     () => new Map(suppliers.map((s) => [s.id, s])),
@@ -4777,7 +4770,6 @@ export function InvoicesView() {
             categories={categories}
             channels={channels}
             groups={groups}
-            linkedPayable={payableByInvoiceId.get(detail.id) ?? null}
             bankAccounts={bankAccounts}
             onClose={() => setDetail(null)}
             onOpenMarkPaid={setMarkPaidInvoice}

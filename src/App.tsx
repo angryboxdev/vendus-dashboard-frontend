@@ -51,6 +51,10 @@ import { MonthDetailView } from "./modules/bank-statements/adapters/in/MonthDeta
 import { BankAccountsProvider } from "./modules/bank-accounts/bank-accounts.module.tsx";
 import { BanksView } from "./modules/bank-accounts/adapters/in/BanksView.tsx";
 import { BankAccountsView } from "./modules/bank-accounts/adapters/in/BankAccountsView.tsx";
+import { PayableRecurrencesProvider } from "./modules/payable-recurrences/payable-recurrences.module.tsx";
+import { RecurrenceDetailView } from "./modules/payable-recurrences/adapters/in/RecurrenceDetailView.tsx";
+import { FinancialObligationsProvider } from "./modules/financial-obligations/financial-obligations.module.tsx";
+import { ObligationsView } from "./modules/financial-obligations/adapters/in/ObligationsView.tsx";
 import { AirMenuProvider } from "./modules/air-menu/air-menu.module.tsx";
 import { AirMenuView } from "./modules/air-menu/adapters/in/AirMenuView.tsx";
 import { VendusProvider } from "./modules/vendus/vendus.module.tsx";
@@ -154,21 +158,27 @@ export default function App() {
                     <FinancialBaseProvider>
                       <InvoicesProvider>
                         <PayableEntriesProvider>
-                          <BankStatementsProvider>
-                            <BankAccountsProvider>
-                              <Routes>
-                                <Route path="cost-centers" element={<CostCentersView />} />
-                                <Route path="suppliers" element={<SuppliersView />} />
-                                <Route path="suppliers/:id" element={<SupplierDetailView />} />
-                                <Route path="invoices" element={<InvoicesView />} />
-                                <Route path="payable-entries" element={<PayableEntriesView />} />
-                                <Route path="bank-statements" element={<BanksView />} />
-                                <Route path="bank-statements/banks/:bankId" element={<BankAccountsView />} />
-                                <Route path="bank-statements/banks/:bankId/accounts/:accountId" element={<BankAccountCalendarView />} />
-                                <Route path="bank-statements/banks/:bankId/accounts/:accountId/:year/:month" element={<MonthDetailView />} />
-                              </Routes>
-                            </BankAccountsProvider>
-                          </BankStatementsProvider>
+                          <PayableRecurrencesProvider>
+                            <FinancialObligationsProvider>
+                              <BankStatementsProvider>
+                                <BankAccountsProvider>
+                                  <Routes>
+                                    <Route path="cost-centers" element={<CostCentersView />} />
+                                    <Route path="suppliers" element={<SuppliersView />} />
+                                    <Route path="suppliers/:id" element={<SupplierDetailView />} />
+                                    <Route path="invoices" element={<InvoicesView />} />
+                                    <Route path="payable-entries" element={<PayableEntriesView />} />
+                                    <Route path="obligations" element={<ObligationsView />} />
+                                    <Route path="obligations/payable-recurrences/:id" element={<RecurrenceDetailView />} />
+                                    <Route path="bank-statements" element={<BanksView />} />
+                                    <Route path="bank-statements/banks/:bankId" element={<BankAccountsView />} />
+                                    <Route path="bank-statements/banks/:bankId/accounts/:accountId" element={<BankAccountCalendarView />} />
+                                    <Route path="bank-statements/banks/:bankId/accounts/:accountId/:year/:month" element={<MonthDetailView />} />
+                                  </Routes>
+                                </BankAccountsProvider>
+                              </BankStatementsProvider>
+                            </FinancialObligationsProvider>
+                          </PayableRecurrencesProvider>
                         </PayableEntriesProvider>
                       </InvoicesProvider>
                     </FinancialBaseProvider>
