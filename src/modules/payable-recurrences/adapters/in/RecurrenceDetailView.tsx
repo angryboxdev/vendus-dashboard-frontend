@@ -8,7 +8,6 @@ import { useInvoicesModule } from "../../../invoices/invoices.module.tsx";
 import type { BankDTO, AccountPreviewDTO } from "../../../bank-accounts/domain/entities/bank-account.ts";
 import type { InvoiceDTO } from "../../../invoices/domain/entities/invoice.ts";
 import {
-  PAYMENT_METHOD_LABELS as INVOICE_PAYMENT_METHOD_LABELS,
   INVOICE_STATUS_LABELS,
 } from "../../../invoices/domain/entities/invoice.ts";
 import {

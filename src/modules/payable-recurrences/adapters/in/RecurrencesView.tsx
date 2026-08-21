@@ -3,11 +3,9 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePayableRecurrencesModule } from "../../payable-recurrences.module.tsx";
 import {
-  type RecurrenceDTO,
   type RecurrenceStatus,
   type RecurrenceType,
   type CreateRecurrencePayload,
-  type UpdateRecurrencePayload,
   RECURRENCE_TYPE_LABELS,
   RECURRENCE_STATUS_LABELS,
   RECURRENCE_FREQUENCY_LABELS,
