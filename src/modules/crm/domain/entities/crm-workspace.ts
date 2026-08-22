@@ -1,6 +1,7 @@
 export type RelationshipStatus = "new" | "recurring" | "vip";
 export type CrmTag = { name: string; label: string; color: string; category: string; active: boolean };
 export type CrmActionType = { code: string; name: string; color: string; active: boolean; system: boolean };
+export type CrmScriptOption = { code: string; name: string; active: boolean };
 export type CrmTableItem = {
   id: string; firstName: string; lastName: string | null; fullName: string; phone: string | null;
   status: { relationship: RelationshipStatus; inactive: boolean; inactiveReason: string | null };
@@ -13,7 +14,7 @@ export type CrmTableItem = {
 };
 export type CrmTableFilters = {
   search?: string; status?: RelationshipStatus; activity?: "active" | "inactive"; tags?: string[];
-  tagMode?: "any" | "all"; lastActionType?: string; nextActionType?: string;
+  tagMode?: "any" | "all"; lastActionType?: string; nextActionType?: string; lastScriptCode?: string;
   followUpState?: "overdue" | "today" | "upcoming" | "none";
   sortBy?: "name" | "customerId" | "status" | "orderCount" | "lastOrderDate" | "lastAction" | "followUpDate";
   sortDirection?: "asc" | "desc";

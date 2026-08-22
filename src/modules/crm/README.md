@@ -50,6 +50,7 @@ O frontend não recalcula estados, métricas ou qual ação é a última/próxim
 - `listCustomers` — lista clientes com filtros e paginação.
 - `listTags` / `createTag` — consulta e cria tags.
 - `listActionTypes` / `createActionType` / `updateActionType` — gerencia o catálogo de ações.
+- `listScripts` — carrega o catálogo completo, incluindo inativos, usado pelo filtro de último script histórico.
 - `createActions` — agenda uma ação para um ou vários clientes.
 - `completeAction` / `completeActions` — conclui ações pendentes.
 - `listCustomerActions` — carrega próxima ação e histórico.
@@ -88,6 +89,7 @@ Todos os pedidos passam por `CrmWorkspaceService`; componentes não chamam HTTP 
 | Operação | Endpoint |
 | --- | --- |
 | Listar clientes | `GET /api/crm/customer-table` |
+| Listar scripts | `GET /api/crm/scripts` |
 | Listar/criar tipos | `GET|POST /api/crm/action-types` |
 | Editar tipo | `PATCH /api/crm/action-types/:code` |
 | Agendar ações | `POST /api/crm/actions` |
@@ -130,6 +132,7 @@ Clicar no nome abre o detalhe legado. Telefone, última ação e próxima ação
 - Atividade: ativos/inativos.
 - Tipo da última ação.
 - Tipo da próxima ação.
+- Último script (temporário).
 - Tags, com combinação `any` ou `all`.
 
 Qualquer mudança de filtro limpa a seleção e retorna à primeira página.

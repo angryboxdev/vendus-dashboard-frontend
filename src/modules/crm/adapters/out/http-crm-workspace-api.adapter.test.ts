@@ -39,6 +39,7 @@ describe("HttpCrmWorkspaceApiAdapter", () => {
       activity: "active",
       tags: ["feedback", "prioridade"],
       tagMode: "all",
+      lastScriptCode: "boas_vindas",
       search: "",
       sortBy: "orderCount",
       sortDirection: "desc",
@@ -47,8 +48,16 @@ describe("HttpCrmWorkspaceApiAdapter", () => {
     });
 
     expect(get).toHaveBeenCalledWith(
-      "/api/crm/customer-table?page=2&pageSize=25&status=vip&activity=active&tags=feedback%2Cprioridade&tagMode=all&sortBy=orderCount&sortDirection=desc",
+      "/api/crm/customer-table?page=2&pageSize=25&status=vip&activity=active&tags=feedback%2Cprioridade&tagMode=all&lastScriptCode=boas_vindas&sortBy=orderCount&sortDirection=desc",
     );
+  });
+
+  it("carrega o catálogo de scripts para o filtro", async () => {
+    const adapter = new HttpCrmWorkspaceApiAdapter();
+
+    await adapter.listScripts();
+
+    expect(get).toHaveBeenCalledWith("/api/crm/scripts?includeInactive=true");
   });
 
   it("codifica identificadores nos endpoints de tipos, ações e histórico", async () => {

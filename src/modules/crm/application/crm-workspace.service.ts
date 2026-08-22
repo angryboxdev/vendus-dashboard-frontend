@@ -6,6 +6,7 @@ export class CrmWorkspaceService {
   listTags = () => this.api.listTags();
   createTag = (input: Parameters<CrmWorkspaceApiPort["createTag"]>[0]) => this.api.createTag(input);
   listActionTypes = () => this.api.listActionTypes();
+  listScripts = () => this.api.listScripts();
   createActionType = (input: Parameters<CrmWorkspaceApiPort["createActionType"]>[0]) => this.api.createActionType(input);
   updateActionType = (code: string, input: { name: string }) => this.api.updateActionType(code, input);
   createActions = (input: Parameters<CrmWorkspaceApiPort["createActions"]>[0]) => this.api.createActions(input);

@@ -39,6 +39,7 @@ function fakeApi(items: CrmTableItem[] = [customer()]): CrmWorkspaceApiPort & { 
     listTags: vi.fn().mockResolvedValue([]),
     createTag: vi.fn(),
     listActionTypes: vi.fn().mockResolvedValue([]),
+    listScripts: vi.fn().mockResolvedValue([]),
     createActionType: vi.fn(),
     updateActionType: vi.fn(),
     createActions: vi.fn().mockResolvedValue(undefined),
@@ -100,6 +101,18 @@ describe("CrmCustomersView", () => {
     await user.selectOptions(screen.getByDisplayValue("10"), "25");
 
     await waitFor(() => expect(api.listCustomers).toHaveBeenLastCalledWith(expect.objectContaining({ page: 1, pageSize: 25 })));
+  });
+
+  it("filtra clientes pelo último script selecionado", async () => {
+    const user = userEvent.setup();
+    const api = fakeApi();
+    vi.mocked(api.listScripts).mockResolvedValue([{ code: "S1", name: "Boas-vindas", active: true }]);
+    renderView(api);
+
+    await screen.findByRole("option", { name: "Boas-vindas" });
+    await user.selectOptions(screen.getByLabelText("Último script"), "S1");
+
+    await waitFor(() => expect(api.listCustomers).toHaveBeenLastCalledWith(expect.objectContaining({ lastScriptCode: "S1", page: 1 })));
   });
 
   it("abre o agendamento ao clicar numa próxima ação vazia", async () => {
