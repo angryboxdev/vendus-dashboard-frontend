@@ -56,7 +56,7 @@ export async function fetchCustomersEnriched(
   params: Omit<CustomersParams, "enriched"> = {},
 ): Promise<CrmCustomerEnriched[]> {
   return apiGet(
-    `${CRM}/customers${buildCustomersQuery({ ...params, enriched: true })}`,
+    `${CRM}/customers${buildCustomersQuery({ limit: 500, ...params, enriched: true })}`,
   );
 }
 

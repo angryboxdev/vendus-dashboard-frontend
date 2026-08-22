@@ -18,6 +18,7 @@ export type CrmHowFound =
   | "Evento"
   | "Outro";
 export type CrmSeg07Path = "A" | "B";
+export type CrmMetricsSource = "crm_orders" | "eatz_snapshot" | "none";
 
 export type CrmCustomer = {
   id: string;
@@ -35,6 +36,14 @@ export type CrmCustomer = {
   seg07Path: CrmSeg07Path | null;
   manualFollowupDate: string | null;
   registeredAt: string;
+  eatzRegisteredAt: string | null;
+  eatzLastOrderDate: string | null;
+  eatzOrderCount: number | null;
+  eatzTotalSpent: number | null;
+  eatzAvgTicket: number | null;
+  eatzSegment: "Novo" | "Inativo" | "Recorrente" | null;
+  eatzMarketingOptIn: boolean | null;
+  eatzSnapshotAt: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -55,6 +64,7 @@ export type CrmCustomerEnriched = CrmCustomer & {
   firstOrderDate: string | null;
   lastOrderDate: string | null;
   daysSinceLastOrder: number | null;
+  metricsSource: CrmMetricsSource;
   tags: string[];
   nextFollowUp: CrmNextFollowUp | null;
 };

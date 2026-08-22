@@ -34,7 +34,7 @@ import { PrintOrdersPage } from "./pages/orders/PrintOrdersPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { CrmLayout } from "./pages/crm/CrmLayout";
 import { CrmDashboardPage } from "./pages/crm/CrmDashboardPage";
-import { CrmCustomersPage } from "./pages/crm/CrmCustomersPage";
+import { CrmCustomersPage } from "./modules/crm/adapters/in/CrmCustomersPage";
 import { CrmCustomerDetailPage } from "./pages/crm/CrmCustomerDetailPage";
 import { CrmParametersPage } from "./pages/crm/CrmParametersPage";
 import { FinancialBaseProvider } from "./modules/financial-base/financial-base.module.tsx";

@@ -1,33 +1,16 @@
-import { NavLink, Outlet } from "react-router-dom";
-
-const navItems: { to: string; label: string; end?: boolean }[] = [
-  { to: "/crm", label: "Dashboard", end: true },
-  { to: "/crm/customers", label: "Clientes" },
-  { to: "/crm/parameters", label: "Parâmetros" },
-];
-
-const tabClass = ({ isActive }: { isActive: boolean }) =>
-  `whitespace-nowrap px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
-    isActive
-      ? "border-slate-900 text-slate-900"
-      : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-300"
-  }`;
+import { Outlet, useLocation } from "react-router-dom";
 
 export function CrmLayout() {
+  const location = useLocation();
+  const customersTable = location.pathname === "/crm/customers";
+
   return (
-    <div className="min-h-full bg-slate-50">
-      <div className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 pt-4">
-          <h1 className="text-xl sm:text-2xl font-semibold text-slate-900">CRM</h1>
-          <nav className="mt-2 flex overflow-x-auto gap-1 scrollbar-none">
-            {navItems.map(({ to, label, end }) => (
-              <NavLink key={to} to={to} end={end} className={tabClass}>
-                {label}
-              </NavLink>
-            ))}
-          </nav>
+    <div className="min-h-full bg-[#FAF6F3]">
+      {!customersTable && <div className="border-b border-[#F5C992]/40 bg-white">
+        <div className="mx-auto max-w-6xl px-4 py-4 sm:px-6">
+          <h1 className="text-xl font-bold text-stone-900">CRM</h1>
         </div>
-      </div>
+      </div>}
       <Outlet />
     </div>
   );
