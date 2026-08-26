@@ -2,22 +2,22 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { apiDelete, apiPatch, apiPost } from "../../lib/api";
 import { useAuth } from "../../contexts/AuthContext";
-import type { AppRole } from "../../contexts/AuthContext";
+import type { OrgRole } from "../../contexts/AuthContext";
 
 interface AppUser {
   id: string;
   email: string;
-  role: AppRole;
+  role: OrgRole;
   created_at: string;
 }
 
-const ROLE_LABELS: Record<AppRole, string> = {
+const ROLE_LABELS: Record<OrgRole, string> = {
   admin: "Admin",
   manager: "Manager",
   hr_viewer: "Visualizador RH",
 };
 
-const ROLES: AppRole[] = ["admin", "manager", "hr_viewer"];
+const ROLES: OrgRole[] = ["admin", "manager", "hr_viewer"];
 
 async function fetchUsers(): Promise<AppUser[]> {
   const { apiGet } = await import("../../lib/api");
@@ -30,7 +30,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
   const qc = useQueryClient();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [role, setRole] = useState<AppRole>("manager");
+  const [role, setRole] = useState<OrgRole>("manager");
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
@@ -70,7 +70,7 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
             <label className="mb-1 block text-sm font-medium text-slate-700">Função</label>
             <select
               value={role}
-              onChange={(e) => setRole(e.target.value as AppRole)}
+              onChange={(e) => setRole(e.target.value as OrgRole)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               {ROLES.map((r) => (
@@ -108,13 +108,13 @@ function CreateUserModal({ onClose }: { onClose: () => void }) {
 
 function EditUserModal({ user, onClose }: { user: AppUser; onClose: () => void }) {
   const qc = useQueryClient();
-  const [role, setRole] = useState<AppRole>(user.role);
+  const [role, setRole] = useState<OrgRole>(user.role);
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const mutation = useMutation({
     mutationFn: () => {
-      const body: { role: AppRole; password?: string } = { role };
+      const body: { role: OrgRole; password?: string } = { role };
       if (password) body.password = password;
       return apiPatch(`/api/auth/users/${user.id}`, body);
     },
@@ -135,7 +135,7 @@ function EditUserModal({ user, onClose }: { user: AppUser; onClose: () => void }
             <label className="mb-1 block text-sm font-medium text-slate-700">Função</label>
             <select
               value={role}
-              onChange={(e) => setRole(e.target.value as AppRole)}
+              onChange={(e) => setRole(e.target.value as OrgRole)}
               className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
             >
               {ROLES.map((r) => (

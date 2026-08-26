@@ -8,12 +8,14 @@ import {
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 
-export type AppRole = "admin" | "manager" | "hr_viewer";
+export type OrgRole = "admin" | "manager" | "hr_viewer";
 
 export interface AuthUser {
   id: string;
   email: string;
-  role: AppRole;
+  role: OrgRole;
+  /** The user's organization, from the `org_id` claim. Null until the token hook migration ships. */
+  organizationId: string | null;
 }
 
 interface AuthContextValue {
@@ -26,24 +28,32 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function parseRole(session: Session | null): AppRole | null {
+interface TokenClaims {
+  /** Post-migration shape: a role scoped to org_id. */
+  org_role?: OrgRole;
+  /** Pre-migration shape. Fallback only — remove once the hook migration has shipped. */
+  app_role?: OrgRole;
+  org_id?: string;
+}
+
+function decodeClaims(session: Session | null): TokenClaims | null {
   if (!session) return null;
-  // The custom_access_token_hook injects app_role into the JWT payload
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const payload = (session.access_token as any)
-    ? (() => {
-        try {
-          const parts = session.access_token.split(".");
-          if (parts.length !== 3) return null;
-          return JSON.parse(atob(parts[1]!.replace(/-/g, "+").replace(/_/g, "/"))) as {
-            app_role?: AppRole;
-          };
-        } catch {
-          return null;
-        }
-      })()
-    : null;
-  return payload?.app_role ?? null;
+  try {
+    const parts = session.access_token.split(".");
+    if (parts.length !== 3) return null;
+    return JSON.parse(
+      atob(parts[1]!.replace(/-/g, "+").replace(/_/g, "/")),
+    ) as TokenClaims;
+  } catch {
+    return null;
+  }
+}
+
+function parseRole(session: Session | null): OrgRole | null {
+  const claims = decodeClaims(session);
+  // The custom_access_token_hook injects org_role into the JWT payload; app_role
+  // is what pre-migration tokens carry, and is read here only as a fallback.
+  return claims?.org_role ?? claims?.app_role ?? null;
 }
 
 function sessionToUser(session: Session | null): AuthUser | null {
@@ -54,6 +64,7 @@ function sessionToUser(session: Session | null): AuthUser | null {
     id: session.user.id,
     email: session.user.email ?? "",
     role,
+    organizationId: decodeClaims(session)?.org_id ?? null,
   };
 }
 
