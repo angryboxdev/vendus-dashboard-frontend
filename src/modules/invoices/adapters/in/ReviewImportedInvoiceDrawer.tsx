@@ -2,6 +2,7 @@ import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { NumericInput } from "../../../../components/NumericInput.tsx";
+import { LocationSelect } from "../../../../components/LocationSelect.tsx";
 import { useInvoicesModule } from "../../invoices.module.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
 import type {
@@ -482,6 +483,7 @@ interface DraftLine {
   unitCost: string; // preço unitário s/ IVA, em euros (string decimal)
   vatRate: string;  // "0" | "6" | "13" | "23"
   catId: string;
+  locationId: string | null;
 }
 
 function newDraftLine(): DraftLine {
@@ -494,6 +496,7 @@ function newDraftLine(): DraftLine {
     unitCost: "",
     vatRate: "23",
     catId: "",
+    locationId: null,
   };
 }
 
@@ -522,6 +525,8 @@ function draftLineToPayload(l: DraftLine): CreateInvoiceLinePayload {
     vatAmount,
     totalWithVat,
     costCenterCategoryId: l.catId || null,
+    // Optional (D4): omitted means "organization-wide, no store". Never defaulted.
+    locationId: l.locationId,
   };
 }
 
@@ -759,6 +764,14 @@ function EditableLinesSection({ lines, categories, invoiceTotalCents, onChange }
                     </select>
                   </div>
                 )}
+                {/* Loja (D4): opcional — um custo pode ser da organização e de nenhuma loja */}
+                <LocationSelect
+                  value={l.locationId}
+                  onChange={(locationId) => updateLine(l.key, { locationId })}
+                  allowUnset
+                  label="Loja"
+                  className={fieldCls}
+                />
                 {/* Preview do total calculado */}
                 {parseFloat(l.unitCost || "0") > 0 && (
                   <p className="text-xs text-stone-500 tabular-nums">
@@ -854,6 +867,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
         unitCost,
         vatRate: normalizeVatRate(l.vatRate),
         catId: "",
+        locationId: null,
       };
     })
   );

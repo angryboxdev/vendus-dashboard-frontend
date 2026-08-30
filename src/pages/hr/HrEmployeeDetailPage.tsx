@@ -2,9 +2,10 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { ReactNode } from "react";
 import { useEffect, useMemo, useState } from "react";
-import { useForm, useFormState, useWatch } from "react-hook-form";
+import { Controller, useForm, useFormState, useWatch } from "react-hook-form";
 import { Link, useParams } from "react-router-dom";
 
+import { LocationSelect } from "../../components/LocationSelect.tsx";
 import { ApiError } from "../../lib/api";
 import { exportEmployeeSchedulePdf } from "../../utils/schedulePdf";
 import {
@@ -201,6 +202,7 @@ export function HrEmployeeDetailPage() {
     null,
   );
   const [applyMonthOpen, setApplyMonthOpen] = useState(false);
+  const [applyMonthLocationId, setApplyMonthLocationId] = useState<string | null>(null);
   const [pinModalOpen, setPinModalOpen] = useState(false);
   const [pinInput, setPinInput] = useState("");
   const [prefillDate, setPrefillDate] = useState<string>("");
@@ -326,6 +328,7 @@ export function HrEmployeeDetailPage() {
         startTime: values.startTime,
         endTime: values.endTime,
         locationOrStation: values.locationOrStation?.trim() || null,
+        locationId: values.locationId,
         notes: values.notes?.trim() || null,
       }),
     onSuccess: async () => {
@@ -349,6 +352,7 @@ export function HrEmployeeDetailPage() {
         startTime: values.startTime,
         endTime: values.endTime,
         locationOrStation: values.locationOrStation?.trim() || null,
+        locationId: values.locationId,
         notes: values.notes?.trim() || null,
       }),
     onSuccess: async () => {
@@ -500,8 +504,9 @@ export function HrEmployeeDetailPage() {
       year,
       month,
       shifts ?? [],
+      applyMonthLocationId,
     );
-  }, [employee, id, year, month, shifts]);
+  }, [employee, id, year, month, shifts, applyMonthLocationId]);
 
   const applyScheduleMut = useMutation({
     mutationFn: async () => {
@@ -514,6 +519,7 @@ export function HrEmployeeDetailPage() {
         year,
         month,
         shifts ?? [],
+        applyMonthLocationId,
       );
       for (const b of bodies) {
         await createShift(b);
@@ -1423,6 +1429,15 @@ export function HrEmployeeDetailPage() {
             partir da escala base (turnos já existentes no mesmo dia e horas são
             ignorados).
           </p>
+          {/* Loja dos turnos gerados — só aparece com mais de uma location */}
+          <div className="mt-3">
+            <LocationSelect
+              value={applyMonthLocationId}
+              onChange={setApplyMonthLocationId}
+              label="Loja"
+              className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            />
+          </div>
           {applyPreviewBodies.length === 0 ? (
             <p className="mt-2 text-sm text-amber-800">
               Não há turnos em falta: já existem para este mês ou a escala não
@@ -1559,6 +1574,7 @@ function ShiftModal({
           startTime: initial.startTime,
           endTime: initial.endTime,
           locationOrStation: initial.locationOrStation ?? "",
+          locationId: initial.locationId,
           notes: initial.notes ?? "",
         }
       : {
@@ -1572,6 +1588,7 @@ function ShiftModal({
           startTime: "09:00",
           endTime: "17:00",
           locationOrStation: "",
+          locationId: null,
           notes: "",
         },
   });
@@ -1663,6 +1680,19 @@ function ShiftModal({
               {...form.register("locationOrStation")}
             />
           }
+        />
+        {/* Loja onde o turno decorre — só aparece com mais de uma location */}
+        <Controller
+          control={form.control}
+          name="locationId"
+          render={({ field }) => (
+            <LocationSelect
+              value={field.value}
+              onChange={field.onChange}
+              label="Loja"
+              className={controlClassModal}
+            />
+          )}
         />
         <Field
           label="Notas"

@@ -192,6 +192,8 @@ export type HrShiftAttendance = {
   actualEndTime: string | null;
   lateMinutes: number | null;
   notes: string | null;
+  /** Loja onde a presença foi registada (D3/D4). */
+  locationId: string | null;
   registrationSource: RegistrationSource;
   registeredByEmployeeId: string | null;
   registeredAt: string;
@@ -205,6 +207,8 @@ export type HrWorkShift = {
   startTime: string;
   endTime: string;
   locationOrStation: string | null;
+  /** Loja onde o turno decorre (D3/D4) — distinta de `locationOrStation` (texto livre). */
+  locationId: string | null;
   notes: string | null;
   createdAt: string;
   updatedAt: string;

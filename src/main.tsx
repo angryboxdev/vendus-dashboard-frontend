@@ -6,6 +6,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
+import { LocationsProvider } from "./modules/locations/locations.module.tsx";
 import { DashboardStoreProvider } from "./pages/DashboardStoreContext";
 import { DrePeriodProvider } from "./pages/dre/DrePeriodContext";
 import { DreStoreProvider } from "./pages/dre/DreStoreContext";
@@ -24,13 +25,15 @@ createRoot(document.getElementById("root")!).render(
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <AuthProvider>
-          <DashboardStoreProvider>
-            <DrePeriodProvider>
-              <DreStoreProvider>
-                <App />
-              </DreStoreProvider>
-            </DrePeriodProvider>
-          </DashboardStoreProvider>
+          <LocationsProvider>
+            <DashboardStoreProvider>
+              <DrePeriodProvider>
+                <DreStoreProvider>
+                  <App />
+                </DreStoreProvider>
+              </DrePeriodProvider>
+            </DashboardStoreProvider>
+          </LocationsProvider>
         </AuthProvider>
       </BrowserRouter>
     </QueryClientProvider>

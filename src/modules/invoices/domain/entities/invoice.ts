@@ -66,6 +66,8 @@ export interface InvoiceLineDTO {
   description: string;
   type: InvoiceLineType;
   costCenterCategoryId: string | null;
+  /** Nullable: a cost may belong to the organization and to no store (D4). */
+  locationId: string | null;
   stockItemId: string | null;
   quantity: number;
   unit: string | null;
@@ -190,6 +192,8 @@ export interface CreateInvoiceLinePayload {
   vatRate: number;
   vatAmount: number;
   totalWithVat: number;
+  /** Optional (D4): omitted means "organization-wide, no store". Never defaulted. */
+  locationId?: string | null;
 }
 
 export interface CreateInvoicePayload {
@@ -276,6 +280,8 @@ export interface UpdateInvoiceLinePayload {
   vatRate?: number;
   vatAmount?: number;
   totalWithVat?: number;
+  /** Optional (D4): omitted means "organization-wide, no store". Never defaulted. */
+  locationId?: string | null;
 }
 
 export interface ClassifyLinePayload {

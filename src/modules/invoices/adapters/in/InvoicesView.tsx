@@ -46,6 +46,7 @@ import {
   formatPeriod,
 } from "../../../payable-recurrences/domain/entities/recurrence.ts";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
+import { LocationSelect } from "../../../../components/LocationSelect.tsx";
 
 // ── helpers ────────────────────────────────────────────────────────────────────
 
@@ -467,6 +468,7 @@ function AddLineForm({
   const [unitCost, setUnitCost] = useState("");
   const [vatRate, setVatRate] = useState("23");
   const [catId, setCatId] = useState("");
+  const [locationId, setLocationId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const subtotal = parseFloat(quantity || "0") * parseFloat(unitCost || "0");
@@ -488,6 +490,7 @@ function AddLineForm({
         vatAmount,
         totalWithVat: totalCents,
         costCenterCategoryId: catId || null,
+        locationId,
       });
       onDone(line);
     } finally {
@@ -592,6 +595,13 @@ function AddLineForm({
             </option>
           ))}
       </select>
+      {/* Store (D4): optional — a cost may belong to the whole organization and to no store */}
+      <LocationSelect
+        value={locationId}
+        onChange={setLocationId}
+        allowUnset
+        label="Loja"
+      />
       {subtotal > 0 && (
         <p className="text-xs text-stone-500 tabular-nums">
           Total c/ IVA:{" "}
@@ -648,6 +658,7 @@ function EditLineForm({
   );
   const [vatRate, setVatRate] = useState(String(line.vatRate));
   const [catId, setCatId] = useState(line.costCenterCategoryId ?? "");
+  const [locationId, setLocationId] = useState<string | null>(line.locationId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -668,6 +679,7 @@ function EditLineForm({
         vatRate: parseFloat(vatRate),
         vatAmount,
         totalWithVat: totalCents,
+        locationId,
       });
       const classified = await api.classifyLine(invoiceId, line.id, {
         classify: {
@@ -781,6 +793,13 @@ function EditLineForm({
             </option>
           ))}
       </select>
+      {/* Store (D4): optional — a cost may belong to the whole organization and to no store */}
+      <LocationSelect
+        value={locationId}
+        onChange={setLocationId}
+        allowUnset
+        label="Loja"
+      />
       {subtotal > 0 && (
         <p className="text-xs text-stone-500 tabular-nums">
           Total c/ IVA:{" "}
@@ -2355,6 +2374,7 @@ interface LineBuilder {
   unitCost: string;
   vatRate: string;
   catId: string;
+  locationId: string | null;
 }
 
 function emptyLineBuilder(): LineBuilder {
@@ -2366,6 +2386,7 @@ function emptyLineBuilder(): LineBuilder {
     unitCost: "",
     vatRate: "23",
     catId: "",
+    locationId: null,
   };
 }
 
@@ -2381,6 +2402,8 @@ function lineBuilderToPayload(b: LineBuilder): CreateInvoiceLinePayload {
     vatRate: parseFloat(b.vatRate),
     vatAmount,
     totalWithVat: Math.round(subtotal * 100) + vatAmount,
+    // Optional (D4): omitted means "organization-wide, no store". Never defaulted.
+    locationId: b.locationId,
   };
   if (b.unit) payload.unit = b.unit;
   if (b.catId) payload.costCenterCategoryId = b.catId;
@@ -2747,6 +2770,15 @@ function CreateInvoiceDrawer({
                         </option>
                       ))}
                   </select>
+                  {/* Store (D4): optional — a cost may belong to the whole organization and to no store */}
+                  <LocationSelect
+                    value={lineBuilder.locationId}
+                    onChange={(locationId) =>
+                      setLineBuilder((b) => ({ ...b, locationId }))
+                    }
+                    allowUnset
+                    className={inputSmCls}
+                  />
                   {lbSubtotal > 0 && (
                     <p className="text-xs text-stone-500 tabular-nums">
                       Total c/ IVA:{" "}

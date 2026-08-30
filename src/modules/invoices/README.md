@@ -105,7 +105,9 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 - **InvoiceLineDTO** — linha de detalhe com `type`, `costCenterCategoryId`, valores monetários,
   flags `affectsDre`/`affectsCashflow`/`affectsProfitability`, e campos V2: `financialType` (herdado
   da subcategoria), `channelId`, `requiresChannel`, `requiresAllocation`, `dreValue` (s/ IVA, cêntimos),
-  `cashflowValue` (c/ IVA, cêntimos).
+  `cashflowValue` (c/ IVA, cêntimos). `locationId` (`string | null`) — a loja a que o custo pertence;
+  `null` é um estado válido e propositado (um custo pode ser da organização inteira e de nenhuma loja
+  — spec B2 D4). Nunca é preenchido por omissão a partir da primeira loja.
 - **SuggestClassificationResult** — sugestão de classificação para uma linha: `costCenterCategoryId`,
   `defaultLineType`, `channelId` (todos anuláveis). Retornado por `suggestLineClassification()`.
 - **InvoiceImportResultDTO** — resultado do import: `invoice` (draft_ai), `aiConfidence`,
@@ -127,7 +129,7 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 
 - `InvoicesApiPort` — métodos HTTP:
   - CRUD base: `listInvoices(params?)`, `getInvoice(id)`, `createInvoice`, `updateInvoice`, `deleteInvoice`
-  - Linhas: `listInvoiceLines()`, `addLine`, `updateLine`, `deleteLine(invoiceId, lineId)`, `classifyLine` (aceita `channelId` no payload)
+  - Linhas: `listInvoiceLines()`, `addLine`, `updateLine`, `deleteLine(invoiceId, lineId)`, `classifyLine` (aceita `channelId` no payload). `addLine`/`updateLine` aceitam `locationId?: string | null` — omitir/`null` significa "organização, sem loja"; nunca é assumido a partir da primeira loja (D4, ticket 19).
   - Modo de linhas: `setLineDetailMode(id, mode)` → `InvoiceDTO` — transição *simple → detailed* é livre; *detailed → simple* apaga as linhas no backend
   - Ciclo de vida: `markInvoicePaid(id, paidAt?)`; `setInvoiceStatus(id, status)` — usado pelo "Desfazer pagamento" para repor `pending`
   - Import IA: `importInvoice(file)` → `InvoiceImportResultDTO`; `confirmImportedInvoice(id, payload)`
@@ -289,6 +291,14 @@ ao campo.
 `DeleteConfirmModal` inspecciona `invoice.reconciliationStatus` e `invoice.status`
 para determinar se há payable ou links de reconciliação associados e avisa o
 utilizador do que será feito automaticamente ao confirmar.
+
+**Seletor de loja por linha (`LocationSelect`, ticket 19).**
+`AddLineForm`, `EditLineForm`, o line builder do `CreateInvoiceDrawer` e o
+`EditableLinesSection` do `ReviewImportedInvoiceDrawer` usam o mesmo
+`LocationSelect` (`src/components/LocationSelect.tsx`, módulo `locations`)
+com `allowUnset` — nunca escondem a possibilidade de deixar a linha sem loja.
+O componente não renderiza nada enquanto a organização tiver 0 ou 1 location,
+por isso a Angrybox (uma só loja) não vê qualquer campo novo.
 
 **Alteração de fornecedor no ReviewImportedInvoiceDrawer.**
 Quando um fornecedor já está ligado, o `SupplierPanel` passa a mostrar um botão
