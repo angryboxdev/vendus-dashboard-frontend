@@ -100,6 +100,8 @@ export type StockMovementCreateBody = {
   reference?: string | null;
   movement_date?: string; // ISO 8601 – se omitido, backend usa "agora"
   created_by?: string | null;
+  /** Loja onde o movimento ocorreu — obrigatório (ticket 17: backend rejeita com 400 se ausente). */
+  location_id: string;
 };
 
 export type StockMovementUpdateBody = {
@@ -109,6 +111,8 @@ export type StockMovementUpdateBody = {
   unit_cost_per_base_unit_without_vat?: number | null;
   reason?: string | null;
   reference?: string | null;
+  /** Loja onde o movimento ocorreu. Omitir para não alterar — o backend rejeita um valor vazio quando presente. */
+  location_id?: string;
 };
 
 /** Linha em GET /api/stock/movements (lista paginada) */

@@ -67,6 +67,8 @@ export function buildCreateShiftBodiesFromWeeklySchedule(
   year: number,
   month1to12: number,
   existingInMonth: HrWorkShift[],
+  /** Loja onde os turnos gerados decorrem (D3/D4). */
+  locationId: string | null = null,
 ): CreateShiftBody[] {
   const byWeekday = new Map<
     number,
@@ -103,6 +105,7 @@ export function buildCreateShiftBodiesFromWeeklySchedule(
         workDate: iso,
         startTime: normalizeTimeSegment(seg.startTime),
         endTime: normalizeTimeSegment(seg.endTime),
+        locationId,
       });
     }
   }

@@ -121,6 +121,8 @@ export type CreateShiftBody = {
   startTime: string;
   endTime: string;
   locationOrStation?: string | null;
+  /** Loja onde o turno decorre (D3/D4). */
+  locationId?: string | null;
   notes?: string | null;
 };
 
@@ -148,6 +150,8 @@ export type PatchShiftAttendanceBody = {
   actualEndTime?: string | null;
   lateMinutes?: number | null;
   notes?: string | null;
+  /** Loja onde a presença foi registada (D3/D4). */
+  locationId?: string | null;
   registrationSource?: RegistrationSource;
   registeredByEmployeeId?: string | null;
 };
@@ -184,6 +188,7 @@ export function attendanceFormValuesToPatchBody(
     actualEndTime: clearTimes ? null : v.actualEndTime.trim() || null,
     lateMinutes,
     notes: v.notes.trim() || null,
+    locationId: v.locationId,
     registrationSource: "dashboard",
     registeredByEmployeeId: null,
   };

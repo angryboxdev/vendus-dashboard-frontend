@@ -24,6 +24,8 @@ export interface AddInvoiceLinePayload {
   vatRate: number;
   vatAmount: number;
   totalWithVat: number;
+  /** Optional (D4): omitted means "organization-wide, no store". Never defaulted. */
+  locationId?: string | null;
 }
 
 export interface InvoicesApiPort {

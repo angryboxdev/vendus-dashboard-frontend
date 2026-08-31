@@ -19,6 +19,9 @@ import {
   STOCK_ITEM_TYPE_LABELS,
   STOCK_MOVEMENT_TYPE_LABELS,
 } from "./stock.types";
+import { LocationSelect } from "../../components/LocationSelect.tsx";
+import { useLocations } from "../../modules/locations/adapters/in/use-locations.ts";
+import { resolveLocationId } from "../../modules/locations/domain/services/resolve-location-id.ts";
 import { InvoiceImportModal } from "./invoiceImport/InvoiceImportModal";
 import type { ReviewableInvoiceLine } from "./invoiceImport/invoiceImport.types";
 import { mapInvoiceLineToNewStockItemForm } from "./invoiceImport/mapInvoiceLineToNewStockItem";
@@ -45,6 +48,7 @@ function buildItemsQuery(params: {
 export function StockPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const invoiceImportId = searchParams.get("invoice_import");
+  const { locations } = useLocations();
 
   const [categories, setCategories] = useState<StockCategory[]>([]);
   const [items, setItems] = useState<StockItem[]>([]);
@@ -78,6 +82,7 @@ export function StockPage() {
     },
   ]);
   const [updateError, setUpdateError] = useState<string | null>(null);
+  const [updateLocationId, setUpdateLocationId] = useState<string | null>(null);
 
   const [newItemModalOpen, setNewItemModalOpen] = useState(false);
   const [newItemMovementDate, setNewItemMovementDate] = useState(() =>
@@ -96,6 +101,7 @@ export function StockPage() {
     purchase_reference_unit_cost_without_vat: null,
   });
   const [newItemInitialQty, setNewItemInitialQty] = useState<number>(0);
+  const [newItemLocationId, setNewItemLocationId] = useState<string | null>(null);
   const [newItemError, setNewItemError] = useState<string | null>(null);
   const [newItemForImportLineId, setNewItemForImportLineId] = useState<
     string | null
@@ -247,6 +253,11 @@ export function StockPage() {
       setUpdateError("Selecione pelo menos um item e indique quantidade.");
       return;
     }
+    const locationId = resolveLocationId(updateLocationId, locations);
+    if (!locationId) {
+      setUpdateError("Selecione uma loja.");
+      return;
+    }
     try {
       const movementDateIso = updateMovementDate
         ? new Date(updateMovementDate + "T12:00:00").toISOString()
@@ -264,10 +275,12 @@ export function StockPage() {
               : null,
           reference: r.reference.trim() || null,
           movement_date: movementDateIso,
+          location_id: locationId,
         } satisfies StockMovementCreateBody);
       }
       setUpdateModalOpen(false);
       setUpdateMovementDate(new Date().toISOString().slice(0, 10));
+      setUpdateLocationId(null);
       setUpdateRows([
         {
           itemId: "",
@@ -284,7 +297,7 @@ export function StockPage() {
         e instanceof Error ? e.message : "Erro ao registar movimento",
       );
     }
-  }, [updateRows, updateMovementDate, loadItems]);
+  }, [updateRows, updateMovementDate, updateLocationId, locations, loadItems]);
 
   const addUpdateRow = useCallback(() => {
     setUpdateRows((prev) => [
@@ -322,9 +335,20 @@ export function StockPage() {
       setNewItemError("Nome e categoria são obrigatórios.");
       return;
     }
+    // Resolve before creating the item: the movement below requires it, and
+    // failing after the item already exists would leave an item with no
+    // initial-quantity movement behind.
+    const locationId =
+      newItemInitialQty !== 0
+        ? resolveLocationId(newItemLocationId, locations)
+        : null;
+    if (newItemInitialQty !== 0 && !locationId) {
+      setNewItemError("Selecione uma loja.");
+      return;
+    }
     try {
       const created = await apiPost<StockItem>("/api/stock/items", newItemForm);
-      if (newItemInitialQty !== 0) {
+      if (newItemInitialQty !== 0 && locationId) {
         const movementDateIso = newItemMovementDate
           ? new Date(newItemMovementDate + "T12:00:00").toISOString()
           : undefined;
@@ -333,6 +357,7 @@ export function StockPage() {
           type: "adjustment" as StockMovementType,
           quantity: newItemInitialQty,
           movement_date: movementDateIso,
+          location_id: locationId,
         } satisfies StockMovementCreateBody);
       }
       const importLineId = newItemForImportLineId;
@@ -351,6 +376,7 @@ export function StockPage() {
         purchase_reference_unit_cost_without_vat: null,
       });
       setNewItemInitialQty(0);
+      setNewItemLocationId(null);
       await loadItems();
       if (importLineId) {
         linkStockItemToImportLineRef.current?.(importLineId, created.id);
@@ -361,6 +387,8 @@ export function StockPage() {
   }, [
     newItemForm,
     newItemInitialQty,
+    newItemLocationId,
+    locations,
     newItemMovementDate,
     newItemForImportLineId,
     categories,
@@ -452,6 +480,8 @@ export function StockPage() {
           items={items}
           movementDate={updateMovementDate}
           setMovementDate={setUpdateMovementDate}
+          locationId={updateLocationId}
+          setLocationId={setUpdateLocationId}
           rows={updateRows}
           updateRow={updateUpdateRow}
           addRow={addUpdateRow}
@@ -505,6 +535,8 @@ export function StockPage() {
           setInitialQty={setNewItemInitialQty}
           movementDate={newItemMovementDate}
           setMovementDate={setNewItemMovementDate}
+          locationId={newItemLocationId}
+          setLocationId={setNewItemLocationId}
           categories={categories}
           error={newItemError}
           onSubmit={submitNewItem}
@@ -1106,6 +1138,8 @@ function UpdateStockModal({
   items,
   movementDate,
   setMovementDate,
+  locationId,
+  setLocationId,
   rows,
   updateRow,
   addRow,
@@ -1117,6 +1151,8 @@ function UpdateStockModal({
   items: StockItem[];
   movementDate: string;
   setMovementDate: (v: string) => void;
+  locationId: string | null;
+  setLocationId: (v: string | null) => void;
   rows: UpdateMovementRow[];
   updateRow: (idx: number, patch: Partial<UpdateMovementRow>) => void;
   addRow: () => void;
@@ -1139,14 +1175,23 @@ function UpdateStockModal({
         >
           Atualizar stock
         </h3>
-        <div className="mt-4">
-          <label className="mb-1 block text-xs text-slate-500">
-            Data da movimentação
-          </label>
-          <input
-            type="date"
-            value={movementDate}
-            onChange={(e) => setMovementDate(e.target.value)}
+        <div className="mt-4 flex flex-wrap items-end gap-4">
+          <div>
+            <label className="mb-1 block text-xs text-slate-500">
+              Data da movimentação
+            </label>
+            <input
+              type="date"
+              value={movementDate}
+              onChange={(e) => setMovementDate(e.target.value)}
+              className="rounded border border-slate-200 px-3 py-2 text-sm"
+            />
+          </div>
+          {/* Loja onde os movimentos ocorreram — só aparece com mais de uma location */}
+          <LocationSelect
+            value={locationId}
+            onChange={setLocationId}
+            label="Loja"
             className="rounded border border-slate-200 px-3 py-2 text-sm"
           />
         </div>
@@ -1327,6 +1372,8 @@ function NewItemModal({
   setInitialQty,
   movementDate,
   setMovementDate,
+  locationId,
+  setLocationId,
   categories,
   error,
   onSubmit,
@@ -1339,6 +1386,8 @@ function NewItemModal({
   setInitialQty: (n: number) => void;
   movementDate: string;
   setMovementDate: (v: string) => void;
+  locationId: string | null;
+  setLocationId: (v: string | null) => void;
   categories: StockCategory[];
   error: string | null;
   onSubmit: () => void;
@@ -1581,6 +1630,15 @@ function NewItemModal({
                 className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
               />
             </div>
+          )}
+          {initialQty !== 0 && (
+            /* Loja onde o movimento ocorreu — só aparece com mais de uma location */
+            <LocationSelect
+              value={locationId}
+              onChange={setLocationId}
+              label="Loja"
+              className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
+            />
           )}
           <div className="flex items-center gap-2">
             <input

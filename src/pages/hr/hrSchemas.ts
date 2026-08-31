@@ -61,6 +61,8 @@ export const shiftFormSchema = z
     startTime: timeStr,
     endTime: timeStr,
     locationOrStation: z.string().optional().or(z.literal("")),
+    /** Loja onde o turno decorre (D3/D4) — distinta de `locationOrStation` (texto livre). */
+    locationId: z.string().nullable(),
     notes: z.string().optional().or(z.literal("")),
   })
   .refine((d) => isStartBeforeEndSameDay(d.startTime, d.endTime), {
@@ -119,6 +121,8 @@ export const attendanceFormSchema = z
     actualEndTime: z.string(),
     lateMinutes: z.string(),
     notes: z.string(),
+    /** Loja onde a presença foi registada (D3/D4). */
+    locationId: z.string().nullable(),
   })
   .superRefine((data, ctx) => {
     const ast = data.actualStartTime.trim();

@@ -1,8 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import type { ReactNode } from "react";
 import { useEffect } from "react";
-import { useForm, useWatch } from "react-hook-form";
+import { Controller, useForm, useWatch } from "react-hook-form";
 
+import { LocationSelect } from "../../../components/LocationSelect.tsx";
 import { formatIsoDatePt } from "../../../lib/format";
 import {
   SHIFT_ATTENDANCE_STATUS_LABELS,
@@ -27,6 +28,9 @@ function attendanceDefaults(shift: HrWorkShift): AttendanceFormValues {
       actualEndTime: shift.endTime ?? "",
       lateMinutes: "",
       notes: "",
+      // Defaults to the shift's own location — the presence being conferred
+      // is, by default, the one already planned for that shift.
+      locationId: shift.locationId,
     };
   }
   return {
@@ -37,6 +41,7 @@ function attendanceDefaults(shift: HrWorkShift): AttendanceFormValues {
     actualEndTime: a.actualEndTime ? toTimeInputValue(a.actualEndTime) : "",
     lateMinutes: a.lateMinutes != null ? String(a.lateMinutes) : "",
     notes: a.notes ?? "",
+    locationId: a.locationId ?? shift.locationId,
   };
 }
 
@@ -194,6 +199,20 @@ export function AttendanceConferenceModal({
             />
           </div>
         ) : null}
+
+        {/* Loja onde a presença foi registada — só aparece com mais de uma location */}
+        <Controller
+          control={form.control}
+          name="locationId"
+          render={({ field }) => (
+            <LocationSelect
+              value={field.value}
+              onChange={field.onChange}
+              label="Loja"
+              className={controlClass}
+            />
+          )}
+        />
 
         <Field
           label="Notas (conferência)"

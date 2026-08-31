@@ -44,6 +44,7 @@ padrão novo, abra o `README.md` dele e veja o campo `Status`; sem README ou com
 - `payable-entries` (junho 2026)
 - `air-menu` (agosto 2026)
 - `vendus` (agosto 2026)
+- `locations` (agosto 2026)
 
 ## Stack
 
