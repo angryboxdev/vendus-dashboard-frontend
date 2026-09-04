@@ -175,6 +175,7 @@ type Step = "pin" | "date" | "session" | "tpa" | "delivery" | "cash" | "drawer" 
 
 type FormData = {
   employee: VerifyPinResult | null;
+  pin: string | null;
   closingDate: string;
   tpa: string;
   uber: string;
@@ -191,6 +192,7 @@ type FormData = {
 
 const INITIAL_FORM: FormData = {
   employee: null,
+  pin: null,
   closingDate: todayYmd(),
   tpa: "",
   uber: "",
@@ -293,6 +295,7 @@ export function CashClosingPage() {
       try {
         const emp = await verifyPin(next.join(""));
         setField("employee", emp);
+        setField("pin", next.join(""));
         setStep("date");
       } catch (e: unknown) {
         setError(e instanceof Error ? e.message : "Erro ao verificar PIN");
@@ -329,12 +332,12 @@ export function CashClosingPage() {
 
   // ---- Submit ----
   async function handleSubmit() {
-    if (!form.employee) return;
+    if (!form.employee || !form.pin) return;
     setLoading(true);
     setError("");
     try {
       const closing = await submitClosing({
-        employeeId: form.employee.employeeId,
+        pin: form.pin,
         closingDate: form.closingDate,
         tpa, uber, glovo, bolt, eatz, cashSales, cashIn, cashOut,
         cashDrawerOpen, cashDrawerTotal,

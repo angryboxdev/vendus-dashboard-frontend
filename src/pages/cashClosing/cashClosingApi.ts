@@ -87,7 +87,7 @@ export async function getSessions(date: string): Promise<RegisterSessionDto[]> {
 }
 
 export type SubmitClosingBody = {
-  employeeId: string;
+  pin: string;
   closingDate: string;
   tpa: number;
   uber: number;
