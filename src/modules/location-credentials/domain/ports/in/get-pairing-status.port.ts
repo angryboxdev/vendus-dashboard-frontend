@@ -3,10 +3,10 @@ export interface PairingStatus {
 }
 
 /**
- * Synchronous by design (unlike every other port here): it only reads
- * localStorage, no I/O latency involved. Wrapping it in a Promise would add
- * a needless loading flash before an already-paired screen renders.
+ * Async: a local token must be revalidated against the server before a
+ * screen renders as paired, so a revoked token doesn't keep passing. See
+ * README ADR — supersedes the earlier synchronous/local-only design.
  */
 export interface GetPairingStatusPort {
-  execute(): PairingStatus;
+  execute(): Promise<PairingStatus>;
 }

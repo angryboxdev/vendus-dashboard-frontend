@@ -19,23 +19,32 @@ export interface SeededPairingCode {
 
 const CODE_PATTERN = /^[A-Z0-9]{8}$/;
 
+export type SeededTokenCheck = "valid" | "invalid" | "error";
+
 /** Test fake for LocationCredentialsApiPort. Use InMemoryLocationCredentialsApiAdapter.withSeed to drive redeem's branches. */
 export class InMemoryLocationCredentialsApiAdapter implements LocationCredentialsApiPort {
   private codes: SeededPairingCode[];
   private tokensByLocation: Map<string, DeviceTokenSummary[]>;
+  private tokenCheck: SeededTokenCheck;
 
-  constructor(codes: SeededPairingCode[] = [], tokens: Record<string, DeviceTokenSummary[]> = {}) {
+  constructor(
+    codes: SeededPairingCode[] = [],
+    tokens: Record<string, DeviceTokenSummary[]> = {},
+    tokenCheck: SeededTokenCheck = "valid",
+  ) {
     this.codes = [...codes];
     this.tokensByLocation = new Map(Object.entries(tokens).map(([id, list]) => [id, [...list]]));
+    this.tokenCheck = tokenCheck;
   }
 
   static withSeed(
     params: {
       codes?: SeededPairingCode[];
       tokens?: Record<string, DeviceTokenSummary[]>;
+      tokenCheck?: SeededTokenCheck;
     } = {},
   ): InMemoryLocationCredentialsApiAdapter {
-    return new InMemoryLocationCredentialsApiAdapter(params.codes ?? [], params.tokens ?? {});
+    return new InMemoryLocationCredentialsApiAdapter(params.codes ?? [], params.tokens ?? {}, params.tokenCheck ?? "valid");
   }
 
   generatePairingCode(locationId: string): Promise<PairingCode> {
@@ -66,5 +75,10 @@ export class InMemoryLocationCredentialsApiAdapter implements LocationCredential
     if (entry.status === "expired") throw new PairingCodeExpiredError();
     entry.status = "used";
     return Promise.resolve(`device-token-${code}`);
+  }
+
+  checkToken(): Promise<boolean> {
+    if (this.tokenCheck === "error") return Promise.reject(new Error("network error"));
+    return Promise.resolve(this.tokenCheck === "valid");
   }
 }

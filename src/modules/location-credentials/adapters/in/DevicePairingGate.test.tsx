@@ -2,7 +2,10 @@ import { useState } from "react";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
-import { InMemoryLocationCredentialsApiAdapter } from "../out/in-memory-location-credentials-api.adapter.ts";
+import {
+  InMemoryLocationCredentialsApiAdapter,
+  type SeededTokenCheck,
+} from "../out/in-memory-location-credentials-api.adapter.ts";
 import { InMemoryDeviceTokenStorageAdapter } from "../out/in-memory-device-token-storage.adapter.ts";
 import { GeneratePairingCodeUseCase } from "../../application/use-cases/generate-pairing-code.use-case.ts";
 import { ListActiveTokensUseCase } from "../../application/use-cases/list-active-tokens.use-case.ts";
@@ -16,15 +19,16 @@ import { DevicePairingGate } from "./DevicePairingGate.tsx";
 function buildTestModule(
   codes: Parameters<typeof InMemoryLocationCredentialsApiAdapter.withSeed>[0] = {},
   tokenSeed: string | null = null,
+  tokenCheck: SeededTokenCheck = "valid",
 ): LocationCredentialsModule {
-  const api = InMemoryLocationCredentialsApiAdapter.withSeed(codes);
+  const api = InMemoryLocationCredentialsApiAdapter.withSeed({ ...codes, tokenCheck });
   const storage = new InMemoryDeviceTokenStorageAdapter(tokenSeed);
   return {
     generatePairingCode: new GeneratePairingCodeUseCase(api),
     listActiveTokens: new ListActiveTokensUseCase(api),
     revokeToken: new RevokeTokenUseCase(api),
     redeemPairingCode: new RedeemPairingCodeUseCase(api, storage),
-    getPairingStatus: new GetPairingStatusUseCase(storage),
+    getPairingStatus: new GetPairingStatusUseCase(storage, api),
   };
 }
 
@@ -56,10 +60,16 @@ describe("DevicePairingGate", () => {
     await waitFor(() => expect(screen.getByPlaceholderText("XXXXXXXX")).toBeInTheDocument());
   });
 
-  it("renders children immediately when a token is already stored, no form flash", async () => {
-    render(<Harness module={buildTestModule({}, "existing-token")} />);
+  it("renders children once the stored token is confirmed valid by the server, never flashing the form", async () => {
+    render(<Harness module={buildTestModule({}, "existing-token", "valid")} />);
     await waitFor(() => expect(screen.getByTestId("count")).toBeInTheDocument());
     expect(screen.queryByPlaceholderText("XXXXXXXX")).not.toBeInTheDocument();
+  });
+
+  it("shows the pairing form when the stored token is revoked", async () => {
+    render(<Harness module={buildTestModule({}, "revoked-token", "invalid")} />);
+    await waitFor(() => expect(screen.getByPlaceholderText("XXXXXXXX")).toBeInTheDocument());
+    expect(screen.queryByTestId("count")).not.toBeInTheDocument();
   });
 
   it("flips to children after redeeming, without remounting the child on further re-renders", async () => {

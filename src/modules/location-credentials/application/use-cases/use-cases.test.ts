@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { InMemoryLocationCredentialsApiAdapter } from "../../adapters/out/in-memory-location-credentials-api.adapter.ts";
 import { InMemoryDeviceTokenStorageAdapter } from "../../adapters/out/in-memory-device-token-storage.adapter.ts";
 import { GeneratePairingCodeUseCase } from "./generate-pairing-code.use-case.ts";
@@ -117,15 +117,35 @@ describe("RedeemPairingCodeUseCase", () => {
 });
 
 describe("GetPairingStatusUseCase", () => {
-  it("reports paired when a token is stored", () => {
+  it("reports paired when the stored token is confirmed valid by the server", async () => {
     const storage = new InMemoryDeviceTokenStorageAdapter("some-token");
-    const useCase = new GetPairingStatusUseCase(storage);
-    expect(useCase.execute()).toEqual({ paired: true });
+    const api = InMemoryLocationCredentialsApiAdapter.withSeed({ tokenCheck: "valid" });
+    const useCase = new GetPairingStatusUseCase(storage, api);
+    await expect(useCase.execute()).resolves.toEqual({ paired: true });
   });
 
-  it("reports unpaired when no token is stored", () => {
+  it("reports unpaired and clears the stored token when the server reports it revoked", async () => {
+    const storage = new InMemoryDeviceTokenStorageAdapter("revoked-token");
+    const api = InMemoryLocationCredentialsApiAdapter.withSeed({ tokenCheck: "invalid" });
+    const useCase = new GetPairingStatusUseCase(storage, api);
+    await expect(useCase.execute()).resolves.toEqual({ paired: false });
+    expect(storage.getToken()).toBeNull();
+  });
+
+  it("reports unpaired when no token is stored, without calling the server", async () => {
     const storage = new InMemoryDeviceTokenStorageAdapter();
-    const useCase = new GetPairingStatusUseCase(storage);
-    expect(useCase.execute()).toEqual({ paired: false });
+    const api = InMemoryLocationCredentialsApiAdapter.withSeed();
+    const checkToken = vi.spyOn(api, "checkToken");
+    const useCase = new GetPairingStatusUseCase(storage, api);
+    await expect(useCase.execute()).resolves.toEqual({ paired: false });
+    expect(checkToken).not.toHaveBeenCalled();
+  });
+
+  it("fails open and reports paired when checking the token hits a network error", async () => {
+    const storage = new InMemoryDeviceTokenStorageAdapter("some-token");
+    const api = InMemoryLocationCredentialsApiAdapter.withSeed({ tokenCheck: "error" });
+    const useCase = new GetPairingStatusUseCase(storage, api);
+    await expect(useCase.execute()).resolves.toEqual({ paired: true });
+    expect(storage.getToken()).toBe("some-token");
   });
 });

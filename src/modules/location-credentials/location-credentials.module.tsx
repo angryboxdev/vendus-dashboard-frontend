@@ -29,7 +29,7 @@ function buildModule(): LocationCredentialsModule {
     listActiveTokens: new ListActiveTokensUseCase(api),
     revokeToken: new RevokeTokenUseCase(api),
     redeemPairingCode: new RedeemPairingCodeUseCase(api, storage),
-    getPairingStatus: new GetPairingStatusUseCase(storage),
+    getPairingStatus: new GetPairingStatusUseCase(storage, api),
   };
 }
 

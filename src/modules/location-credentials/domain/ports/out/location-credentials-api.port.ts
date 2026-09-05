@@ -6,4 +6,5 @@ export interface LocationCredentialsApiPort {
   listTokens(locationId: string): Promise<DeviceTokenSummary[]>;
   revokeToken(tokenId: string): Promise<void>;
   redeem(code: string): Promise<string>;
+  checkToken(): Promise<boolean>;
 }

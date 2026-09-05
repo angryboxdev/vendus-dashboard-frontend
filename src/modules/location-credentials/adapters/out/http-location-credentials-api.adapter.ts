@@ -69,4 +69,9 @@ export class HttpLocationCredentialsApiAdapter implements LocationCredentialsApi
     const data = (await res.json()) as { token: string };
     return data.token;
   }
+
+  async checkToken(): Promise<boolean> {
+    const res = await deviceFetch(`${API_BASE}${BASE}/tokens/me`);
+    return res.ok;
+  }
 }
