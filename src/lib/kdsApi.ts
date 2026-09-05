@@ -1,4 +1,5 @@
 import { API_BASE } from "./api";
+import { deviceFetch } from "../modules/location-credentials/adapters/out/device-fetch.ts";
 
 export type DeliveryStatus =
   | "pending"
@@ -35,7 +36,7 @@ export interface Delivery {
 }
 
 export async function getDeliveries(): Promise<Delivery[]> {
-  const res = await fetch(`${API_BASE}/api/kds/deliveries`);
+  const res = await deviceFetch(`${API_BASE}/api/kds/deliveries`);
   if (!res.ok) throw new Error(`HTTP ${res.status}`);
   const data = (await res.json()) as { deliveries: Delivery[] };
   return data.deliveries;
@@ -45,7 +46,7 @@ export async function updateDeliveryStatus(
   id: number,
   status: DeliveryStatus,
 ): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/kds/deliveries/${id}/status`, {
+  const res = await deviceFetch(`${API_BASE}/api/kds/deliveries/${id}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),
@@ -57,7 +58,7 @@ export async function updateAirMenuDeliveryStatus(
   id: number,
   status: DeliveryStatus,
 ): Promise<void> {
-  const res = await fetch(`${API_BASE}/api/kds/air-menu-deliveries/${id}/status`, {
+  const res = await deviceFetch(`${API_BASE}/api/kds/air-menu-deliveries/${id}/status`, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ status }),

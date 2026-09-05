@@ -1,4 +1,5 @@
 import { apiGet, apiPatch, API_BASE } from "../../lib/api";
+import { deviceFetch } from "../../modules/location-credentials/adapters/out/device-fetch.ts";
 
 const BASE = "/api/cash-closings";
 
@@ -56,7 +57,7 @@ export type VerifyPinResult = {
 
 export async function verifyPin(pin: string): Promise<VerifyPinResult> {
   const url = `${API_BASE}${BASE}/verify-pin`;
-  const res = await fetch(url, {
+  const res = await deviceFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ pin }),
@@ -78,7 +79,7 @@ export type RegisterSessionDto = {
 
 export async function getSessions(date: string): Promise<RegisterSessionDto[]> {
   const url = `${API_BASE}${BASE}/sessions?date=${encodeURIComponent(date)}`;
-  const res = await fetch(url);
+  const res = await deviceFetch(url);
   if (!res.ok) {
     const data = await res.json().catch(() => ({})) as { error?: string };
     throw new Error(data.error ?? `HTTP ${res.status}`);
@@ -112,7 +113,7 @@ export type AirMenuTotals = {
 
 export async function getAirMenuTotals(date: string): Promise<AirMenuTotals | null> {
   const url = `${API_BASE}/api/cash-closings/airmenu-totals?date=${encodeURIComponent(date)}`;
-  const res = await fetch(url);
+  const res = await deviceFetch(url);
   if (!res.ok) return null;
   const data = (await res.json()) as AirMenuTotals | null;
   return data;
@@ -120,7 +121,7 @@ export async function getAirMenuTotals(date: string): Promise<AirMenuTotals | nu
 
 export async function submitClosing(body: SubmitClosingBody): Promise<CashClosing> {
   const url = `${API_BASE}${BASE}/submit`;
-  const res = await fetch(url, {
+  const res = await deviceFetch(url, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(body),

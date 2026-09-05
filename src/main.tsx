@@ -7,6 +7,7 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { AuthProvider } from "./contexts/AuthContext";
 import { LocationsProvider } from "./modules/locations/locations.module.tsx";
+import { LocationCredentialsProvider } from "./modules/location-credentials/location-credentials.module.tsx";
 import { DashboardStoreProvider } from "./pages/DashboardStoreContext";
 import { DrePeriodProvider } from "./pages/dre/DrePeriodContext";
 import { DreStoreProvider } from "./pages/dre/DreStoreContext";
@@ -26,13 +27,15 @@ createRoot(document.getElementById("root")!).render(
       <BrowserRouter>
         <AuthProvider>
           <LocationsProvider>
-            <DashboardStoreProvider>
-              <DrePeriodProvider>
-                <DreStoreProvider>
-                  <App />
-                </DreStoreProvider>
-              </DrePeriodProvider>
-            </DashboardStoreProvider>
+            <LocationCredentialsProvider>
+              <DashboardStoreProvider>
+                <DrePeriodProvider>
+                  <DreStoreProvider>
+                    <App />
+                  </DreStoreProvider>
+                </DrePeriodProvider>
+              </DashboardStoreProvider>
+            </LocationCredentialsProvider>
           </LocationsProvider>
         </AuthProvider>
       </BrowserRouter>

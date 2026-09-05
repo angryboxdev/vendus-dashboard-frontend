@@ -58,6 +58,8 @@ import { AirMenuProvider } from "./modules/air-menu/air-menu.module.tsx";
 import { AirMenuView } from "./modules/air-menu/adapters/in/AirMenuView.tsx";
 import { VendusProvider } from "./modules/vendus/vendus.module.tsx";
 import { VendusView } from "./modules/vendus/adapters/in/VendusView.tsx";
+import { DevicePairingGate } from "./modules/location-credentials/adapters/in/DevicePairingGate.tsx";
+import { LocationCredentialsAdminView } from "./modules/location-credentials/adapters/in/LocationCredentialsAdminView.tsx";
 
 export default function App() {
   return (
@@ -66,8 +68,22 @@ export default function App() {
       <Route path="/login" element={<LoginPage />} />
 
       {/* Páginas standalone sem sidebar (kiosk) */}
-      <Route path="/kiosk" element={<KioskDisplayPage />} />
-      <Route path="/kiosk/checkin" element={<KioskCheckinPage />} />
+      <Route
+        path="/kiosk"
+        element={
+          <DevicePairingGate>
+            <KioskDisplayPage />
+          </DevicePairingGate>
+        }
+      />
+      <Route
+        path="/kiosk/checkin"
+        element={
+          <DevicePairingGate>
+            <KioskCheckinPage />
+          </DevicePairingGate>
+        }
+      />
 
       {/* Impressão de pedidos — standalone sem auth (uso interno cozinha) */}
       <Route path="/print-orders" element={<PrintOrdersPage />} />
@@ -76,10 +92,24 @@ export default function App() {
       <Route path="/terminal" element={<TerminalPage />} />
 
       {/* Fecho de caixa — standalone sem auth */}
-      <Route path="/fecho" element={<CashClosingPage />} />
+      <Route
+        path="/fecho"
+        element={
+          <DevicePairingGate>
+            <CashClosingPage />
+          </DevicePairingGate>
+        }
+      />
 
       {/* KDS — ecrã de cozinha standalone sem auth */}
-      <Route path="/kds" element={<KdsPage />} />
+      <Route
+        path="/kds"
+        element={
+          <DevicePairingGate>
+            <KdsPage />
+          </DevicePairingGate>
+        }
+      />
 
       {/* Layout principal com sidebar */}
       <Route
@@ -198,6 +228,7 @@ export default function App() {
                   }
                 />
                 <Route path="/admin/users" element={<UsersPage />} />
+                <Route path="/admin/location-tokens" element={<LocationCredentialsAdminView />} />
               </Routes>
             </main>
           </div>

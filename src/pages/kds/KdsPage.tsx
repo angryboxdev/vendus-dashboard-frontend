@@ -7,6 +7,7 @@ import {
   type DeliveryStatus,
 } from "../../lib/kdsApi";
 import { API_BASE } from "../../lib/api";
+import { getStoredDeviceToken } from "../../modules/location-credentials/adapters/out/local-storage-device-token.adapter.ts";
 
 // ── Constants ──────────────────────────────────────────────────────────────────
 
@@ -429,7 +430,8 @@ export function KdsPage() {
 
   // SSE — pedidos AirMenu em tempo real
   useEffect(() => {
-    const url = `${API_BASE}/api/kds/stream`;
+    const token = getStoredDeviceToken();
+    const url = `${API_BASE}/api/kds/stream${token ? `?device_token=${encodeURIComponent(token)}` : ""}`;
     const es = new EventSource(url);
 
     es.addEventListener("delivery", (e: MessageEvent) => {

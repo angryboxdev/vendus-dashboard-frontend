@@ -6,26 +6,26 @@ import {
 } from "./nav-state.service.ts";
 
 describe("buildTree", () => {
-  it("returns 8 entries for a non-admin user", () => {
+  it("returns 10 entries for a non-admin user", () => {
     const tree = buildTree({ email: "a@b.com", role: "manager" });
-    expect(tree).toHaveLength(8);
+    expect(tree).toHaveLength(10);
   });
 
-  it("returns 9 entries for admin (includes Utilizadores)", () => {
+  it("returns 12 entries for admin (includes Utilizadores + Tokens de dispositivo)", () => {
     const tree = buildTree({ email: "a@b.com", role: "admin" });
-    expect(tree).toHaveLength(9);
+    expect(tree).toHaveLength(12);
     const last = tree[tree.length - 1];
     expect(last?.kind).toBe("item");
-    expect(last?.kind === "item" && last.path).toBe("/admin/users");
+    expect(last?.kind === "item" && last.path).toBe("/admin/location-tokens");
   });
 
-  it("admin entry is not present for non-admin roles", () => {
+  it("admin entries are not present for non-admin roles", () => {
     for (const role of ["manager", "hr_viewer"]) {
       const tree = buildTree({ email: "a@b.com", role });
-      const haAdmin = tree.some(
-        (e) => e.kind === "item" && e.path === "/admin/users",
+      const hasAdmin = tree.some(
+        (e) => e.kind === "item" && (e.path === "/admin/users" || e.path === "/admin/location-tokens"),
       );
-      expect(haAdmin).toBe(false);
+      expect(hasAdmin).toBe(false);
     }
   });
 });
