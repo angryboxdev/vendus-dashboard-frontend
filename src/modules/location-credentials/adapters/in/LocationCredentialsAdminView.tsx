@@ -44,7 +44,7 @@ function fmtDeviceId(id: string): string {
 function CountdownPill({ seconds, urgent }: { seconds: number; urgent: boolean }) {
   return (
     <span
-      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${
+      className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium tabular-nums ${
         urgent ? "bg-[#FEF3EC] text-[#A3211A]" : "bg-stone-100 text-stone-600"
       }`}
     >
@@ -183,6 +183,7 @@ function TokenList({ locationId }: { locationId: string }) {
         <thead>
           <tr className="border-b border-stone-100 bg-stone-50 text-left text-xs font-semibold uppercase tracking-wide text-stone-400">
             <th className="px-4 py-3 font-semibold">ID</th>
+            <th className="px-4 py-3 font-semibold">Loja</th>
             <th className="px-4 py-3 font-semibold">Emparelhado em</th>
             <th className="px-4 py-3" />
           </tr>
@@ -193,6 +194,7 @@ function TokenList({ locationId }: { locationId: string }) {
               <td className="px-4 py-3 font-mono text-xs text-stone-600" title={t.id}>
                 {fmtDeviceId(t.id)}
               </td>
+              <td className="px-4 py-3 text-stone-600">{t.locationName}</td>
               <td className="px-4 py-3 tabular-nums text-stone-500">{fmtIssuedAt(t.issuedAt)}</td>
               <td className="px-4 py-3 text-right">
                 <button

@@ -27,13 +27,13 @@ describe("ListActiveTokensUseCase", () => {
   it("returns tokens scoped to the given location", async () => {
     const api = InMemoryLocationCredentialsApiAdapter.withSeed({
       tokens: {
-        "loc-1": [{ id: "t1", issuedAt: new Date() }],
-        "loc-2": [{ id: "t2", issuedAt: new Date() }],
+        "loc-1": [{ id: "t1", issuedAt: new Date(), locationName: "Loja Centro" }],
+        "loc-2": [{ id: "t2", issuedAt: new Date(), locationName: "Loja Norte" }],
       },
     });
     const useCase = new ListActiveTokensUseCase(api);
     const tokens = await useCase.execute("loc-1");
-    expect(tokens).toEqual([{ id: "t1", issuedAt: expect.any(Date) }]);
+    expect(tokens).toEqual([{ id: "t1", issuedAt: expect.any(Date), locationName: "Loja Centro" }]);
   });
 
   it("returns an empty list for a location with no tokens", async () => {
@@ -46,7 +46,7 @@ describe("ListActiveTokensUseCase", () => {
 describe("RevokeTokenUseCase", () => {
   it("removes the token from its location's list", async () => {
     const api = InMemoryLocationCredentialsApiAdapter.withSeed({
-      tokens: { "loc-1": [{ id: "t1", issuedAt: new Date() }] },
+      tokens: { "loc-1": [{ id: "t1", issuedAt: new Date(), locationName: "Loja Centro" }] },
     });
     const revoke = new RevokeTokenUseCase(api);
     await revoke.execute("t1");
@@ -57,14 +57,16 @@ describe("RevokeTokenUseCase", () => {
   it("does not affect another location's list", async () => {
     const api = InMemoryLocationCredentialsApiAdapter.withSeed({
       tokens: {
-        "loc-1": [{ id: "t1", issuedAt: new Date() }],
-        "loc-2": [{ id: "t2", issuedAt: new Date() }],
+        "loc-1": [{ id: "t1", issuedAt: new Date(), locationName: "Loja Centro" }],
+        "loc-2": [{ id: "t2", issuedAt: new Date(), locationName: "Loja Norte" }],
       },
     });
     const revoke = new RevokeTokenUseCase(api);
     await revoke.execute("t1");
     const list = new ListActiveTokensUseCase(api);
-    expect(await list.execute("loc-2")).toEqual([{ id: "t2", issuedAt: expect.any(Date) }]);
+    expect(await list.execute("loc-2")).toEqual([
+      { id: "t2", issuedAt: expect.any(Date), locationName: "Loja Norte" },
+    ]);
   });
 });
 

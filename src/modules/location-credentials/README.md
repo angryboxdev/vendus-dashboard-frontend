@@ -18,8 +18,11 @@ domínio aqui só conhece o código de emparelhamento e o resumo de um token.
 - **PairingCode** — `{ code, expiresAt }`, TTL de 10 minutos. `remainingSeconds(now?)`
   e `isExpired(now?)` aceitam um `now` opcional (default `new Date()`) para
   serem determinísticos em teste.
-- **DeviceTokenSummary** — `{ id, issuedAt }`, o que a UI de admin lista por loja.
-  O token em si nunca é devolvido de novo depois de resgatado.
+- **DeviceTokenSummary** — `{ id, issuedAt, locationName }`, o que a UI de admin
+  lista por loja. `locationName` vem do backend (ticket 05) e é só exibido —
+  não é usado para nenhuma decisão do domínio, já que a lista já está
+  filtrada por `locationId`. O token em si nunca é devolvido de novo depois
+  de resgatado.
 - **Erros de domínio do resgate** — `InvalidPairingCodeError` (400),
   `PairingCodeNotFoundError` (404), `PairingCodeAlreadyUsedError` (409),
   `PairingCodeExpiredError` (410). Mapeiam 1:1 para os status HTTP do backend.
@@ -46,7 +49,7 @@ domínio aqui só conhece o código de emparelhamento e o resumo de um token.
 - `useDevicePairing` (hook, `use-device-pairing.ts`) — chama `getPairingStatus.execute()` uma vez ao montar (agora assíncrono, ver ADR) e expõe `{ state: "checking" | "paired" | "unpaired", markPaired }`. `state` começa em `"checking"` até a promise resolver.
 - `DevicePairingGate` — modelado em `ProtectedRoute.tsx`: `state === "checking"` não renderiza nada, `"unpaired"` mostra `PairingRedemptionForm`, `"paired"` renderiza `{children}`. Não desmonta/remonta os filhos entre re-renders.
 - `PairingRedemptionForm` — exportado standalone para teste direto. Um único input de código; mapeia os 4 erros de domínio do resgate para mensagens em português; chama `onRedeemed()` no sucesso. Nunca mostra o token — o use case já o persiste internamente.
-- `LocationCredentialsAdminView` — página `/admin/location-tokens`: `LocationSelect` (via `resolveLocationId`, não confia no timing do auto-select do picker) + botão gerar (mostra o código em blocos por caractere, com um `<span>` `sr-only` do código completo para leitores de ecrã, botão "Copiar" via `navigator.clipboard`, contagem decrescente com `useCountdown` local ao componente, e a opção de gerar um novo código mesmo antes de expirar o atual) + tabela de tokens (`useQuery`, lista vazia = "nenhum dispositivo emparelhado nesta loja", não é erro; IDs longos são truncados no meio via `fmtDeviceId`, com o valor completo no `title`) + revogar por linha (`confirm()` nativo, invalida só a query key da loja atual).
+- `LocationCredentialsAdminView` — página `/admin/location-tokens`: `LocationSelect` (via `resolveLocationId`, não confia no timing do auto-select do picker) + botão gerar (mostra o código em blocos por caractere, com um `<span>` `sr-only` do código completo para leitores de ecrã, botão "Copiar" via `navigator.clipboard`, contagem decrescente com `useCountdown` local ao componente, e a opção de gerar um novo código mesmo antes de expirar o atual) + tabela de tokens (`useQuery`, lista vazia = "nenhum dispositivo emparelhado nesta loja", não é erro; IDs longos são truncados no meio via `fmtDeviceId`, com o valor completo no `title`; coluna "Loja" mostra `locationName` tal como devolvido pelo backend, sem formatação) + revogar por linha (`confirm()` nativo, invalida só a query key da loja atual).
 
 ### Saída
 

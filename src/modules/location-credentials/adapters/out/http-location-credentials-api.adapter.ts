@@ -20,6 +20,7 @@ interface PairingCodeDto {
 interface DeviceTokenSummaryDto {
   id: string;
   issuedAt: string;
+  locationName: string;
 }
 
 function toPairingCode(dto: PairingCodeDto): PairingCode {
@@ -27,7 +28,7 @@ function toPairingCode(dto: PairingCodeDto): PairingCode {
 }
 
 function toDeviceTokenSummary(dto: DeviceTokenSummaryDto): DeviceTokenSummary {
-  return { id: dto.id, issuedAt: new Date(dto.issuedAt) };
+  return { id: dto.id, issuedAt: new Date(dto.issuedAt), locationName: dto.locationName };
 }
 
 function throwForRedeemStatus(status: number): never {

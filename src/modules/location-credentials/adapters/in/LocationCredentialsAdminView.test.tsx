@@ -49,7 +49,7 @@ function buildLocationsModule(locations: LocationDTO[]): LocationsModule {
 }
 
 function buildCredentialsModule(
-  tokens: Record<string, { id: string; issuedAt: Date }[]> = {},
+  tokens: Record<string, { id: string; issuedAt: Date; locationName: string }[]> = {},
 ): LocationCredentialsModule {
   const api = InMemoryLocationCredentialsApiAdapter.withSeed({ tokens });
   const storage = new InMemoryDeviceTokenStorageAdapter();
@@ -65,7 +65,9 @@ function buildCredentialsModule(
 const LOC_A: LocationDTO = { id: "loc-a", name: "Loja Centro", code: "CTR", timezone: "Europe/Lisbon", isActive: true };
 const LOC_B: LocationDTO = { id: "loc-b", name: "Loja Norte", code: "NRT", timezone: "Europe/Lisbon", isActive: true };
 
-async function renderView(tokens: Record<string, { id: string; issuedAt: Date }[]> = {}) {
+async function renderView(
+  tokens: Record<string, { id: string; issuedAt: Date; locationName: string }[]> = {},
+) {
   mockGetSession.mockResolvedValue({ data: { session: sessionWithOrg() } });
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
@@ -99,8 +101,8 @@ describe("LocationCredentialsAdminView", () => {
   it("lists tokens scoped to the selected location", async () => {
     const user = userEvent.setup();
     await renderView({
-      "loc-a": [{ id: "token-a1", issuedAt: new Date("2026-01-01T10:00:00Z") }],
-      "loc-b": [{ id: "token-b1", issuedAt: new Date("2026-01-02T10:00:00Z") }],
+      "loc-a": [{ id: "token-a1", issuedAt: new Date("2026-01-01T10:00:00Z"), locationName: "Loja Centro" }],
+      "loc-b": [{ id: "token-b1", issuedAt: new Date("2026-01-02T10:00:00Z"), locationName: "Loja Norte" }],
     });
 
     await selectLocation(user, "Loja Centro");
@@ -125,8 +127,8 @@ describe("LocationCredentialsAdminView", () => {
     const user = userEvent.setup();
     vi.spyOn(window, "confirm").mockReturnValue(true);
     await renderView({
-      "loc-a": [{ id: "token-a1", issuedAt: new Date("2026-01-01T10:00:00Z") }],
-      "loc-b": [{ id: "token-b1", issuedAt: new Date("2026-01-02T10:00:00Z") }],
+      "loc-a": [{ id: "token-a1", issuedAt: new Date("2026-01-01T10:00:00Z"), locationName: "Loja Centro" }],
+      "loc-b": [{ id: "token-b1", issuedAt: new Date("2026-01-02T10:00:00Z"), locationName: "Loja Norte" }],
     });
 
     await selectLocation(user, "Loja Centro");
