@@ -5,7 +5,9 @@ import {
   apiPatch,
   apiPost,
   apiPostFormData,
+  API_BASE,
 } from "../../lib/api";
+import { deviceFetch } from "../../modules/location-credentials/adapters/out/device-fetch.ts";
 import type {
   AuditAction,
   AuditEntityType,
@@ -307,7 +309,16 @@ export async function kioskScan(body: {
   date: string;
   pin: string;
 }): Promise<KioskScanResult> {
-  return apiPost(`${HR}/kiosk/scan`, body);
+  const res = await deviceFetch(`${API_BASE}${HR}/kiosk/scan`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const data = (await res.json().catch(() => ({}))) as { error?: string };
+    throw new Error(data.error ?? `HTTP ${res.status}`);
+  }
+  return res.json() as Promise<KioskScanResult>;
 }
 
 // ---------- Audit Logs ----------

@@ -87,6 +87,7 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
 
   if (user.role === "admin") {
     entries.push({ kind: "item", path: "/admin/users", label: "Utilizadores" });
+    entries.push({ kind: "item", path: "/admin/location-tokens", label: "Tokens de dispositivo" });
   }
 
   return entries;
