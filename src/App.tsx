@@ -2,8 +2,6 @@ import { Navigate, Route, Routes } from "react-router-dom";
 
 import { CustosFixosPage } from "./pages/dre/CustosFixosPage";
 import { CustosVariaveisPage } from "./pages/dre/CustosVariaveisPage";
-import { DashboardPage } from "./pages/DashboardPage";
-import { AnalyticsDashboardPage } from "./pages/AnalyticsDashboardPage";
 import { DemonstrativoPage } from "./pages/dre/DemonstrativoPage";
 import { DreLayout } from "./pages/dre/DreLayout";
 import { ReceitaBrutaPage } from "./pages/dre/ReceitaBrutaPage";
@@ -60,6 +58,8 @@ import { VendusProvider } from "./modules/vendus/vendus.module.tsx";
 import { VendusView } from "./modules/vendus/adapters/in/VendusView.tsx";
 import { DevicePairingGate } from "./modules/location-credentials/adapters/in/DevicePairingGate.tsx";
 import { LocationCredentialsAdminView } from "./modules/location-credentials/adapters/in/LocationCredentialsAdminView.tsx";
+import { SalesSummaryProvider } from "./modules/sales-summary/sales-summary.module.tsx";
+import { SalesSummaryView } from "./modules/sales-summary/adapters/in/SalesSummaryView.tsx";
 
 export default function App() {
   return (
@@ -121,8 +121,16 @@ export default function App() {
               <Sidebar />
               <main className="min-w-0 flex-1 overflow-auto pt-12 md:pt-0">
                 <Routes>
-                <Route path="/" element={<AnalyticsDashboardPage />} />
-                <Route path="/analytics" element={<DashboardPage />} />
+                <Route path="/" element={<Navigate to="/results" replace />} />
+                <Route path="/analytics" element={<Navigate to="/results" replace />} />
+                <Route
+                  path="/results"
+                  element={
+                    <SalesSummaryProvider>
+                      <SalesSummaryView />
+                    </SalesSummaryProvider>
+                  }
+                />
                 <Route
                   path="/dre"
                   element={<Navigate to="/dre/demonstrativo" replace />}

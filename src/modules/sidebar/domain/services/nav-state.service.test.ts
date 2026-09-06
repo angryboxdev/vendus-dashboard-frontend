@@ -6,14 +6,14 @@ import {
 } from "./nav-state.service.ts";
 
 describe("buildTree", () => {
-  it("returns 10 entries for a non-admin user", () => {
+  it("returns 9 entries for a non-admin user", () => {
     const tree = buildTree({ email: "a@b.com", role: "manager" });
-    expect(tree).toHaveLength(10);
+    expect(tree).toHaveLength(9);
   });
 
-  it("returns 12 entries for admin (includes Utilizadores + Tokens de dispositivo)", () => {
+  it("returns 11 entries for admin (includes Utilizadores + Tokens de dispositivo)", () => {
     const tree = buildTree({ email: "a@b.com", role: "admin" });
-    expect(tree).toHaveLength(12);
+    expect(tree).toHaveLength(11);
     const last = tree[tree.length - 1];
     expect(last?.kind).toBe("item");
     expect(last?.kind === "item" && last.path).toBe("/admin/location-tokens");
@@ -49,7 +49,7 @@ describe("resolveActiveGroup", () => {
     expect(resolveActiveGroup(tree, path)).toBe(expected);
   });
 
-  it.each(["/", "/analytics", "/cash-closings", "/admin/users"])(
+  it.each(["/results", "/cash-closings", "/admin/users"])(
     "top-level path %s → null",
     (path) => {
       expect(resolveActiveGroup(tree, path)).toBeNull();
@@ -59,20 +59,20 @@ describe("resolveActiveGroup", () => {
 
 describe("isItemActive", () => {
   it("matches exact path when end=true", () => {
-    expect(isItemActive("/", "/", true)).toBe(true);
-    expect(isItemActive("/", "/analytics", true)).toBe(false);
+    expect(isItemActive("/results", "/results", true)).toBe(true);
+    expect(isItemActive("/results", "/results/other", true)).toBe(false);
   });
 
   it("matches exact path or sub-path when end=false", () => {
-    expect(isItemActive("/analytics", "/analytics")).toBe(true);
-    expect(isItemActive("/analytics", "/analytics/sub")).toBe(true);
+    expect(isItemActive("/cash-closings", "/cash-closings")).toBe(true);
+    expect(isItemActive("/cash-closings", "/cash-closings/sub")).toBe(true);
   });
 
   it("does not match partial prefix", () => {
-    expect(isItemActive("/analytics", "/analytics-new")).toBe(false);
+    expect(isItemActive("/results", "/results-extra")).toBe(false);
   });
 
-  it("dashboard with end=true does not match sub-paths", () => {
-    expect(isItemActive("/", "/analytics", true)).toBe(false);
+  it("end=true does not match sub-paths", () => {
+    expect(isItemActive("/results", "/results/sub", true)).toBe(false);
   });
 });
