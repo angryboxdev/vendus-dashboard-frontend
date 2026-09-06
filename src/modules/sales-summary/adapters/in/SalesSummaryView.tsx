@@ -1,7 +1,12 @@
 import { useSalesSummaryContext } from "../../sales-summary.module.tsx";
 import { CacheStatusBar } from "./CacheStatusBar.tsx";
+import { CategoryBreakdownSection } from "./CategoryBreakdownSection.tsx";
+import { ChannelBreakdownSection } from "./ChannelBreakdownSection.tsx";
+import { GrowthChartSection } from "./GrowthChartSection.tsx";
 import { KpiHeaderSection } from "./KpiHeaderSection.tsx";
 import { PeriodSelector } from "./PeriodSelector.tsx";
+import { TemporalDistributionSection } from "./TemporalDistributionSection.tsx";
+import { TopProductsSection } from "./TopProductsSection.tsx";
 
 const MONTH_LABELS = [
   "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
@@ -38,7 +43,16 @@ export function SalesSummaryView() {
       {/* KPI cards */}
       <KpiHeaderSection />
 
-      {/* Placeholder for issues 04 and 05 */}
+      {/* Growth chart */}
+      <GrowthChartSection />
+
+      {/* Channel + Category + Top Products */}
+      <ChannelBreakdownSection />
+      <CategoryBreakdownSection />
+      <TopProductsSection />
+
+      {/* Temporal distribution */}
+      <TemporalDistributionSection />
     </div>
   );
 }

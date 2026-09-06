@@ -26,18 +26,21 @@ Exibe ao gestor uma visão consolidada da faturação mensal combinando dados Ve
 ## Adapters
 
 ### Entrada (UI)
-- `SalesSummaryProvider` (composition root + state) — cria as instâncias de use case, gere o período seleccionado, corre as duas queries (período principal + período de comparação) e expõe `refresh`.
-- `SalesSummaryView` — página shell: cabeçalho, `PeriodSelector`, `CacheStatusBar`, `KpiHeaderSection`.
+- `SalesSummaryProvider` (composition root + state) — cria as instâncias de use case, gere o período seleccionado, corre as duas queries (período principal + período de comparação), expõe `refresh` e mantém `topProductsLimit` (10 | 20 | 50, default 20).
+- `SalesSummaryView` — página shell: cabeçalho, `PeriodSelector`, `CacheStatusBar`, e todas as secções de dados.
 - `PeriodSelector` — dois `<select>` (mês + ano) que actualizam o período no provider.
 - `KpiHeaderSection` — 8 KPI cards com valor do período seleccionado e delta % face ao período de comparação.
 - `CacheStatusBar` — tempo relativo ("há X minutos") com timestamp absoluto em tooltip; botão "Actualizar".
+- `ChannelBreakdownSection` — tabela com os 6 canais canónicos sempre visíveis (mesmo a zero) mais o canal `apps` (legado) quando presente na resposta; colunas: receita bruta, transacções, ticket médio, quota %.
+- `CategoryBreakdownSection` — tabela com as 4 categorias unificadas sempre visíveis (mesmo a zero); colunas: qtd. vendida, receita bruta, IVA, receita líquida.
+- `TopProductsSection` — tabela ranqueada com dropdown Top 10/20/50 no cabeçalho; faz slice do top 50 retornado pelo backend; colunas: rank, produto, qtd., receita bruta, canais.
 
 ### Saída
 - `HttpSalesSummaryApiAdapter` — implementa `SalesSummaryApiPort` via `apiGet` / `apiPost`.
 
 ## Decisões de design
 
-- **Estado no Provider** — `SalesSummaryProvider` gere o período seleccionado e corre ambas as queries. Isso permite que `PeriodSelector`, `CacheStatusBar` e `KpiHeaderSection` leiam o mesmo contexto sem prop-drilling.
+- **Estado no Provider** — `SalesSummaryProvider` gere o período seleccionado, `topProductsLimit` e corre ambas as queries. Isso permite que todos os componentes leiam o mesmo contexto sem prop-drilling.
 - **Duas queries em paralelo** — `Promise.allSettled` corre a query do período principal e do período de comparação em paralelo. Se a comparação falhar, os cards mostram-se sem delta (degradação graciosa).
 - **Valores em cêntimos** — o backend retorna todos os valores monetários em cêntimos; a UI divide por 100 antes de formatar com `formatEUR`.
 - **Período de comparação fixo** — sempre mês anterior; não é configurável no MVP (alinhado com a spec do backend).
@@ -50,5 +53,5 @@ Exibe ao gestor uma visão consolidada da faturação mensal combinando dados Ve
 ## Pontos de atenção / dívidas conhecidas
 
 - Sem testes de componente para `KpiHeaderSection`, `CacheStatusBar`, `PeriodSelector`.
-- Secções de canal/categoria, top produtos e gráfico de crescimento serão adicionadas nas issues 04 e 05.
+- Gráfico de crescimento e distribuição temporal serão adicionados na issue 05.
 - O seletor de ano está limitado a 2023–ano corrente; expandir se necessário.

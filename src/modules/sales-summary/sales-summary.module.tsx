@@ -9,13 +9,16 @@ import {
   type ReactNode,
 } from "react";
 import { HttpSalesSummaryApiAdapter } from "./adapters/out/http-sales-summary-api.adapter.ts";
+import { GetGrowthChartUseCase } from "./application/use-cases/get-growth-chart.use-case.ts";
 import { GetSalesSummaryUseCase } from "./application/use-cases/get-sales-summary.use-case.ts";
 import { RefreshSalesSummaryUseCase } from "./application/use-cases/refresh-sales-summary.use-case.ts";
+import type { GetGrowthChartPort } from "./domain/ports/in/get-growth-chart.port.ts";
 import type { GetSalesSummaryPort } from "./domain/ports/in/get-sales-summary.port.ts";
 import type { RefreshSalesSummaryPort } from "./domain/ports/in/refresh-sales-summary.port.ts";
 import {
   currentPeriod,
   prevMonth,
+  type MonthlyGrowthPoint,
   type SalesPeriod,
   type SalesSummaryResult,
 } from "./domain/entities/sales-summary.ts";
@@ -25,6 +28,7 @@ import {
 export interface SalesSummaryModule {
   getSalesSummary: GetSalesSummaryPort;
   refreshSalesSummary: RefreshSalesSummaryPort;
+  getGrowthChart: GetGrowthChartPort;
 }
 
 function buildModule(): SalesSummaryModule {
@@ -32,10 +36,13 @@ function buildModule(): SalesSummaryModule {
   return {
     getSalesSummary: new GetSalesSummaryUseCase(api),
     refreshSalesSummary: new RefreshSalesSummaryUseCase(api),
+    getGrowthChart: new GetGrowthChartUseCase(api),
   };
 }
 
 // ─── Context value ────────────────────────────────────────────────────────────
+
+export type TopProductsLimit = 10 | 20 | 50;
 
 export interface SalesSummaryContextValue {
   selectedPeriod: SalesPeriod;
@@ -46,6 +53,12 @@ export interface SalesSummaryContextValue {
   comparisonSummary: SalesSummaryResult | null;
   loading: boolean;
   error: string | null;
+
+  topProductsLimit: TopProductsLimit;
+  setTopProductsLimit: (limit: TopProductsLimit) => void;
+
+  growthChart: MonthlyGrowthPoint[] | null;
+  growthLoading: boolean;
 
   refresh: () => Promise<void>;
   refreshing: boolean;
@@ -62,7 +75,7 @@ export function SalesSummaryProvider({
   children: ReactNode;
   module?: SalesSummaryModule;
 }) {
-  const { getSalesSummary, refreshSalesSummary } = useMemo(
+  const { getSalesSummary, refreshSalesSummary, getGrowthChart } = useMemo(
     () => mod ?? buildModule(),
     [mod],
   );
@@ -75,6 +88,9 @@ export function SalesSummaryProvider({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [topProductsLimit, setTopProductsLimit] = useState<TopProductsLimit>(20);
+  const [growthChart, setGrowthChart] = useState<MonthlyGrowthPoint[] | null>(null);
+  const [growthLoading, setGrowthLoading] = useState(false);
 
   // Stable ref so the refresh callback doesn't depend on selectedPeriod in its closure
   const selectedPeriodRef = useRef(selectedPeriod);
@@ -112,6 +128,22 @@ export function SalesSummaryProvider({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedPeriod.year, selectedPeriod.month, getSalesSummary]);
 
+  useEffect(() => {
+    let cancelled = false;
+    setGrowthLoading(true);
+    setGrowthChart(null);
+    getGrowthChart.execute(selectedPeriod.year).then((data) => {
+      if (!cancelled) {
+        setGrowthChart(data);
+        setGrowthLoading(false);
+      }
+    }).catch(() => {
+      if (!cancelled) setGrowthLoading(false);
+    });
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPeriod.year, getGrowthChart]);
+
   const setPeriod = useCallback((p: SalesPeriod) => {
     setSelectedPeriod(p);
   }, []);
@@ -138,6 +170,10 @@ export function SalesSummaryProvider({
     comparisonSummary,
     loading,
     error,
+    topProductsLimit,
+    setTopProductsLimit,
+    growthChart,
+    growthLoading,
     refresh,
     refreshing,
   };
