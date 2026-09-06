@@ -15,20 +15,27 @@ const BASE = "/api/location-credentials";
 interface PairingCodeDto {
   code: string;
   expiresAt: string;
+  description: string | null;
 }
 
 interface DeviceTokenSummaryDto {
   id: string;
   issuedAt: string;
   locationName: string;
+  description: string | null;
 }
 
 function toPairingCode(dto: PairingCodeDto): PairingCode {
-  return PairingCode.create({ code: dto.code, expiresAt: new Date(dto.expiresAt) });
+  return PairingCode.create({ code: dto.code, expiresAt: new Date(dto.expiresAt), description: dto.description });
 }
 
 function toDeviceTokenSummary(dto: DeviceTokenSummaryDto): DeviceTokenSummary {
-  return { id: dto.id, issuedAt: new Date(dto.issuedAt), locationName: dto.locationName };
+  return {
+    id: dto.id,
+    issuedAt: new Date(dto.issuedAt),
+    locationName: dto.locationName,
+    description: dto.description,
+  };
 }
 
 function throwForRedeemStatus(status: number): never {
@@ -44,8 +51,9 @@ function throwForRedeemStatus(status: number): never {
  * adapter — same precedent as HttpCashClosingApiAdapter.
  */
 export class HttpLocationCredentialsApiAdapter implements LocationCredentialsApiPort {
-  async generatePairingCode(locationId: string): Promise<PairingCode> {
-    const dto = await apiPost<PairingCodeDto>(`${BASE}/pairing-codes`, { locationId });
+  async generatePairingCode(locationId: string, description?: string): Promise<PairingCode> {
+    const body = description ? { locationId, description } : { locationId };
+    const dto = await apiPost<PairingCodeDto>(`${BASE}/pairing-codes`, body);
     return toPairingCode(dto);
   }
 

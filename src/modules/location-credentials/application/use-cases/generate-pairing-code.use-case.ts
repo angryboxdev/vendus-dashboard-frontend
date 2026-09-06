@@ -8,7 +8,8 @@ export class GeneratePairingCodeUseCase implements GeneratePairingCodePort {
     this.api = api;
   }
 
-  execute(locationId: string): Promise<PairingCode> {
-    return this.api.generatePairingCode(locationId);
+  execute(locationId: string, description?: string): Promise<PairingCode> {
+    const trimmed = description?.trim();
+    return this.api.generatePairingCode(locationId, trimmed ? trimmed : undefined);
   }
 }

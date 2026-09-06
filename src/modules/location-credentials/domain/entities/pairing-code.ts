@@ -1,15 +1,18 @@
 export interface PairingCodeProps {
   code: string;
   expiresAt: Date;
+  description?: string | null;
 }
 
 export class PairingCode {
   readonly code: string;
   readonly expiresAt: Date;
+  readonly description: string | null;
 
   private constructor(props: PairingCodeProps) {
     this.code = props.code;
     this.expiresAt = props.expiresAt;
+    this.description = props.description ?? null;
   }
 
   static create(props: PairingCodeProps): PairingCode {

@@ -49,7 +49,7 @@ function buildLocationsModule(locations: LocationDTO[]): LocationsModule {
 }
 
 function buildCredentialsModule(
-  tokens: Record<string, { id: string; issuedAt: Date; locationName: string }[]> = {},
+  tokens: Record<string, { id: string; issuedAt: Date; locationName: string; description?: string | null }[]> = {},
 ): LocationCredentialsModule {
   const api = InMemoryLocationCredentialsApiAdapter.withSeed({ tokens });
   const storage = new InMemoryDeviceTokenStorageAdapter();
@@ -66,7 +66,7 @@ const LOC_A: LocationDTO = { id: "loc-a", name: "Loja Centro", code: "CTR", time
 const LOC_B: LocationDTO = { id: "loc-b", name: "Loja Norte", code: "NRT", timezone: "Europe/Lisbon", isActive: true };
 
 async function renderView(
-  tokens: Record<string, { id: string; issuedAt: Date; locationName: string }[]> = {},
+  tokens: Record<string, { id: string; issuedAt: Date; locationName: string; description?: string | null }[]> = {},
 ) {
   mockGetSession.mockResolvedValue({ data: { session: sessionWithOrg() } });
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -98,6 +98,15 @@ describe("LocationCredentialsAdminView", () => {
     expect(screen.getByText(/Expira em \d{2}:\d{2}/)).toBeInTheDocument();
   });
 
+  it("generates a pairing code after entering a description, without affecting the code shown", async () => {
+    const user = userEvent.setup();
+    await renderView();
+    await selectLocation(user, "Loja Centro");
+    await user.type(screen.getByLabelText("Descrição"), "Monitor da cozinha");
+    await user.click(screen.getByRole("button", { name: /gerar código/i }));
+    await waitFor(() => expect(screen.getByText(/^GENRT\d{3}$/)).toBeInTheDocument());
+  });
+
   it("lists tokens scoped to the selected location", async () => {
     const user = userEvent.setup();
     await renderView({
@@ -112,6 +121,25 @@ describe("LocationCredentialsAdminView", () => {
     await selectLocation(user, "Loja Norte");
     await waitFor(() => expect(screen.getByText("token-b1")).toBeInTheDocument());
     expect(screen.queryByText("token-a1")).not.toBeInTheDocument();
+  });
+
+  it("shows each token's description, or a placeholder when it has none", async () => {
+    const user = userEvent.setup();
+    await renderView({
+      "loc-a": [
+        {
+          id: "token-a1",
+          issuedAt: new Date("2026-01-01T10:00:00Z"),
+          locationName: "Loja Centro",
+          description: "Monitor da cozinha",
+        },
+        { id: "token-a2", issuedAt: new Date("2026-01-01T11:00:00Z"), locationName: "Loja Centro" },
+      ],
+    });
+
+    await selectLocation(user, "Loja Centro");
+    await waitFor(() => expect(screen.getByText("Monitor da cozinha")).toBeInTheDocument());
+    expect(screen.getByText("—")).toBeInTheDocument();
   });
 
   it("shows the empty state for a location with no paired devices", async () => {

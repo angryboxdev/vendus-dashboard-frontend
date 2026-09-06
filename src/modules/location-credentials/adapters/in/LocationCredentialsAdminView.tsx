@@ -184,6 +184,7 @@ function TokenList({ locationId }: { locationId: string }) {
           <tr className="border-b border-stone-100 bg-stone-50 text-left text-xs font-semibold uppercase tracking-wide text-stone-400">
             <th className="px-4 py-3 font-semibold">ID</th>
             <th className="px-4 py-3 font-semibold">Loja</th>
+            <th className="px-4 py-3 font-semibold">Descrição</th>
             <th className="px-4 py-3 font-semibold">Emparelhado em</th>
             <th className="px-4 py-3" />
           </tr>
@@ -195,6 +196,7 @@ function TokenList({ locationId }: { locationId: string }) {
                 {fmtDeviceId(t.id)}
               </td>
               <td className="px-4 py-3 text-stone-600">{t.locationName}</td>
+              <td className="px-4 py-3 text-stone-600">{t.description ?? <span className="text-stone-300">—</span>}</td>
               <td className="px-4 py-3 tabular-nums text-stone-500">{fmtIssuedAt(t.issuedAt)}</td>
               <td className="px-4 py-3 text-right">
                 <button
@@ -220,6 +222,7 @@ export function LocationCredentialsAdminView() {
   const [chosenLocationId, setChosenLocationId] = useState<string | null>(null);
   const [pairingCode, setPairingCode] = useState<PairingCode | null>(null);
   const [generating, setGenerating] = useState(false);
+  const [description, setDescription] = useState("");
 
   const locationId = resolveLocationId(chosenLocationId, locations);
 
@@ -227,7 +230,7 @@ export function LocationCredentialsAdminView() {
     if (!locationId) return;
     setGenerating(true);
     try {
-      setPairingCode(await generatePairingCode.execute(locationId));
+      setPairingCode(await generatePairingCode.execute(locationId, description));
     } finally {
       setGenerating(false);
     }
@@ -260,6 +263,17 @@ export function LocationCredentialsAdminView() {
                   <p className="mt-1 text-xs text-stone-500">
                     Gere um código e introduza-o no ecrã que quer ligar a esta loja.
                   </p>
+                  <label className="mt-4 block text-xs font-medium text-stone-500">
+                    Descrição
+                    <input
+                      type="text"
+                      value={description}
+                      onChange={(e) => setDescription(e.target.value)}
+                      placeholder="Ex.: Monitor da cozinha"
+                      maxLength={100}
+                      className="mt-1 block w-full rounded-md border border-stone-200 px-3 py-2 text-sm text-stone-800 placeholder:text-stone-300 focus:border-[#ED5C32] focus:outline-none"
+                    />
+                  </label>
                   <button
                     type="button"
                     disabled={generating}

@@ -15,14 +15,18 @@ domínio aqui só conhece o código de emparelhamento e o resumo de um token.
 
 ## Conceitos do domínio
 
-- **PairingCode** — `{ code, expiresAt }`, TTL de 10 minutos. `remainingSeconds(now?)`
-  e `isExpired(now?)` aceitam um `now` opcional (default `new Date()`) para
-  serem determinísticos em teste.
-- **DeviceTokenSummary** — `{ id, issuedAt, locationName }`, o que a UI de admin
-  lista por loja. `locationName` vem do backend (ticket 05) e é só exibido —
-  não é usado para nenhuma decisão do domínio, já que a lista já está
-  filtrada por `locationId`. O token em si nunca é devolvido de novo depois
-  de resgatado.
+- **PairingCode** — `{ code, expiresAt, description }`, TTL de 10 minutos.
+  `remainingSeconds(now?)` e `isExpired(now?)` aceitam um `now` opcional
+  (default `new Date()`) para serem determinísticos em teste. `description`
+  (`string | null`) é opcional, definida uma única vez na geração do código
+  (ticket 07) — não existe endpoint para editá-la depois.
+- **DeviceTokenSummary** — `{ id, issuedAt, locationName, description }`, o que
+  a UI de admin lista por loja. `locationName` vem do backend (ticket 05) e é
+  só exibido — não é usado para nenhuma decisão do domínio, já que a lista já
+  está filtrada por `locationId`. `description` (ticket 07) acompanha o token
+  gerado a partir do código correspondente; tokens já emparelhados antes do
+  ticket 07 vêm com `description: null`. O token em si nunca é devolvido de
+  novo depois de resgatado.
 - **Erros de domínio do resgate** — `InvalidPairingCodeError` (400),
   `PairingCodeNotFoundError` (404), `PairingCodeAlreadyUsedError` (409),
   `PairingCodeExpiredError` (410). Mapeiam 1:1 para os status HTTP do backend.
@@ -31,7 +35,7 @@ domínio aqui só conhece o código de emparelhamento e o resumo de um token.
 
 ### Entrada (use cases)
 
-- `GeneratePairingCodePort` — `execute(locationId): Promise<PairingCode>` — admin gera um código para uma loja.
+- `GeneratePairingCodePort` — `execute(locationId, description?): Promise<PairingCode>` — admin gera um código para uma loja, com uma descrição opcional (ticket 07).
 - `ListActiveTokensPort` — `execute(locationId): Promise<DeviceTokenSummary[]>` — lista tokens ativos de uma loja.
 - `RevokeTokenPort` — `execute(tokenId): Promise<void>` — revoga um token.
 - `RedeemPairingCodePort` — `execute(code): Promise<void>` — troca um código por um token e persiste-o via `DeviceTokenStoragePort`; o token nunca é devolvido ao chamador.
@@ -39,7 +43,7 @@ domínio aqui só conhece o código de emparelhamento e o resumo de um token.
 
 ### Saída (dependências do domínio)
 
-- `LocationCredentialsApiPort` — `generatePairingCode`, `listTokens`, `revokeToken` (autenticados, admin), `redeem` (público, dispositivo) e `checkToken(): Promise<boolean>` (dispositivo, revalida o token guardado contra `GET /api/location-credentials/tokens/me`) no mesmo port — reaproveita o precedente de `HttpCashClosingApiAdapter` de misturar chamadas autenticadas e públicas num único adapter.
+- `LocationCredentialsApiPort` — `generatePairingCode(locationId, description?)`, `listTokens`, `revokeToken` (autenticados, admin), `redeem` (público, dispositivo) e `checkToken(): Promise<boolean>` (dispositivo, revalida o token guardado contra `GET /api/location-credentials/tokens/me`) no mesmo port — reaproveita o precedente de `HttpCashClosingApiAdapter` de misturar chamadas autenticadas e públicas num único adapter.
 - `DeviceTokenStoragePort` — `getToken()/setToken()/clearToken()` — port de saída próprio, separado do port de API. O domínio/use cases não sabem se o token veio de `fetch` ou de `localStorage`, e os testes de use case ficam livres de DOM. Este é o primeiro módulo do frontend a persistir uma credencial do lado do cliente — precedente documentado aqui.
 
 ## Adapters
@@ -49,16 +53,31 @@ domínio aqui só conhece o código de emparelhamento e o resumo de um token.
 - `useDevicePairing` (hook, `use-device-pairing.ts`) — chama `getPairingStatus.execute()` uma vez ao montar (agora assíncrono, ver ADR) e expõe `{ state: "checking" | "paired" | "unpaired", markPaired }`. `state` começa em `"checking"` até a promise resolver.
 - `DevicePairingGate` — modelado em `ProtectedRoute.tsx`: `state === "checking"` não renderiza nada, `"unpaired"` mostra `PairingRedemptionForm`, `"paired"` renderiza `{children}`. Não desmonta/remonta os filhos entre re-renders.
 - `PairingRedemptionForm` — exportado standalone para teste direto. Um único input de código; mapeia os 4 erros de domínio do resgate para mensagens em português; chama `onRedeemed()` no sucesso. Nunca mostra o token — o use case já o persiste internamente.
-- `LocationCredentialsAdminView` — página `/admin/location-tokens`: `LocationSelect` (via `resolveLocationId`, não confia no timing do auto-select do picker) + botão gerar (mostra o código em blocos por caractere, com um `<span>` `sr-only` do código completo para leitores de ecrã, botão "Copiar" via `navigator.clipboard`, contagem decrescente com `useCountdown` local ao componente, e a opção de gerar um novo código mesmo antes de expirar o atual) + tabela de tokens (`useQuery`, lista vazia = "nenhum dispositivo emparelhado nesta loja", não é erro; IDs longos são truncados no meio via `fmtDeviceId`, com o valor completo no `title`; coluna "Loja" mostra `locationName` tal como devolvido pelo backend, sem formatação) + revogar por linha (`confirm()` nativo, invalida só a query key da loja atual).
+- `LocationCredentialsAdminView` — página `/admin/location-tokens`: `LocationSelect` (via `resolveLocationId`, não confia no timing do auto-select do picker) + input opcional "Descrição" (`maxLength=100`, placeholder "Ex.: Monitor da cozinha", ticket 07) + botão gerar (mostra o código em blocos por caractere, com um `<span>` `sr-only` do código completo para leitores de ecrã, botão "Copiar" via `navigator.clipboard`, contagem decrescente com `useCountdown` local ao componente, e a opção de gerar um novo código mesmo antes de expirar o atual) + tabela de tokens (`useQuery`, lista vazia = "nenhum dispositivo emparelhado nesta loja", não é erro; IDs longos são truncados no meio via `fmtDeviceId`, com o valor completo no `title`; coluna "Loja" mostra `locationName` tal como devolvido pelo backend, sem formatação; coluna "Descrição" mostra `t.description` ou "—" quando `null`) + revogar por linha (`confirm()` nativo, invalida só a query key da loja atual).
 
 ### Saída
 
-- `HttpLocationCredentialsApiAdapter` — implementa `LocationCredentialsApiPort` com `apiGet`/`apiPost`/`apiDeleteNoContent` (bearer automático) para as operações de admin e `deviceFetch` para `redeem` e `checkToken` (`GET /api/location-credentials/tokens/me`, sem bearer, dispositivo). `checkToken()` devolve `res.ok`; não reimplementa a deteção de 401 — deixa o `deviceFetch` fazer o *string-match* e a limpeza/reload que já faz para todas as outras rotas gated por device token.
+- `HttpLocationCredentialsApiAdapter` — implementa `LocationCredentialsApiPort` com `apiGet`/`apiPost`/`apiDeleteNoContent` (bearer automático) para as operações de admin e `deviceFetch` para `redeem` e `checkToken` (`GET /api/location-credentials/tokens/me`, sem bearer, dispositivo). `checkToken()` devolve `res.ok`; não reimplementa a deteção de 401 — deixa o `deviceFetch` fazer o *string-match* e a limpeza/reload que já faz para todas as outras rotas gated por device token. `generatePairingCode` só inclui `description` no corpo do POST quando definida (ticket 07); `PairingCodeDto`/`DeviceTokenSummaryDto` incluem `description: string | null`.
 - `LocalStorageDeviceTokenAdapter` — implementa `DeviceTokenStoragePort` sobre `localStorage` (chave `angrybox.deviceToken`).
 - `deviceFetch` (`adapters/out/device-fetch.ts`) — wrapper de `fetch` para rotas gated por device token: acrescenta o header `X-Device-Token`, e se a resposta for 401 com o corpo exato `{"error":"Invalid or missing device credentials"}`, limpa o token guardado e recarrega a página. É necessário fazer *match* na string exata — `verify-pin` e `kiosk/scan` também devolvem 401 para PIN errado (`InvalidPinError`), que NÃO deve limpar o emparelhamento. Fragilidade conhecida: não existe um código de erro dedicado no wire para desambiguar isto de forma mais robusta.
 - `InMemoryLocationCredentialsApiAdapter` / `InMemoryDeviceTokenStorageAdapter` — fakes de teste (`withSeed`), como o `InMemoryTaskApiAdapter` do módulo `tasks`.
 
 ## Decisões de design (ADR resumido)
+
+**Descrição opcional na geração de código (ticket 07) — trim no FE, regenerar reaproveita o valor.**
+`GeneratePairingCodeUseCase.execute()` faz `trim()` na descrição e trata uma
+string em branco como omitida (`undefined`), espelhando a semântica do
+backend ("omitido → `null`") sem duplicar a validação estrita (1–100
+carateres, rejeição de whitespace) — essa continua a ser só do backend; o FE
+só evita o caso óbvio de mandar espaços. Não existe endpoint de
+atualização/rename: a descrição é *write-once*, por isso não há UI de editar
+depois de emparelhado. Em `LocationCredentialsAdminView`, o estado
+`description` é local ao componente e não é limpo entre gerações — "Gerar
+novo código" (regenerar antes de expirar, ou depois de expirado) reaproveita
+o mesmo texto do input em vez de o limpar, pela estrutura já existente
+(um único estado, sem distinguir "gerar" de "regenerar"); se o utilizador
+quiser uma descrição diferente no novo código, edita o campo antes de
+regenerar.
 
 **Um único `LocationCredentialsApiPort` para admin + dispositivo.**
 Mesmo precedente do `cash-closings`: em vez de dois ports de saída, um port

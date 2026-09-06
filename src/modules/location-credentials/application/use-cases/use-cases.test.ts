@@ -20,6 +20,21 @@ describe("GeneratePairingCodeUseCase", () => {
     const code = await useCase.execute("loc-1");
     expect(code.code).toBeTruthy();
     expect(code.isExpired()).toBe(false);
+    expect(code.description).toBeNull();
+  });
+
+  it("passes a trimmed description through to the api", async () => {
+    const api = InMemoryLocationCredentialsApiAdapter.withSeed();
+    const useCase = new GeneratePairingCodeUseCase(api);
+    const code = await useCase.execute("loc-1", "  Monitor da cozinha  ");
+    expect(code.description).toBe("Monitor da cozinha");
+  });
+
+  it("treats a blank description as omitted", async () => {
+    const api = InMemoryLocationCredentialsApiAdapter.withSeed();
+    const useCase = new GeneratePairingCodeUseCase(api);
+    const code = await useCase.execute("loc-1", "   ");
+    expect(code.description).toBeNull();
   });
 });
 
@@ -33,7 +48,9 @@ describe("ListActiveTokensUseCase", () => {
     });
     const useCase = new ListActiveTokensUseCase(api);
     const tokens = await useCase.execute("loc-1");
-    expect(tokens).toEqual([{ id: "t1", issuedAt: expect.any(Date), locationName: "Loja Centro" }]);
+    expect(tokens).toEqual([
+      { id: "t1", issuedAt: expect.any(Date), locationName: "Loja Centro", description: null },
+    ]);
   });
 
   it("returns an empty list for a location with no tokens", async () => {
@@ -65,7 +82,7 @@ describe("RevokeTokenUseCase", () => {
     await revoke.execute("t1");
     const list = new ListActiveTokensUseCase(api);
     expect(await list.execute("loc-2")).toEqual([
-      { id: "t2", issuedAt: expect.any(Date), locationName: "Loja Norte" },
+      { id: "t2", issuedAt: expect.any(Date), locationName: "Loja Norte", description: null },
     ]);
   });
 });

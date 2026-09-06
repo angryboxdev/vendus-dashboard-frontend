@@ -15,11 +15,19 @@ export interface SeededPairingCode {
   locationId: string;
   status: SeededPairingCodeStatus;
   expiresAt?: Date;
+  description?: string | null;
 }
 
 const CODE_PATTERN = /^[A-Z0-9]{8}$/;
 
 export type SeededTokenCheck = "valid" | "invalid" | "error";
+
+/** Seed shape for tokens: `description` is optional here (defaults to null), unlike the domain entity. */
+export type SeededDeviceToken = Omit<DeviceTokenSummary, "description"> & { description?: string | null };
+
+function toDeviceTokenSummary(seed: SeededDeviceToken): DeviceTokenSummary {
+  return { ...seed, description: seed.description ?? null };
+}
 
 /** Test fake for LocationCredentialsApiPort. Use InMemoryLocationCredentialsApiAdapter.withSeed to drive redeem's branches. */
 export class InMemoryLocationCredentialsApiAdapter implements LocationCredentialsApiPort {
@@ -29,30 +37,39 @@ export class InMemoryLocationCredentialsApiAdapter implements LocationCredential
 
   constructor(
     codes: SeededPairingCode[] = [],
-    tokens: Record<string, DeviceTokenSummary[]> = {},
+    tokens: Record<string, SeededDeviceToken[]> = {},
     tokenCheck: SeededTokenCheck = "valid",
   ) {
     this.codes = [...codes];
-    this.tokensByLocation = new Map(Object.entries(tokens).map(([id, list]) => [id, [...list]]));
+    this.tokensByLocation = new Map(
+      Object.entries(tokens).map(([id, list]) => [id, list.map(toDeviceTokenSummary)]),
+    );
     this.tokenCheck = tokenCheck;
   }
 
   static withSeed(
     params: {
       codes?: SeededPairingCode[];
-      tokens?: Record<string, DeviceTokenSummary[]>;
+      tokens?: Record<string, SeededDeviceToken[]>;
       tokenCheck?: SeededTokenCheck;
     } = {},
   ): InMemoryLocationCredentialsApiAdapter {
     return new InMemoryLocationCredentialsApiAdapter(params.codes ?? [], params.tokens ?? {}, params.tokenCheck ?? "valid");
   }
 
-  generatePairingCode(locationId: string): Promise<PairingCode> {
+  generatePairingCode(locationId: string, description?: string): Promise<PairingCode> {
     const pairingCode = PairingCode.create({
       code: "GENRT" + String(this.codes.length).padStart(3, "0"),
       expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+      description: description ?? null,
     });
-    this.codes.push({ code: pairingCode.code, locationId, status: "valid", expiresAt: pairingCode.expiresAt });
+    this.codes.push({
+      code: pairingCode.code,
+      locationId,
+      status: "valid",
+      expiresAt: pairingCode.expiresAt,
+      description: pairingCode.description,
+    });
     return Promise.resolve(pairingCode);
   }
 
