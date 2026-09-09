@@ -3,7 +3,11 @@ import type { GetGrowthChartPort } from "../../domain/ports/in/get-growth-chart.
 import type { SalesSummaryApiPort } from "../../domain/ports/out/sales-summary-api.port.ts";
 
 export class GetGrowthChartUseCase implements GetGrowthChartPort {
-  constructor(private readonly api: SalesSummaryApiPort) {}
+  private readonly api: SalesSummaryApiPort;
+
+  constructor(api: SalesSummaryApiPort) {
+    this.api = api;
+  }
 
   execute(year: number): Promise<MonthlyGrowthPoint[]> {
     return this.api.getGrowthChart(year);

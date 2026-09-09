@@ -36,6 +36,7 @@ export function KioskCheckinPage() {
   const [params] = useSearchParams();
   const token = params.get("token") ?? "";
   const date = params.get("date") ?? "";
+  const deviceToken = params.get("deviceToken") || undefined;
 
   const [digits, setDigits] = useState<string[]>([]);
   const [pageState, setPageState] = useState<PageState>({ status: "idle" });
@@ -45,7 +46,7 @@ export function KioskCheckinPage() {
   async function handleScan(pin: string) {
     setPageState({ status: "loading" });
     try {
-      const result = await kioskScan({ token, date, pin });
+      const result = await kioskScan({ token, date, pin, deviceToken });
       setPageState({ status: "success", result });
       // Auto-reset após 5 segundos
       setTimeout(() => {

@@ -3,7 +3,11 @@ import type { SalesSummaryApiPort } from "../../domain/ports/out/sales-summary-a
 import type { SalesSummaryResult } from "../../domain/entities/sales-summary.ts";
 
 export class RefreshSalesSummaryUseCase implements RefreshSalesSummaryPort {
-  constructor(private readonly api: SalesSummaryApiPort) {}
+  private readonly api: SalesSummaryApiPort;
+
+  constructor(api: SalesSummaryApiPort) {
+    this.api = api;
+  }
 
   execute(year: number, month: number): Promise<SalesSummaryResult> {
     return this.api.refreshSummary(year, month);

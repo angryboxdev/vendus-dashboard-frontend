@@ -136,10 +136,11 @@ que `GetPairingStatusUseCase.execute()` garante ao verificar
 caso.
 
 **Seam legado: ficheiros antigos importam funções simples do módulo.**
-`cashClosingApi.ts`, `kdsApi.ts` e o `kioskScan` de `hrApi.ts` são módulos
-não-componente que já chamam `fetch` diretamente, fora da DI de qualquer
-módulo, anteriores a este ticket. Migrá-los para os use cases do módulo
-implicaria mover `CashClosingPage`/`KdsPage`/`KioskCheckinPage` para o padrão
+`cashClosingApi.ts`, `kdsApi.ts`, o `kioskScan` de `hrApi.ts` e
+`KioskDisplayPage.tsx` são módulos/páginas não migrados que já chamam `fetch`
+diretamente ou lêem o token guardado fora da DI de qualquer módulo, anteriores
+a este ticket. Migrá-los para os use cases do módulo implicaria mover
+`CashClosingPage`/`KdsPage`/`KioskCheckinPage`/`KioskDisplayPage` para o padrão
 hexagonal — fora do âmbito (o README de `cash-closings` já documenta
 `CashClosingPage` como legado pendente de migração). Estes ficheiros importam
 diretamente as **funções simples exportadas** de
@@ -147,6 +148,22 @@ diretamente as **funções simples exportadas** de
 `getStoredDeviceToken`, `clearStoredDeviceToken`) — nunca o use case, nunca o
 contexto React. Isto é uma exceção deliberada e temporária, não um padrão a
 reutilizar noutro sítio.
+
+**Token do próprio ecrã propagado via QR (`deviceToken` na URL de checkin).**
+`KioskDisplayPage` (o tablet fixo, normalmente emparelhado) lê o seu próprio
+token com `getStoredDeviceToken()` e acrescenta-o como query param
+`deviceToken` na URL codificada no QR — omitido quando o ecrã ainda não está
+emparelhado, preservando o comportamento anterior. `KioskCheckinPage` corre
+no telemóvel de quem faz scan, cujo `localStorage` está normalmente vazio, por
+isso não pode confiar em `deviceFetch`/`deviceTokenHeader` (que só leem o
+`localStorage` do próprio dispositivo). Em vez disso, lê o parâmetro
+`deviceToken` da sua própria URL e passa-o a `kioskScan(...)`, que — só quando
+`deviceToken` é passado — faz `fetch` direto com o header `X-Device-Token`
+montado explicitamente a partir desse valor, contornando `deviceFetch` (sem
+`deviceToken`, cai no caminho antigo via `deviceFetch`/`localStorage`,
+inalterado). Não muda o formato de `GET /kiosk/daily-token` nem o corpo de
+`POST /kiosk/scan` — só o transporte do token já existente (query param no QR
+→ header no scan).
 
 **Token nunca re-exposto depois do resgate.**
 `RedeemPairingCodeUseCase.execute()` devolve `Promise<void>`: o token

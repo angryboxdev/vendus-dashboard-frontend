@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { QRCodeSVG } from "qrcode.react";
 import { fetchKioskDailyToken } from "../hr/hrApi";
+import { getStoredDeviceToken } from "../../modules/location-credentials/adapters/out/local-storage-device-token.adapter.ts";
 
 type TokenState =
   | { status: "loading" }
@@ -32,7 +33,9 @@ export function KioskDisplayPage() {
     setState({ status: "loading" });
     try {
       const { token, date } = await fetchKioskDailyToken();
-      const qrUrl = `${window.location.origin}/kiosk/checkin?date=${encodeURIComponent(date)}&token=${encodeURIComponent(token)}`;
+      const deviceToken = getStoredDeviceToken();
+      const deviceTokenParam = deviceToken ? `&deviceToken=${encodeURIComponent(deviceToken)}` : "";
+      const qrUrl = `${window.location.origin}/kiosk/checkin?date=${encodeURIComponent(date)}&token=${encodeURIComponent(token)}${deviceTokenParam}`;
       setState({ status: "ok", token, date, qrUrl });
     } catch (e: unknown) {
       const message = e instanceof Error ? e.message : "Erro ao carregar QR code";
