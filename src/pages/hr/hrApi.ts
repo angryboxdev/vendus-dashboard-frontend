@@ -308,12 +308,26 @@ export async function kioskScan(body: {
   token: string;
   date: string;
   pin: string;
+  /**
+   * Overrides the device token normally read from this device's own
+   * localStorage (via `deviceFetch`). The kiosk display and the scanning
+   * device are usually different tablets — the QR carries the display's
+   * paired token so the scanning device (often unpaired) can present it.
+   */
+  deviceToken?: string;
 }): Promise<KioskScanResult> {
-  const res = await deviceFetch(`${API_BASE}${HR}/kiosk/scan`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  const { deviceToken, ...scanBody } = body;
+  const res = deviceToken
+    ? await fetch(`${API_BASE}${HR}/kiosk/scan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-Device-Token": deviceToken },
+        body: JSON.stringify(scanBody),
+      })
+    : await deviceFetch(`${API_BASE}${HR}/kiosk/scan`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(scanBody),
+      });
   if (!res.ok) {
     const data = (await res.json().catch(() => ({}))) as { error?: string };
     throw new Error(data.error ?? `HTTP ${res.status}`);
