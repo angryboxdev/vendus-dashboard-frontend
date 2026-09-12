@@ -57,7 +57,7 @@ domínio aqui só conhece o código de emparelhamento e o resumo de um token.
 
 ### Saída
 
-- `HttpLocationCredentialsApiAdapter` — implementa `LocationCredentialsApiPort` com `apiGet`/`apiPost`/`apiDeleteNoContent` (bearer automático) para as operações de admin e `deviceFetch` para `redeem` e `checkToken` (`GET /api/location-credentials/tokens/me`, sem bearer, dispositivo). `checkToken()` devolve `res.ok` sem reagir a 401 — quem reage é só `GetPairingStatusUseCase`. `generatePairingCode` só inclui `description` no corpo do POST quando definida (ticket 07); `PairingCodeDto`/`DeviceTokenSummaryDto` incluem `description: string | null`.
+- `HttpLocationCredentialsApiAdapter` — implementa `LocationCredentialsApiPort` com `apiGet`/`apiPost`/`apiDeleteNoContent` (bearer automático) para as operações de admin e `deviceFetch` para `redeem` e `checkToken` (`GET /api/location-credentials/tokens/me`, sem bearer, dispositivo). `checkToken()` resolve `true` num 200; num 401 resolve `false` — o único status em que `requireDeviceAuth` confirma o token como ausente/desconhecido/revogado; qualquer outro status resolvido (500 de um erro genuíno de lookup, 502/503 de um proxy durante um restart de deploy, etc.) faz `checkToken()` **lançar** em vez de resolver `false` — quem reage é só `GetPairingStatusUseCase`, que já tinha o `catch` certo para isto (ver ADR abaixo). `generatePairingCode` só inclui `description` no corpo do POST quando definida (ticket 07); `PairingCodeDto`/`DeviceTokenSummaryDto` incluem `description: string | null`.
 - `LocalStorageDeviceTokenAdapter` — implementa `DeviceTokenStoragePort` sobre `localStorage` (chave `angrybox.deviceToken`).
 - `deviceFetch` (`adapters/out/device-fetch.ts`) — wrapper de `fetch` para rotas gated por device token: só acrescenta o header `X-Device-Token`. Não inspeciona a resposta nem reage a 401 (ver ADR "`deviceFetch` não limpa nem recarrega em 401" abaixo) — devolve a `Response` tal como veio, e quem chama decide o que fazer com um `!res.ok`.
 - `InMemoryLocationCredentialsApiAdapter` / `InMemoryDeviceTokenStorageAdapter` — fakes de teste (`withSeed`), como o `InMemoryTaskApiAdapter` do módulo `tasks`.
@@ -111,14 +111,19 @@ Fluxo de `GetPairingStatusUseCase.execute()`:
   `DeviceTokenStoragePort.clearToken()` e devolve `{ paired: false }`. Este é
   o **único** lugar do módulo que limpa o token guardado — ver ADR abaixo
   sobre por que `deviceFetch` deixou de o fazer.
-- Com token local + `checkToken()` rejeita (erro de rede, ex. offline) →
+- Com token local + `checkToken()` rejeita (erro de rede, ex. offline, **ou**
+  um status resolvido que não é 200 nem 401 — 500 de um erro genuíno de
+  lookup no backend, 502/503 de um proxy a meio de um restart de deploy;
+  `HttpLocationCredentialsApiAdapter.checkToken()` lança nesses casos em vez
+  de resolver `false`, exatamente para cair neste mesmo ramo) →
   **fail-open**: devolve `{ paired: true }` sem tocar no token guardado.
-  Decisão deliberada: um kiosk offline com um token que já foi válido não
-  deve ficar bloqueado no formulário de resgate (que também precisa de
-  rede) só por não conseguir alcançar o servidor agora — isso trocaria um
-  bug raro (token revogado a passar por segundos/minutos) por um pior e mais
-  frequente (ecrã de loja preso fora do ar em qualquer soluço de rede). Um
-  token realmente revogado continua a ser apanhado na próxima vez que
+  Decisão deliberada: um kiosk offline (ou a meio de um soluço passageiro do
+  backend) com um token que já foi válido não deve ficar bloqueado no
+  formulário de resgate (que também precisa de rede) só por não conseguir
+  confirmar o servidor agora — isso trocaria um bug raro (token revogado a
+  passar por segundos/minutos) por um pior e mais frequente (ecrã de loja
+  preso fora do ar em qualquer soluço de rede ou reinício de deploy). Um
+  token realmente revogado (401) continua a ser apanhado na próxima vez que
   `GetPairingStatusUseCase.execute()` correr (tipicamente, o próximo mount de
   `DevicePairingGate` — recarregar a página, ou navegar de novo para o ecrã).
 
@@ -223,6 +228,10 @@ npx vitest run src/modules/location-credentials
   `X-Device-Token`, e que um 401 (com ou sem o corpo de falha de auth de
   dispositivo) não limpa o `localStorage` nem chama `reload()` — só devolve a
   `Response` ao chamador.
+- `http-location-credentials-api.adapter.test.ts` — `checkToken()` isolado,
+  com `fetch` mockado: 200 resolve `true`, 401 resolve `false`, e 500/502/503
+  lançam (em vez de resolver `false`) — a distinção de que depende o
+  fail-open de `GetPairingStatusUseCase`.
 - UI/hooks: Testing Library, injetando um `LocationCredentialsModule` de teste
   via `LocationCredentialsProvider` (`PairingRedemptionForm.test.tsx`,
   `DevicePairingGate.test.tsx`, `LocationCredentialsAdminView.test.tsx`).

@@ -167,4 +167,17 @@ describe("GetPairingStatusUseCase", () => {
     await expect(useCase.execute()).resolves.toEqual({ paired: true });
     expect(storage.getToken()).toBe("some-token");
   });
+
+  it("fails open and reports paired on a transient backend failure (500/502/503), without clearing the token", async () => {
+    // HttpLocationCredentialsApiAdapter.checkToken() throws for a resolved
+    // non-401 failure response the same way it does for a network
+    // exception (see its test), so this is the same fake path as above —
+    // asserted separately because it's the exact regression this fixes:
+    // a transient backend hiccup must not collapse into "confirmed unpaired".
+    const storage = new InMemoryDeviceTokenStorageAdapter("some-token");
+    const api = InMemoryLocationCredentialsApiAdapter.withSeed({ tokenCheck: "error" });
+    const useCase = new GetPairingStatusUseCase(storage, api);
+    await expect(useCase.execute()).resolves.toEqual({ paired: true });
+    expect(storage.getToken()).toBe("some-token");
+  });
 });
