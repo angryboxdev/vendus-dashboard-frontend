@@ -1,7 +1,7 @@
 # Módulo: location-credentials
 
 > Status: ativo
-> Última atualização: 2026-09-05
+> Última atualização: 2026-09-12
 
 ## Propósito
 
@@ -57,9 +57,9 @@ domínio aqui só conhece o código de emparelhamento e o resumo de um token.
 
 ### Saída
 
-- `HttpLocationCredentialsApiAdapter` — implementa `LocationCredentialsApiPort` com `apiGet`/`apiPost`/`apiDeleteNoContent` (bearer automático) para as operações de admin e `deviceFetch` para `redeem` e `checkToken` (`GET /api/location-credentials/tokens/me`, sem bearer, dispositivo). `checkToken()` devolve `res.ok`; não reimplementa a deteção de 401 — deixa o `deviceFetch` fazer o *string-match* e a limpeza/reload que já faz para todas as outras rotas gated por device token. `generatePairingCode` só inclui `description` no corpo do POST quando definida (ticket 07); `PairingCodeDto`/`DeviceTokenSummaryDto` incluem `description: string | null`.
+- `HttpLocationCredentialsApiAdapter` — implementa `LocationCredentialsApiPort` com `apiGet`/`apiPost`/`apiDeleteNoContent` (bearer automático) para as operações de admin e `deviceFetch` para `redeem` e `checkToken` (`GET /api/location-credentials/tokens/me`, sem bearer, dispositivo). `checkToken()` resolve `true` num 200; num 401 resolve `false` — o único status em que `requireDeviceAuth` confirma o token como ausente/desconhecido/revogado; qualquer outro status resolvido (500 de um erro genuíno de lookup, 502/503 de um proxy durante um restart de deploy, etc.) faz `checkToken()` **lançar** em vez de resolver `false` — quem reage é só `GetPairingStatusUseCase`, que já tinha o `catch` certo para isto (ver ADR abaixo). `generatePairingCode` só inclui `description` no corpo do POST quando definida (ticket 07); `PairingCodeDto`/`DeviceTokenSummaryDto` incluem `description: string | null`.
 - `LocalStorageDeviceTokenAdapter` — implementa `DeviceTokenStoragePort` sobre `localStorage` (chave `angrybox.deviceToken`).
-- `deviceFetch` (`adapters/out/device-fetch.ts`) — wrapper de `fetch` para rotas gated por device token: acrescenta o header `X-Device-Token`, e se a resposta for 401 com o corpo exato `{"error":"Invalid or missing device credentials"}`, limpa o token guardado e recarrega a página. É necessário fazer *match* na string exata — `verify-pin` e `kiosk/scan` também devolvem 401 para PIN errado (`InvalidPinError`), que NÃO deve limpar o emparelhamento. Fragilidade conhecida: não existe um código de erro dedicado no wire para desambiguar isto de forma mais robusta.
+- `deviceFetch` (`adapters/out/device-fetch.ts`) — wrapper de `fetch` para rotas gated por device token: só acrescenta o header `X-Device-Token`. Não inspeciona a resposta nem reage a 401 (ver ADR "`deviceFetch` não limpa nem recarrega em 401" abaixo) — devolve a `Response` tal como veio, e quem chama decide o que fazer com um `!res.ok`.
 - `InMemoryLocationCredentialsApiAdapter` / `InMemoryDeviceTokenStorageAdapter` — fakes de teste (`withSeed`), como o `InMemoryTaskApiAdapter` do módulo `tasks`.
 
 ## Decisões de design (ADR resumido)
@@ -108,22 +108,49 @@ Fluxo de `GetPairingStatusUseCase.execute()`:
 - Sem token local → `{ paired: false }`, sem chamada de rede (inalterado).
 - Com token local + `checkToken()` resolve `true` (200) → `{ paired: true }`.
 - Com token local + `checkToken()` resolve `false` (401) → limpa o token via
-  `DeviceTokenStoragePort.clearToken()` e devolve `{ paired: false }`. No
-  adapter real, o próprio `deviceFetch` já limpa o token e recarrega a
-  página ao detetar este 401 (mesmo *string-match* de sempre — ver
-  `HttpLocationCredentialsApiAdapter`); o `clearToken()` explícito no use
-  case é redundante nesse caminho mas necessário para o caminho testado com
-  fakes (que não passam por `deviceFetch`), e não duplica a lógica frágil de
-  deteção do 401 — só reage ao booleano que `checkToken()` já devolveu.
-- Com token local + `checkToken()` rejeita (erro de rede, ex. offline) →
+  `DeviceTokenStoragePort.clearToken()` e devolve `{ paired: false }`. Este é
+  o **único** lugar do módulo que limpa o token guardado — ver ADR abaixo
+  sobre por que `deviceFetch` deixou de o fazer.
+- Com token local + `checkToken()` rejeita (erro de rede, ex. offline, **ou**
+  um status resolvido que não é 200 nem 401 — 500 de um erro genuíno de
+  lookup no backend, 502/503 de um proxy a meio de um restart de deploy;
+  `HttpLocationCredentialsApiAdapter.checkToken()` lança nesses casos em vez
+  de resolver `false`, exatamente para cair neste mesmo ramo) →
   **fail-open**: devolve `{ paired: true }` sem tocar no token guardado.
-  Decisão deliberada: um kiosk offline com um token que já foi válido não
-  deve ficar bloqueado no formulário de resgate (que também precisa de
-  rede) só por não conseguir alcançar o servidor agora — isso trocaria um
-  bug raro (token revogado a passar por segundos/minutos) por um pior e mais
-  frequente (ecrã de loja preso fora do ar em qualquer soluço de rede). Um
-  token realmente revogado continua a ser apanhado assim que a rede voltar
-  (nesta chamada, ou por qualquer outra que passe por `deviceFetch`).
+  Decisão deliberada: um kiosk offline (ou a meio de um soluço passageiro do
+  backend) com um token que já foi válido não deve ficar bloqueado no
+  formulário de resgate (que também precisa de rede) só por não conseguir
+  confirmar o servidor agora — isso trocaria um bug raro (token revogado a
+  passar por segundos/minutos) por um pior e mais frequente (ecrã de loja
+  preso fora do ar em qualquer soluço de rede ou reinício de deploy). Um
+  token realmente revogado (401) continua a ser apanhado na próxima vez que
+  `GetPairingStatusUseCase.execute()` correr (tipicamente, o próximo mount de
+  `DevicePairingGate` — recarregar a página, ou navegar de novo para o ecrã).
+
+**`deviceFetch` não limpa nem recarrega em 401 — reverte a versão anterior.**
+Antes, `deviceFetch` reagia a qualquer 401 cujo corpo desse *match* exato com
+a mensagem de falha de auth de dispositivo: limpava o token guardado e fazia
+`window.location.reload()`. Isto corria em **toda** chamada gated por device
+token, incluindo o polling do KDS a cada ~5s — um único soluço passageiro do
+backend (ex.: um erro de BD devolvido como 401 com essa mesma mensagem, corrigido
+à parte no backend) apagava um token válido e não-expirável, e devolvia o
+ecrã ao formulário de resgate sem motivo real. Pior: manter o `reload()` mas
+tirar só a limpeza do token não resolveria — `checkToken()` (chamado por
+`GetPairingStatusUseCase` a cada mount) também passa por `deviceFetch`, por
+isso, numa indisponibilidade sustida, cada mount voltaria a apanhar 401 e a
+recarregar, criando um ciclo de reloads sem fim enquanto o backend estivesse
+em baixo. Por isso `deviceFetch` deixou de inspecionar a resposta: devolve a
+`Response` tal como veio, e quem chama trata o `!res.ok` como já fazia (ex.:
+`getDeliveries` lança e o `useQuery` do KDS simplesmente tenta de novo no
+próximo poll). A limpeza do token continua a ser responsabilidade exclusiva
+de `GetPairingStatusUseCase`, que já tinha o mecanismo certo: confirma contra
+o endpoint dedicado (`checkToken()`) e falha aberto em erro de rede. Efeito
+aceite: um token realmente revogado a meio de uma sessão longa (KDS, kiosk,
+`/fecho`) não é apanhado de imediato — as chamadas seguintes desse ecrã
+simplesmente continuam a falhar (visível como erro) até o próximo mount de
+`DevicePairingGate` (recarregar a página, navegar de novo para o ecrã). Isto
+já era verdade para o stream SSE do KDS (ver "Pontos de atenção" abaixo);
+agora vale para todas as chamadas do módulo, não só o SSE.
 
 **Ressalva do endpoint `GET /api/location-credentials/tokens/me`.**
 Documentada no backend, mas repetida aqui porque é fácil de usar mal: um
@@ -143,9 +170,9 @@ a este ticket. Migrá-los para os use cases do módulo implicaria mover
 `CashClosingPage`/`KdsPage`/`KioskCheckinPage`/`KioskDisplayPage` para o padrão
 hexagonal — fora do âmbito (o README de `cash-closings` já documenta
 `CashClosingPage` como legado pendente de migração). Estes ficheiros importam
-diretamente as **funções simples exportadas** de
-`local-storage-device-token.adapter.ts` (`deviceFetch`, `deviceTokenHeader`,
-`getStoredDeviceToken`, `clearStoredDeviceToken`) — nunca o use case, nunca o
+diretamente as **funções simples exportadas** de `device-fetch.ts`
+(`deviceFetch`) e `local-storage-device-token.adapter.ts`
+(`deviceTokenHeader`, `getStoredDeviceToken`) — nunca o use case, nunca o
 contexto React. Isto é uma exceção deliberada e temporária, não um padrão a
 reutilizar noutro sítio.
 
@@ -196,29 +223,33 @@ npx vitest run src/modules/location-credentials
   controla a resposta de `checkToken()` (`"valid" | "invalid" | "error"`,
   default `"valid"`) para exercitar os três caminhos do
   `GetPairingStatusUseCase`.
+- `device-fetch.test.ts` — `deviceFetch` isolado, com `fetch` e
+  `window.location` mockados (`vi.stubGlobal`): cobre o header
+  `X-Device-Token`, e que um 401 (com ou sem o corpo de falha de auth de
+  dispositivo) não limpa o `localStorage` nem chama `reload()` — só devolve a
+  `Response` ao chamador.
+- `http-location-credentials-api.adapter.test.ts` — `checkToken()` isolado,
+  com `fetch` mockado: 200 resolve `true`, 401 resolve `false`, e 500/502/503
+  lançam (em vez de resolver `false`) — a distinção de que depende o
+  fail-open de `GetPairingStatusUseCase`.
 - UI/hooks: Testing Library, injetando um `LocationCredentialsModule` de teste
   via `LocationCredentialsProvider` (`PairingRedemptionForm.test.tsx`,
   `DevicePairingGate.test.tsx`, `LocationCredentialsAdminView.test.tsx`).
 
 ## Pontos de atenção / dívidas conhecidas
 
-- O stream SSE do KDS (`EventSource`) não passa pelo `deviceFetch` — não pode
-  enviar headers nem correr a lógica de revogação. Um token revogado que
-  parta só o stream (e nenhuma outra chamada do KDS) não dispara o reload.
-  Aceitável: as outras chamadas do KDS (`getDeliveries`, updates de status)
-  passam por `deviceFetch` e apanham a revogação. A revalidação do
-  `DevicePairingGate` só corre ao montar — um token revogado a meio de uma
-  sessão longa num destes ecrãs só é apanhado por essa via, não por esta.
+- Um token revogado a meio de uma sessão longa (KDS, kiosk, `/fecho`) não é
+  apanhado de imediato: `deviceFetch` não reage a 401 (ver ADR "`deviceFetch`
+  não limpa nem recarrega em 401"), e a revalidação de
+  `GetPairingStatusUseCase` só corre ao montar `DevicePairingGate`. Até esse
+  próximo mount, as chamadas desse ecrã (incluindo o stream SSE do KDS, que
+  nunca passou por `deviceFetch`) simplesmente continuam a falhar/401 —
+  visível como erro, sem voltar por si só ao formulário de resgate.
 - A revalidação de `GetPairingStatusUseCase` falha aberta (`paired: true`)
   num erro de rede ao chamar `checkToken()`, para não bloquear um kiosk
   offline com um token que já foi válido. Efeito: um token revogado
-  enquanto o dispositivo está offline só é detetado quando a rede voltar
-  (nesta chamada ou noutra que passe por `deviceFetch`), nunca antes disso.
-- O *string-match* exato em `DEVICE_AUTH_ERROR_MESSAGE` (`deviceFetch`) é
-  frágil por natureza — não há código de erro dedicado no wire para
-  distinguir "sem/token inválido/token revogado" de outros 401 nas mesmas
-  rotas (ex.: PIN errado). Se o backend mudar essa mensagem, este handler
-  para de funcionar silenciosamente.
+  enquanto o dispositivo está offline só é detetado no próximo mount de
+  `DevicePairingGate` já com rede de volta.
 - Os caminhos HTTP em `HttpLocationCredentialsApiAdapter` foram confirmados
   contra o controller real do backend
   (`location-credential.controller.ts`): `POST /api/location-credentials/pairing-codes`,

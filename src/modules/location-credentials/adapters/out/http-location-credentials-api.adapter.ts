@@ -81,6 +81,16 @@ export class HttpLocationCredentialsApiAdapter implements LocationCredentialsApi
 
   async checkToken(): Promise<boolean> {
     const res = await deviceFetch(`${API_BASE}${BASE}/tokens/me`);
-    return res.ok;
+    if (res.ok) return true;
+    // Only a 401 is the backend's device-auth middleware confirming the
+    // token is missing/unknown/revoked — see requireDeviceAuth. Anything
+    // else resolved (500 from a genuine lookup error, 502/503 from a proxy
+    // during a deploy restart, ...) is not that confirmation, so it's
+    // thrown here instead of resolved `false`: GetPairingStatusUseCase's
+    // existing catch already fails open on a thrown checkToken() the same
+    // way it does for a network exception, and must not clear a token on a
+    // transient backend hiccup.
+    if (res.status === 401) return false;
+    throw new Error(`checkToken received unexpected status ${res.status}`);
   }
 }

@@ -20,6 +20,14 @@ export interface SeededPairingCode {
 
 const CODE_PATTERN = /^[A-Z0-9]{8}$/;
 
+/**
+ * "invalid" models a confirmed 401 (checkToken resolves false); "error"
+ * models anything the real adapter throws instead of resolving — a network
+ * exception, or a resolved non-401 failure response (500, 502, 503, ...)
+ * that HttpLocationCredentialsApiAdapter.checkToken() throws on rather than
+ * treating as a confirmed-invalid token. Both collapse to the same
+ * fail-open path in GetPairingStatusUseCase.
+ */
 export type SeededTokenCheck = "valid" | "invalid" | "error";
 
 /** Seed shape for tokens: `description` is optional here (defaults to null), unlike the domain entity. */
