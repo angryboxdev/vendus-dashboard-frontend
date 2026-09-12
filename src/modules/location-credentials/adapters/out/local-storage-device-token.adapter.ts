@@ -26,10 +26,6 @@ export function getStoredDeviceToken(): string | null {
   return window.localStorage.getItem(STORAGE_KEY);
 }
 
-export function clearStoredDeviceToken(): void {
-  window.localStorage.removeItem(STORAGE_KEY);
-}
-
 export function deviceTokenHeader(): Record<string, string> {
   const token = getStoredDeviceToken();
   return token ? { "X-Device-Token": token } : {};
