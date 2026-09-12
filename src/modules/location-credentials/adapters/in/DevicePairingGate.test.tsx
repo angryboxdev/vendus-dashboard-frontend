@@ -55,8 +55,8 @@ function Harness({ module: mod }: { module: LocationCredentialsModule }) {
 }
 
 describe("DevicePairingGate", () => {
-  it("shows the pairing form when no token is stored", async () => {
-    render(<Harness module={buildTestModule({}, null)} />);
+  it("shows the pairing form when no token is stored (bypass off: checkToken confirms it missing)", async () => {
+    render(<Harness module={buildTestModule({}, null, "invalid")} />);
     await waitFor(() => expect(screen.getByPlaceholderText("XXXXXXXX")).toBeInTheDocument());
   });
 
@@ -76,7 +76,11 @@ describe("DevicePairingGate", () => {
     const user = userEvent.setup();
     render(
       <Harness
-        module={buildTestModule({ codes: [{ code: "VALID123", locationId: "loc-1", status: "valid" }] }, null)}
+        module={buildTestModule(
+          { codes: [{ code: "VALID123", locationId: "loc-1", status: "valid" }] },
+          null,
+          "invalid",
+        )}
       />,
     );
 

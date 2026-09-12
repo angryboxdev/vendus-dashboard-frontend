@@ -12,8 +12,6 @@ export class GetPairingStatusUseCase implements GetPairingStatusPort {
   }
 
   async execute(): Promise<PairingStatus> {
-    if (this.storage.getToken() === null) return { paired: false };
-
     const valid = await this.confirmStoredToken();
     if (!valid) this.storage.clearToken();
     return { paired: valid };
