@@ -39,7 +39,7 @@ domínio aqui só conhece o código de emparelhamento e o resumo de um token.
 - `ListActiveTokensPort` — `execute(locationId): Promise<DeviceTokenSummary[]>` — lista tokens ativos de uma loja.
 - `RevokeTokenPort` — `execute(tokenId): Promise<void>` — revoga um token.
 - `RedeemPairingCodePort` — `execute(code): Promise<void>` — troca um código por um token e persiste-o via `DeviceTokenStoragePort`; o token nunca é devolvido ao chamador.
-- `GetPairingStatusPort` — `execute(): Promise<{ paired: boolean }>` — assíncrono. Sem token local, resolve `{ paired: false }` sem tocar a rede. Com token local, confirma-o contra o servidor (`LocationCredentialsApiPort.checkToken`) antes de reportar `paired: true`; se o servidor disser que o token é inválido, limpa-o do `DeviceTokenStoragePort` e reporta `paired: false`. Ver ADR abaixo — supersede a decisão anterior de ser síncrono.
+- `GetPairingStatusPort` — `execute(): Promise<{ paired: boolean }>` — assíncrono. Chama sempre `LocationCredentialsApiPort.checkToken()`, com ou sem token local (ver ADR "Sem token local também chama o servidor" abaixo — supersede a versão anterior deste ticket, que tinha um atalho local). Se o servidor confirmar o token válido, reporta `paired: true`; se disser que é inválido/ausente, limpa-o do `DeviceTokenStoragePort` (no-op sem token local) e reporta `paired: false`. Ver também o ADR "`GetPairingStatusPort` é assíncrono" abaixo — supersede a decisão anterior de ser síncrono.
 
 ### Saída (dependências do domínio)
 
@@ -105,15 +105,17 @@ ecrã já emparelhado), só que "já emparelhado" deixou de poder ser decidido
 só localmente.
 
 Fluxo de `GetPairingStatusUseCase.execute()`:
-- Sem token local → `{ paired: false }`, sem chamada de rede (inalterado).
-- Com token local + `checkToken()` resolve `true` (200) → `{ paired: true }`.
-- Com token local + `checkToken()` resolve `false` (401) → limpa o token via
-  `DeviceTokenStoragePort.clearToken()` e devolve `{ paired: false }`. Este é
-  o **único** lugar do módulo que limpa o token guardado — ver ADR abaixo
-  sobre por que `deviceFetch` deixou de o fazer.
-- Com token local + `checkToken()` rejeita (erro de rede, ex. offline, **ou**
-  um status resolvido que não é 200 nem 401 — 500 de um erro genuíno de
-  lookup no backend, 502/503 de um proxy a meio de um restart de deploy;
+- Chama sempre `checkToken()`, com ou sem token local (ver ADR "Sem token
+  local também chama o servidor" abaixo).
+- `checkToken()` resolve `true` (200) → `{ paired: true }`.
+- `checkToken()` resolve `false` (401) → limpa o token via
+  `DeviceTokenStoragePort.clearToken()` (no-op se não havia token local) e
+  devolve `{ paired: false }`. Este é o **único** lugar do módulo que limpa
+  o token guardado — ver ADR abaixo sobre por que `deviceFetch` deixou de o
+  fazer.
+- `checkToken()` rejeita (erro de rede, ex. offline, **ou** um status
+  resolvido que não é 200 nem 401 — 500 de um erro genuíno de lookup no
+  backend, 502/503 de um proxy a meio de um restart de deploy;
   `HttpLocationCredentialsApiAdapter.checkToken()` lança nesses casos em vez
   de resolver `false`, exatamente para cair neste mesmo ramo) →
   **fail-open**: devolve `{ paired: true }` sem tocar no token guardado.
@@ -126,6 +128,8 @@ Fluxo de `GetPairingStatusUseCase.execute()`:
   token realmente revogado (401) continua a ser apanhado na próxima vez que
   `GetPairingStatusUseCase.execute()` correr (tipicamente, o próximo mount de
   `DevicePairingGate` — recarregar a página, ou navegar de novo para o ecrã).
+  Sem token local, este mesmo ramo fail-open aplica-se a um erro de rede ou
+  status transitório — efeito aceite, ver ADR abaixo.
 
 **`deviceFetch` não limpa nem recarrega em 401 — reverte a versão anterior.**
 Antes, `deviceFetch` reagia a qualquer 401 cujo corpo desse *match* exato com
@@ -152,15 +156,38 @@ simplesmente continuam a falhar (visível como erro) até o próximo mount de
 já era verdade para o stream SSE do KDS (ver "Pontos de atenção" abaixo);
 agora vale para todas as chamadas do módulo, não só o SSE.
 
-**Ressalva do endpoint `GET /api/location-credentials/tokens/me`.**
-Documentada no backend, mas repetida aqui porque é fácil de usar mal: um
-pedido *sem* token nenhum ainda devolve `200` hoje (fallback de scaffolding
-temporário do backend, `UNATTENDED_SCOPE`, ticket 06 remove-o). Por isso
-`checkToken()` só pode ser chamado quando já existe um token local — nunca
-como forma de descobrir se o dispositivo está emparelhado. É exatamente o
-que `GetPairingStatusUseCase.execute()` garante ao verificar
-`storage.getToken() === null` primeiro e retornar sem tocar a rede nesse
-caso.
+**Sem token local também chama o servidor — supersede o atalho local anterior.**
+`GetPairingStatusUseCase.execute()` deixou de ter o atalho
+`if (storage.getToken() === null) return { paired: false }`: chama sempre
+`checkToken()`, mesmo sem token guardado. Motivo: o backend tem um
+kill-switch manual de último recurso (`DEVICE_AUTH_BYPASS_UNATTENDED`, env
+var, desligado por omissão) que, quando ligado, aceita **qualquer** pedido de
+device-auth — incluindo um sem header `X-Device-Token` nenhum — caindo para
+um `UNATTENDED_SCOPE` fixo. Um ecrã cujo token guardado foi apagado (ex.: por
+um bug já corrigido) nunca teria hipótese de beneficiar deste kill-switch
+enquanto o atalho local devolvesse `{ paired: false }` sem tocar a rede — o
+pedido nunca chegava ao backend para o kill-switch decidir. `deviceFetch`
+já lida bem com a ausência de token: `deviceTokenHeader()`
+(`local-storage-device-token.adapter.ts`) devolve `{}` quando não há token
+guardado, por isso o pedido sai sem o header `X-Device-Token`, nunca com um
+valor inválido nem falhando localmente — chega ao backend como um caso
+normal de "token ausente".
+Comportamento com o kill-switch desligado (default, caminho normal): sem
+token local, `checkToken()` continua a resolver `false` (o backend responde
+401 por token ausente, o mesmo `requireDeviceAuth` de sempre), o token
+guardado não existe para limpar, e `{ paired: false }` é reportado — igual
+ao que o atalho antigo já dava, sem regressão. O custo aceite é um round-trip
+de rede extra em todo mount de um ecrã nunca emparelhado (antes, zero
+chamadas; agora, uma). Com o kill-switch ligado, o mesmo pedido sem token
+passa a resolver `true`, e o ecrã reporta `paired: true` sem lançar — é
+exactamente o caso que esta mudança destranca.
+Nota histórica: existia aqui uma ressalva sobre `GET
+/api/location-credentials/tokens/me` devolver `200` para qualquer pedido sem
+token (fallback de scaffolding do então `UNATTENDED_SCOPE` sempre ativo,
+ticket 06). Esse fallback incondicional já foi removido — o que existe hoje
+é o kill-switch acima, explícito e desligado por omissão — por isso deixou
+de ser verdade que "sem token nenhum ainda devolve 200 hoje" em geral; só
+devolve com o kill-switch ligado.
 
 **Seam legado: ficheiros antigos importam funções simples do módulo.**
 `cashClosingApi.ts`, `kdsApi.ts`, o `kioskScan` de `hrApi.ts` e
@@ -222,7 +249,11 @@ npx vitest run src/modules/location-credentials
   sem rede nem DOM. `InMemoryLocationCredentialsApiAdapter.withSeed({ tokenCheck })`
   controla a resposta de `checkToken()` (`"valid" | "invalid" | "error"`,
   default `"valid"`) para exercitar os três caminhos do
-  `GetPairingStatusUseCase`.
+  `GetPairingStatusUseCase`. Inclui, sem token local: `checkToken()` a
+  resolver `false` (kill-switch desligado, 401 normal → `paired: false`,
+  `checkToken` chamado) e a resolver `true` (kill-switch ligado →
+  `paired: true`, sem lançar) — ver ADR "Sem token local também chama o
+  servidor".
 - `device-fetch.test.ts` — `deviceFetch` isolado, com `fetch` e
   `window.location` mockados (`vi.stubGlobal`): cobre o header
   `X-Device-Token`, e que um 401 (com ou sem o corpo de falha de auth de

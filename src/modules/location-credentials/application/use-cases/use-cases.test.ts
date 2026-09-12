@@ -151,13 +151,31 @@ describe("GetPairingStatusUseCase", () => {
     expect(storage.getToken()).toBeNull();
   });
 
-  it("reports unpaired when no token is stored, without calling the server", async () => {
+  it("reports unpaired when no token is stored and the server confirms it missing (normal path, bypass off)", async () => {
+    // No stored token still calls checkToken() — see README ADR "Sem token
+    // local também chama o servidor". Without the backend's
+    // DEVICE_AUTH_BYPASS_UNATTENDED kill switch, the request has no
+    // X-Device-Token header, requireDeviceAuth rejects with 401, and
+    // checkToken() resolves false — same outcome as before this change.
     const storage = new InMemoryDeviceTokenStorageAdapter();
-    const api = InMemoryLocationCredentialsApiAdapter.withSeed();
+    const api = InMemoryLocationCredentialsApiAdapter.withSeed({ tokenCheck: "invalid" });
     const checkToken = vi.spyOn(api, "checkToken");
     const useCase = new GetPairingStatusUseCase(storage, api);
     await expect(useCase.execute()).resolves.toEqual({ paired: false });
-    expect(checkToken).not.toHaveBeenCalled();
+    expect(checkToken).toHaveBeenCalled();
+  });
+
+  it("reports paired when no token is stored but the server accepts the request anyway (bypass kill switch on)", async () => {
+    // Models DEVICE_AUTH_BYPASS_UNATTENDED enabled on the backend: it accepts
+    // a request with no token at all via the fixed UNATTENDED_SCOPE
+    // fallback, so checkToken() resolves true even without a local token.
+    // Exercises the case this change exists for: a screen whose stored token
+    // was wiped can still get through the kill switch instead of being
+    // short-circuited to unpaired before ever reaching the backend.
+    const storage = new InMemoryDeviceTokenStorageAdapter();
+    const api = InMemoryLocationCredentialsApiAdapter.withSeed({ tokenCheck: "valid" });
+    const useCase = new GetPairingStatusUseCase(storage, api);
+    await expect(useCase.execute()).resolves.toEqual({ paired: true });
   });
 
   it("fails open and reports paired when checking the token hits a network error", async () => {
