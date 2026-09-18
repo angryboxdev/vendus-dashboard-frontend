@@ -259,13 +259,16 @@ function OrderCard({
 
   const airMenu = isAirMenuDelivery(delivery);
 
-  // Parse extraInfo to get provider order ID (Glovo/Uber/Bolt ID)
-  const providerOrderId: string | null = (() => {
-    if (!airMenu) return null;
+  // Parse extraInfo to get provider order ID and order-level note (AirMenu only)
+  const { providerOrderId, orderNote } = (() => {
+    if (!airMenu) return { providerOrderId: null, orderNote: null };
     try {
-      const info = JSON.parse(delivery.extraInfo) as { providerOrderId?: string | null; airMenuOrderId?: number };
-      return info.providerOrderId ?? null;
-    } catch { return null; }
+      const info = JSON.parse(delivery.extraInfo) as { providerOrderId?: string | null; airMenuOrderId?: number; orderNote?: string };
+      return {
+        providerOrderId: info.providerOrderId ?? null,
+        orderNote: info.orderNote ?? null,
+      };
+    } catch { return { providerOrderId: null, orderNote: null }; }
   })();
 
   const displayOrderId = providerOrderId ?? `${delivery.reference > 0 ? delivery.reference : delivery.id}`;
@@ -335,6 +338,13 @@ function OrderCard({
             </p>
           )}
         </div>
+
+        {/* Nota de pedido (AirMenu order-level note) */}
+        {orderNote && (
+          <p className="mb-3 rounded-xl bg-amber-500/10 px-3 py-2 text-sm italic text-amber-300 border border-amber-500/20">
+            📝 {orderNote}
+          </p>
+        )}
 
         {/* Items */}
         <ul className="space-y-2">
