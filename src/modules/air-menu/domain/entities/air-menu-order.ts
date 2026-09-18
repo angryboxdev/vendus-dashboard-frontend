@@ -2,6 +2,7 @@ export interface AirMenuOrderItem {
   title: string;
   price: number;
   count: number;
+  notes?: string;
 }
 
 export interface AirMenuFlag {

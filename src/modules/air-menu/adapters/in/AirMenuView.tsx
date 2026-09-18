@@ -339,6 +339,17 @@ function OrderDrawer({
             </div>
           </section>
 
+          {order.extraInfo['AM_NOTE'] && (
+            <section>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+                Nota do Cliente
+              </h3>
+              <p className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm italic text-amber-800">
+                {order.extraInfo['AM_NOTE']}
+              </p>
+            </section>
+          )}
+
           <section>
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
               Itens
@@ -356,7 +367,12 @@ function OrderDrawer({
                 <tbody>
                   {order.items.map((item, i) => (
                     <tr key={i} className="border-t border-gray-100">
-                      <td className="px-4 py-2 text-gray-800">{item.title}</td>
+                      <td className="px-4 py-2">
+                        <p className="text-gray-800">{item.title}</p>
+                        {item.notes && (
+                          <p className="text-xs italic text-amber-600">{item.notes}</p>
+                        )}
+                      </td>
                       <td className="px-4 py-2 text-right text-gray-600">
                         {item.count}
                       </td>
