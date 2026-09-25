@@ -121,7 +121,7 @@ export default function App() {
               <Sidebar />
               <main className="min-w-0 flex-1 overflow-auto pt-12 md:pt-0">
                 <Routes>
-                <Route path="/" element={<Navigate to="/results" replace />} />
+                <Route path="/" element={<Navigate to="/vendus" replace />} />
                 <Route path="/analytics" element={<Navigate to="/results" replace />} />
                 <Route
                   path="/results"
