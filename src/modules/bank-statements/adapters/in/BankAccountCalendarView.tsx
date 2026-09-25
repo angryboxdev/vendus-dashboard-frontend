@@ -26,6 +26,10 @@ function pctBarColor(pct: number): string {
   return "bg-red-400";
 }
 
+function fromCents(cents: number): string {
+  return (cents / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
+}
+
 // ── MonthCard ─────────────────────────────────────────────────────────────────
 
 function MonthCard({
@@ -48,8 +52,9 @@ function MonthCard({
     );
   }
 
-  const coverage = Math.round(stat.coveragePercent);
-  const reconciliation = Math.round(stat.reconciliationPercent);
+  const sales = Math.round(stat.salesReconciledPercent);
+  const expenses = Math.round(stat.expensesReconciledPercent);
+  const balance = stat.balanceCents;
 
   return (
     <button
@@ -64,33 +69,39 @@ function MonthCard({
       <div className="space-y-1.5">
         <div>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-stone-400">Cobertura</span>
-            <span className={`text-[10px] font-semibold ${pctColor(coverage)}`}>{coverage}%</span>
+            <span className="text-[10px] text-stone-400">Vendas conciliadas</span>
+            <span className={`text-[10px] font-semibold ${pctColor(sales)}`}>{sales}%</span>
           </div>
           <div className="h-1.5 w-full rounded-full bg-stone-100">
             <div
-              className={`h-1.5 rounded-full ${pctBarColor(coverage)}`}
-              style={{ width: `${coverage}%` }}
+              className={`h-1.5 rounded-full ${pctBarColor(sales)}`}
+              style={{ width: `${sales}%` }}
             />
           </div>
         </div>
         <div>
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-stone-400">Conciliação</span>
-            <span className={`text-[10px] font-semibold ${pctColor(reconciliation)}`}>{reconciliation}%</span>
+            <span className="text-[10px] text-stone-400">Despesas conciliadas</span>
+            <span className={`text-[10px] font-semibold ${pctColor(expenses)}`}>{expenses}%</span>
           </div>
           <div className="h-1.5 w-full rounded-full bg-stone-100">
             <div
-              className={`h-1.5 rounded-full ${pctBarColor(reconciliation)}`}
-              style={{ width: `${reconciliation}%` }}
+              className={`h-1.5 rounded-full ${pctBarColor(expenses)}`}
+              style={{ width: `${expenses}%` }}
             />
           </div>
         </div>
       </div>
 
-      <p className="text-[10px] text-stone-400">
-        {stat.coveredDays}/{stat.totalDays} dias · {stat.reconciledMovements}/{stat.totalMovements} conciliados
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-[10px] text-stone-400">
+          {stat.reconciledMovements}/{stat.totalMovements} conciliados
+        </p>
+        <p className={`text-xs font-semibold ${balance < 0 ? "text-red-600" : "text-emerald-600"}`}>
+          {balance >= 0 ? "+" : ""}
+          {fromCents(balance)}
+        </p>
+      </div>
     </button>
   );
 }

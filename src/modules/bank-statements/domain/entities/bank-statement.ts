@@ -238,12 +238,13 @@ export interface MovementCandidateDTO {
 export interface AccountMonthStatDTO {
   year: number;
   month: number; // 1–12
-  totalDays: number;
-  coveredDays: number;
   totalMovements: number;
   reconciledMovements: number;
-  coveragePercent: number; // 0–100
-  reconciliationPercent: number; // 0–100
+  salesReconciledPercent: number; // 0–100 — créditos resolvidos / total de créditos
+  expensesReconciledPercent: number; // 0–100 — débitos resolvidos / total de débitos
+  totalCreditCents: number;
+  totalDebitCents: number;
+  balanceCents: number; // totalCreditCents - totalDebitCents
 }
 
 export interface DaySlotDTO {
