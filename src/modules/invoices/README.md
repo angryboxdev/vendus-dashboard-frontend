@@ -98,7 +98,7 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 ## Conceitos do domínio
 
 - **InvoiceDTO** — fatura com cabeçalho (fornecedor, NIF snapshot, valores, datas,
-  estado, source, aiConfidence, requiresReview, costCenterGroupId, financialType,
+  estado, source, aiConfidence, requiresReview, `isDuplicate`, costCenterGroupId, financialType,
   flags DRE/cashflow/profitability, currency, `isDirectDebit`, `directDebitDate`, `lineDetailMode`) e linhas opcionais.
   - `classificationSummary` (obrigatório): `{ mode: "unique"|"mixed"|"none", entries: [...] }`. Derivado das linhas reais em `GetInvoice`; derivado do `costCenterCategoryId` do cabeçalho em `ListInvoices`. O drawer faz eager fetch de `getInvoice` ao abrir para garantir o summary com base nas linhas reais.
   - `linesSummary` (opcional): presente apenas quando `lineDetailMode=detailed` e linhas carregadas. `{ subtotalWithoutVat, totalVat, totalWithVat, totalsMismatch }` — usado para o painel de comparação de totais no tab Linhas.
@@ -155,7 +155,8 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
       - *Todas as contas*: select com `appearance-none` + chevron SVG customizado; filtra por `paymentBankAccountId` (contas bancárias cadastradas na conciliação bancária).
       - *Month picker*: botão que abre dropdown com navegação de ano + grelha 3×4 de meses; filtra por `issueDate ?? dueDate ?? paidAt` com `startsWith(YYYY-MM)`.
       - *Filtros*: abre painel lateral (drawer) com filtros avançados — Fornecedor, Intervalo de valor, Classificação (CC padrão do fornecedor), Data de vencimento (De/Até), Débito direto. O botão fica laranja e exibe badge com contagem quando há filtros avançados ativos.
-    - **Colunas**: Checkbox | Fatura (`invoiceNumber` + `issueDate` abaixo) | Fornecedor | Vencimento (data + urgência: "Em atraso" vermelho / "Hoje" laranja / "N dias" âmbar) | Classificação (CC padrão do fornecedor: `● CODE — Name`) | Valor total | Ações.
+    - **Colunas**: Checkbox | Fatura (`invoiceNumber` + `issueDate` abaixo; badge "DD" se `isDirectDebit`; badge vermelho "Duplicada" se `isDuplicate`) | Fornecedor | Vencimento (data + urgência: "Em atraso" vermelho / "Hoje" laranja / "N dias" âmbar) | Classificação (CC padrão do fornecedor: `● CODE — Name`) | Valor total | Ações.
+      - **Badge "Duplicada"**: reflecte `InvoiceDTO.isDuplicate`, calculado pelo backend a cada listagem (não é um campo editável nem persistido do lado do frontend) — aparece quando outra fatura activa do mesmo fornecedor tem o mesmo número. Complementa o aviso `duplicate_invoice` do import (que só aparece no drawer de revisão, antes de confirmar); este badge cobre o caso em que o utilizador confirma mesmo assim.
       - **Coluna Estado** (badges `StatusBadge` + `ReconciliationBadge`): visível **apenas** na tab "Todas".
       - **Badge DD**: aparece junto ao `invoiceNumber` para faturas com `isDirectDebit=true` (roxo, texto "DD").
       - **Coluna Classificação**: mostra o `code` e `name` da categoria de CC padrão do fornecedor (derivado de `supplier.defaultCostCenterCategoryId` → `categoryById`); `—` se não configurado.
