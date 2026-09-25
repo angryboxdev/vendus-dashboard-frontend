@@ -118,7 +118,7 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 - **InvoiceStatus** — `draft_ai | pending_review | pending | paid | overdue | cancelled | review`.
 - **InvoiceSource** — `manual | pdf_import | image_import`.
 - **VALIDATION_ISSUE_LABELS** — mapa de chaves de validação para texto PT:
-  `no_due_date`, `no_supplier_match`, `low_ai_confidence`, `value_discrepancy`, `duplicate_invoice`.
+  `no_due_date`, `no_supplier_match`, `low_ai_confidence`, `value_discrepancy`, `duplicate_invoice`, `supplier_is_own_company` (a IA leu os dados da própria organização em vez do fornecedor real — backend nunca deixa este NIF virar `supplierId`/`supplierNifSnapshot`, ver README do backend).
 - **InvoiceLineType** — `stock_purchase | operational_expense | fixed_cost |
   variable_cost | tax | bank_fee | salary | internal_transfer | service | mixed | other`.
 - Todos os valores monetários em **cêntimos** (inteiros). Exibição usa `pt-PT` locale.
@@ -190,6 +190,7 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
   - **"Débito direto"** — checkbox mutuamente exclusivo com "Fatura já paga": substitui o campo `dueDate` pelo campo "Data de débito" (`directDebitDate`); suprime o alerta `no_due_date`; força `saveAsPayable: false`; mostra botão "Salvar com débito direto".
   - Edição de linhas: adicionar, editar quantidade/preço/IVA, eliminar.
   - Chama `POST /api/invoices/:id/confirm` ao confirmar.
+  - **Prop `mode?: "confirm" | "edit"` (default `"confirm"`)** — reaproveitado como "Editar fatura completa" a partir do `InvoiceDetailDrawer`, para uma fatura já confirmada (qualquer status). Em modo `edit`: esconde badge de confiança IA, painel de `validationIssues` e os checkboxes "Fatura já paga"/"Débito direto" (não fazem sentido a re-visitar numa edição genérica); o rodapé mostra um único botão "Guardar alterações". Guarda via `updateInvoice` (não `confirmImportedInvoice`, que exige `draft_ai`/`pending_review` e tem efeitos secundários de import — criar conta a pagar, marcar como paga); as linhas são substituídas por inteiro (apaga as `existingLineIds` recebidas por prop, recria a partir do rascunho) em vez de fazer diff — mais simples, e alinhado com a moldura "como se tivesse acabado de importar": tipo/subcategoria/loja de cada linha reiniciam em branco tal como numa importação nova, para o utilizador reclassificar.
 
 - **`CreateInvoiceDrawer`** — drawer para criação manual:
   - Seleção de fornecedor (dropdown) ou nome livre.
@@ -208,6 +209,7 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
     - Botão "Marcar como paga" visível apenas para faturas `pending` ou `overdue`.
   - *Linhas* — igual ao comportamento anterior: toggle simples/detalhado, lista editável, painel de comparação de totais.
   - Recebe prop `bankAccounts: { id, label }[]` do pai para resolver o nome da conta de pagamento.
+  - **Botão "Editar fatura completa"** (header, sempre visível, desativado enquanto o `getInvoice` eager ainda não respondeu) — abre `ReviewImportedInvoiceDrawer` com `mode="edit"`, construindo um `InvoiceImportResultDTO` sintético a partir do `fullInvoice` já carregado (sem `supplierMatch`/`validationIssues`, que só existem no fluxo de import) e `existingLineIds` a partir de `fullInvoice.lines`. Ao guardar, chama `refreshFullInvoice()` (já existente) em vez de duplicar a lógica de refresh.
 
 - **`ClassifyPanel`** — painel inline por linha: tipo (`InvoiceLineType`), subcategoria de CC
   (`costCenterCategoryId`), canal (`channelId` — obrigatório quando `requiresChannel=true`);
