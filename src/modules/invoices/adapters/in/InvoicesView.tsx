@@ -4508,6 +4508,14 @@ export function InvoicesView() {
                                   DD
                                 </span>
                               )}
+                              {inv.isDuplicate && (
+                                <span
+                                  title="Existe outra fatura activa do mesmo fornecedor com este número"
+                                  className="rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-red-100 text-red-700"
+                                >
+                                  Duplicada
+                                </span>
+                              )}
                             </div>
                             <p className="mt-0.5 text-xs text-stone-400">
                               {formatDate(inv.invoiceDate)}
