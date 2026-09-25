@@ -149,6 +149,34 @@ function InvoiceCard({ invoice, openBalanceCents, onAdd }: { invoice: InvoiceDTO
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+/**
+ * Seeds the drawer with a suggestion from the "Sugestões" tab (MonthDetailView),
+ * so opening the drawer shows the would-be reconciliation/classification ready
+ * to review and confirm (or change) instead of an empty form. Purely a set of
+ * initial values for local state — submitting still goes through the normal
+ * onReconcile/onSave props, nothing here is applied automatically.
+ */
+export type ClassifyDrawerSuggestion =
+  | {
+      kind: "entity_match";
+      entityType: "invoice" | "payable_entry";
+      entityId: string;
+      entityLabel: string;
+      supplierId: string | null;
+      amountCents: number;
+      openBalanceCents: number;
+    }
+  | {
+      kind: "repeat_justification";
+      justificationType: JustificationType;
+      costCenterGroupId: string | null;
+      costCenterCategoryId: string | null;
+      supplierId: string | null;
+      notes: string | null;
+      vatRate: number | null;
+      vatIncluded: boolean | null;
+    };
+
 interface AllocationEntry {
   entityType: "invoice" | "payable_entry";
   entityId: string;
@@ -163,6 +191,7 @@ interface AllocationEntry {
 
 export function ClassifyDrawer({
   movement,
+  suggestion,
   onClose,
   onSave,
   onReconcile,
@@ -171,6 +200,8 @@ export function ClassifyDrawer({
   inline = false,
 }: {
   movement: BankMovementDTO;
+  /** Pre-fills the form from a "Sugestões" tab suggestion — see ClassifyDrawerSuggestion. */
+  suggestion?: ClassifyDrawerSuggestion | null;
   onClose: () => void;
   onSave: (payload: ClassifyMovementPayload) => void;
   onReconcile: (
@@ -199,32 +230,46 @@ export function ClassifyDrawer({
 
   // Which tab to open when entering edit mode
   const defaultTab: ClassifyTab =
-    movement.entityLinks.length > 0 ? "sistema"
+    suggestion?.kind === "repeat_justification" ? "justificar"
+    : suggestion?.kind === "entity_match" ? "sistema"
+    : movement.entityLinks.length > 0 ? "sistema"
     : movement.justificationType && movement.justificationType !== "fatura" ? "justificar"
     : "sistema";
 
   const [activeTab, setActiveTab] = useState<ClassifyTab>(defaultTab);
 
-  // Reset to summary view whenever a different movement is selected
+  // Reset to summary view whenever a different movement is selected.
+  // Note: the other form fields below (allocations, subType, notes, cost
+  // center, supplier, VAT) are only initialized once via useState(() => …) —
+  // MonthDetailView passes `key={movement.id}` on the drawer specifically so
+  // switching movements remounts it instead of relying on an effect to reset
+  // every field here too.
   useEffect(() => {
     setIsEditMode(!movement.isResolved);
-    setActiveTab(
-      movement.entityLinks.length > 0 ? "sistema"
-      : movement.justificationType && movement.justificationType !== "fatura" ? "justificar"
-      : "sistema"
-    );
+    setActiveTab(defaultTab);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [movement.id]);
 
   const [allocations, setAllocations] = useState<AllocationEntry[]>(() =>
-    movement.entityLinks.map((l) => ({
-      entityType: l.entityType,
-      entityId: l.entityId,
-      entityLabel: l.entityLabel,
-      supplierId: null,
-      totalCents: l.amountCents,
-      openBalanceCents: l.amountCents,
-      allocatedCents: l.allocatedAmountCents,
-    })),
+    suggestion?.kind === "entity_match"
+      ? [{
+          entityType: suggestion.entityType,
+          entityId: suggestion.entityId,
+          entityLabel: suggestion.entityLabel,
+          supplierId: suggestion.supplierId,
+          totalCents: suggestion.amountCents,
+          openBalanceCents: suggestion.openBalanceCents,
+          allocatedCents: Math.min(suggestion.openBalanceCents, movement.amount),
+        }]
+      : movement.entityLinks.map((l) => ({
+          entityType: l.entityType,
+          entityId: l.entityId,
+          entityLabel: l.entityLabel,
+          supplierId: null,
+          totalCents: l.amountCents,
+          openBalanceCents: l.amountCents,
+          allocatedCents: l.allocatedAmountCents,
+        })),
   );
 
   const [searchQuery, setSearchQuery] = useState("");
@@ -267,15 +312,23 @@ export function ClassifyDrawer({
   });
 
   const [subType, setSubType] = useState<JustificationType>(
-    movement.justificationType && movement.justificationType !== "fatura"
-      ? movement.justificationType
-      : "recibo_comprovativo",
+    suggestion?.kind === "repeat_justification" ? suggestion.justificationType
+    : movement.justificationType && movement.justificationType !== "fatura" ? movement.justificationType
+    : "recibo_comprovativo",
   );
-  const [notes, setNotes] = useState(movement.notes ?? "");
+  const [notes, setNotes] = useState(
+    suggestion?.kind === "repeat_justification" ? (suggestion.notes ?? "") : (movement.notes ?? ""),
+  );
   const [transferTarget, setTransferTarget] = useState("");
-  const [groupId, setGroupId] = useState<string>(movement.costCenterGroupId ?? "");
-  const [categoryId, setCategoryId] = useState<string>(movement.costCenterCategoryId ?? "");
-  const [supplierId, setSupplierId] = useState<string>(movement.supplierId ?? "");
+  const [groupId, setGroupId] = useState<string>(
+    (suggestion?.kind === "repeat_justification" ? suggestion.costCenterGroupId : movement.costCenterGroupId) ?? "",
+  );
+  const [categoryId, setCategoryId] = useState<string>(
+    (suggestion?.kind === "repeat_justification" ? suggestion.costCenterCategoryId : movement.costCenterCategoryId) ?? "",
+  );
+  const [supplierId, setSupplierId] = useState<string>(
+    (suggestion?.kind === "repeat_justification" ? suggestion.supplierId : movement.supplierId) ?? "",
+  );
   const [supplierSearch, setSupplierSearch] = useState("");
   const [supplierOpen, setSupplierOpen] = useState(false);
   const [occurrenceId, setOccurrenceId] = useState<string>(
@@ -283,8 +336,14 @@ export function ClassifyDrawer({
   );
   const [occurrenceSearch, setOccurrenceSearch] = useState("");
   const [occurrenceOpen, setOccurrenceOpen] = useState(false);
-  const [vatMode, setVatMode] = useState<VatMode>("exempt");
-  const [vatRate, setVatRate] = useState<number>(23);
+  const [vatMode, setVatMode] = useState<VatMode>(
+    suggestion?.kind === "repeat_justification" && suggestion.vatRate != null
+      ? (suggestion.vatIncluded ? "included" : "excluded")
+      : "exempt",
+  );
+  const [vatRate, setVatRate] = useState<number>(
+    suggestion?.kind === "repeat_justification" && suggestion.vatRate != null ? suggestion.vatRate : 23,
+  );
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [documentUrl, setDocumentUrl] = useState<string | null>(movement.documentUrl);
