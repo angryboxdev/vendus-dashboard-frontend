@@ -800,14 +800,26 @@ function EditableLinesSection({ lines, categories, invoiceTotalCents, onChange }
 
 interface Props {
   importResult: InvoiceImportResultDTO;
+  /**
+   * "confirm" (default): the post-import review screen — draft_ai/pending_review
+   * → pending via confirmImportedInvoice. "edit": reopens this same screen for an
+   * already-confirmed invoice ("Editar fatura completa" in InvoiceDetailDrawer) —
+   * saves via updateInvoice + line replacement instead, and hides the
+   * import-only affordances (AI confidence, validation issues, paid/DD quick
+   * transitions) that don't apply to editing a live invoice.
+   */
+  mode?: "confirm" | "edit";
+  /** mode "edit" only: ids of the invoice's current lines, replaced wholesale on save. */
+  existingLineIds?: string[];
   onClose(): void;
   onConfirmed(invoice: InvoiceDTO): void;
 }
 
-export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed }: Props) {
+export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", existingLineIds = [], onClose, onConfirmed }: Props) {
   const { api } = useInvoicesModule();
   const fbModule = useFinancialBaseModule();
   const qc = useQueryClient();
+  const isEdit = mode === "edit";
 
   const { data: suppliers = [] } = useQuery({
     queryKey: ["suppliers"],
@@ -906,6 +918,55 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
     },
   });
 
+  // Edit mode: the invoice is already confirmed (any status), so saving goes
+  // through the regular update endpoints instead of confirmImportedInvoice
+  // (which requires draft_ai/pending_review and has import-only side effects
+  // like creating a payable entry or marking as paid). Lines are replaced
+  // wholesale — deleted then re-added from the draft — matching the "as if
+  // freshly imported" framing: type/category/unit/location reset to blank,
+  // same as a fresh import's extracted lines, for the user to reclassify.
+  const editMutation = useMutation({
+    mutationFn: async () => {
+      let resolvedSupplierId = supplierId;
+      if (newSupplierData) {
+        const created = await fbModule.api.createSupplier(newSupplierData);
+        resolvedSupplierId = created.id;
+      }
+
+      await api.updateInvoice(inv.id, {
+        supplierId: resolvedSupplierId,
+        supplierName: supplierName.trim(),
+        supplierNifSnapshot: supplierNif.trim() || null,
+        invoiceNumber: invoiceNumber.trim(),
+        invoiceDate,
+        dueDate: dueDate || null,
+        subtotalWithoutVat: toCents(subtotalStr),
+        totalVat: toCents(vatStr),
+        totalWithVat: toCents(totalStr),
+        notes: notes.trim() || null,
+        costCenterGroupId: detailMode === "simple" ? (costCenterGroupId || null) : null,
+        costCenterCategoryId: detailMode === "simple" ? (costCenterCategoryId || null) : null,
+      });
+
+      await api.setLineDetailMode(inv.id, detailMode);
+      if (detailMode === "detailed") {
+        for (const lineId of existingLineIds) {
+          await api.deleteLine(inv.id, lineId);
+        }
+        for (const l of lines.filter((l) => l.description.trim())) {
+          await api.addLine(inv.id, draftLineToPayload(l));
+        }
+      }
+
+      return api.getInvoice(inv.id);
+    },
+    onSuccess: (updated) => {
+      void qc.invalidateQueries({ queryKey: ["invoices"] });
+      void qc.invalidateQueries({ queryKey: ["invoice-alerts"] });
+      onConfirmed(updated);
+    },
+  });
+
   function buildPayload(saveAsPayable: boolean): ConfirmImportedInvoicePayload {
     const payload: ConfirmImportedInvoicePayload = {
       supplierName: supplierName.trim(),
@@ -943,10 +1004,9 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
 
   const [showPdf, setShowPdf] = useState(!!inv.attachmentUrl);
 
-  const saving = confirmMutation.isPending;
-  const confirmError = confirmMutation.error instanceof Error
-    ? confirmMutation.error.message
-    : null;
+  const saving = isEdit ? editMutation.isPending : confirmMutation.isPending;
+  const activeError = isEdit ? editMutation.error : confirmMutation.error;
+  const confirmError = activeError instanceof Error ? activeError.message : null;
 
   const labelCls = "block text-xs font-medium text-stone-500 mb-1";
   const inputCls =
@@ -963,12 +1023,16 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
         <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3 shrink-0 sm:px-6 sm:py-4">
           <div className="flex items-center gap-3">
             <div>
-              <h2 className="text-base font-semibold text-stone-900">Revisar fatura importada</h2>
+              <h2 className="text-base font-semibold text-stone-900">
+                {isEdit ? "Editar fatura completa" : "Revisar fatura importada"}
+              </h2>
               <p className="mt-0.5 text-xs text-stone-500">
-                Verifique os dados e corrija se necessário antes de guardar.
+                {isEdit
+                  ? "Corrige qualquer campo desde a raiz — fornecedor, número, valores e linhas."
+                  : "Verifique os dados e corrija se necessário antes de guardar."}
               </p>
             </div>
-            {inv.aiConfidence != null && (
+            {!isEdit && inv.aiConfidence != null && (
               <ConfidenceBadge value={inv.aiConfidence} />
             )}
           </div>
@@ -995,12 +1059,14 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
 
         {/* body */}
         <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6">
-          {/* Validation issues */}
-          <ValidationIssues issues={importResult.validationIssues.filter((issue) => {
-            if (issue === "no_supplier_match" && (supplierId !== null || newSupplierData !== null)) return false;
-            if (issue === "no_due_date" && (dueDate !== "" || alreadyPaid || isDirectDebit)) return false;
-            return true;
-          })} />
+          {/* Validation issues — import-only, not relevant when editing a live invoice */}
+          {!isEdit && (
+            <ValidationIssues issues={importResult.validationIssues.filter((issue) => {
+              if (issue === "no_supplier_match" && (supplierId !== null || newSupplierData !== null)) return false;
+              if (issue === "no_due_date" && (dueDate !== "" || alreadyPaid || isDirectDebit)) return false;
+              return true;
+            })} />
+          )}
 
           {/* Fornecedor — 2 colunas: campos à esq, card à dir */}
           <div className="space-y-3">
@@ -1100,39 +1166,41 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
                 </div>
               )}
             </div>
-            <div className="flex flex-wrap gap-4">
-              <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={alreadyPaid}
-                  onChange={(e) => {
-                    setAlreadyPaid(e.target.checked);
-                    if (e.target.checked) {
-                      setIsDirectDebit(false);
-                      setDueDate("");
-                      setPaidAt(invoiceDate || todayStr());
-                    }
-                  }}
-                  className="h-4 w-4 rounded border-stone-300 text-[#ED5C32] focus:ring-[#ED5C32]"
-                />
-                Fatura já paga
-              </label>
-              <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer select-none">
-                <input
-                  type="checkbox"
-                  checked={isDirectDebit}
-                  onChange={(e) => {
-                    setIsDirectDebit(e.target.checked);
-                    if (e.target.checked) {
-                      setAlreadyPaid(false);
-                      setDirectDebitDate(dueDate || "");
-                    }
-                  }}
-                  className="h-4 w-4 rounded border-stone-300 text-[#ED5C32] focus:ring-[#ED5C32]"
-                />
-                Débito direto
-              </label>
-            </div>
+            {!isEdit && (
+              <div className="flex flex-wrap gap-4">
+                <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={alreadyPaid}
+                    onChange={(e) => {
+                      setAlreadyPaid(e.target.checked);
+                      if (e.target.checked) {
+                        setIsDirectDebit(false);
+                        setDueDate("");
+                        setPaidAt(invoiceDate || todayStr());
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-stone-300 text-[#ED5C32] focus:ring-[#ED5C32]"
+                  />
+                  Fatura já paga
+                </label>
+                <label className="flex items-center gap-2 text-sm text-stone-600 cursor-pointer select-none">
+                  <input
+                    type="checkbox"
+                    checked={isDirectDebit}
+                    onChange={(e) => {
+                      setIsDirectDebit(e.target.checked);
+                      if (e.target.checked) {
+                        setAlreadyPaid(false);
+                        setDirectDebitDate(dueDate || "");
+                      }
+                    }}
+                    className="h-4 w-4 rounded border-stone-300 text-[#ED5C32] focus:ring-[#ED5C32]"
+                  />
+                  Débito direto
+                </label>
+              </div>
+            )}
           </div>
 
           {/* Valores — largura total */}
@@ -1244,41 +1312,53 @@ export function ReviewImportedInvoiceDrawer({ importResult, onClose, onConfirmed
               Cancelar
             </button>
             <div className="flex flex-col gap-2 sm:flex-row">
-              {alreadyPaid && (
+              {isEdit ? (
                 <button
-                  onClick={() => confirmMutation.mutate(buildPayload(false))}
+                  onClick={() => editMutation.mutate()}
                   disabled={saving}
                   className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
                 >
-                  {saving ? "A guardar…" : "Salvar como paga"}
+                  {saving ? "A guardar…" : "Guardar alterações"}
                 </button>
-              )}
-              {isDirectDebit && (
-                <button
-                  onClick={() => confirmMutation.mutate(buildPayload(false))}
-                  disabled={saving}
-                  className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
-                >
-                  {saving ? "A guardar…" : "Salvar com débito direto"}
-                </button>
-              )}
-              {!alreadyPaid && !isDirectDebit && (
+              ) : (
                 <>
-                  <button
-                    onClick={() => confirmMutation.mutate(buildPayload(false))}
-                    disabled={saving}
-                    className="w-full rounded-md border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50 sm:w-auto"
-                  >
-                    {saving ? "A guardar…" : "Salvar como pendente"}
-                  </button>
-                  <button
-                    onClick={() => confirmMutation.mutate(buildPayload(true))}
-                    disabled={saving || !dueDate}
-                    className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
-                    title={!dueDate ? "Defina a data de vencimento para gerar conta a pagar" : undefined}
-                  >
-                    {saving ? "A guardar…" : "Salvar e gerar conta a pagar"}
-                  </button>
+                  {alreadyPaid && (
+                    <button
+                      onClick={() => confirmMutation.mutate(buildPayload(false))}
+                      disabled={saving}
+                      className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
+                    >
+                      {saving ? "A guardar…" : "Salvar como paga"}
+                    </button>
+                  )}
+                  {isDirectDebit && (
+                    <button
+                      onClick={() => confirmMutation.mutate(buildPayload(false))}
+                      disabled={saving}
+                      className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
+                    >
+                      {saving ? "A guardar…" : "Salvar com débito direto"}
+                    </button>
+                  )}
+                  {!alreadyPaid && !isDirectDebit && (
+                    <>
+                      <button
+                        onClick={() => confirmMutation.mutate(buildPayload(false))}
+                        disabled={saving}
+                        className="w-full rounded-md border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50 sm:w-auto"
+                      >
+                        {saving ? "A guardar…" : "Salvar como pendente"}
+                      </button>
+                      <button
+                        onClick={() => confirmMutation.mutate(buildPayload(true))}
+                        disabled={saving || !dueDate}
+                        className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
+                        title={!dueDate ? "Defina a data de vencimento para gerar conta a pagar" : undefined}
+                      >
+                        {saving ? "A guardar…" : "Salvar e gerar conta a pagar"}
+                      </button>
+                    </>
+                  )}
                 </>
               )}
             </div>

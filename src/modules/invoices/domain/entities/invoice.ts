@@ -317,4 +317,5 @@ export const VALIDATION_ISSUE_LABELS: Record<string, string> = {
   low_ai_confidence: "Confiança da IA abaixo do limite",
   value_discrepancy: "Divergência entre subtotal + IVA e total",
   duplicate_invoice: "Fatura duplicada (mesmo número e fornecedor)",
+  supplier_is_own_company: "IA identificou a própria empresa como fornecedor — corrige manualmente",
 };

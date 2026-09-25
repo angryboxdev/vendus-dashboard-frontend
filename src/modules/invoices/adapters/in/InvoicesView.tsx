@@ -888,6 +888,7 @@ function InvoiceDetailDrawer({
   const [editNumberValue, setEditNumberValue] = useState("");
   const [savingNumber, setSavingNumber] = useState(false);
   const [numberError, setNumberError] = useState<string | null>(null);
+  const [editingFull, setEditingFull] = useState(false);
 
   // Fetch eager do invoice completo ao abrir o drawer
   useEffect(() => {
@@ -1102,6 +1103,14 @@ function InvoiceDetailDrawer({
               )}
             </div>
             <div className="flex items-center gap-2">
+              <button
+                onClick={() => setEditingFull(true)}
+                disabled={!fullInvoice}
+                title={!fullInvoice ? "A carregar dados da fatura…" : undefined}
+                className="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50"
+              >
+                Editar fatura completa
+              </button>
               {invoice.attachmentUrl && (
                 <button
                   onClick={() => setShowPdf((v) => !v)}
@@ -2348,6 +2357,33 @@ function InvoiceDetailDrawer({
             </div>
           </div>
         </div>
+      )}
+      {editingFull && fullInvoice && (
+        <ReviewImportedInvoiceDrawer
+          mode="edit"
+          importResult={{
+            invoice: fullInvoice,
+            aiConfidence: fullInvoice.aiConfidence ?? 1,
+            validationIssues: [],
+            supplierMatch: null,
+            extractedLines: (fullInvoice.lines ?? []).map((l) => ({
+              description: l.description,
+              quantity: l.quantity,
+              unitPriceWithoutVat: l.unitCostWithoutVat,
+              vatRate: l.vatRate,
+              vatAmount: l.vatAmount,
+              totalWithoutVat: l.totalWithVat - l.vatAmount,
+              totalWithVat: l.totalWithVat,
+            })),
+          }}
+          existingLineIds={(fullInvoice.lines ?? []).map((l) => l.id)}
+          onClose={() => setEditingFull(false)}
+          onConfirmed={() => {
+            setEditingFull(false);
+            refreshFullInvoice();
+            void qc.invalidateQueries({ queryKey: ["invoices"] });
+          }}
+        />
       )}
     </div>,
     document.body,
