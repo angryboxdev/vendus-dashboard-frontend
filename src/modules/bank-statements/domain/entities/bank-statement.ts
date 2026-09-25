@@ -255,6 +255,37 @@ export interface DaySlotDTO {
   reconciledCount: number;
 }
 
+export interface MonthlyEntityMatchSuggestionDTO {
+  movementId: string;
+  entityType: "invoice" | "payable_entry";
+  entityId: string;
+  entityLabel: string;
+  amountCents: number;
+  openBalanceCents: number;
+  supplierId: string | null;
+  confidence: number;
+}
+
+export interface RepeatJustificationSuggestionDTO {
+  movementId: string;
+  sourceMovementId: string;
+  sourceDescription: string;
+  sourceDate: string; // YYYY-MM-DD
+  justificationType: JustificationType;
+  costCenterGroupId: string | null;
+  costCenterCategoryId: string | null;
+  supplierId: string | null;
+  notes: string | null;
+  riskLevel: RiskLevel;
+  vatRate: number | null;
+  vatIncluded: boolean | null;
+}
+
+export interface MonthlySuggestionsDTO {
+  entityMatches: MonthlyEntityMatchSuggestionDTO[];
+  repeatJustifications: RepeatJustificationSuggestionDTO[];
+}
+
 export interface InvoiceLinkedMovementDTO {
   movementId: string;
   bookingDate: string;          // YYYY-MM-DD

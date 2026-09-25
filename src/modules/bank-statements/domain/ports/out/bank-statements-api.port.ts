@@ -9,6 +9,7 @@ import type {
   ImportStatementResult,
   InvoiceLinkedMovementDTO,
   MatchSuggestionDTO,
+  MonthlySuggestionsDTO,
   MovementCandidateDTO,
   MovementType,
   OccurrenceCandidateDTO,
@@ -79,6 +80,7 @@ export interface BankStatementsApiPort {
   /** Calendar paradigm — new endpoints. */
   getAccountCalendar(accountId: string, year: number): Promise<AccountMonthStatDTO[]>;
   getAccountMonthDetail(accountId: string, year: number, month: number): Promise<DaySlotDTO[]>;
+  getMonthlySuggestions(accountId: string, year: number, month: number): Promise<MonthlySuggestionsDTO>;
 
   /** Returns bank movements reconciled to the given invoice. */
   getMovementsLinkedToInvoice(invoiceId: string): Promise<InvoiceLinkedMovementDTO[]>;

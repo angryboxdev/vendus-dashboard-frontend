@@ -17,6 +17,7 @@ import type {
   ImportStatementResult,
   InvoiceLinkedMovementDTO,
   MatchSuggestionDTO,
+  MonthlySuggestionsDTO,
   MovementCandidateDTO,
   OccurrenceCandidateDTO,
   ReconciliationRuleDTO,
@@ -120,6 +121,10 @@ export class HttpBankStatementsApiAdapter implements BankStatementsApiPort {
 
   async getAccountMonthDetail(accountId: string, year: number, month: number): Promise<DaySlotDTO[]> {
     return apiGet(`${BASE}/accounts/${encodeURIComponent(accountId)}/calendar/${year}/${month}`);
+  }
+
+  async getMonthlySuggestions(accountId: string, year: number, month: number): Promise<MonthlySuggestionsDTO> {
+    return apiGet(`${BASE}/accounts/${encodeURIComponent(accountId)}/calendar/${year}/${month}/suggestions`);
   }
 
   async getMovementsLinkedToInvoice(invoiceId: string): Promise<InvoiceLinkedMovementDTO[]> {

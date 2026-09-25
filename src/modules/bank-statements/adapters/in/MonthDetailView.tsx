@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
@@ -6,13 +6,16 @@ import { useBankAccountsModule } from "../../../bank-accounts/bank-accounts.modu
 import {
   type BankMovementDTO,
   type ClassifyMovementPayload,
+  type MonthlyEntityMatchSuggestionDTO,
+  type RepeatJustificationSuggestionDTO,
   type ReconciliationStatus,
+  JUSTIFICATION_TYPE_LABELS,
   RECONCILIATION_STATUS_LABELS,
 } from "../../domain/entities/bank-statement.ts";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 import { useToast, ToastContainer } from "../../../../components/Toast.tsx";
 import { ImportModal } from "./ImportModal.tsx";
-import { ClassifyDrawer } from "./ClassifyDrawer.tsx";
+import { ClassifyDrawer, type ClassifyDrawerSuggestion } from "./ClassifyDrawer.tsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -187,7 +190,10 @@ export function MonthDetailView() {
   const month = Number(monthStr);
 
   const [classifying, setClassifying] = useState<BankMovementDTO | null>(null);
+  const [classifyingSuggestion, setClassifyingSuggestion] = useState<ClassifyDrawerSuggestion | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [viewTab, setViewTab] = useState<"movimentos" | "sugestoes">("movimentos");
+  const [statusFilter, setStatusFilter] = useState<"pendentes" | "todos">("pendentes");
 
   const { data: accountDetail } = useQuery({
     queryKey: ["bank-accounts:account", accountId],
@@ -206,6 +212,30 @@ export function MonthDetailView() {
     queryFn: () => api.getAccountMonthDetail(accountId!, year, month),
     enabled: !!accountId && !!year && !!month,
   });
+
+  const { data: suggestions, isLoading: suggestionsLoading } = useQuery({
+    queryKey: ["bank-month-suggestions", accountId, year, month],
+    queryFn: () => api.getMonthlySuggestions(accountId!, year, month),
+    enabled: !!accountId && !!year && !!month,
+  });
+
+  const movementsById = useMemo(() => {
+    const map = new Map<string, BankMovementDTO>();
+    for (const day of days ?? []) {
+      for (const m of day.movements) map.set(m.id, m);
+    }
+    return map;
+  }, [days]);
+
+  const visibleDays = useMemo(() => {
+    if (statusFilter === "todos") return days ?? [];
+    return (days ?? [])
+      .map((day) => ({ ...day, movements: day.movements.filter((m) => !m.isResolved) }))
+      .filter((day) => day.movements.length > 0);
+  }, [days, statusFilter]);
+
+  const suggestionsCount =
+    (suggestions?.entityMatches.length ?? 0) + (suggestions?.repeatJustifications.length ?? 0);
 
   const importMut = useMutation({
     mutationFn: (fd: FormData) => api.importStatement(fd),
@@ -243,7 +273,11 @@ export function MonthDetailView() {
       void qc.invalidateQueries({
         queryKey: ["bank-calendar", accountId, year],
       });
+      void qc.invalidateQueries({
+        queryKey: ["bank-month-suggestions", accountId, year, month],
+      });
       setClassifying(null);
+      setClassifyingSuggestion(null);
       showToast("Movimento classificado com sucesso");
     },
     onError: (e: Error) => showToast(e.message, "error"),
@@ -266,11 +300,49 @@ export function MonthDetailView() {
       void qc.invalidateQueries({
         queryKey: ["bank-calendar", accountId, year],
       });
+      void qc.invalidateQueries({
+        queryKey: ["bank-month-suggestions", accountId, year, month],
+      });
       setClassifying(null);
+      setClassifyingSuggestion(null);
       showToast("Movimento conciliado com sucesso");
     },
     onError: (e: Error) => showToast(e.message, "error"),
   });
+
+  // Opens the drawer with the reconciliation/classification already filled in
+  // from the suggestion, so the user reviews (and can still change) it before
+  // confirming — nothing is applied until they submit the drawer's form.
+  function openEntityMatchSuggestion(s: MonthlyEntityMatchSuggestionDTO) {
+    const movement = movementsById.get(s.movementId);
+    if (!movement) return;
+    setClassifying(movement);
+    setClassifyingSuggestion({
+      kind: "entity_match",
+      entityType: s.entityType,
+      entityId: s.entityId,
+      entityLabel: s.entityLabel,
+      supplierId: s.supplierId,
+      amountCents: s.amountCents,
+      openBalanceCents: s.openBalanceCents,
+    });
+  }
+
+  function openRepeatJustificationSuggestion(s: RepeatJustificationSuggestionDTO) {
+    const movement = movementsById.get(s.movementId);
+    if (!movement) return;
+    setClassifying(movement);
+    setClassifyingSuggestion({
+      kind: "repeat_justification",
+      justificationType: s.justificationType,
+      costCenterGroupId: s.costCenterGroupId,
+      costCenterCategoryId: s.costCenterCategoryId,
+      supplierId: s.supplierId,
+      notes: s.notes,
+      vatRate: s.vatRate,
+      vatIncluded: s.vatIncluded,
+    });
+  }
 
   const accountLabel =
     accountDetail?.nickname ??
@@ -303,7 +375,11 @@ export function MonthDetailView() {
   const drawerProps = classifying
     ? {
         movement: classifying,
-        onClose: () => setClassifying(null),
+        suggestion: classifyingSuggestion,
+        onClose: () => {
+          setClassifying(null);
+          setClassifyingSuggestion(null);
+        },
         onSave: (payload: ClassifyMovementPayload) =>
           classifyMut.mutate({ movementId: classifying.id, payload }),
         onReconcile: (
@@ -362,9 +438,24 @@ export function MonthDetailView() {
             Importar extrato
           </button>
         </div>
+      ) : visibleDays.length === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+          <div className="rounded-full bg-emerald-50 p-4">
+            <svg className="h-8 w-8 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
+              <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
+            </svg>
+          </div>
+          <p className="text-stone-600 font-medium">Sem movimentos por conciliar</p>
+          <button
+            onClick={() => setStatusFilter("todos")}
+            className="text-sm text-[#ED5C32] hover:underline"
+          >
+            Ver todos os movimentos do mês
+          </button>
+        </div>
       ) : (
         <div className="space-y-6">
-          {days.map((day) => (
+          {visibleDays.map((day) => (
             <div key={day.date}>
               <div className="flex items-center gap-3 mb-2">
                 <div className="flex items-center gap-2">
@@ -385,7 +476,8 @@ export function MonthDetailView() {
                     )}
                   </span>
                 </div>
-                {day.reconciledCount === day.totalMovements &&
+                {statusFilter === "todos" &&
+                  day.reconciledCount === day.totalMovements &&
                   day.totalMovements > 0 && (
                     <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
                       <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
@@ -406,6 +498,104 @@ export function MonthDetailView() {
               </div>
             </div>
           ))}
+        </div>
+      )}
+    </>
+  );
+
+  // ── Suggestions tab ────────────────────────────────────────────────────────
+
+  const suggestionsContent = (
+    <>
+      {suggestionsLoading ? (
+        <div className="flex items-center justify-center py-20 text-stone-400 text-sm">
+          A procurar sugestões…
+        </div>
+      ) : suggestionsCount === 0 ? (
+        <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
+          <div className="rounded-full bg-stone-100 p-4">
+            <svg className="h-8 w-8 text-stone-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09zM18.259 8.715L18 9.75l-.259-1.035a3.375 3.375 0 00-2.455-2.456L14.25 6l1.036-.259a3.375 3.375 0 002.455-2.456L18 2.25l.259 1.035a3.375 3.375 0 002.456 2.456L21.75 6l-1.035.259a3.375 3.375 0 00-2.456 2.456z" />
+            </svg>
+          </div>
+          <p className="text-stone-600 font-medium">Sem sugestões para {monthName} {year}</p>
+          <p className="text-stone-400 text-sm max-w-xs">
+            Aparecem aqui faturas/contas a pagar que batem certo com um movimento, e movimentos recorrentes iguais a classificações de meses anteriores.
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {suggestions!.entityMatches.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-400">
+                Faturas / contas a pagar ({suggestions!.entityMatches.length})
+              </h3>
+              <div className="space-y-2">
+                {suggestions!.entityMatches.map((s) => {
+                  const movement = movementsById.get(s.movementId);
+                  return (
+                    <button
+                      key={`${s.movementId}-${s.entityId}`}
+                      onClick={() => openEntityMatchSuggestion(s)}
+                      className="w-full flex items-center gap-3 rounded-lg border border-stone-200 bg-white px-4 py-3 text-left transition-colors hover:border-[#ED5C32]/30 hover:bg-[#FDF8F5]"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-stone-800">
+                          {movement?.description ?? "Movimento"}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-stone-500">
+                          Corresponde a <span className="font-medium text-stone-700">{s.entityLabel}</span>
+                          {movement && <> — {fromCents(movement.amount)}</>}
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                        {Math.round(s.confidence * 100)}% confiança
+                      </span>
+                      <svg className="h-4 w-4 shrink-0 text-stone-300" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {suggestions!.repeatJustifications.length > 0 && (
+            <div>
+              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-400">
+                Movimentos recorrentes ({suggestions!.repeatJustifications.length})
+              </h3>
+              <div className="space-y-2">
+                {suggestions!.repeatJustifications.map((s) => {
+                  const movement = movementsById.get(s.movementId);
+                  return (
+                    <button
+                      key={s.movementId}
+                      onClick={() => openRepeatJustificationSuggestion(s)}
+                      className="w-full flex items-center gap-3 rounded-lg border border-stone-200 bg-white px-4 py-3 text-left transition-colors hover:border-[#ED5C32]/30 hover:bg-[#FDF8F5]"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-stone-800">
+                          {movement?.description ?? s.sourceDescription}
+                        </p>
+                        <p className="mt-0.5 truncate text-xs text-stone-500">
+                          Igual a {formatDay(s.sourceDate)} — classificado como{" "}
+                          <span className="font-medium text-stone-700">
+                            {JUSTIFICATION_TYPE_LABELS[s.justificationType]}
+                          </span>
+                          {s.notes && <> ({s.notes})</>}. Repetir?
+                        </p>
+                      </div>
+                      <svg className="h-4 w-4 shrink-0 text-stone-300" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       )}
     </>
@@ -463,7 +653,54 @@ export function MonthDetailView() {
       <div className="flex flex-1 overflow-hidden">
         {/* Left: scrollable timeline */}
         <div className="flex-1 min-w-0 overflow-y-auto p-6">
-          {timeline}
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-1 rounded-lg bg-stone-100 p-1">
+              <button
+                onClick={() => setViewTab("movimentos")}
+                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  viewTab === "movimentos" ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"
+                }`}
+              >
+                Movimentos
+              </button>
+              <button
+                onClick={() => setViewTab("sugestoes")}
+                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                  viewTab === "sugestoes" ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"
+                }`}
+              >
+                Sugestões
+                {viewTab !== "sugestoes" && suggestionsCount > 0 && (
+                  <span className="rounded-full bg-[#ED5C32] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
+                    {suggestionsCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {viewTab === "movimentos" && (
+              <div className="flex items-center gap-1 rounded-lg bg-stone-100 p-1">
+                <button
+                  onClick={() => setStatusFilter("pendentes")}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    statusFilter === "pendentes" ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"
+                  }`}
+                >
+                  Por conciliar
+                </button>
+                <button
+                  onClick={() => setStatusFilter("todos")}
+                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                    statusFilter === "todos" ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"
+                  }`}
+                >
+                  Todos
+                </button>
+              </div>
+            )}
+          </div>
+
+          {viewTab === "movimentos" ? timeline : suggestionsContent}
           <PageFooter />
         </div>
 
@@ -471,7 +708,7 @@ export function MonthDetailView() {
         {isLargeScreen && (
           <div className="w-[500px] shrink-0 border-l border-[#F5C992]/40 bg-white overflow-hidden flex flex-col">
             {drawerProps ? (
-              <ClassifyDrawer inline {...drawerProps} />
+              <ClassifyDrawer key={drawerProps.movement.id} inline {...drawerProps} />
             ) : (
               <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center text-stone-400">
                 <svg className="h-10 w-10 text-stone-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
@@ -487,7 +724,7 @@ export function MonthDetailView() {
 
       {/* Small screen: portal drawer */}
       {!isLargeScreen && drawerProps && (
-        <ClassifyDrawer {...drawerProps} />
+        <ClassifyDrawer key={drawerProps.movement.id} {...drawerProps} />
       )}
 
       <ImportModal

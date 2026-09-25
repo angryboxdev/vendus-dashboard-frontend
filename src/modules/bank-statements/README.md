@@ -73,6 +73,7 @@ Definidos em `domain/entities/bank-statement.ts`:
 - `BankStatementSummaryDTO`, `BankStatementDetailDTO`
 - `ClassifyMovementPayload` — inclui `documentUrl?`, `costCenterGroupId?`, `costCenterCategoryId?`, `supplierId?`, `vatRate?`, `vatIncluded?`, `matchedEntityId?`, `matchedEntityType?`
 - Label maps e `RESOLVED_STATUSES`
+- `MonthlySuggestionsDTO` — `{ entityMatches: MonthlyEntityMatchSuggestionDTO[], repeatJustifications: RepeatJustificationSuggestionDTO[] }`, devolvido por `getMonthlySuggestions`. `MonthlyEntityMatchSuggestionDTO` espelha `MovementCandidateDTO` + `movementId`; `RepeatJustificationSuggestionDTO` carrega os campos de classificação do movimento-fonte (`justificationType`, `costCenterGroupId/CategoryId`, `supplierId`, `notes`, `riskLevel`, `vatRate`, `vatIncluded`) mais `sourceMovementId/Description/Date` para a mensagem "Igual a … — repetir?".
 
 ## Ports
 
@@ -85,6 +86,7 @@ Definidos em `domain/entities/bank-statement.ts`:
   - `uploadMovementDocument(movementId, file)` → `{ documentUrl }` — upload de comprovativo (passo 1 de 2)
   - `findMovementCandidates`
   - `listRules`, `createRule`, `deleteRule`
+  - `getAccountCalendar`, `getAccountMonthDetail`, `getMonthlySuggestions(accountId, year, month)` — sugestões da vista de mês (ver `MonthDetailView` abaixo)
 
 ## Adapters
 
@@ -103,6 +105,14 @@ Definidos em `domain/entities/bank-statement.ts`:
   - Botão "Anular justificação" exibido quando `justificationType` está definido mas não há `entityLinks` (distinto de "Anular conciliação" que aparece quando há links)
   - Linhas com status `sugestao` mostram apenas "Classificar" (não há botão "Confirmar" separado)
 
+- **`MonthDetailView`** — vista de mês de uma conta (rota `/financial/bank-statements/banks/:bankId/accounts/:accountId/:year/:month`), a navegação primária real hoje (paradigma de calendário — ver "Pontos de atenção" sobre `BankStatementsView` acima estar desactualizado/órfão). Timeline de movimentos agrupada por dia + painel `ClassifyDrawer` inline (ecrãs ≥1280px) ou drawer portal.
+  - **Tabs "Movimentos" / "Sugestões"** acima da timeline. A aba "Sugestões" mostra um badge com a contagem total quando não está activa.
+  - **Toggle "Por conciliar" / "Todos"** (só visível na aba "Movimentos"; default **"Por conciliar"**) — filtra `day.movements` client-side por `!m.isResolved`; dias sem movimentos pendentes desaparecem da lista. Sem chamada extra ao backend — `getAccountMonthDetail` já devolve tudo, o filtro é só sobre os dados já carregados.
+  - **Aba "Sugestões"** — chama `getMonthlySuggestions` (sempre activa, não só quando a aba está aberta, para o badge de contagem aparecer de imediato). Duas secções:
+    - *Faturas / contas a pagar* — clicar na linha abre o `ClassifyDrawer` (tab "Justificar com fatura") já com a entidade sugerida alocada, para o gestor rever/ajustar o valor ou trocar de fatura antes de confirmar.
+    - *Movimentos recorrentes* — clicar na linha abre o `ClassifyDrawer` (tab "Justificar despesa") já preenchido com os campos do movimento-fonte (`RepeatJustificationSuggestionDTO` → `ClassifyDrawerSuggestion`), pronto a confirmar ou a corrigir.
+  - Aplicar uma sugestão invalida também a query `["bank-month-suggestions", accountId, year, month]` (além das de `bank-month`/`bank-calendar` já existentes), para a sugestão aplicada desaparecer da lista.
+
 ### Saída
 
 - `HttpBankStatementsApiAdapter` — implementa `BankStatementsApiPort` usando `apiGet`, `apiPost`, `apiPatch`, `apiDeleteNoContent`, `apiPostFormData` de `lib/api.ts`; base URL `/api/bank-statements`
@@ -120,6 +130,10 @@ Definidos em `domain/entities/bank-statement.ts`:
 - **VAT como taxa + flag**: armazena `vatRate` (número %) + `vatIncluded` (boolean | null); o valor base é calculado nos relatórios sem necessidade de re-submissão.
 - **Erros de negócio como toast, não como alert**: `onError` das mutations usa `showToast(e.message, "error")`. O `ToastContainer` tem `z-[200]` para aparecer acima de modais e drawers (`z-50`).
 - **`balanceAfter` calculado ao vivo**: o backend recalcula a coluna "Saldo após" de cada movimento a partir do `openingBalance` — o frontend não precisa de recalcular nem de re-fetch extra ao editar o saldo inicial.
+- **Toggle "Por conciliar/Todos" é só um filtro client-side, sem endpoint novo**: `getAccountMonthDetail` já devolve o mês completo (`DaySlot[]`); o `MonthDetailView` deriva `visibleDays` com `useMemo` em vez de pedir ao backend uma lista já filtrada. Mais simples e evita duplicar a lógica de "resolvido" (`!m.isResolved`) no backend só para este filtro.
+- **Clicar numa sugestão abre o `ClassifyDrawer` pré-preenchido, não aplica directamente**: `ClassifyDrawerSuggestion` (exportado por `ClassifyDrawer.tsx`) carrega os valores da sugestão (entidade a alocar, ou tipo de justificação + centro de custo + fornecedor + IVA) e é passado como prop `suggestion` ao abrir o drawer a partir de uma linha da aba "Sugestões" (`openEntityMatchSuggestion`/`openRepeatJustificationSuggestion` em `MonthDetailView`). O drawer usa-o só para semear o `useState` inicial dos seus campos (aloc­ações já com a fatura/conta sugerida, ou tab "Justificar despesa" já preenchida) — a submissão continua a passar pelos mesmos `onReconcile`/`onSave` de sempre, por isso o utilizador vê exactamente o que vai ser gravado e pode alterar qualquer campo (ex: trocar a fatura sugerida, ajustar o centro de custo) antes de confirmar. Decisão revista depois do pedido inicial (que tinha sido "aplicar com um clique") — o gestor precisava de poder corrigir a sugestão antes de guardar, não só confirmá-la às cegas.
+- **`ClassifyDrawer` ganha `key={movement.id}` em ambos os pontos onde é montado**: antes, trocar de movimento reutilizava a mesma instância do componente — o `useEffect` só repunha `isEditMode`/`activeTab`, deixando `allocations`, `subType`, `notes`, centro de custo, fornecedor e IVA por resetar (bug latente, agravado por `suggestion` variar por movimento). Forçar remount por `movement.id` faz todos os `useState(() => …)` recalcularem a partir do `movement`/`suggestion` correctos sempre que o utilizador muda de sugestão ou de linha.
+- **Sugestões de mês calculadas ao vivo, sem novo estado no movimento**: ao contrário do fluxo antigo (`suggestMatches`, que grava `reconciliationStatus: "sugestao"` no movimento), `getMonthlySuggestions` não muta nada — é chamado em cada abertura da vista de mês e invalidado depois de aplicar uma sugestão via a mutation existente.
 
 ## Como testar
 
@@ -131,5 +145,6 @@ npx vitest run
 ## Pontos de atenção / dívidas conhecidas
 
 - Gestão de regras de reconciliação (listagem/criação/eliminação) ainda não está exposta na UI — os endpoints existem no backend mas não há ecrã dedicado no frontend.
-- A ação "Sugerir correspondências" exibe resultados em toast; uma UI de confirmação por sugestão melhoraria a UX.
+- **`BankStatementsView` (e a acção "Sugerir correspondências" que descreve, via `suggestMatches`) não está roteada em `App.tsx`** — a navegação real é o paradigma de calendário (`BanksView` → `BankAccountsView` → `BankAccountCalendarView` → `MonthDetailView`). O texto acima que descreve `BankStatementsView` como "view principal" está desactualizado; mantido por documentar código que ainda existe no repo (não eliminado), não o fluxo em uso. A aba "Sugestões" do `MonthDetailView` (`getMonthlySuggestions`) é o equivalente actual, com clique-para-abrir-o-drawer-pré-preenchido em vez de toast.
 - O bucket `bank-statement-documents` no Supabase Storage deve ser criado manualmente com política de acesso público de leitura (necessário para o upload de comprovativos funcionar).
+- **`getMonthlySuggestions` não filtra por `movementType`**: ao contrário do `suggestMatches` antigo (só débitos), a aba "Sugestões" tenta match de fatura/payable para qualquer movimento pendente do mês, débito ou crédito — na prática quase sempre débitos, já que créditos se auto-resolvem na importação, mas um crédito reposto manualmente a pendente (ex: nota de crédito) também entraria nas sugestões de fatura, o que pode não fazer sentido de negócio. Revisitar se surgir um caso real.
