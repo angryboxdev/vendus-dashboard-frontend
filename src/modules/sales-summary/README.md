@@ -5,7 +5,7 @@
 
 ## Propósito
 
-Exibe ao gestor uma visão consolidada da faturação mensal combinando dados Vendus e AirMenu. Resolve a `/results` page — o ponto de entrada principal do dashboard. Não é responsável pelos detalhes de cada fonte (Vendus/AirMenu), nem por dados de custo ou DRE.
+Exibe ao gestor uma visão consolidada da faturação mensal combinando dados Vendus e AirMenu. Resolve a `/results` page. Não é responsável pelos detalhes de cada fonte (Vendus/AirMenu), nem por dados de custo ou DRE.
 
 ## Conceitos do domínio
 
