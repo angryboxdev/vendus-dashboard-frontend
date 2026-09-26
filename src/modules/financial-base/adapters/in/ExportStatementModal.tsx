@@ -1,15 +1,18 @@
 import { useState } from "react";
+import { NumericInput } from "../../../../components/NumericInput.tsx";
 
 interface Props {
   open: boolean;
   supplierName: string;
   onClose: () => void;
-  onExport: (params: { startDate?: string; endDate?: string }) => Promise<void>;
+  onExport: (params: { startDate?: string; endDate?: string; openingBalance?: string; informedFinalBalance?: string }) => Promise<void>;
 }
 
 export function ExportStatementModal({ open, supplierName, onClose, onExport }: Props) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
+  const [openingBalance, setOpeningBalance] = useState("");
+  const [informedFinalBalance, setInformedFinalBalance] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -22,6 +25,8 @@ export function ExportStatementModal({ open, supplierName, onClose, onExport }: 
       await onExport({
         startDate: startDate || undefined,
         endDate: endDate || undefined,
+        openingBalance: openingBalance || undefined,
+        informedFinalBalance: informedFinalBalance || undefined,
       });
       onClose();
     } catch (e) {
@@ -69,6 +74,40 @@ export function ExportStatementModal({ open, supplierName, onClose, onExport }: 
               min={startDate || undefined}
               className="mt-1.5 w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 focus:border-[#ED5C32] focus:outline-none focus:ring-1 focus:ring-[#ED5C32]"
             />
+          </div>
+
+          <div className="border-t border-stone-100 pt-4">
+            <label className="block text-xs font-medium text-stone-500" htmlFor="stmt-opening">
+              Saldo inicial considerado (€)
+            </label>
+            <NumericInput
+              id="stmt-opening"
+              value={openingBalance}
+              onChange={(e) => setOpeningBalance(e.target.value)}
+              placeholder="0,00"
+              className="mt-1.5 w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 focus:border-[#ED5C32] focus:outline-none focus:ring-1 focus:ring-[#ED5C32]"
+            />
+            <p className="mt-1 text-[11px] text-stone-400">
+              Opcional — saldo transitado de antes do período escolhido (ex: histórico mais antigo que não vai aparecer no extrato).
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-xs font-medium text-stone-500" htmlFor="stmt-informed-balance">
+              Saldo final informado (€) — opcional
+            </label>
+            <NumericInput
+              id="stmt-informed-balance"
+              value={informedFinalBalance}
+              onChange={(e) => setInformedFinalBalance(e.target.value)}
+              placeholder="Ex: 0,00"
+              className="mt-1.5 w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 focus:border-[#ED5C32] focus:outline-none focus:ring-1 focus:ring-[#ED5C32]"
+            />
+            <p className="mt-1 text-[11px] text-stone-400">
+              Só preenche se souberes o saldo real (ex: extrato do próprio fornecedor) e quiseres que o documento feche uma
+              diferença de pagamentos ainda não registados no sistema. Sem isto, o extrato mostra só o saldo calculado
+              pelos documentos e pagamentos já existentes.
+            </p>
           </div>
         </div>
 

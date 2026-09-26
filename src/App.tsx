@@ -14,11 +14,15 @@ import { Sidebar } from "./modules/sidebar/adapters/in/SidebarView.tsx";
 import { SidebarProvider } from "./modules/sidebar/sidebar.module.tsx";
 import { HrCalendarPage } from "./pages/hr/HrCalendarPage";
 import { HrEmployeeDetailPage } from "./pages/hr/HrEmployeeDetailPage";
-import { HrEmployeesPage } from "./pages/hr/HrEmployeesPage";
 import { HrLayout } from "./pages/hr/HrLayout";
 import { HrAuditLogPage } from "./pages/hr/HrAuditLogPage";
 import { HrLeavePage } from "./pages/hr/HrLeavePage";
 import { HrReportPage } from "./pages/hr/HrReportPage";
+import { HrProvider } from "./modules/hr/hr.module.tsx";
+import { PeopleListView } from "./modules/hr/adapters/in/PeopleListView.tsx";
+import { EmployeeProfileView } from "./modules/hr/adapters/in/EmployeeProfileView.tsx";
+import { OverviewView } from "./modules/hr/adapters/in/OverviewView.tsx";
+import { ShiftsToReviewView } from "./modules/hr/adapters/in/ShiftsToReviewView.tsx";
 import { KioskDisplayPage } from "./pages/kiosk/KioskDisplayPage";
 import { KioskCheckinPage } from "./pages/kiosk/KioskCheckinPage";
 import { CashClosingPage } from "./pages/cashClosing/CashClosingPage";
@@ -52,6 +56,7 @@ import { BankAccountsView } from "./modules/bank-accounts/adapters/in/BankAccoun
 import { PayableRecurrencesProvider } from "./modules/payable-recurrences/payable-recurrences.module.tsx";
 import { RecurrenceDetailView } from "./modules/payable-recurrences/adapters/in/RecurrenceDetailView.tsx";
 import { RecurrencesView } from "./modules/payable-recurrences/adapters/in/RecurrencesView.tsx";
+import { RecurrencesMonthlyView } from "./modules/payable-recurrences/adapters/in/RecurrencesMonthlyView.tsx";
 import { AirMenuProvider } from "./modules/air-menu/air-menu.module.tsx";
 import { AirMenuView } from "./modules/air-menu/adapters/in/AirMenuView.tsx";
 import { VendusProvider } from "./modules/vendus/vendus.module.tsx";
@@ -162,7 +167,39 @@ export default function App() {
                   element={<Navigate to="/hr" replace />}
                 />
                 <Route element={<HrLayout />}>
-                  <Route path="/hr" element={<HrEmployeesPage />} />
+                  <Route path="/hr" element={<Navigate to="/hr/overview" replace />} />
+                  <Route
+                    path="/hr/overview"
+                    element={
+                      <HrProvider>
+                        <OverviewView />
+                      </HrProvider>
+                    }
+                  />
+                  <Route
+                    path="/hr/overview/shifts-to-review"
+                    element={
+                      <HrProvider>
+                        <ShiftsToReviewView />
+                      </HrProvider>
+                    }
+                  />
+                  <Route
+                    path="/hr/people"
+                    element={
+                      <HrProvider>
+                        <PeopleListView />
+                      </HrProvider>
+                    }
+                  />
+                  <Route
+                    path="/hr/people/:id"
+                    element={
+                      <HrProvider>
+                        <EmployeeProfileView />
+                      </HrProvider>
+                    }
+                  />
                   <Route path="/hr/calendar" element={<HrCalendarPage />} />
                   <Route path="/hr/ferias" element={<HrLeavePage />} />
                   <Route path="/hr/relatorio" element={<HrReportPage />} />
@@ -205,6 +242,7 @@ export default function App() {
                                     <Route path="invoices" element={<InvoicesView />} />
                                     <Route path="payable-entries" element={<PayableEntriesView />} />
                                     <Route path="recurrences" element={<RecurrencesView />} />
+                                    <Route path="recurrences/monthly/:year/:month" element={<RecurrencesMonthlyView />} />
                                     <Route path="recurrences/:id" element={<RecurrenceDetailView />} />
                                     <Route path="bank-statements" element={<BanksView />} />
                                     <Route path="bank-statements/banks/:bankId" element={<BankAccountsView />} />

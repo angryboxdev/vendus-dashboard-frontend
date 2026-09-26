@@ -4539,6 +4539,14 @@ export function InvoicesView() {
                               <p className="font-semibold text-stone-900">
                                 {inv.invoiceNumber}
                               </p>
+                              {inv.documentType === "credit_note" && (
+                                <span
+                                  title="Nota de crédito — reduz o valor devido ao fornecedor"
+                                  className="rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-sky-100 text-sky-700"
+                                >
+                                  NC
+                                </span>
+                              )}
                               {inv.isDirectDebit && (
                                 <span className="rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-violet-100 text-violet-700">
                                   DD
@@ -4605,7 +4613,7 @@ export function InvoicesView() {
                           </td>
 
                           {/* Valor total */}
-                          <td className="px-4 py-3 text-right font-semibold text-stone-800">
+                          <td className={`px-4 py-3 text-right font-semibold ${inv.documentType === "credit_note" ? "text-red-600" : "text-stone-800"}`}>
                             {fromCents(inv.totalWithVat)}
                           </td>
 

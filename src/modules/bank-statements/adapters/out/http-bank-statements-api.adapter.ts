@@ -140,11 +140,12 @@ export class HttpBankStatementsApiAdapter implements BankStatementsApiPort {
     await apiDeleteNoContent(`${BASE}/movements/${encodeURIComponent(movementId)}/reconcile`);
   }
 
-  async searchOccurrenceCandidates(params: { q?: string; dateFrom?: string; dateTo?: string; limit?: number }): Promise<OccurrenceCandidateDTO[]> {
+  async searchOccurrenceCandidates(params: { q?: string; dateFrom?: string; dateTo?: string; referenceDate?: string; limit?: number }): Promise<OccurrenceCandidateDTO[]> {
     const q = new URLSearchParams();
     if (params.q) q.set("q", params.q);
     if (params.dateFrom) q.set("dateFrom", params.dateFrom);
     if (params.dateTo) q.set("dateTo", params.dateTo);
+    if (params.referenceDate) q.set("referenceDate", params.referenceDate);
     if (params.limit) q.set("limit", String(params.limit));
     const qs = q.toString();
     return apiGet<OccurrenceCandidateDTO[]>(`${BASE}/occurrences/candidates${qs ? `?${qs}` : ""}`);

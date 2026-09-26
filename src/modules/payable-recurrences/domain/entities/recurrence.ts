@@ -23,6 +23,21 @@ export type OccurrenceStatus =
   | "paid"
   | "cancelled";
 
+/**
+ * Calculado ao vivo pelo backend a partir de status + paidAmountCents + dueDate
+ * (nunca persistido — ver README do módulo). "Previsto" e "Fatura vinculada"
+ * (sem estados intermédios reais) colapsam em "awaiting_payment": uma vez sem
+ * bloqueio de fatura, não há diferença de comportamento entre "ainda é só
+ * previsão" e "já pode ser paga".
+ */
+export type OccurrenceDisplayState =
+  | "awaiting_invoice"
+  | "awaiting_payment"
+  | "partially_paid"
+  | "paid"
+  | "overdue"
+  | "cancelled";
+
 export const RECURRENCE_TYPE_LABELS: Record<RecurrenceType, string> = {
   fixed_contract: "Contrato fixo",
   variable_invoice: "Variável",
@@ -62,6 +77,15 @@ export const OCCURRENCE_STATUS_LABELS: Record<OccurrenceStatus, string> = {
   cancelled: "Cancelado",
 };
 
+export const OCCURRENCE_DISPLAY_STATE_LABELS: Record<OccurrenceDisplayState, string> = {
+  awaiting_invoice: "Aguardando fatura",
+  awaiting_payment: "Aguardando pagamento",
+  partially_paid: "Pago parcialmente",
+  paid: "Pago",
+  overdue: "Vencido",
+  cancelled: "Cancelado",
+};
+
 export interface RecurrenceDTO {
   id: string;
   name: string;
@@ -81,6 +105,9 @@ export interface RecurrenceDTO {
   status: RecurrenceStatus;
   notes: string | null;
   documentUrl: string | null;
+  closedAt: string | null; // YYYY-MM-DD — obrigatório ao fechar (ver CloseRecurrencePayload)
+  vatRate: number | null;
+  vatIncluded: boolean | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -109,7 +136,13 @@ export interface OccurrenceDTO {
   paymentNotes: string | null;
   notes: string | null;
   documentUrl: string | null;
-  linkedBankMovement: LinkedBankMovement | null;
+  /** Movimentos bancários ligados diretamente (fluxo B, sem fatura) — pode ter mais de um (pagamentos parciais). Vazio no fluxo A (com fatura). */
+  linkedBankMovements: LinkedBankMovement[];
+  /** Fluxo B: soma de linkedBankMovements. Fluxo A: valor já alocado no banco à fatura vinculada. Calculado ao vivo. */
+  paidAmountCents: number;
+  /** paidAmountCents - effectiveAmountCents. Nunca ler como "dívida" automaticamente. */
+  differenceCents: number;
+  displayState: OccurrenceDisplayState;
   createdAt: string;
   updatedAt: string;
 }
@@ -145,6 +178,13 @@ export interface UpdateRecurrencePayload {
   paymentMethod?: PaymentMethod;
   requireInvoice?: boolean;
   notes?: string | null;
+  vatRate?: number | null;
+  vatIncluded?: boolean | null;
+}
+
+export interface CloseRecurrencePayload {
+  /** Obrigatório — spec Task_Recorrencias_Conciliacao_AngryBox.md §10. */
+  closedAt: string; // YYYY-MM-DD
 }
 
 export interface MarkOccurrenceAsPaidPayload {
@@ -161,6 +201,27 @@ export interface OccurrenceWithRecurrenceDTO {
 
 export interface RecurrenceSummaryDTO {
   awaitingInvoiceCount: number;
+}
+
+/** KPIs agregados cross-recorrência para um mês (vista mensal). O backend garante primeiro que as ocorrências do mês existem (ver README D12), depois agrega. */
+export interface RecurrenceMonthlySummaryDTO {
+  period: string; // YYYY-MM
+  activeRecurrencesCount: number;
+  forecastedAmountCents: number;
+  paidAmountCents: number;
+  pendingCount: number;
+  pendingAmountCents: number;
+  overdueCount: number;
+  overdueAmountCents: number;
+  /** (Pago - Previsto) / Previsto * 100. Só preenchido quando não há nada pendente/vencido. */
+  paidVsForecastedPercent: number | null;
+}
+
+export interface BatchGenerationResultDTO {
+  period: string;
+  generated: OccurrenceDTO[];
+  skippedAlreadyExists: number;
+  skippedOutOfScope: number;
 }
 
 export interface ListRecurrencesParams {

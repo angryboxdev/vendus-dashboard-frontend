@@ -13,6 +13,7 @@ import {
   nextDueDate,
 } from "../../domain/entities/recurrence.ts";
 import { RecurrenceDrawer } from "./RecurrenceDrawer.tsx";
+import { KpiCard } from "./KpiCard.tsx";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -55,28 +56,6 @@ function StatusBadge({ status }: { status: RecurrenceStatus }) {
       <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status]}`} />
       {RECURRENCE_STATUS_LABELS[status]}
     </span>
-  );
-}
-
-// ── KpiCard ────────────────────────────────────────────────────────────────────
-
-function KpiCard({
-  label,
-  value,
-  sub,
-  accentClass = "text-stone-800",
-}: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  accentClass?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-      <p className="text-xs font-medium text-stone-500">{label}</p>
-      <p className={`mt-1 text-xl font-bold ${accentClass}`}>{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-stone-400">{sub}</p>}
-    </div>
   );
 }
 
@@ -188,15 +167,29 @@ export function RecurrencesView() {
               Gestão de compromissos recorrentes, contratos e faturas associadas
             </p>
           </div>
-          <button
-            onClick={() => setShowDrawer(true)}
-            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-            </svg>
-            Nova recorrência
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                const now = new Date();
+                navigate(`/financial/recurrences/monthly/${now.getFullYear()}/${now.getMonth() + 1}`);
+              }}
+              className="flex items-center gap-1.5 rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd" />
+              </svg>
+              Vista mensal
+            </button>
+            <button
+              onClick={() => setShowDrawer(true)}
+              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            >
+              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+              </svg>
+              Nova recorrência
+            </button>
+          </div>
         </div>
       </div>
 

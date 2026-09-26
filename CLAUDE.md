@@ -46,6 +46,9 @@ padrão novo, abra o `README.md` dele e veja o campo `Status`; sem README ou com
 - `vendus` (agosto 2026)
 - `locations` (agosto 2026)
 - `sales-summary` (setembro 2026)
+- `hr` (setembro 2026) — só a área "Pessoas & Documentos" (lista, perfil 360º,
+  dossiê documental, foto); turnos/pagamentos/férias/kiosk/auditoria
+  continuam em `src/pages/hr/*` (legacy)
 
 ## Stack
 

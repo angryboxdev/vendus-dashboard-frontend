@@ -98,5 +98,5 @@ export interface BankStatementsApiPort {
    * Searches recurrence occurrences without an invoice, for use in the
    * "contrato_recorrencia" justify flow.
    */
-  searchOccurrenceCandidates(params: { q?: string; dateFrom?: string; dateTo?: string; limit?: number }): Promise<OccurrenceCandidateDTO[]>;
+  searchOccurrenceCandidates(params: { q?: string; dateFrom?: string; dateTo?: string; referenceDate?: string; limit?: number }): Promise<OccurrenceCandidateDTO[]>;
 }
