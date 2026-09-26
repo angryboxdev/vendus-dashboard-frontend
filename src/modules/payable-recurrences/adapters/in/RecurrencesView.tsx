@@ -67,7 +67,9 @@ export function RecurrencesView() {
   const qc = useQueryClient();
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<RecurrenceStatus | "">("");
+  // Predefinido: só ativas — pausadas/encerradas ficam disponíveis ao
+  // trocar o filtro, mas não poluem a vista por omissão.
+  const [statusFilter, setStatusFilter] = useState<RecurrenceStatus | "">("active");
   const [typeFilter, setTypeFilter] = useState<RecurrenceType | "">("");
   const [showDrawer, setShowDrawer] = useState(false);
   const [uploading, setUploading] = useState(false);
