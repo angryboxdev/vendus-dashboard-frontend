@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { createPortal } from "react-dom";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
 import { useInvoicesModule } from "../../../invoices/invoices.module.tsx";
+import { usePayableRecurrencesModule } from "../../../payable-recurrences/payable-recurrences.module.tsx";
 import type {
   CostCenterGroup,
   CostCenterCategory,
@@ -62,6 +63,15 @@ function ReconciliationBadge({ status }: { status: ReconciliationStatus }) {
 const VAT_RATES = [0, 6, 13, 23] as const;
 type VatMode = "included" | "excluded" | "exempt";
 type ClassifyTab = "sistema" | "justificar";
+
+/** Só para decidir se vale a pena perguntar "total ou parcial" — diferenças de arredondamento não geram a pergunta. Não é mais usado para decidir Pago vs Pago parcialmente (isso agora é sempre uma escolha explícita do utilizador). */
+const OCCURRENCE_AMOUNT_MATCH_TOLERANCE_CENTS = 100;
+
+/** Extrai {year, month} de uma data YYYY-MM-DD sem passar por `new Date(string)` (evita o parsing UTC-meia-noite desfasar o mês em fusos negativos). */
+function yearMonthFromDateString(s: string): { year: number; month: number } {
+  const parts = s.slice(0, 10).split("-").map(Number);
+  return { year: parts[0]!, month: parts[1]! };
+}
 
 const TAB_B_SUB_TYPES: JustificationType[] = [
   "recibo_comprovativo",
@@ -220,6 +230,8 @@ export function ClassifyDrawer({
   const { api } = useBankStatementsModule();
   const fbApi = useFinancialBaseModule().api;
   const invApi = useInvoicesModule().api;
+  const recurrencesApi = usePayableRecurrencesModule().api;
+  const qc = useQueryClient();
 
   const labelCls = "block text-xs font-medium text-stone-500 mb-1";
   const inputCls =
@@ -294,7 +306,7 @@ export function ClassifyDrawer({
 
   const { data: invoiceSearchResults = [], isLoading: loadingSearch } = useQuery({
     queryKey: ["invoices-search", debouncedSearch],
-    queryFn: () => invApi.listInvoices({ search: debouncedSearch }),
+    queryFn: () => invApi.listInvoices({ search: debouncedSearch, documentType: "invoice" }),
     enabled: debouncedSearch.length >= 2,
     staleTime: 30_000,
   });
@@ -371,7 +383,7 @@ export function ClassifyDrawer({
 
   const { data: occurrenceCandidates = [] } = useQuery<OccurrenceCandidateDTO[]>({
     queryKey: ["occurrence-candidates", occurrenceSearch],
-    queryFn: () => api.searchOccurrenceCandidates({ q: occurrenceSearch || undefined }),
+    queryFn: () => api.searchOccurrenceCandidates({ q: occurrenceSearch || undefined, referenceDate: movement.bookingDate }),
     enabled: showsOccurrence(subType),
     staleTime: 30_000,
   });
@@ -393,6 +405,52 @@ export function ClassifyDrawer({
     setGroupId(newGroupId);
     setCategoryId("");
   }
+
+  /**
+   * Auto-preenche a partir da recorrência selecionada (spec Task_Recorrencias_
+   * Conciliacao_AngryBox.md §3.B) — mas só campos ainda vazios, nunca
+   * sobrescrevendo o que o utilizador já tiver editado manualmente. Define
+   * groupId/categoryId directamente (não via handleGroupChange, que reseta
+   * categoryId) para poder aplicar os dois de uma vez.
+   */
+  function applyOccurrenceDefaults(o: OccurrenceCandidateDTO) {
+    if (!supplierId && o.supplierId) setSupplierId(o.supplierId);
+    if (!groupId && o.costCenterGroupId) setGroupId(o.costCenterGroupId);
+    if (!categoryId && o.costCenterCategoryId) setCategoryId(o.costCenterCategoryId);
+    if (vatMode === "exempt" && o.vatRate != null) {
+      setVatMode(o.vatIncluded ? "included" : "excluded");
+      setVatRate(o.vatRate);
+    }
+  }
+
+  /**
+   * Geração de ocorrência é sempre manual/on-demand (nunca automática) — sem
+   * isto, uma recorrência sem fatura (ex. "Salário Gabriel") fica invisível
+   * à pesquisa acima enquanto ninguém tiver clicado "+ Gerar ocorrência" para
+   * o mês do movimento. Ao escolher "Contrato/Recorrência", garante (uma vez
+   * por mês do movimento) que essas ocorrências existem de facto, e só então
+   * invalida a pesquisa para as apanhar.
+   */
+  const [ensuredForMonth, setEnsuredForMonth] = useState<string | null>(null);
+  useEffect(() => {
+    if (subType !== "contrato_recorrencia") return;
+    const { year, month } = yearMonthFromDateString(movement.bookingDate);
+    const monthKey = `${year}-${month}`;
+    if (ensuredForMonth === monthKey) return;
+    setEnsuredForMonth(monthKey);
+    recurrencesApi
+      .generateBatch(year, month)
+      .then(() => {
+        void qc.invalidateQueries({ queryKey: ["occurrence-candidates"] });
+      })
+      .catch((err) => {
+        // Não repõe `ensuredForMonth` a null aqui — falharia outra vez e
+        // entraria em loop (o efeito corre de novo sempre que este estado
+        // muda). Fica registado no consola para diagnóstico; o utilizador
+        // pode sempre gerar manualmente pelo botão "+ Gerar ocorrência".
+        console.error("Falha ao garantir ocorrências do mês para a pesquisa de recorrências:", err);
+      });
+  }, [subType, movement.bookingDate, ensuredForMonth, recurrencesApi, qc]);
 
   async function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -450,6 +508,27 @@ export function ClassifyDrawer({
     );
   }
 
+  const [pendingOccurrencePayload, setPendingOccurrencePayload] = useState<ClassifyMovementPayload | null>(null);
+  const [markingOccurrencePaid, setMarkingOccurrencePaid] = useState(false);
+
+  async function handleConfirmFullPayment() {
+    if (!pendingOccurrencePayload || !occurrenceId) return;
+    setMarkingOccurrencePaid(true);
+    try {
+      await recurrencesApi.markOccurrenceAsPaid(occurrenceId, { paidAt: movement.bookingDate });
+      onSave(pendingOccurrencePayload);
+      setPendingOccurrencePayload(null);
+    } finally {
+      setMarkingOccurrencePaid(false);
+    }
+  }
+
+  function handleConfirmPartialPayment() {
+    if (!pendingOccurrencePayload) return;
+    onSave(pendingOccurrencePayload);
+    setPendingOccurrencePayload(null);
+  }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (activeTab === "sistema") {
@@ -483,6 +562,19 @@ export function ClassifyDrawer({
     }
     if (showsTransferTarget(subType) && transferTarget)
       payload.notes = transferTarget + (notes ? `\n${notes}` : "");
+
+    // Valor não bate certo com o previsto da recorrência — pergunta se é o
+    // pagamento total (aceite mesmo sendo menor) ou só parcial, em vez de
+    // adivinhar por uma tolerância (spec: "se não for o valor correto, deve
+    // perguntar se é o pagamento total ou parcial").
+    if (showsOccurrence(subType) && occurrenceId && selectedOccurrence) {
+      const diff = Math.abs(movement.amount - selectedOccurrence.effectiveAmountCents);
+      if (diff > OCCURRENCE_AMOUNT_MATCH_TOLERANCE_CENTS) {
+        setPendingOccurrencePayload(payload);
+        return;
+      }
+    }
+
     onSave(payload);
   }
 
@@ -964,7 +1056,7 @@ export function ClassifyDrawer({
                           <div className="absolute z-10 mt-1 w-full rounded-md border border-stone-200 bg-white shadow-lg max-h-52 overflow-y-auto">
                             {occurrenceCandidates.map((o) => (
                               <button key={o.id} type="button"
-                                onClick={() => { setOccurrenceId(o.id); setOccurrenceSearch(""); setOccurrenceOpen(false); }}
+                                onClick={() => { setOccurrenceId(o.id); setOccurrenceSearch(""); setOccurrenceOpen(false); applyOccurrenceDefaults(o); }}
                                 className="w-full text-left px-3 py-2 text-sm text-stone-700 hover:bg-stone-50 border-b border-stone-50 last:border-0">
                                 <p className="font-medium truncate">{o.recurrenceName}</p>
                                 <p className="text-xs text-stone-400">
@@ -1065,13 +1157,51 @@ export function ClassifyDrawer({
       </aside>
   );
 
-  if (inline) return panel;
+  const fullOrPartialModal = pendingOccurrencePayload && selectedOccurrence && createPortal(
+    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" aria-modal="true">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setPendingOccurrencePayload(null)} />
+      <div className="relative w-full max-w-sm rounded-xl bg-white shadow-2xl">
+        <div className="px-6 pt-5 pb-4">
+          <h3 className="text-base font-bold text-stone-900">Valor diferente do previsto</h3>
+          <p className="mt-2 text-sm text-stone-600">
+            O movimento é de <strong>{fromCents(movement.amount)}</strong>, mas o previsto para{" "}
+            <strong>{selectedOccurrence.recurrenceName}</strong> é {fromCents(selectedOccurrence.effectiveAmountCents)}.
+            Isto é o pagamento total ou parcial?
+          </p>
+        </div>
+        <div className="px-6 pt-3 pb-5 flex gap-3">
+          <button
+            type="button"
+            onClick={handleConfirmPartialPayment}
+            disabled={markingOccurrencePaid}
+            className="flex-1 rounded-md border border-stone-300 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50"
+          >
+            É parcial
+          </button>
+          <button
+            type="button"
+            onClick={() => { void handleConfirmFullPayment(); }}
+            disabled={markingOccurrencePaid}
+            className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {markingOccurrencePaid ? "…" : "É o pagamento total"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+
+  if (inline) return <>{panel}{fullOrPartialModal}</>;
 
   return createPortal(
-    <div className="fixed inset-0 z-50 flex" aria-modal="true">
-      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      {panel}
-    </div>,
+    <>
+      <div className="fixed inset-0 z-50 flex" aria-modal="true">
+        <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
+        {panel}
+      </div>
+      {fullOrPartialModal}
+    </>,
     document.body,
   );
 }

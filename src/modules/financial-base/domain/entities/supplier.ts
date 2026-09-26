@@ -38,6 +38,7 @@ export interface SupplierInvoiceRow {
   totalWithoutVat: number;
   vatAmount: number;
   totalWithVat: number;
+  documentType: string;
   status: string;
   paidAt: string | null;
   attachmentUrl: string | null;

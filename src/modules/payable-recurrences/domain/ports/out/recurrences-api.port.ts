@@ -3,8 +3,11 @@ import type {
   OccurrenceDTO,
   OccurrenceWithRecurrenceDTO,
   RecurrenceSummaryDTO,
+  RecurrenceMonthlySummaryDTO,
+  BatchGenerationResultDTO,
   CreateRecurrencePayload,
   UpdateRecurrencePayload,
+  CloseRecurrencePayload,
   MarkOccurrenceAsPaidPayload,
   ListRecurrencesParams,
   ListOccurrencesParams,
@@ -13,6 +16,9 @@ import type {
 export interface RecurrencesApiPort {
   // Summary
   getSummary(): Promise<RecurrenceSummaryDTO>;
+  getMonthlySummary(period: string): Promise<RecurrenceMonthlySummaryDTO>;
+  listOccurrencesForPeriod(period: string): Promise<OccurrenceDTO[]>;
+  generateBatch(year: number, month: number): Promise<BatchGenerationResultDTO>;
 
   // Recurrences
   listRecurrences(params?: ListRecurrencesParams): Promise<RecurrenceDTO[]>;
@@ -21,7 +27,7 @@ export interface RecurrencesApiPort {
   updateRecurrence(id: string, payload: UpdateRecurrencePayload): Promise<RecurrenceDTO>;
   pauseRecurrence(id: string): Promise<RecurrenceDTO>;
   resumeRecurrence(id: string): Promise<RecurrenceDTO>;
-  closeRecurrence(id: string): Promise<RecurrenceDTO>;
+  closeRecurrence(id: string, payload: CloseRecurrencePayload): Promise<RecurrenceDTO>;
   uploadRecurrenceDocument(id: string, file: File): Promise<RecurrenceDTO>;
   deleteRecurrenceDocument(id: string): Promise<void>;
 

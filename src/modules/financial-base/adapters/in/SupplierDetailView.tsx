@@ -272,11 +272,18 @@ export function SupplierDetailView() {
                     {supplier.invoices.map((inv) => (
                       <tr key={inv.id} className="transition-colors hover:bg-[#FDF8F5]">
                         <td className="px-4 py-3 font-mono text-xs font-medium text-stone-700">
-                          {inv.invoiceNumber}
+                          <div className="flex items-center gap-1.5">
+                            {inv.invoiceNumber}
+                            {inv.documentType === "credit_note" && (
+                              <span className="rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-sky-100 text-sky-700">
+                                NC
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3 text-stone-600">{formatDate(inv.invoiceDate)}</td>
                         <td className="px-4 py-3 text-stone-600">{formatDate(inv.dueDate)}</td>
-                        <td className="px-4 py-3 text-right font-medium text-stone-900">
+                        <td className={`px-4 py-3 text-right font-medium ${inv.documentType === "credit_note" ? "text-red-600" : "text-stone-900"}`}>
                           {formatEUR(inv.totalWithVat)}
                         </td>
                         <td className="px-4 py-3">

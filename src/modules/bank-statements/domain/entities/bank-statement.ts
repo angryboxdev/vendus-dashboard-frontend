@@ -194,6 +194,11 @@ export interface OccurrenceCandidateDTO {
   effectiveAmountCents: number;
   dueDate: string;             // YYYY-MM-DD
   status: string;
+  /** Classificação da recorrência-mãe — usada para auto-preencher o drawer (só campos ainda vazios). */
+  costCenterGroupId: string | null;
+  costCenterCategoryId: string | null;
+  vatRate: number | null;
+  vatIncluded: boolean | null;
 }
 
 // ── Payloads ──────────────────────────────────────────────────────────────────

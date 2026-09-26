@@ -20,6 +20,7 @@ import type {
   ConfirmImportedInvoicePayload,
   SuggestClassificationResult,
   LineDetailMode,
+  InvoiceDocumentType,
 } from "../../domain/entities/invoice.ts";
 
 const BASE = "/api/invoices";
@@ -33,6 +34,7 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     if (params?.reconciliationStatus) q.set("reconciliationStatus", params.reconciliationStatus);
     if (params?.from) q.set("from", params.from);
     if (params?.to) q.set("to", params.to);
+    if (params?.documentType) q.set("documentType", params.documentType);
     if (params?.search) q.set("search", params.search);
     const qs = q.toString();
     return apiGet(`${BASE}${qs ? `?${qs}` : ""}`);
@@ -94,9 +96,10 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     );
   }
 
-  async importInvoice(file: File): Promise<InvoiceImportResultDTO> {
+  async importInvoice(file: File, documentType?: InvoiceDocumentType): Promise<InvoiceImportResultDTO> {
     const formData = new FormData();
     formData.append("file", file);
+    if (documentType) formData.append("documentType", documentType);
     return apiPostFormData(`${BASE}/import`, formData);
   }
 

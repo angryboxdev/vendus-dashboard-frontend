@@ -14,8 +14,9 @@ import type {
   NewSupplierPayload,
   LineDetailMode,
   InvoiceLineType,
+  InvoiceDocumentType,
 } from "../../domain/entities/invoice.ts";
-import { VALIDATION_ISSUE_LABELS, INVOICE_LINE_TYPE_LABELS } from "../../domain/entities/invoice.ts";
+import { VALIDATION_ISSUE_LABELS, INVOICE_LINE_TYPE_LABELS, DOCUMENT_TYPE_LABELS } from "../../domain/entities/invoice.ts";
 import type { CostCenterGroup, CostCenterCategory } from "../../../financial-base/domain/entities/cost-center.ts";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -846,9 +847,14 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   const [invoiceNumber, setInvoiceNumber] = useState(inv.invoiceNumber);
   const [invoiceDate, setInvoiceDate] = useState(inv.invoiceDate ?? todayStr());
   const [dueDate, setDueDate] = useState(inv.dueDate ?? "");
-  const [subtotalStr, setSubtotalStr] = useState((inv.subtotalWithoutVat / 100).toFixed(2));
-  const [vatStr, setVatStr] = useState((inv.totalVat / 100).toFixed(2));
-  const [totalStr, setTotalStr] = useState((inv.totalWithVat / 100).toFixed(2));
+  // Math.abs: os totais vêm sempre com o sinal já aplicado (negativo para
+  // notas de crédito) — o formulário mostra sempre a magnitude tal como
+  // aparece no documento; o sinal é reaplicado pelo backend a partir de
+  // documentType (Invoice.normalizeAmountSign), nunca escrito pelo utilizador.
+  const [subtotalStr, setSubtotalStr] = useState((Math.abs(inv.subtotalWithoutVat) / 100).toFixed(2));
+  const [vatStr, setVatStr] = useState((Math.abs(inv.totalVat) / 100).toFixed(2));
+  const [totalStr, setTotalStr] = useState((Math.abs(inv.totalWithVat) / 100).toFixed(2));
+  const [docType, setDocType] = useState<InvoiceDocumentType>(inv.documentType ?? "invoice");
   const [notes, setNotes] = useState(inv.notes ?? "");
   const [costCenterGroupId, setCostCenterGroupId] = useState<string | null>(inv.costCenterGroupId ?? null);
   const [costCenterCategoryId, setCostCenterCategoryId] = useState<string | null>(inv.costCenterCategoryId ?? null);
@@ -979,8 +985,9 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
       subtotalWithoutVat: toCents(subtotalStr),
       totalVat: toCents(vatStr),
       totalWithVat: toCents(totalStr),
+      documentType: docType,
       notes: notes.trim() || null,
-      saveAsPayable: (alreadyPaid || isDirectDebit) ? false : saveAsPayable,
+      saveAsPayable: (alreadyPaid || isDirectDebit || docType === "credit_note") ? false : saveAsPayable,
       markAsPaid: alreadyPaid,
       paidAt: alreadyPaid ? paidAt : undefined,
     };
@@ -1106,6 +1113,26 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
                 onNewSupplier={handleNewSupplier}
               />
             </div>
+          </div>
+
+          {/* Tipo de documento */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Tipo de documento</p>
+            <div className="flex gap-2">
+              {(Object.entries(DOCUMENT_TYPE_LABELS) as [InvoiceDocumentType, string][]).map(([type, label]) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setDocType(type)}
+                  className={`flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${docType === type ? "border-[#ED5C32] bg-[#FDF8F5] text-[#ED5C32]" : "border-stone-200 text-stone-500 hover:border-stone-300"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {!isEdit && importResult.validationIssues.includes("credit_note_detected") && (
+              <p className="text-xs text-amber-600">Identificámos termos de nota de crédito no documento — confirma antes de guardar.</p>
+            )}
           </div>
 
           {/* Dados da fatura — largura total */}
@@ -1349,14 +1376,16 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
                       >
                         {saving ? "A guardar…" : "Salvar como pendente"}
                       </button>
-                      <button
-                        onClick={() => confirmMutation.mutate(buildPayload(true))}
-                        disabled={saving || !dueDate}
-                        className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
-                        title={!dueDate ? "Defina a data de vencimento para gerar conta a pagar" : undefined}
-                      >
-                        {saving ? "A guardar…" : "Salvar e gerar conta a pagar"}
-                      </button>
+                      {docType !== "credit_note" && (
+                        <button
+                          onClick={() => confirmMutation.mutate(buildPayload(true))}
+                          disabled={saving || !dueDate}
+                          className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
+                          title={!dueDate ? "Defina a data de vencimento para gerar conta a pagar" : undefined}
+                        >
+                          {saving ? "A guardar…" : "Salvar e gerar conta a pagar"}
+                        </button>
+                      )}
                     </>
                   )}
                 </>

@@ -21,6 +21,9 @@ const inputCls =
   "w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30";
 const labelCls = "block text-xs font-medium text-stone-500 mb-1";
 
+type VatMode = "included" | "excluded" | "exempt";
+const VAT_RATES = [0, 6, 13, 23] as const;
+
 interface Toggle {
   label: string;
   description: string;
@@ -111,6 +114,8 @@ export function RecurrenceDrawer({
   const [requireInvoice, setRequireInvoice] = useState(false);
   const [notes, setNotes] = useState("");
   const [docFile, setDocFile] = useState<File | null>(null);
+  const [vatMode, setVatMode] = useState<VatMode>("exempt");
+  const [vatRate, setVatRate] = useState<number>(23);
 
   // Categories filtered by selected cost center group
   const filteredCategories = costCenterId
@@ -135,6 +140,13 @@ export function RecurrenceDrawer({
       setRequireInvoice(editing.requireInvoice);
       setNotes(editing.notes ?? "");
       setDocFile(null);
+      if (editing.vatRate != null) {
+        setVatMode(editing.vatIncluded ? "included" : "excluded");
+        setVatRate(editing.vatRate);
+      } else {
+        setVatMode("exempt");
+        setVatRate(23);
+      }
     } else {
       setName("");
       setSupplierId("");
@@ -152,6 +164,8 @@ export function RecurrenceDrawer({
       setRequireInvoice(false);
       setNotes("");
       setDocFile(null);
+      setVatMode("exempt");
+      setVatRate(23);
     }
   }, [open, editing]);
 
@@ -183,6 +197,8 @@ export function RecurrenceDrawer({
         paymentMethod,
         requireInvoice,
         notes: notes || null,
+        vatRate: vatMode === "exempt" ? null : vatRate,
+        vatIncluded: vatMode === "exempt" ? null : vatMode === "included",
       };
       onUpdate(editing!.id, payload);
     } else {
@@ -471,6 +487,41 @@ export function RecurrenceDrawer({
               />
               <p className="mt-0.5 text-right text-xs text-stone-400">{notes.length}/500</p>
             </div>
+
+            {/* IVA (só disponível na edição — a criação não define IVA à partida) */}
+            {isEdit && (
+              <div>
+                <label className={labelCls}>IVA</label>
+                <div className="flex gap-2 mb-2">
+                  {(
+                    [["included", "Inclui IVA"], ["excluded", "Não inclui IVA"], ["exempt", "Isento / N/A"]] as [VatMode, string][]
+                  ).map(([mode, label]) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setVatMode(mode)}
+                      className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${vatMode === mode ? "border-[#ED5C32] bg-[#FDF8F5] text-[#ED5C32]" : "border-stone-200 text-stone-500 hover:border-stone-300"}`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {vatMode !== "exempt" && (
+                  <div className="flex gap-2">
+                    {VAT_RATES.map((r) => (
+                      <button
+                        key={r}
+                        type="button"
+                        onClick={() => setVatRate(r)}
+                        className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-medium ${vatRate === r ? "border-[#ED5C32] bg-[#FDF8F5] text-[#ED5C32]" : "border-stone-200 text-stone-500 hover:border-stone-300"}`}
+                      >
+                        {r}%
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Toggles */}
             <div className="rounded-lg border border-stone-100 bg-stone-50 p-4">

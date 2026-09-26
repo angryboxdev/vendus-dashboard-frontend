@@ -54,7 +54,10 @@ export interface FinancialBaseApiPort {
   createSupplier(payload: CreateSupplierPayload): Promise<Supplier>;
   updateSupplier(id: string, payload: UpdateSupplierPayload): Promise<Supplier>;
   setSupplierStatus(id: string, status: "active" | "inactive"): Promise<Supplier>;
-  downloadSupplierStatement(id: string, params?: { startDate?: string; endDate?: string }): Promise<void>;
+  downloadSupplierStatement(
+    id: string,
+    params?: { startDate?: string; endDate?: string; openingBalance?: string; informedFinalBalance?: string },
+  ): Promise<void>;
 
   // Channels
   listChannels(): Promise<ChannelDTO[]>;
