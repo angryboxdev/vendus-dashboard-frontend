@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
 import { AvatarUpload } from "./components/AvatarUpload.tsx";
@@ -22,6 +22,7 @@ const TABS: { key: TabKey; label: string }[] = [
   { key: "contrato", label: "Contrato & Remuneração" },
   { key: "historico", label: "Histórico" },
 ];
+const TAB_KEYS = new Set<string>(TABS.map((t) => t.key));
 
 function formatDate(d: string | null): string {
   if (!d) return "—";
@@ -58,8 +59,12 @@ export function EmployeeProfileView() {
   const { id } = useParams<{ id: string }>();
   const { api } = useHrModule();
   const qc = useQueryClient();
+  const [searchParams] = useSearchParams();
 
-  const [tab, setTab] = useState<TabKey>("resumo");
+  // Permite deep-link direto a uma tab (ex: a partir de uma pendência
+  // prioritária em "Pessoas & Documentos", `?tab=documentos`).
+  const initialTab = searchParams.get("tab");
+  const [tab, setTab] = useState<TabKey>(initialTab && TAB_KEYS.has(initialTab) ? (initialTab as TabKey) : "resumo");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const { data: profile, isLoading, isError } = useQuery({
@@ -215,8 +220,8 @@ export function EmployeeProfileView() {
                 <p className="mt-1 text-xl font-bold text-stone-800">
                   {profile.documents.mandatoryCompleted}/{profile.documents.mandatoryTotal}
                 </p>
-                {profile.documents.missingCategories.length > 0 && (
-                  <p className="mt-0.5 text-xs text-amber-600">{profile.documents.missingCategories.length} em falta</p>
+                {profile.documents.missingRequirements.length > 0 && (
+                  <p className="mt-0.5 text-xs text-amber-600">{profile.documents.missingRequirements.length} em falta</p>
                 )}
               </div>
               <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">

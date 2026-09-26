@@ -21,9 +21,11 @@ import type {
   ListShiftsToReviewParams,
   ListShiftsToReviewResult,
 } from "../../domain/entities/overview.ts";
+import type { DocumentCategoryDefinition, DocumentCategoryPayload } from "../../domain/entities/document-category.ts";
 
 const BASE = "/api/hr/people";
 const OVERVIEW_BASE = "/api/hr/overview";
+const DOCUMENT_CATEGORIES_BASE = "/api/hr/document-categories";
 /** Rota legacy (src/routes/hrRoutes.ts) — reaproveitada diretamente, sem importar código do frontend legacy. */
 const LEGACY_SHIFTS_BASE = "/api/hr/shifts";
 
@@ -143,5 +145,26 @@ export class HttpHrApiAdapter implements HrApiPort {
 
   async confirmShiftAttendance(shiftId: string, payload: ConfirmShiftAttendancePayload): Promise<void> {
     await apiPatch<unknown>(`${LEGACY_SHIFTS_BASE}/${encodeURIComponent(shiftId)}/attendance`, payload);
+  }
+
+  async listDocumentCategories(): Promise<DocumentCategoryDefinition[]> {
+    return apiGet<DocumentCategoryDefinition[]>(DOCUMENT_CATEGORIES_BASE);
+  }
+
+  async createDocumentCategory(payload: DocumentCategoryPayload): Promise<DocumentCategoryDefinition> {
+    return apiPost<DocumentCategoryDefinition>(DOCUMENT_CATEGORIES_BASE, payload);
+  }
+
+  async updateDocumentCategory(
+    id: string,
+    payload: Partial<DocumentCategoryPayload>,
+  ): Promise<DocumentCategoryDefinition> {
+    return apiPatch<DocumentCategoryDefinition>(`${DOCUMENT_CATEGORIES_BASE}/${encodeURIComponent(id)}`, payload);
+  }
+
+  async setDocumentCategoryActive(id: string, active: boolean): Promise<DocumentCategoryDefinition> {
+    return apiPatch<DocumentCategoryDefinition>(`${DOCUMENT_CATEGORIES_BASE}/${encodeURIComponent(id)}/active`, {
+      active,
+    });
   }
 }

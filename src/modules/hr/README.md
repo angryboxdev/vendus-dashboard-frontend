@@ -57,10 +57,17 @@ Resumo via link simples para `/hr/employees/:id`.
   `previousVersionId` formam a cadeia de versões; `displayStatus` já vem
   calculado do backend (`ok`/`expiring`/`expired`/`pending_validation`/
   `rejected`/`removed`).
-- **Categorias de documento** — `DEFAULT_MANDATORY_CATEGORIES` replica a
-  constante do backend (não configurável por organização nesta fase). O
-  seletor de "nova categoria" na tab Documentos só mostra categorias **ainda
-  não usadas** por aquele colaborador, para nunca bater no 409
+- **Categorias de documento** — só as 3 de identificação (Cartão de
+  Cidadão/Título de Residência/Passaporte) continuam fixas no código
+  (`IDENTIFICATION_DOCUMENT_CATEGORIES`, `employee-document.ts`) — o mesmo
+  requisito "ou" do backend, decisão confirmada com o utilizador. Todas as
+  restantes são configuráveis por organização
+  (`DocumentCategoryDefinition`, `api.listDocumentCategories()`), geridas
+  pelo botão "Categorias de documentos" em Pessoas & Documentos
+  (`DocumentCategoriesModal.tsx`) — nome, obrigatória ou não, cargo(s) a que
+  se aplica, tipos de ficheiro aceites. O seletor de "nova categoria" na tab
+  Documentos filtra por cargo do colaborador e só mostra categorias **ainda
+  não usadas** por ele, para nunca bater no 409
   (`DocumentCategoryAlreadyExistsError`) — para reenviar uma categoria já
   existente, usa-se sempre "Substituir".
 
@@ -109,6 +116,11 @@ Um método por endpoint do backend — ver `domain/ports/out/hr-api.port.ts`.
   Confirmar chama a mesma rota legacy `PATCH /api/hr/shifts/:id/attendance`.
 - `components/SeverityBadge` (RH-01) → Crítica/Alta/Média/Baixa, sempre
   texto + ícone + cor (nunca só cor).
+- `DocumentCategoriesModal` → CRUD das categorias de documento
+  configuráveis (nome, obrigatória, cargo(s), tipos de ficheiro aceites) —
+  aberto por um botão em `PeopleListView`, abaixo de "Novo colaborador".
+  Desativar (nunca apagar) para de exigir/sugerir a categoria sem tocar nos
+  documentos já enviados nela.
 
 ### Saída
 

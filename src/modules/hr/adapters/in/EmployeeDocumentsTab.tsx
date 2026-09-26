@@ -3,10 +3,12 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
 import type { EmployeeProfile } from "../../domain/entities/employee.ts";
 import {
-  DEFAULT_MANDATORY_CATEGORIES,
   DOCUMENT_CATEGORY_LABELS,
   DOCUMENT_ORIGIN_LABELS,
   DOCUMENT_STATUS_LABELS,
+  DOCUMENT_UPLOAD_HINTS,
+  IDENTIFICATION_DOCUMENT_CATEGORIES,
+  MANDATORY_REQUIREMENT_GROUPS,
   type DocumentOrigin,
   type EmployeeDocument,
 } from "../../domain/entities/employee-document.ts";
@@ -14,6 +16,24 @@ import {
 const ACCEPTED_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const ACCEPTED_EXT = ".pdf,.jpg,.jpeg,.png";
 const MAX_SIZE_BYTES = 20 * 1024 * 1024;
+
+const MIME_TO_EXT: Record<string, string> = {
+  "application/pdf": ".pdf",
+  "image/jpeg": ".jpg,.jpeg",
+  "image/png": ".png",
+};
+
+function acceptAttrFor(mimeTypes: string[]): string {
+  const ext = mimeTypes.map((m) => MIME_TO_EXT[m] ?? "").filter(Boolean).join(",");
+  return ext || ACCEPTED_EXT;
+}
+
+interface CategoryOption {
+  slug: string;
+  label: string;
+  mandatory: boolean;
+  acceptedMimeTypes: string[];
+}
 
 function formatDate(d: string | null): string {
   if (!d) return "—";
@@ -110,6 +130,11 @@ export function EmployeeDocumentsTab({
   });
   const documents = documentsQuery.data ?? [];
 
+  const categoriesQuery = useQuery({
+    queryKey: ["hr-document-categories"],
+    queryFn: () => api.listDocumentCategories(),
+  });
+
   const recentHistoryQuery = useQuery({
     queryKey: ["hr-people-history", employeeId, "recent-documents"],
     queryFn: () => api.getEmployeeHistory(employeeId, 1, 50),
@@ -118,9 +143,38 @@ export function EmployeeDocumentsTab({
     .filter((e) => e.entityType === "employee_document")
     .slice(0, 5);
 
+  // As 3 categorias de identificação continuam fixas (fora da tela de
+  // gestão); as restantes são configuráveis por organização e filtradas por
+  // cargo — ver domain/entities/employee-document.ts.
+  const jobRole = profile.employee.jobRole;
+  const dynamicCategories = (categoriesQuery.data ?? []).filter(
+    (c) => c.active && (c.jobRoles.length === 0 || c.jobRoles.includes(jobRole)),
+  );
+  const categoryOptions: CategoryOption[] = [
+    ...IDENTIFICATION_DOCUMENT_CATEGORIES.map((slug) => ({
+      slug,
+      label: DOCUMENT_CATEGORY_LABELS[slug] ?? slug,
+      mandatory: true,
+      acceptedMimeTypes: ACCEPTED_TYPES,
+    })),
+    ...dynamicCategories.map((c) => ({
+      slug: c.slug,
+      label: c.label,
+      mandatory: c.mandatory,
+      acceptedMimeTypes: c.acceptedMimeTypes,
+    })),
+  ];
+  const categoryOptionBySlug = new Map(categoryOptions.map((c) => [c.slug, c]));
+
   const usedCategories = new Set(documents.map((d) => d.category));
-  const availableCategories = [...DEFAULT_MANDATORY_CATEGORIES, "outro"].filter(
-    (c) => !usedCategories.has(c) || c === "outro",
+  // Uma vez satisfeito o requisito de identificação por uma das suas
+  // categorias (ex: já há Cartão de Cidadão), esconde as categorias-irmãs
+  // (Título de Residência/Passaporte) — evita sugerir um upload redundante.
+  const hiddenSiblingCategories = new Set(
+    MANDATORY_REQUIREMENT_GROUPS.filter((group) => group.some((c) => usedCategories.has(c))).flatMap((group) => group),
+  );
+  const availableCategories = [...categoryOptions.map((c) => c.slug), "outro"].filter(
+    (c) => c === "outro" || (!usedCategories.has(c) && !hiddenSiblingCategories.has(c)),
   );
 
   function invalidate() {
@@ -159,10 +213,11 @@ export function EmployeeDocumentsTab({
     onSuccess: invalidate,
   });
 
-  function validateFile(file: File): boolean {
+  function validateFile(file: File, categorySlug: string): boolean {
     setError(null);
-    if (!ACCEPTED_TYPES.includes(file.type)) {
-      setError("Formato não suportado (usa pdf, jpg ou png)");
+    const accepted = categoryOptionBySlug.get(categorySlug)?.acceptedMimeTypes ?? ACCEPTED_TYPES;
+    if (!accepted.includes(file.type)) {
+      setError("Formato não suportado para esta categoria");
       return false;
     }
     if (file.size > MAX_SIZE_BYTES) {
@@ -172,12 +227,17 @@ export function EmployeeDocumentsTab({
     return true;
   }
 
+  function handleCategoryChange(value: string) {
+    setCategory(value);
+    setMandatory(categoryOptionBySlug.get(value)?.mandatory ?? false);
+  }
+
   function handleUploadFile(file: File) {
     if (!category) {
       setError("Escolhe uma categoria antes de enviar");
       return;
     }
-    if (!validateFile(file)) return;
+    if (!validateFile(file, category)) return;
     uploadMutation.mutate(file);
   }
 
@@ -226,16 +286,22 @@ export function EmployeeDocumentsTab({
               <label className="mb-1 block text-xs font-medium text-stone-600">Categoria</label>
               <select
                 value={category}
-                onChange={(e) => setCategory(e.target.value)}
+                onChange={(e) => handleCategoryChange(e.target.value)}
                 className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none focus:border-[#ED5C32]"
               >
                 <option value="">Seleciona uma categoria</option>
                 {availableCategories.map((c) => (
                   <option key={c} value={c}>
-                    {DOCUMENT_CATEGORY_LABELS[c] ?? c}
+                    {categoryOptionBySlug.get(c)?.label ?? DOCUMENT_CATEGORY_LABELS[c] ?? c}
+                    {categoryOptionBySlug.get(c)?.mandatory ? " (obrigatório)" : ""}
                   </option>
                 ))}
               </select>
+              {category && DOCUMENT_UPLOAD_HINTS[category] && (
+                <p className="mt-1 max-w-xs text-xs text-stone-400">
+                  Sugestões: {DOCUMENT_UPLOAD_HINTS[category]!.join(", ")}
+                </p>
+              )}
             </div>
             <label className="flex items-center gap-1.5 pb-2 text-sm text-stone-600">
               <input type="checkbox" checked={mandatory} onChange={(e) => setMandatory(e.target.checked)} />
@@ -286,7 +352,7 @@ export function EmployeeDocumentsTab({
             <input
               ref={inputRef}
               type="file"
-              accept={ACCEPTED_EXT}
+              accept={acceptAttrFor(categoryOptionBySlug.get(category)?.acceptedMimeTypes ?? ACCEPTED_TYPES)}
               className="hidden"
               onChange={(e) => {
                 const file = e.target.files?.[0];
@@ -299,7 +365,12 @@ export function EmployeeDocumentsTab({
             ) : (
               <>
                 <p className="text-sm font-medium text-stone-600">Arraste ficheiros ou clique para procurar</p>
-                <p className="text-xs text-stone-400">Formatos suportados: PDF, JPG, PNG (máx. 20MB)</p>
+                <p className="text-xs text-stone-400">
+                  Formatos suportados: {(categoryOptionBySlug.get(category)?.acceptedMimeTypes ?? ACCEPTED_TYPES)
+                    .map((m) => (m === "application/pdf" ? "PDF" : m === "image/jpeg" ? "JPG" : "PNG"))
+                    .join(", ")}{" "}
+                  (máx. 20MB)
+                </p>
               </>
             )}
           </div>
@@ -329,7 +400,7 @@ export function EmployeeDocumentsTab({
                 {documents.map((doc) => (
                   <tr key={doc.id}>
                     <td className="px-3 py-2.5">
-                      <p className="text-stone-700">{DOCUMENT_CATEGORY_LABELS[doc.category] ?? doc.category}</p>
+                      <p className="text-stone-700">{categoryOptionBySlug.get(doc.category)?.label ?? DOCUMENT_CATEGORY_LABELS[doc.category] ?? doc.category}</p>
                       {doc.mandatory && <span className="text-xs text-stone-400">Obrigatório</span>}
                     </td>
                     <td className="px-3 py-2.5">
@@ -385,7 +456,8 @@ export function EmployeeDocumentsTab({
             const documentId = replacingDocId.current;
             e.target.value = "";
             if (!file || !documentId) return;
-            if (!validateFile(file)) return;
+            const originalCategory = documents.find((d) => d.id === documentId)?.category ?? "";
+            if (!validateFile(file, originalCategory)) return;
             replaceMutation.mutate({ documentId, file });
           }}
         />
@@ -393,6 +465,32 @@ export function EmployeeDocumentsTab({
 
       {/* Alertas + histórico documental */}
       <aside className="space-y-4">
+        <div className="rounded-xl border border-[#F5C992]/40 bg-white p-4">
+          <h3 className="mb-2 text-sm font-semibold text-stone-800">Documentos em falta</h3>
+          {profile.documents.missingRequirements.length === 0 && profile.documents.missingOptional.length === 0 ? (
+            <p className="text-sm text-stone-400">Nada em falta.</p>
+          ) : (
+            <ul className="space-y-1.5 text-sm">
+              {profile.documents.missingRequirements.map((label) => (
+                <li key={`req-${label}`} className="flex items-center justify-between gap-2">
+                  <span className="text-stone-700">{label}</span>
+                  <span className="shrink-0 rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">
+                    Obrigatório
+                  </span>
+                </li>
+              ))}
+              {profile.documents.missingOptional.map((label) => (
+                <li key={`opt-${label}`} className="flex items-center justify-between gap-2">
+                  <span className="text-stone-600">{label}</span>
+                  <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-xs font-medium text-stone-500">
+                    Opcional
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+
         <div className="rounded-xl border border-[#F5C992]/40 bg-white p-4">
           <h3 className="mb-2 flex items-center gap-1.5 text-sm font-semibold text-stone-800">Alertas documentais</h3>
           {profile.alerts.filter((a) => a.type !== "emergency_contact_pending").length === 0 ? (

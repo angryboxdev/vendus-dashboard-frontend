@@ -32,32 +32,47 @@ export interface ReplaceDocumentPayload {
 }
 
 /**
- * Categorias por omissão — espelham `DEFAULT_MANDATORY_CATEGORIES` do
- * backend (`src/modules/hr/domain/services/document-status.service.ts`).
- * Não configurável por organização nesta fase (dívida conhecida, ver README).
+ * As 3 categorias de identificação são as únicas que continuam fixas no
+ * código (espelham `IDENTIFICATION_DOCUMENT_CATEGORIES` do backend,
+ * `src/modules/hr/domain/services/document-status.service.ts`) — decisão
+ * confirmada com o utilizador: o requisito "Documento de identificação"
+ * (cumprido por qualquer uma das 3) fica fora da tela "Categorias de
+ * documentos". Todas as outras categorias são configuráveis por
+ * organização — ver `api.listDocumentCategories()`.
  */
 export const DOCUMENT_CATEGORY_LABELS: Record<string, string> = {
-  contrato_trabalho: "Contrato de trabalho",
   cartao_cidadao: "Cartão de Cidadão",
-  nif: "NIF",
-  certificado_morada: "Certificado de morada",
-  ficha_colaborador: "Ficha de colaborador",
-  comprovativo_iban: "Comprovativo IBAN",
-  formacao_seguranca: "Formação de segurança",
-  atestado_saude: "Atestado de saúde",
+  titulo_residencia: "Título de Residência",
+  passaporte: "Passaporte",
   outro: "Outro",
 };
 
-export const DEFAULT_MANDATORY_CATEGORIES = [
-  "contrato_trabalho",
-  "cartao_cidadao",
-  "nif",
-  "certificado_morada",
-  "ficha_colaborador",
-  "comprovativo_iban",
-  "formacao_seguranca",
-  "atestado_saude",
-] as const;
+export const IDENTIFICATION_DOCUMENT_CATEGORIES = ["cartao_cidadao", "titulo_residencia", "passaporte"] as const;
+
+/**
+ * O único requisito "ou" que continua fixo — cumprido por qualquer uma das
+ * 3 categorias de identificação. Usado para esconder do seletor "nova
+ * categoria" as categorias-irmãs já satisfeitas (ex: se já há Cartão de
+ * Cidadão, não sugerir também Título de Residência/Passaporte).
+ */
+export const MANDATORY_REQUIREMENT_GROUPS: readonly (readonly string[])[] = [
+  ["cartao_cidadao", "titulo_residencia", "passaporte"],
+];
+
+/** Sugestões de que ficheiro serve para cada categoria — ajuda quem vai anexar a escolher o documento certo. */
+export const DOCUMENT_UPLOAD_HINTS: Record<string, string[]> = {
+  certificado_morada: ["Fatura de luz em seu nome", "Fatura de água", "Comprovativo das Finanças"],
+  contrato_trabalho: ["Contrato de trabalho assinado por ambas as partes"],
+  cartao_cidadao: ["Cartão de Cidadão (frente e verso)"],
+  titulo_residencia: ["Título de Residência válido (frente e verso)"],
+  passaporte: ["Passaporte válido (página de identificação)"],
+  comprovativo_iban: ["Comprovativo de IBAN emitido pelo banco", "Extrato bancário com o IBAN visível"],
+  apolice_seguro_at: ["Apólice de seguro de acidentes de trabalho em nome do colaborador"],
+  ficha_colaborador: ["Ficha de dados do colaborador preenchida"],
+  formacao_seguranca: ["Certificado de formação de segurança no trabalho"],
+  atestado_saude: ["Atestado de aptidão médica para o trabalho"],
+  nif: ["Cartão de Contribuinte ou comprovativo de NIF das Finanças"],
+};
 
 export const DOCUMENT_ORIGIN_LABELS: Record<DocumentOrigin, string> = {
   rh: "RH",

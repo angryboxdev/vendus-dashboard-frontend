@@ -19,6 +19,7 @@ import type {
   ListShiftsToReviewParams,
   ListShiftsToReviewResult,
 } from "../../entities/overview.ts";
+import type { DocumentCategoryDefinition, DocumentCategoryPayload } from "../../entities/document-category.ts";
 
 export interface HrApiPort {
   listEmployees(params: ListEmployeesParams): Promise<ListEmployeesResult>;
@@ -49,4 +50,9 @@ export interface HrApiPort {
   listShiftsToReview(params: ListShiftsToReviewParams): Promise<ListShiftsToReviewResult>;
   /** Chama a rota legacy `PATCH /api/hr/shifts/:id/attendance` diretamente — não importa `src/pages/hr/hrApi.ts`. */
   confirmShiftAttendance(shiftId: string, payload: ConfirmShiftAttendancePayload): Promise<void>;
+
+  listDocumentCategories(): Promise<DocumentCategoryDefinition[]>;
+  createDocumentCategory(payload: DocumentCategoryPayload): Promise<DocumentCategoryDefinition>;
+  updateDocumentCategory(id: string, payload: Partial<DocumentCategoryPayload>): Promise<DocumentCategoryDefinition>;
+  setDocumentCategoryActive(id: string, active: boolean): Promise<DocumentCategoryDefinition>;
 }
