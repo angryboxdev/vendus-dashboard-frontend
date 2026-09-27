@@ -221,15 +221,27 @@ Um método por endpoint do backend — ver `domain/ports/out/hr-api.port.ts`.
     carregamento — os turnos "escondidos" pelo "+N mais" não chegam a ser
     montados no DOM (`slice(0,2)` antes do `.map`), evitando renderizar
     centenas de cartões só para os esconder.
-  - `DaySummaryPanel` — data, 3 números (Escalados/Conflitos/Ausências),
-    lista completa dos turnos do dia (turno repartido continua agrupado
-    num só item) com local resolvido, aviso "N conflito(s) detetado(s)"
-    quando aplicável, e 2 ações: "Abrir dia" (muda para a vista Semana
+  - `DaySummaryPanel` — data, 3 números (Escalados/Conflitos/Ausências,
+    "Escalados" conta colaboradores únicos, nunca períodos), lista **1
+    item por colaborador nesse dia** (task "Consolidar turnos repartidos
+    no Resumo do dia" — `consolidateByEmployee()` junta todos os períodos
+    de todos os turnos do colaborador nesse dia, quer venham de 1 registo
+    repartido, quer de 2+ turnos avulsos, nunca duplica a linha), com
+    local resolvido (só uma vez quando todos os períodos partilham o
+    mesmo local; um por período quando não), badge "Turno repartido"
+    quando há 2+ períodos sem sobreposição, ou "⚠ Conflito de horário"
+    (nunca ambos) quando há. Aviso "N conflito(s) detetado(s)" a nível do
+    dia (KPI, fonte diferente — ver decisão de design abaixo) continua
+    quando aplicável. 2 ações: "Abrir dia" (muda para a vista Semana
     ancorada nesse dia) e "Editar escala" (abre o `ShiftDrawer` em modo
     criação para esse dia — não existe hoje um "editor de dia inteiro",
     esta é a ação mais próxima já suportada). Nunca muta dados ao abrir;
-    clicar num turno da lista abre o `ShiftDrawer` de edição normal. Os
-    cartões de alerta
+    clicar num colaborador com **1 só turno** (o caso comum, incluindo
+    repartido de 1 registo) abre o `ShiftDrawer` de edição normal; com
+    **2+ turnos avulsos** abre antes "Abrir dia" (o `ShiftDrawer` só edita
+    1 registo de cada vez — mostrar todos os períodos passa pelo
+    calendário da semana, não por um editor multi-turno que não existe).
+    Os cartões de alerta
   (cobertura/sobreposição/turnos por publicar) mostram-se agora numa
   grelha responsiva (1-3 colunas) em vez de empilhados numa coluna
   estreita — cabem mais por linha com a largura toda disponível. "Atribuir
@@ -539,6 +551,26 @@ página (`shiftsByDate`, `leavesByDate`, e uma nova agregação local
 `getScheduleAlerts`) — zero pedidos novos ao backend, zero N+1 por dia
 (pedido explícito da task, secção 11).
 
+### "Consolidar turnos repartidos no Resumo do dia" — badge de conflito e badge de repartido nunca aparecem juntos
+
+Um colaborador com 2+ períodos sobrepostos no mesmo dia é, ao mesmo tempo,
+tecnicamente "2+ períodos" (critério do badge "Turno repartido") e um
+conflito de horário — mas mostrar os dois badges na mesma linha
+comunicaria mal a gravidade (a task ilustra o caso de conflito só com o
+aviso, sem o badge neutro de "repartido" ao lado). `hasConflict` tem
+prioridade: quando há sobreposição, só aparece "⚠ Conflito de horário";
+"Turno repartido" só aparece quando 2+ períodos existem **sem** nenhum
+par sobreposto entre si.
+
+### "Consolidar turnos repartidos no Resumo do dia" — consolidação é só de exibição, nunca funde os registos de origem
+
+`consolidateByEmployee()` agrupa `WorkShift[]` num view-model local
+(`ConsolidatedEmployeeDay`) — não cria nenhum registo novo nem edita os
+turnos existentes (task, secção 10: "não alterar dados existentes
+desnecessariamente"). O `shifts: WorkShift[]` original fica sempre
+acessível dentro do item consolidado, é o que decide o destino do clique
+(1 turno → `ShiftDrawer`; 2+ turnos avulsos → "Abrir dia", ver acima).
+
 ### "Visualização Detalhada e Compacta" — "Editar escala" abre criação de turno, não um editor de dia inteiro
 
 Não existe hoje nenhum conceito de "editar o dia todo de uma vez" no
@@ -569,6 +601,12 @@ não pediu isso, só pediu mostrá-los "no próprio dia".
 - **RH-01** — "Admissões este mês" no card da Visão Geral linka para
   `/hr/people?status=active` (aproximado, sem filtro exato por mês de
   admissão — não construído nesta fase).
+- **"Consolidar turnos repartidos no Resumo do dia" — deteção de
+  sobreposição por comparação de strings "HH:mm"**: um turno noturno
+  (`endsNextDay`) combinado com outro turno do mesmo colaborador no mesmo
+  dia civil pode escapar à deteção de conflito nesse item (caso raro,
+  documentado em código — ver `consolidateByEmployee()` em
+  `DaySummaryPanel.tsx`).
 - **RH-01** — filtro "Local" na fila de conferência é conveniência do
   utilizador, não um limite de acesso — não existe hoje atribuição
   utilizador→loja em lado nenhum do sistema (ver README do backend).
