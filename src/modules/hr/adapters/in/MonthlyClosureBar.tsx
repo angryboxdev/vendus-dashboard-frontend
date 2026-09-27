@@ -10,7 +10,7 @@ export function MonthlyClosureBar({ year, month, onGoToConference }: { year: num
   const [reopening, setReopening] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: status, isLoading } = useQuery({
+  const { data: status, isLoading, isError, error: queryError } = useQuery({
     queryKey: ["hr-attendance-closure", year, month],
     queryFn: () => api.getMonthlyClosureStatus(year, month),
   });
@@ -36,8 +36,16 @@ export function MonthlyClosureBar({ year, month, onGoToConference }: { year: num
     onError: (e: unknown) => setError(e instanceof Error ? e.message : "Não foi possível reabrir o período"),
   });
 
-  if (isLoading || !status) {
+  if (isLoading) {
     return <div className="rounded-xl border border-[#F5C992]/40 bg-white p-4 text-sm text-stone-400">A carregar fecho mensal…</div>;
+  }
+
+  if (isError || !status) {
+    return (
+      <div className="rounded-xl border border-[#F5C992]/40 bg-white p-4 text-sm text-red-500" title={queryError instanceof Error ? queryError.message : undefined}>
+        Não foi possível carregar o estado do fecho mensal.
+      </div>
+    );
   }
 
   const monthLabel = new Date(year, month - 1, 1).toLocaleDateString("pt-PT", { month: "long", year: "numeric" });

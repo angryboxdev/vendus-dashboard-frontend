@@ -40,6 +40,22 @@ function formatMinutesShort(mins: number): string {
   return `${Math.round(mins / 60)}h`;
 }
 
+/** Erro nunca aparece como "0"/"—" (indistinguível de "sem pendências") — mostra "Indisponível" explícito, título com a mensagem real. */
+function KpiCard({ label, value, valueCls, isError, errorMessage }: { label: string; value: string | number; valueCls: string; isError: boolean; errorMessage?: string }) {
+  return (
+    <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-3 shadow-sm">
+      <p className="text-xs font-medium text-stone-500">{label}</p>
+      {isError ? (
+        <p className="mt-0.5 text-sm font-medium text-stone-400" title={errorMessage}>
+          Indisponível
+        </p>
+      ) : (
+        <p className={`mt-0.5 text-lg font-bold ${valueCls}`}>{value}</p>
+      )}
+    </div>
+  );
+}
+
 function issueKey(row: { shiftId: string | null; attendanceId: string | null }): string {
   return row.shiftId ? `shift:${row.shiftId}` : `att:${row.attendanceId}`;
 }
@@ -74,7 +90,7 @@ export function AttendanceView() {
     setSelectedKey(null);
   }
 
-  const { data: issuesResult, isLoading } = useQuery({
+  const { data: issuesResult, isLoading, isError, error } = useQuery({
     queryKey: ["hr-attendance-issues", year, month],
     queryFn: () => api.listAttendanceIssues(year, month),
   });
@@ -103,28 +119,32 @@ export function AttendanceView() {
 
       <div className="space-y-4 p-6">
         <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-3 shadow-sm">
-            <p className="text-xs font-medium text-stone-500">Turnos com pendência</p>
-            <p className="mt-0.5 text-lg font-bold text-red-600">{kpis?.pendingCount ?? "—"}</p>
-          </div>
-          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-3 shadow-sm">
-            <p className="text-xs font-medium text-stone-500">Atrasos</p>
-            <p className="mt-0.5 text-lg font-bold text-amber-600">{kpis?.lateCount ?? "—"}</p>
-          </div>
-          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-3 shadow-sm">
-            <p className="text-xs font-medium text-stone-500">Horas realizadas</p>
-            <p className="mt-0.5 text-lg font-bold text-emerald-600">{kpis ? formatMinutesShort(kpis.actualMinutesTotal) : "—"}</p>
-          </div>
-          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-3 shadow-sm">
-            <p className="text-xs font-medium text-stone-500">Horas planeadas</p>
-            <p className="mt-0.5 text-lg font-bold text-stone-800">{kpis ? formatMinutesShort(kpis.plannedMinutesTotal) : "—"}</p>
-          </div>
-          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-3 shadow-sm">
-            <p className="text-xs font-medium text-stone-500">Saldo total</p>
-            <p className={`mt-0.5 text-lg font-bold ${(kpis?.balanceMinutes ?? 0) < 0 ? "text-red-600" : "text-emerald-600"}`}>
-              {kpis ? formatMinutesShort(kpis.balanceMinutes) : "—"}
-            </p>
-          </div>
+          <KpiCard
+            label="Turnos com pendência"
+            value={kpis?.pendingCount ?? 0}
+            valueCls="text-red-600"
+            isError={isError}
+            errorMessage={error instanceof Error ? error.message : undefined}
+          />
+          <KpiCard label="Atrasos" value={kpis?.lateCount ?? 0} valueCls="text-amber-600" isError={isError} />
+          <KpiCard
+            label="Horas realizadas"
+            value={kpis ? formatMinutesShort(kpis.actualMinutesTotal) : 0}
+            valueCls="text-emerald-600"
+            isError={isError}
+          />
+          <KpiCard
+            label="Horas planeadas"
+            value={kpis ? formatMinutesShort(kpis.plannedMinutesTotal) : 0}
+            valueCls="text-stone-800"
+            isError={isError}
+          />
+          <KpiCard
+            label="Saldo total"
+            value={kpis ? formatMinutesShort(kpis.balanceMinutes) : 0}
+            valueCls={(kpis?.balanceMinutes ?? 0) < 0 ? "text-red-600" : "text-emerald-600"}
+            isError={isError}
+          />
         </div>
 
         <div className="flex items-center justify-between">
@@ -167,6 +187,10 @@ export function AttendanceView() {
                 <p className="mb-3 text-xs text-stone-500">Turnos que requerem conferência e/ou correção.</p>
                 {isLoading ? (
                   <p className="py-8 text-center text-sm text-stone-400">A carregar…</p>
+                ) : isError ? (
+                  <p className="py-8 text-center text-sm text-red-500" title={error instanceof Error ? error.message : undefined}>
+                    Não foi possível carregar a Conferência.
+                  </p>
                 ) : !issuesResult || issuesResult.items.length === 0 ? (
                   <p className="py-8 text-center text-sm text-stone-400">Sem pendências neste período.</p>
                 ) : (
