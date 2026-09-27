@@ -4,14 +4,13 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useHrModule } from "../../hr.module.tsx";
 import { Avatar } from "./components/Avatar.tsx";
 import { EmployeeDrawer } from "./EmployeeDrawer.tsx";
-import { DocumentCategoriesModal } from "./DocumentCategoriesModal.tsx";
+import { PeopleTabs } from "./PeopleTabs.tsx";
 import {
   EMPLOYMENT_TYPE_LABELS,
   JOB_ROLE_LABELS,
   type CreateEmployeePayload,
   type DocumentSituation,
   type EmploymentType,
-  type PriorityPendency,
   type UpdateEmployeePayload,
 } from "../../domain/entities/employee.ts";
 
@@ -50,48 +49,12 @@ function DocumentSituationBadge({ situation }: { situation: DocumentSituation })
   );
 }
 
-const PENDENCY_ICON: Record<string, string> = {
-  missing_field: "👤",
-  missing_document: "📄",
-  expiring_document: "⏰",
-};
-
-const PENDENCY_ICON_BG: Record<string, string> = {
-  missing_field: "bg-violet-50",
-  missing_document: "bg-red-50",
-  expiring_document: "bg-amber-50",
-};
-
-/** Para onde "Ver..." deve levar — direto ao colaborador quando só há um, ou à lista já filtrada quando há vários. */
-function pendencyHref(group: PriorityPendency): string {
-  if (group.employees.length === 1) {
-    const tab = group.kind === "missing_field" ? "dados" : "documentos";
-    return `/hr/people/${group.employees[0]!.employeeId}?tab=${tab}`;
-  }
-  if (group.kind === "missing_document") return "/hr/people?documentSituation=missing";
-  if (group.kind === "expiring_document") return "/hr/people?documentSituation=expiring";
-  return "/hr/people?profileComplete=incomplete";
-}
-
-function pendencyLinkLabel(group: PriorityPendency): string {
-  const plural = group.employees.length > 1;
-  if (group.kind === "missing_field") return plural ? "Ver colaboradores" : "Ver colaborador";
-  return plural ? "Ver documentos" : "Ver documento";
-}
-
-/** Leva diretamente ao colaborador específico da secção relevante (dados ou documentos). */
-function employeePendencyHref(group: PriorityPendency, employeeId: string): string {
-  const tab = group.kind === "missing_field" ? "dados" : "documentos";
-  return `/hr/people/${employeeId}?tab=${tab}`;
-}
-
 export function PeopleListView() {
   const { api } = useHrModule();
   const navigate = useNavigate();
   const qc = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [categoriesModalOpen, setCategoriesModalOpen] = useState(false);
 
   // Filtros vivem no URL (não em useState local) — permite deep-link a
   // partir de um KPI card (ex: Visão Geral) e sobrevive a refresh/partilha
@@ -157,55 +120,53 @@ export function PeopleListView() {
       <div className="border-b border-[#F5C992]/40 bg-white px-6 py-3">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-stone-900">Pessoas & Documentos</h1>
-            <p className="text-xs text-stone-500">
-              Cadastro central, documentação e estado do perfil dos colaboradores.
-            </p>
+            <h1 className="text-lg font-bold text-stone-900">Pessoas</h1>
+            <p className="text-xs text-stone-500">Gestão de colaboradores e documentação.</p>
           </div>
-          <div className="flex flex-col items-end gap-2">
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(true)}
-              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-              </svg>
-              Novo colaborador
-            </button>
-            <button
-              type="button"
-              onClick={() => setCategoriesModalOpen(true)}
-              className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
-            >
-              Categorias de documentos
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setDrawerOpen(true)}
+            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+              <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
+            </svg>
+            Novo colaborador
+          </button>
         </div>
+        <PeopleTabs />
       </div>
 
-      <div className="grid flex-1 grid-cols-1 gap-4 p-4 xl:grid-cols-[1fr_300px]">
-        <div className="space-y-4">
-          {/* KPI Cards */}
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 shadow-sm">
-              <p className="text-xs font-medium text-stone-500">Funcionários ativos</p>
-              <p className="mt-0.5 text-lg font-bold text-emerald-600">{kpis?.activeEmployees ?? "—"}</p>
-            </div>
-            <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 shadow-sm">
-              <p className="text-xs font-medium text-stone-500">Onboarding pendente</p>
-              <p className="mt-0.5 text-lg font-bold text-violet-600">{kpis?.onboardingPending ?? "—"}</p>
-            </div>
-            <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 shadow-sm">
-              <p className="text-xs font-medium text-stone-500">Dados incompletos</p>
-              <p className="mt-0.5 text-lg font-bold text-amber-600">{kpis?.incompleteProfiles ?? "—"}</p>
-            </div>
-            <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 shadow-sm">
-              <p className="text-xs font-medium text-stone-500">Documentos a expirar</p>
-              <p className="mt-0.5 text-lg font-bold text-red-600">{kpis?.documentsExpiringSoon ?? "—"}</p>
-            </div>
+      <div className="flex-1 space-y-4 p-4">
+        {/* KPI Cards — clicáveis, funcionam como filtros locais (task "Melhorar Visão Geral e reorganizar Pessoas", secção 3/11) */}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 shadow-sm">
+            <p className="text-xs font-medium text-stone-500">Funcionários ativos</p>
+            <p className="mt-0.5 text-lg font-bold text-emerald-600">{kpis?.activeEmployees ?? "—"}</p>
           </div>
+          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 shadow-sm">
+            <p className="text-xs font-medium text-stone-500">Onboarding pendente</p>
+            <p className="mt-0.5 text-lg font-bold text-violet-600">{kpis?.onboardingPending ?? "—"}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => updateParams({ profileComplete: "incomplete", page: undefined })}
+            className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 text-left shadow-sm transition-colors hover:bg-[#FDF8F5]"
+          >
+            <p className="text-xs font-medium text-stone-500">Dados incompletos</p>
+            <p className="mt-0.5 text-lg font-bold text-amber-600">{kpis?.incompleteProfiles ?? "—"}</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/hr/people/documentos?status=expiring")}
+            className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 text-left shadow-sm transition-colors hover:bg-[#FDF8F5]"
+          >
+            <p className="text-xs font-medium text-stone-500">Documentos a expirar</p>
+            <p className="mt-0.5 text-lg font-bold text-red-600">{kpis?.documentsExpiringSoon ?? "—"}</p>
+          </button>
+        </div>
 
+        <div className="space-y-4">
           {/* Filters */}
           <div className="flex flex-wrap items-center gap-2">
             <input
@@ -360,61 +321,6 @@ export function PeopleListView() {
             )}
           </div>
         </div>
-
-        {/* Pendências prioritárias */}
-        <aside className="h-fit space-y-2 rounded-xl border border-[#F5C992]/40 bg-white p-3 shadow-sm">
-          <div>
-            <h2 className="text-sm font-semibold text-stone-800">Pendências prioritárias</h2>
-            <p className="text-xs text-stone-400">Atenção aos itens que exigem ação.</p>
-          </div>
-          {!kpis || kpis.priorityPendencies.length === 0 ? (
-            <p className="text-sm text-stone-400">Sem pendências no momento.</p>
-          ) : (
-            <div className="space-y-2">
-              {kpis.priorityPendencies.slice(0, 8).map((group, i) => (
-                <div key={i} className="rounded-lg border border-stone-100 p-2">
-                  <div className="flex items-start gap-2">
-                    <span
-                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs ${PENDENCY_ICON_BG[group.kind] ?? "bg-stone-100"}`}
-                    >
-                      {PENDENCY_ICON[group.kind] ?? "•"}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center justify-between gap-2">
-                        <p className="text-xs font-semibold text-stone-800">{group.detail}</p>
-                        <span className="shrink-0 text-xs font-medium text-stone-400">{group.employees.length}</span>
-                      </div>
-                      <ul className="mt-1 space-y-0.5">
-                        {group.employees.slice(0, 3).map((e) => (
-                          <li key={e.employeeId}>
-                            <button
-                              type="button"
-                              onClick={() => navigate(employeePendencyHref(group, e.employeeId))}
-                              className="flex w-full items-center gap-1.5 rounded text-xs text-stone-500 transition-colors hover:text-[#ED5C32]"
-                            >
-                              <Avatar name={e.employeeName} photoUrl={null} size="sm" />
-                              {e.employeeName}
-                            </button>
-                          </li>
-                        ))}
-                        {group.employees.length > 3 && (
-                          <li className="text-xs text-stone-400">+{group.employees.length - 3} outro(s)</li>
-                        )}
-                      </ul>
-                      <button
-                        type="button"
-                        onClick={() => navigate(pendencyHref(group))}
-                        className="mt-1 text-xs font-medium text-[#ED5C32] hover:underline"
-                      >
-                        {pendencyLinkLabel(group)} →
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </aside>
       </div>
 
       <EmployeeDrawer
@@ -424,8 +330,6 @@ export function PeopleListView() {
         onSave={(payload) => createMutation.mutate(payload)}
         saving={createMutation.isPending}
       />
-
-      {categoriesModalOpen && <DocumentCategoriesModal onClose={() => setCategoriesModalOpen(false)} />}
     </div>
   );
 }

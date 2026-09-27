@@ -1,10 +1,13 @@
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useHrModule } from "../../hr.module.tsx";
 import { SeverityBadge } from "./components/SeverityBadge.tsx";
 import { ShiftReviewModal } from "./ShiftReviewModal.tsx";
+import { PendencyDrawer, type PendencyPanelKind } from "./PendencyDrawer.tsx";
 import type { BlockResult, OverviewOperationRow } from "../../domain/entities/overview.ts";
+
+const PENDENCY_PANELS = new Set<string>(["missing-fields", "missing-documents", "expiring-documents"]);
 
 const REFRESH_INTERVAL_MS = 60_000;
 
@@ -85,12 +88,15 @@ function KpiCard({
   format,
   valueCls = "text-stone-800",
   to,
+  onClick,
 }: {
   label: string;
   block: BlockResult<number>;
   format?: (n: number) => string;
   valueCls?: string;
   to?: string;
+  /** Abre um drawer sobreposto em vez de navegar (pendências — task "Melhorar Visão Geral e reorganizar Pessoas", secção 6: "abrir primeiro um drawer lateral, sem sair da Visão Geral"). Tem prioridade sobre `to` quando os dois são passados. */
+  onClick?: () => void;
 }) {
   const content = (
     <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm transition-colors hover:bg-[#FDF8F5]">
@@ -104,9 +110,16 @@ function KpiCard({
       )}
     </div>
   );
-  if (!to || block.status !== "ok") return content;
+  if (block.status !== "ok" || (!to && !onClick)) return content;
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className="block w-full text-left">
+        {content}
+      </button>
+    );
+  }
   return (
-    <Link to={to} className="block">
+    <Link to={to!} className="block">
       {content}
     </Link>
   );
@@ -116,7 +129,22 @@ export function OverviewView() {
   const { api } = useHrModule();
   const qc = useQueryClient();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const [reviewShiftId, setReviewShiftId] = useState<string | null>(null);
+
+  // Estado do drawer de pendências vive no URL (`?panel=...`) — Back funciona, refresh preserva o contexto, e é deep-linkável (task "Melhorar Visão Geral e reorganizar Pessoas", secção 13).
+  const panelParam = searchParams.get("panel");
+  const activePanel = panelParam && PENDENCY_PANELS.has(panelParam) ? (panelParam as PendencyPanelKind) : null;
+  function openPanel(panel: PendencyPanelKind) {
+    const next = new URLSearchParams(searchParams);
+    next.set("panel", panel);
+    setSearchParams(next);
+  }
+  function closePanel() {
+    const next = new URLSearchParams(searchParams);
+    next.delete("panel");
+    setSearchParams(next);
+  }
 
   const { data: overview, isLoading } = useQuery({
     queryKey: ["hr-overview"],
@@ -177,13 +205,19 @@ export function OverviewView() {
                 label="Dados incompletos"
                 block={team.status === "ok" ? { status: "ok", data: team.data.incompleteProfiles } : team}
                 valueCls="text-amber-600"
-                to="/hr/people?profileComplete=incomplete"
+                onClick={() => openPanel("missing-fields")}
+              />
+              <KpiCard
+                label="Documentos em falta"
+                block={team.status === "ok" ? { status: "ok", data: team.data.missingDocumentsCount } : team}
+                valueCls="text-red-600"
+                onClick={() => openPanel("missing-documents")}
               />
               <KpiCard
                 label="Documentos a expirar"
                 block={team.status === "ok" ? { status: "ok", data: team.data.documentsExpiringSoon } : team}
-                valueCls="text-red-600"
-                to="/hr/people?documentSituation=expiring"
+                valueCls="text-amber-600"
+                onClick={() => openPanel("expiring-documents")}
               />
             </div>
           </div>
@@ -357,6 +391,8 @@ export function OverviewView() {
           }}
         />
       )}
+
+      {activePanel && <PendencyDrawer panel={activePanel} onClose={closePanel} />}
     </div>
   );
 }

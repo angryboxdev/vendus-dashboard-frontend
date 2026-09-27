@@ -5,6 +5,8 @@ export interface OverviewTeamKpis {
   admissionsThisMonth: number;
   incompleteProfiles: number;
   documentsExpiringSoon: number;
+  /** Nº de requisitos documentais obrigatórios em falta (soma por colaborador, não nº de colaboradores). */
+  missingDocumentsCount: number;
 }
 
 export interface OverviewTodayKpis {

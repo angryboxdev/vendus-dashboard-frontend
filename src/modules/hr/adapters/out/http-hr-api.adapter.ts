@@ -11,6 +11,7 @@ import type {
   UpdateEmployeePayload,
 } from "../../domain/entities/employee.ts";
 import type {
+  DocumentOverviewRow,
   EmployeeDocument,
   ReplaceDocumentPayload,
   UploadDocumentPayload,
@@ -51,6 +52,7 @@ import type {
 } from "../../domain/entities/schedule.ts";
 
 const BASE = "/api/hr/people";
+const DOCUMENT_OVERVIEW_BASE = "/api/hr/document-overview";
 const OVERVIEW_BASE = "/api/hr/overview";
 const DOCUMENT_CATEGORIES_BASE = "/api/hr/document-categories";
 const SCHEDULES_BASE = "/api/hr/schedules";
@@ -154,6 +156,10 @@ export class HttpHrApiAdapter implements HrApiPort {
     return apiGet<EmployeeDocument[]>(
       `${BASE}/${encodeURIComponent(employeeId)}/documents/${encodeURIComponent(documentId)}/history`,
     );
+  }
+
+  async getDocumentOverview(): Promise<DocumentOverviewRow[]> {
+    return apiGet<DocumentOverviewRow[]>(DOCUMENT_OVERVIEW_BASE);
   }
 
   async getOverview(locationId?: string): Promise<HrOverview> {

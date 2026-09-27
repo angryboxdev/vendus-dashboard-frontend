@@ -9,6 +9,7 @@ import type {
   UpdateEmployeePayload,
 } from "../../entities/employee.ts";
 import type {
+  DocumentOverviewRow,
   EmployeeDocument,
   ReplaceDocumentPayload,
   UploadDocumentPayload,
@@ -72,6 +73,8 @@ export interface HrApiPort {
   removeEmployeeDocument(employeeId: string, documentId: string): Promise<void>;
   getEmployeeDocumentDownloadUrl(employeeId: string, documentId: string): Promise<string>;
   getEmployeeDocumentHistory(employeeId: string, documentId: string): Promise<EmployeeDocument[]>;
+  /** 1 linha por (colaborador ativo × requisito documental) — fonte única da aba "Pessoas > Documentos". */
+  getDocumentOverview(): Promise<DocumentOverviewRow[]>;
 
   getOverview(locationId?: string): Promise<HrOverview>;
   listShiftsToReview(params: ListShiftsToReviewParams): Promise<ListShiftsToReviewResult>;

@@ -62,9 +62,11 @@ export function EmployeeProfileView() {
   const [searchParams] = useSearchParams();
 
   // Permite deep-link direto a uma tab (ex: a partir de uma pendência
-  // prioritária em "Pessoas & Documentos", `?tab=documentos`).
+  // prioritária em "Pessoas", `?tab=documentos`).
   const initialTab = searchParams.get("tab");
   const [tab, setTab] = useState<TabKey>(initialTab && TAB_KEYS.has(initialTab) ? (initialTab as TabKey) : "resumo");
+  // Idem para a categoria (ex: a partir de "Pessoas > Documentos", `?category=contrato_trabalho`) — evita repetir a escolha já feita lá (task "Melhorar Visão Geral e reorganizar Pessoas", secção 9).
+  const initialCategory = searchParams.get("category");
   const [drawerOpen, setDrawerOpen] = useState(false);
 
   const { data: profile, isLoading, isError } = useQuery({
@@ -111,7 +113,7 @@ export function EmployeeProfileView() {
       <div className="flex min-h-full flex-col items-center justify-center gap-3 bg-[#FAF6F3]">
         <p className="text-sm text-stone-500">Colaborador não encontrado.</p>
         <Link to="/hr/people" className="text-sm text-[#ED5C32] hover:underline">
-          ← Voltar a Pessoas & Documentos
+          ← Voltar a Pessoas
         </Link>
       </div>
     );
@@ -132,7 +134,7 @@ export function EmployeeProfileView() {
                 clipRule="evenodd"
               />
             </svg>
-            Pessoas & Documentos
+            Pessoas
           </Link>
           <span>/</span>
           <span className="truncate font-medium text-stone-700">{e.fullName}</span>
@@ -339,7 +341,12 @@ export function EmployeeProfileView() {
         )}
 
         {tab === "documentos" && id && (
-          <EmployeeDocumentsTab employeeId={id} profile={profile} onViewFullHistory={() => setTab("historico")} />
+          <EmployeeDocumentsTab
+            employeeId={id}
+            profile={profile}
+            initialCategory={initialCategory}
+            onViewFullHistory={() => setTab("historico")}
+          />
         )}
 
         {tab === "contrato" && (

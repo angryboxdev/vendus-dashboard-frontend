@@ -20,6 +20,7 @@ import { HrLeavePage } from "./pages/hr/HrLeavePage";
 import { HrReportPage } from "./pages/hr/HrReportPage";
 import { HrProvider } from "./modules/hr/hr.module.tsx";
 import { PeopleListView } from "./modules/hr/adapters/in/PeopleListView.tsx";
+import { PeopleDocumentsView } from "./modules/hr/adapters/in/PeopleDocumentsView.tsx";
 import { EmployeeProfileView } from "./modules/hr/adapters/in/EmployeeProfileView.tsx";
 import { OverviewView } from "./modules/hr/adapters/in/OverviewView.tsx";
 import { ShiftsToReviewView } from "./modules/hr/adapters/in/ShiftsToReviewView.tsx";
@@ -190,6 +191,14 @@ export default function App() {
                     element={
                       <HrProvider>
                         <PeopleListView />
+                      </HrProvider>
+                    }
+                  />
+                  <Route
+                    path="/hr/people/documentos"
+                    element={
+                      <HrProvider>
+                        <PeopleDocumentsView />
                       </HrProvider>
                     }
                   />

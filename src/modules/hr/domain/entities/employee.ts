@@ -78,6 +78,8 @@ export interface ListEmployeesResult {
 export interface PriorityPendencyEmployeeRef {
   employeeId: string;
   employeeName: string;
+  /** Só preenchido para `kind: "expiring_document"` — validade do documento a expirar. */
+  expiresAt?: string;
 }
 
 export interface PriorityPendency {

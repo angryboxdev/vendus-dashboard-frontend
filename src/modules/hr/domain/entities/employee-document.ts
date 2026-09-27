@@ -80,6 +80,31 @@ export const DOCUMENT_ORIGIN_LABELS: Record<DocumentOrigin, string> = {
   sistema: "Sistema",
 };
 
+/**
+ * 1 linha por (colaborador ativo × requisito documental aplicável) — fonte
+ * única da aba "Pessoas > Documentos" (task "Melhorar Visão Geral e
+ * reorganizar Pessoas"). Ao contrário de `EmployeeDocument`, cobre também
+ * os requisitos ainda sem nenhum documento enviado (`status: "missing"`,
+ * `documentId: null`).
+ */
+export interface DocumentOverviewRow {
+  employeeId: string;
+  employeeName: string;
+  requirementId: string;
+  requirementLabel: string;
+  mandatory: boolean;
+  status: "ok" | "expiring" | "expired" | "missing";
+  expiresAt: string | null;
+  documentId: string | null;
+}
+
+export const DOCUMENT_OVERVIEW_STATUS_LABELS: Record<DocumentOverviewRow["status"], { label: string; cls: string; dot: string }> = {
+  ok: { label: "Válido", cls: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
+  expiring: { label: "A expirar", cls: "bg-amber-50 text-amber-700", dot: "bg-amber-500" },
+  expired: { label: "Expirado", cls: "bg-red-50 text-red-600", dot: "bg-red-500" },
+  missing: { label: "Em falta", cls: "bg-stone-100 text-stone-600", dot: "bg-stone-400" },
+};
+
 export const DOCUMENT_STATUS_LABELS: Record<DocumentDisplayStatus, { label: string; cls: string; dot: string }> = {
   ok: { label: "Tudo ok", cls: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
   expiring: { label: "A expirar", cls: "bg-amber-50 text-amber-700", dot: "bg-amber-500" },

@@ -5,13 +5,16 @@
 
 ## O que é e para que serve (perspectiva de negócio)
 
-Área **Pessoas & Documentos** (RH-02) + **Visão Geral operacional** (RH-01)
-+ **Escalas & Turnos** (RH-03). Substitui a antiga entrada "Funcionários"
+Área **Pessoas** (RH-02, antes "Pessoas & Documentos" — renomeada e
+reorganizada em abas Colaboradores/Documentos pela task "Melhorar Visão
+Geral e reorganizar Pessoas") + **Visão Geral operacional** (RH-01) +
+**Escalas & Turnos** (RH-03). Substitui a antiga entrada "Funcionários"
 por uma vista central do cadastro de colaboradores, com sinais claros de
 completude de perfil, onboarding e situação documental, um perfil 360º com
 dossiê documental versionado (substituir nunca apaga a versão anterior), um
 dashboard operacional de entrada (KPIs de equipa/operação do dia/pendências,
-alertas prioritários e uma fila de conferência de turnos), e agora também o
+alertas prioritários, um drawer sobreposto que explica cada pendência sem
+sair da Visão Geral, e uma fila de conferência de turnos), e agora também o
 **planeamento da escala** em si: criar/editar/duplicar/publicar turnos,
 escala base semanal por colaborador e rotações automáticas entre 2
 colaboradores da mesma função.
@@ -28,15 +31,21 @@ anterior.
 ```
 RH/Gerente
 ────────────────────────────────────────────────────
-1. Abre "Pessoas & Documentos" — vê KPIs (ativos, onboarding
+1. Abre "Pessoas" (aba Colaboradores) — vê KPIs (ativos, onboarding
    pendente, dados incompletos, documentos a expirar) e a lista
    de colaboradores com badges de estado de perfil/documentos
 2. Clica num colaborador → perfil 360º (Resumo, Dados pessoais,
    Documentos, Contrato & Remuneração, Histórico)
-3. Na tab Documentos, envia um novo documento por categoria
-   (drag-and-drop), ou substitui um existente — a versão
-   anterior fica preservada, nunca é apagada
-4. Turnos/Pagamentos/Férias continuam a gerir-se nos seus
+3. Na aba Documentos de "Pessoas" (visão de TODOS os
+   colaboradores), ou dentro do perfil de 1 colaborador, envia
+   um novo documento por categoria (drag-and-drop), ou substitui
+   um existente — a versão anterior fica preservada, nunca é
+   apagada
+4. Na Visão Geral, clica num KPI de pendência ("Dados
+   incompletos", "Documentos em falta"/"a expirar") — abre um
+   drawer que explica o problema sem sair da página, com atalho
+   direto para o colaborador ou para "Pessoas > Documentos"
+5. Turnos/Pagamentos/Férias continuam a gerir-se nos seus
    ecrãs próprios (ligados a partir do Resumo) — não são
    duplicados aqui
 ```
@@ -117,16 +126,43 @@ Um método por endpoint do backend — ver `domain/ports/out/hr-api.port.ts`.
 
 ### Entrada
 
-- `PeopleListView` → lista (Mockup 01): KPIs, filtros (pesquisa/estado/
-  vínculo/situação documental — **sem** filtro de "Local", `hr_employees`
-  não é location-bearing), tabela com avatar, painel de "Pendências
-  prioritárias".
+- `PeopleTabs` (novo, task "Melhorar Visão Geral e reorganizar Pessoas") →
+  navegação por abas do módulo "Pessoas" (antes "Pessoas & Documentos"):
+  **Colaboradores | Documentos** — Admissão fica de fora por pedido
+  explícito do utilizador ("para já ignora a criação de admissão"). Rotas
+  próprias (`/hr/people` continua a ser Colaboradores — não virou
+  redirect, para não partir os muitos deep-links existentes —, e
+  `/hr/people/documentos` é nova), não abas geridas por `useState`.
+- `PeopleListView` → aba **Colaboradores** (Mockup 01): KPIs clicáveis
+  (funcionam como filtros locais — "Dados incompletos" filtra
+  `profileComplete=incomplete`; "Documentos a expirar" abre a aba
+  Documentos já filtrada), filtros (pesquisa/estado/vínculo/situação
+  documental — **sem** filtro de "Local", `hr_employees` não é
+  location-bearing), tabela a usar a largura toda (o painel "Pendências
+  prioritárias" foi removido daqui — centralizado agora no drawer da
+  Visão Geral, ver mais abaixo).
+- `PeopleDocumentsView` (novo) → aba **Documentos**: 1 linha por
+  (colaborador × requisito documental), cobrindo válidos/a
+  expirar/expirados/em falta — não só pendências. KPIs de estado
+  clicáveis como filtro local, filtro por documento e por colaborador
+  (pesquisa por nome). "Ver" (documento existente) abre o download direto
+  (`api.getEmployeeDocumentDownloadUrl`); "Adicionar" (em falta) navega
+  para o perfil do colaborador já na aba Documentos e categoria certos
+  (`?tab=documentos&category=...`) — nunca reimplementa o upload aqui,
+  única fonte continua a ser `EmployeeDocumentsTab`. O botão "Categorias
+  de documentos" mudou-se para aqui (fazia mais sentido junto da gestão
+  documental do que junto de "Novo colaborador").
 - `EmployeeProfileView` → perfil 360º (Mockup 02) com 5 tabs (Resumo, Dados
   pessoais, Documentos, Contrato & Remuneração, Histórico). Cabeçalho com
-  `AvatarUpload` (clique → upload imediato).
+  `AvatarUpload` (clique → upload imediato). Lê agora também `?category=`
+  (além do já existente `?tab=`) — vindo de "Pessoas > Documentos" ou do
+  drawer da Visão Geral, pré-seleciona a categoria no formulário de
+  upload da aba Documentos.
 - `EmployeeDocumentsTab` → dossiê (Mockup 03): upload drag-and-drop,
   substituir/remover/ver histórico de versões por documento, alertas,
-  histórico documental recente.
+  histórico documental recente. Aceita agora `initialCategory` (prop nova)
+  — pré-seleciona a categoria e corrige o checkbox "Obrigatório" assim que
+  `listDocumentCategories` resolve.
 - `EmployeeHistoryTab` → histórico de auditoria paginado.
 - `EmployeeDrawer` → formulário criar/editar colaborador (reutilizado nos
   dois modos).
@@ -137,9 +173,27 @@ Um método por endpoint do backend — ver `domain/ports/out/hr-api.port.ts`.
   Operação hoje/Pendências), cada um a ler o seu `BlockResult` próprio
   (nunca mostra `0` quando `status: "unavailable"`), painel de Alertas
   prioritários e painel **"Hoje na operação"** (task "Melhorar Hoje na
-  operação"). Atualiza a cada 60s (`refetchInterval`). Cards clicáveis
-  linkam para `/hr/people` com filtros reais na URL, ou para
-  `/hr/overview/shifts-to-review`.
+  operação"). Atualiza a cada 60s (`refetchInterval`). Cards de KPI que
+  não são pendências continuam a linkar diretamente (`to`, `Link`) — ex:
+  "Funcionários ativos" → `/hr/people`, "Turnos por conferir" →
+  `/hr/overview/shifts-to-review`. Os 3 cards de **pendência** ("Dados
+  incompletos", "Documentos em falta" — novo — e "Documentos a expirar")
+  passam a abrir o `PendencyDrawer` (`onClick`, não `to`) em vez de
+  navegar — task "Melhorar Visão Geral e reorganizar Pessoas", secção 6:
+  "abrir primeiro um drawer lateral, sem sair da Visão Geral".
+- `PendencyDrawer` (novo) → painel sobreposto à direita (overlay + `role="dialog"`,
+  mesmo padrão visual de `ShiftReviewModal`) que explica uma pendência sem
+  sair da Visão Geral. Reaproveita `api.getKpis()` (a MESMA `queryKey`
+  `["hr-people-kpis"]` que "Pessoas" já usava) e filtra
+  `priorityPendencies` pelo `kind` correspondente ao card clicado — nunca
+  uma 2ª agregação. Estado do drawer vive no URL (`?panel=missing-
+  fields|missing-documents|expiring-documents`) — Back funciona, refresh
+  preserva o contexto, é deep-linkável (secção 13). Cada linha de
+  colaborador abre o perfil (`/hr/people/:id`); para pendências
+  documentais, quando o registo tem `expiresAt`, mostra "Expira em N
+  dias". Botão "Ver todos em Pessoas" leva à aba certa já filtrada
+  (Colaboradores para dados incompletos; Documentos, com `?status=`, para
+  as 2 pendências documentais).
   - **"Hoje na operação"** — colunas Funcionário | Estado | Turno hoje |
     Situação | Local, dentro de um contentor com `max-h-80 overflow-y-auto`
     (cabeçalho `sticky`) — o backend já não corta a lista a 5 linhas, por
@@ -182,9 +236,11 @@ Um método por endpoint do backend — ver `domain/ports/out/hr-api.port.ts`.
   texto + ícone + cor (nunca só cor).
 - `DocumentCategoriesModal` → CRUD das categorias de documento
   configuráveis (nome, obrigatória, cargo(s), tipos de ficheiro aceites) —
-  aberto por um botão em `PeopleListView`, abaixo de "Novo colaborador".
-  Desativar (nunca apagar) para de exigir/sugerir a categoria sem tocar nos
-  documentos já enviados nela.
+  aberto por um botão em `PeopleDocumentsView` (mudou-se de
+  `PeopleListView` para aqui — task "Melhorar Visão Geral e reorganizar
+  Pessoas", secção 4: "categorias de documentos" é gestão documental, não
+  gestão de colaboradores). Desativar (nunca apagar) para de exigir/
+  sugerir a categoria sem tocar nos documentos já enviados nela.
 - `SchedulesView` (RH-03) → página "Escalas & Turnos": tabs "Calendário" /
   "Turnos rotativos" / **"Alertas e ações"** (esta última passou de painel
   lateral fixo a tab própria — pedido do utilizador: liberta a largura do
@@ -513,6 +569,42 @@ quando `reviewShiftId` existe, e o aviso só ganha o seu próprio clique
 nunca sobrepõe o clique mais urgente (conferir o turno) com um destino
 diferente.
 
+### "Melhorar Visão Geral e reorganizar Pessoas" — drawer agrupa por pendência (detalhe), não por colaborador
+
+O mockup da task (secção 7) ilustra o drawer "Dados incompletos" agrupado
+por COLABORADOR, com uma lista de campos em falta por baixo de cada nome.
+A API (`priorityPendencies`) já agrupa pelo padrão inverso — por
+`kind`+`detail` (ex: "Contacto de emergência por confirmar"), com a lista
+de colaboradores afetados por baixo — porque é assim que "Pessoas" já
+consumia esse endpoint antes desta task (painel "Pendências
+prioritárias", agora removido de lá mas com a mesma forma de dados
+reaproveitada no drawer). Re-agrupar por colaborador no frontend exigiria
+"desagrupar" e voltar a agrupar só para o drawer, sem nenhum ganho de
+informação (os mesmos factos, noutra ordem visual) — mantido o
+agrupamento por detalhe, que é o que a única fonte de dados já dá.
+
+### "Melhorar Visão Geral e reorganizar Pessoas" — `/hr/people` continua Colaboradores, nunca um redirect
+
+Uma alternativa mais "limpa" seria `/hr/people` redirecionar para
+`/hr/people/colaboradores`. Não foi essa a escolha: dezenas de sítios já
+linkam para `/hr/people?filtro=valor` (cards da Visão Geral, o próprio
+drawer novo, `EmployeeProfileView`) — fazer `/hr/people` deixar de
+renderizar a lista quebraria todos esses links ou exigiria propagar query
+params através de um redirect. Manter `/hr/people` como a própria rota da
+aba Colaboradores custou zero migração e mantém os filtros existentes
+(`?status=`, `?profileComplete=`, `?documentSituation=`) a funcionar
+exatamente como antes.
+
+### "Melhorar Visão Geral e reorganizar Pessoas" — "Ver" na aba Documentos nunca passa pelo perfil
+
+Para um documento já existente (`ok`/`expiring`/`expired`), "Ver" chama
+diretamente `api.getEmployeeDocumentDownloadUrl` e abre o ficheiro numa
+nova aba — não navega para o perfil do colaborador só para chegar lá.
+Só "Adicionar" (categoria em falta, sem documento nenhum) navega para o
+perfil, porque aí genuinamente precisa do formulário de upload completo
+(`EmployeeDocumentsTab`), que não se justifica duplicar só para a aba
+Documentos.
+
 ### "Repetir escala pelo calendário" — reaproveita o mesmo padrão visual/preview de "Novo Turno Padrão Semanal"
 
 `RepeatScheduleWeekModal` segue deliberadamente a mesma linguagem visual e
@@ -589,6 +681,14 @@ não pediu isso, só pediu mostrá-los "no próprio dia".
 
 ## Known gaps / dívidas conhecidas
 
+- **"Melhorar Visão Geral e reorganizar Pessoas" — aba Admissão não
+  construída**: pedido explícito do utilizador para ignorar essa parte
+  desta ronda ("para já ignora a criação de admissão, nao vejo necessario
+  na nossa operação"). `PeopleTabs` só tem Colaboradores/Documentos.
+- **"Melhorar Visão Geral e reorganizar Pessoas" — `PeopleDocumentsView`
+  sem paginação server-side**: carrega todas as linhas
+  (`api.getDocumentOverview()`) de uma vez e filtra no cliente — aceitável
+  para o volume de equipa atual, mas não escala indefinidamente.
 - Sem testes automatizados para este módulo ainda (nem adapter HTTP, nem
   componentes) — não existe um padrão de teste de adapter HTTP estabelecido
   no frontend (nem `financial-base` nem `invoices` têm), e os componentes

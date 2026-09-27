@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
 import type { EmployeeProfile } from "../../domain/entities/employee.ts";
@@ -104,10 +104,13 @@ function VersionHistoryModal({
 export function EmployeeDocumentsTab({
   employeeId,
   profile,
+  initialCategory = null,
   onViewFullHistory,
 }: {
   employeeId: string;
   profile: EmployeeProfile;
+  /** Vem de "Pessoas > Documentos" (`?category=...`) — pré-seleciona a categoria no formulário de upload, evitando obrigar a repetir a escolha (task "Melhorar Visão Geral e reorganizar Pessoas", secção 9). */
+  initialCategory?: string | null;
   onViewFullHistory: () => void;
 }) {
   const { api } = useHrModule();
@@ -118,7 +121,7 @@ export function EmployeeDocumentsTab({
 
   const [dragging, setDragging] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [category, setCategory] = useState("");
+  const [category, setCategory] = useState(initialCategory ?? "");
   const [mandatory, setMandatory] = useState(true);
   const [origin, setOrigin] = useState<DocumentOrigin>("rh");
   const [expiresAt, setExpiresAt] = useState("");
@@ -165,6 +168,14 @@ export function EmployeeDocumentsTab({
     })),
   ];
   const categoryOptionBySlug = new Map(categoryOptions.map((c) => [c.slug, c]));
+
+  // `mandatory` só é conhecido depois de `categoriesQuery` resolver — corrige o checkbox quando a categoria já vem pré-selecionada de "Pessoas > Documentos".
+  useEffect(() => {
+    if (initialCategory && categoryOptionBySlug.has(initialCategory)) {
+      setMandatory(categoryOptionBySlug.get(initialCategory)!.mandatory);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [categoriesQuery.data]);
 
   const usedCategories = new Set(documents.map((d) => d.category));
   // Uma vez satisfeito o requisito de identificação por uma das suas
