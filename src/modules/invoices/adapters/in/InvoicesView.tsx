@@ -3456,7 +3456,12 @@ export function InvoicesView() {
     top: number;
     right: number;
   } | null>(null);
-  const [monthFilter, setMonthFilter] = useState<string | null>(null);
+  // Predefinido: mês atual — "Limpar" no seletor de mês continua disponível
+  // para ver todos os meses.
+  const [monthFilter, setMonthFilter] = useState<string | null>(() => {
+    const now = new Date();
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+  });
   const [monthPickerYear, setMonthPickerYear] = useState(() =>
     new Date().getFullYear(),
   );
@@ -4441,10 +4446,10 @@ export function InvoicesView() {
                         />
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
-                        Fatura
+                        Fornecedor
                       </th>
                       <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
-                        Fornecedor
+                        Fatura
                       </th>
                       {activeTab === "todas" && (
                         <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
@@ -4533,6 +4538,11 @@ export function InvoicesView() {
                             />
                           </td>
 
+                          {/* Fornecedor */}
+                          <td className="px-4 py-3 text-stone-700">
+                            {inv.supplierName}
+                          </td>
+
                           {/* Fatura */}
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-2">
@@ -4564,11 +4574,6 @@ export function InvoicesView() {
                             <p className="mt-0.5 text-xs text-stone-400">
                               {formatDate(inv.invoiceDate)}
                             </p>
-                          </td>
-
-                          {/* Fornecedor */}
-                          <td className="px-4 py-3 text-stone-700">
-                            {inv.supplierName}
                           </td>
 
                           {/* Estado — só na tab "Todas" */}

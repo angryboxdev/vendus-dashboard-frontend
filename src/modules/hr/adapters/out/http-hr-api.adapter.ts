@@ -1,4 +1,4 @@
-import { apiGet, apiPatch, apiPost, apiPostFormData, apiDeleteNoContent } from "../../../../lib/api.ts";
+import { apiGet, apiPatch, apiPost, apiPostFormData, apiDeleteNoContent, apiPut, ApiError } from "../../../../lib/api.ts";
 import type { HrApiPort } from "../../domain/ports/out/hr-api.port.ts";
 import type {
   CreateEmployeePayload,
@@ -11,6 +11,7 @@ import type {
   UpdateEmployeePayload,
 } from "../../domain/entities/employee.ts";
 import type {
+  DocumentOverviewRow,
   EmployeeDocument,
   ReplaceDocumentPayload,
   UploadDocumentPayload,
@@ -20,10 +21,50 @@ import type {
   HrOverview,
   ListShiftsToReviewParams,
   ListShiftsToReviewResult,
+  ShiftToReview,
 } from "../../domain/entities/overview.ts";
+import type { DocumentCategoryDefinition, DocumentCategoryPayload } from "../../domain/entities/document-category.ts";
+import type {
+  AttendanceIssueDetail,
+  CorrectShiftAttendancePayload,
+  ListAttendanceIssuesResult,
+  MonthlyClosureStatus,
+} from "../../domain/entities/attendance-conference.ts";
+import type {
+  ApplyBaseScheduleResult,
+  BaseScheduleCell,
+  ClearShiftsScope,
+  ClearWorkShiftsResult,
+  CreateShiftRotationPayload,
+  CreateWorkShiftPayload,
+  CreateWorkShiftSeriesPayload,
+  CreateWorkShiftSeriesResult,
+  LeaveOverviewEntry,
+  ListWorkShiftsParams,
+  PreviewRepeatCalendarWeekPayload,
+  PreviewRepeatCalendarWeekResult,
+  PreviewWorkShiftSeriesPayload,
+  PreviewWorkShiftSeriesResult,
+  PublicHoliday,
+  RepeatCalendarWeekPayload,
+  RepeatCalendarWeekResult,
+  RotationWeekPreview,
+  ScheduleAlerts,
+  ShiftRotation,
+  UpdateWorkShiftPayload,
+  UpdateWorkShiftSeriesScopePayload,
+  UpsertBaseScheduleCellPayload,
+  WorkShift,
+} from "../../domain/entities/schedule.ts";
 
 const BASE = "/api/hr/people";
+const DOCUMENT_OVERVIEW_BASE = "/api/hr/document-overview";
 const OVERVIEW_BASE = "/api/hr/overview";
+const DOCUMENT_CATEGORIES_BASE = "/api/hr/document-categories";
+const SCHEDULES_BASE = "/api/hr/schedules";
+const ATTENDANCE_BASE = "/api/hr/attendance";
+/** Rotas legacy (src/routes/hrLeaveRoutes.ts) — reaproveitadas diretamente, sem importar código do frontend legacy. */
+const LEGACY_LEAVE_BASE = "/api/hr/leave";
 /** Rota legacy (src/routes/hrRoutes.ts) — reaproveitada diretamente, sem importar código do frontend legacy. */
 const LEGACY_SHIFTS_BASE = "/api/hr/shifts";
 
@@ -124,6 +165,10 @@ export class HttpHrApiAdapter implements HrApiPort {
     );
   }
 
+  async getDocumentOverview(): Promise<DocumentOverviewRow[]> {
+    return apiGet<DocumentOverviewRow[]>(DOCUMENT_OVERVIEW_BASE);
+  }
+
   async getOverview(locationId?: string): Promise<HrOverview> {
     const q = new URLSearchParams();
     if (locationId) q.set("locationId", locationId);
@@ -141,7 +186,191 @@ export class HttpHrApiAdapter implements HrApiPort {
     return apiGet<ListShiftsToReviewResult>(`${OVERVIEW_BASE}/shifts-to-review?${q.toString()}`);
   }
 
+  async getShiftToReview(shiftId: string): Promise<ShiftToReview | null> {
+    try {
+      return await apiGet<ShiftToReview>(`${OVERVIEW_BASE}/shifts-to-review/${encodeURIComponent(shiftId)}`);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return null;
+      throw e;
+    }
+  }
+
   async confirmShiftAttendance(shiftId: string, payload: ConfirmShiftAttendancePayload): Promise<void> {
     await apiPatch<unknown>(`${LEGACY_SHIFTS_BASE}/${encodeURIComponent(shiftId)}/attendance`, payload);
+  }
+
+  async listDocumentCategories(): Promise<DocumentCategoryDefinition[]> {
+    return apiGet<DocumentCategoryDefinition[]>(DOCUMENT_CATEGORIES_BASE);
+  }
+
+  async createDocumentCategory(payload: DocumentCategoryPayload): Promise<DocumentCategoryDefinition> {
+    return apiPost<DocumentCategoryDefinition>(DOCUMENT_CATEGORIES_BASE, payload);
+  }
+
+  async updateDocumentCategory(
+    id: string,
+    payload: Partial<DocumentCategoryPayload>,
+  ): Promise<DocumentCategoryDefinition> {
+    return apiPatch<DocumentCategoryDefinition>(`${DOCUMENT_CATEGORIES_BASE}/${encodeURIComponent(id)}`, payload);
+  }
+
+  async setDocumentCategoryActive(id: string, active: boolean): Promise<DocumentCategoryDefinition> {
+    return apiPatch<DocumentCategoryDefinition>(`${DOCUMENT_CATEGORIES_BASE}/${encodeURIComponent(id)}/active`, {
+      active,
+    });
+  }
+
+  // ── RH-03: Escalas & Turnos ────────────────────────────────────────────
+
+  async listWorkShifts(params: ListWorkShiftsParams): Promise<WorkShift[]> {
+    const q = new URLSearchParams({ from: params.from, to: params.to });
+    if (params.employeeId) q.set("employeeId", params.employeeId);
+    if (params.locationId) q.set("locationId", params.locationId);
+    if (params.status) q.set("status", params.status);
+    return apiGet<WorkShift[]>(`${SCHEDULES_BASE}/work-shifts?${q.toString()}`);
+  }
+
+  async createWorkShift(payload: CreateWorkShiftPayload): Promise<WorkShift[]> {
+    return apiPost<WorkShift[]>(`${SCHEDULES_BASE}/work-shifts`, payload);
+  }
+
+  async updateWorkShift(id: string, payload: UpdateWorkShiftPayload): Promise<WorkShift> {
+    return apiPatch<WorkShift>(`${SCHEDULES_BASE}/work-shifts/${encodeURIComponent(id)}`, payload);
+  }
+
+  async duplicateWorkShift(id: string, targetDate: string): Promise<WorkShift> {
+    return apiPost<WorkShift>(`${SCHEDULES_BASE}/work-shifts/${encodeURIComponent(id)}/duplicate`, { targetDate });
+  }
+
+  async deleteWorkShift(id: string): Promise<void> {
+    await apiDeleteNoContent(`${SCHEDULES_BASE}/work-shifts/${encodeURIComponent(id)}`);
+  }
+
+  async publishWorkShifts(ids: string[]): Promise<WorkShift[]> {
+    return apiPost<WorkShift[]>(`${SCHEDULES_BASE}/work-shifts/publish`, { ids });
+  }
+
+  async getBaseSchedule(employeeId: string): Promise<BaseScheduleCell[]> {
+    return apiGet<BaseScheduleCell[]>(`${SCHEDULES_BASE}/base-schedule/${encodeURIComponent(employeeId)}`);
+  }
+
+  async upsertBaseScheduleCell(
+    employeeId: string,
+    payload: UpsertBaseScheduleCellPayload,
+  ): Promise<BaseScheduleCell> {
+    return apiPut<BaseScheduleCell>(
+      `${SCHEDULES_BASE}/base-schedule/${encodeURIComponent(employeeId)}/${payload.weekday}`,
+      payload,
+    );
+  }
+
+  async applyBaseSchedule(
+    employeeId: string,
+    weekStartDate: string,
+    overrideExceptions?: boolean,
+  ): Promise<ApplyBaseScheduleResult> {
+    return apiPost<ApplyBaseScheduleResult>(`${SCHEDULES_BASE}/base-schedule/${encodeURIComponent(employeeId)}/apply`, {
+      weekStartDate,
+      ...(overrideExceptions !== undefined && { overrideExceptions }),
+    });
+  }
+
+  async listShiftRotations(): Promise<ShiftRotation[]> {
+    return apiGet<ShiftRotation[]>(`${SCHEDULES_BASE}/rotations`);
+  }
+
+  async createShiftRotation(payload: CreateShiftRotationPayload): Promise<ShiftRotation> {
+    return apiPost<ShiftRotation>(`${SCHEDULES_BASE}/rotations`, payload);
+  }
+
+  async previewShiftRotation(id: string, weeks?: number): Promise<RotationWeekPreview[]> {
+    const q = weeks ? `?weeks=${weeks}` : "";
+    return apiGet<RotationWeekPreview[]>(`${SCHEDULES_BASE}/rotations/${encodeURIComponent(id)}/preview${q}`);
+  }
+
+  async applyShiftRotation(id: string, fromWeekStartDate?: string, weeks?: number): Promise<ApplyBaseScheduleResult> {
+    return apiPost<ApplyBaseScheduleResult>(`${SCHEDULES_BASE}/rotations/${encodeURIComponent(id)}/apply`, {
+      ...(fromWeekStartDate !== undefined && { fromWeekStartDate }),
+      ...(weeks !== undefined && { weeks }),
+    });
+  }
+
+  async setShiftRotationActive(id: string, active: boolean): Promise<ShiftRotation> {
+    return apiPatch<ShiftRotation>(`${SCHEDULES_BASE}/rotations/${encodeURIComponent(id)}/active`, { active });
+  }
+
+  async getScheduleAlerts(from: string, to: string, locationId?: string): Promise<ScheduleAlerts> {
+    const q = new URLSearchParams({ from, to });
+    if (locationId) q.set("locationId", locationId);
+    return apiGet<ScheduleAlerts>(`${SCHEDULES_BASE}/alerts?${q.toString()}`);
+  }
+
+  async previewWorkShiftSeries(payload: PreviewWorkShiftSeriesPayload): Promise<PreviewWorkShiftSeriesResult> {
+    return apiPost<PreviewWorkShiftSeriesResult>(`${SCHEDULES_BASE}/work-shift-series/preview`, payload);
+  }
+
+  async createWorkShiftSeries(payload: CreateWorkShiftSeriesPayload): Promise<CreateWorkShiftSeriesResult> {
+    return apiPost<CreateWorkShiftSeriesResult>(`${SCHEDULES_BASE}/work-shift-series`, payload);
+  }
+
+  async updateWorkShiftSeriesScope(id: string, payload: UpdateWorkShiftSeriesScopePayload): Promise<WorkShift[]> {
+    return apiPatch<WorkShift[]>(`${SCHEDULES_BASE}/work-shifts/${encodeURIComponent(id)}/series-scope`, payload);
+  }
+
+  async clearWorkShifts(scope: ClearShiftsScope): Promise<ClearWorkShiftsResult> {
+    return apiPost<ClearWorkShiftsResult>(`${SCHEDULES_BASE}/work-shifts/clear`, { scope });
+  }
+
+  async previewRepeatCalendarWeek(payload: PreviewRepeatCalendarWeekPayload): Promise<PreviewRepeatCalendarWeekResult> {
+    return apiPost<PreviewRepeatCalendarWeekResult>(`${SCHEDULES_BASE}/work-shifts/repeat-week/preview`, payload);
+  }
+
+  async repeatCalendarWeek(payload: RepeatCalendarWeekPayload): Promise<RepeatCalendarWeekResult> {
+    return apiPost<RepeatCalendarWeekResult>(`${SCHEDULES_BASE}/work-shifts/repeat-week`, payload);
+  }
+
+  async listLeaveOverview(year: number): Promise<LeaveOverviewEntry[]> {
+    return apiGet<LeaveOverviewEntry[]>(`${LEGACY_LEAVE_BASE}/overview?year=${year}`);
+  }
+
+  async listPublicHolidays(year: number): Promise<PublicHoliday[]> {
+    return apiGet<PublicHoliday[]>(`${LEGACY_LEAVE_BASE}/holidays?year=${year}`);
+  }
+
+  async listAttendanceIssues(year: number, month: number, locationId?: string): Promise<ListAttendanceIssuesResult> {
+    const q = new URLSearchParams({ year: String(year), month: String(month) });
+    if (locationId) q.set("locationId", locationId);
+    return apiGet<ListAttendanceIssuesResult>(`${ATTENDANCE_BASE}/issues?${q.toString()}`);
+  }
+
+  async getAttendanceIssueDetail(
+    workDate: string,
+    key: { shiftId?: string; attendanceId?: string },
+  ): Promise<AttendanceIssueDetail | null> {
+    const q = new URLSearchParams({ workDate });
+    if (key.shiftId) q.set("shiftId", key.shiftId);
+    if (key.attendanceId) q.set("attendanceId", key.attendanceId);
+    try {
+      return await apiGet<AttendanceIssueDetail>(`${ATTENDANCE_BASE}/issues/detail?${q.toString()}`);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return null;
+      throw e;
+    }
+  }
+
+  async correctShiftAttendance(payload: CorrectShiftAttendancePayload): Promise<AttendanceIssueDetail | null> {
+    return apiPost<AttendanceIssueDetail | null>(`${ATTENDANCE_BASE}/issues/correct`, payload);
+  }
+
+  async getMonthlyClosureStatus(year: number, month: number): Promise<MonthlyClosureStatus> {
+    return apiGet<MonthlyClosureStatus>(`${ATTENDANCE_BASE}/closure?year=${year}&month=${month}`);
+  }
+
+  async closeMonthlyPeriod(year: number, month: number): Promise<MonthlyClosureStatus> {
+    return apiPost<MonthlyClosureStatus>(`${ATTENDANCE_BASE}/closure/close`, { year, month });
+  }
+
+  async reopenMonthlyPeriod(year: number, month: number, reason: string): Promise<MonthlyClosureStatus> {
+    return apiPost<MonthlyClosureStatus>(`${ATTENDANCE_BASE}/closure/reopen`, { year, month, reason });
   }
 }

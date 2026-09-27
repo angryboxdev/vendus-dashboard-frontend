@@ -21,10 +21,10 @@ const STOCK_ITEMS: NavItem[] = [
 
 const HR_ITEMS: NavItem[] = [
   { kind: "item", path: "/hr/overview", label: "Visão Geral", end: true },
-  { kind: "item", path: "/hr/people", label: "Pessoas & Documentos" },
-  { kind: "item", path: "/hr/calendar", label: "Calendário de turnos" },
+  { kind: "item", path: "/hr/people", label: "Pessoas" },
+  { kind: "item", path: "/hr/schedules", label: "Escalas & Turnos" },
   { kind: "item", path: "/hr/ferias", label: "Férias & Ausências" },
-  { kind: "item", path: "/hr/relatorio", label: "Relatório de assiduidade" },
+  { kind: "item", path: "/hr/assiduidade", label: "Assiduidade" },
   { kind: "item", path: "/hr/historico", label: "Histórico de alterações" },
 ];
 

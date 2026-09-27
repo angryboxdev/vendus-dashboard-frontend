@@ -75,11 +75,17 @@ export interface ListEmployeesResult {
   pageSize: number;
 }
 
-export interface PriorityPendency {
-  kind: "missing_field" | "missing_document" | "expiring_document";
+export interface PriorityPendencyEmployeeRef {
   employeeId: string;
   employeeName: string;
+  /** Só preenchido para `kind: "expiring_document"` — validade do documento a expirar. */
+  expiresAt?: string;
+}
+
+export interface PriorityPendency {
+  kind: "missing_field" | "missing_document" | "expiring_document";
   detail: string;
+  employees: PriorityPendencyEmployeeRef[];
 }
 
 export interface PeopleKpis {
@@ -103,7 +109,10 @@ export interface EmployeeProfile {
   documents: {
     mandatoryTotal: number;
     mandatoryCompleted: number;
-    missingCategories: string[];
+    /** Nomes amigáveis dos requisitos por cumprir (ex: "Documento de identificação"), não slugs de categoria. */
+    missingRequirements: string[];
+    /** Categorias opcionais (configuráveis) ainda sem documento — só aparece aqui, nunca nas pendências prioritárias. */
+    missingOptional: string[];
     expiringSoonCount: number;
   };
   onboardingStatus: "completed" | "pending";

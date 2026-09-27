@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useHrModule } from "../../hr.module.tsx";
 import { Avatar } from "./components/Avatar.tsx";
 import { EmployeeDrawer } from "./EmployeeDrawer.tsx";
+import { PeopleTabs } from "./PeopleTabs.tsx";
 import {
   EMPLOYMENT_TYPE_LABELS,
   JOB_ROLE_LABELS,
@@ -48,12 +49,6 @@ function DocumentSituationBadge({ situation }: { situation: DocumentSituation })
   );
 }
 
-const PENDENCY_ICON: Record<string, string> = {
-  missing_field: "👤",
-  missing_document: "📄",
-  expiring_document: "⏰",
-};
-
 export function PeopleListView() {
   const { api } = useHrModule();
   const navigate = useNavigate();
@@ -65,7 +60,9 @@ export function PeopleListView() {
   // partir de um KPI card (ex: Visão Geral) e sobrevive a refresh/partilha
   // de link (RH-01 secção 11).
   const search = searchParams.get("search") ?? "";
-  const status = (searchParams.get("status") as "all" | "active" | "inactive" | null) ?? "all";
+  // Predefinido: só ativos — colaboradores inativos ficam disponíveis ao
+  // trocar o filtro, mas não poluem a vista por omissão.
+  const status = (searchParams.get("status") as "all" | "active" | "inactive" | null) ?? "active";
   const employmentType = (searchParams.get("employmentType") as EmploymentType | null) ?? "";
   const documentSituation = (searchParams.get("documentSituation") as DocumentSituation | null) ?? "";
   const profileComplete = (searchParams.get("profileComplete") as "complete" | "incomplete" | null) ?? "";
@@ -112,7 +109,7 @@ export function PeopleListView() {
   const total = result?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const hasFilters = search !== "" || status !== "all" || employmentType !== "" || documentSituation !== "" || profileComplete !== "";
+  const hasFilters = search !== "" || status !== "active" || employmentType !== "" || documentSituation !== "" || profileComplete !== "";
 
   function clearFilters() {
     setSearchParams(new URLSearchParams());
@@ -120,13 +117,11 @@ export function PeopleListView() {
 
   return (
     <div className="flex min-h-full flex-col bg-[#FAF6F3]">
-      <div className="border-b border-[#F5C992]/40 bg-white px-6 py-4">
+      <div className="border-b border-[#F5C992]/40 bg-white px-6 py-3">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-xl font-bold text-stone-900">Pessoas & Documentos</h1>
-            <p className="mt-0.5 text-sm text-stone-500">
-              Cadastro central, documentação e estado do perfil dos colaboradores.
-            </p>
+            <h1 className="text-lg font-bold text-stone-900">Pessoas</h1>
+            <p className="text-xs text-stone-500">Gestão de colaboradores e documentação.</p>
           </div>
           <button
             type="button"
@@ -139,32 +134,41 @@ export function PeopleListView() {
             Novo colaborador
           </button>
         </div>
+        <PeopleTabs />
       </div>
 
-      <div className="grid flex-1 grid-cols-1 gap-6 p-6 xl:grid-cols-[1fr_320px]">
-        <div className="space-y-6">
-          {/* KPI Cards */}
-          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-            <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-              <p className="text-xs font-medium text-stone-500">Funcionários ativos</p>
-              <p className="mt-1 text-xl font-bold text-emerald-600">{kpis?.activeEmployees ?? "—"}</p>
-            </div>
-            <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-              <p className="text-xs font-medium text-stone-500">Onboarding pendente</p>
-              <p className="mt-1 text-xl font-bold text-violet-600">{kpis?.onboardingPending ?? "—"}</p>
-            </div>
-            <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-              <p className="text-xs font-medium text-stone-500">Dados incompletos</p>
-              <p className="mt-1 text-xl font-bold text-amber-600">{kpis?.incompleteProfiles ?? "—"}</p>
-            </div>
-            <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-              <p className="text-xs font-medium text-stone-500">Documentos a expirar</p>
-              <p className="mt-1 text-xl font-bold text-red-600">{kpis?.documentsExpiringSoon ?? "—"}</p>
-            </div>
+      <div className="flex-1 space-y-4 p-4">
+        {/* KPI Cards — clicáveis, funcionam como filtros locais (task "Melhorar Visão Geral e reorganizar Pessoas", secção 3/11) */}
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 shadow-sm">
+            <p className="text-xs font-medium text-stone-500">Funcionários ativos</p>
+            <p className="mt-0.5 text-lg font-bold text-emerald-600">{kpis?.activeEmployees ?? "—"}</p>
           </div>
+          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 shadow-sm">
+            <p className="text-xs font-medium text-stone-500">Onboarding pendente</p>
+            <p className="mt-0.5 text-lg font-bold text-violet-600">{kpis?.onboardingPending ?? "—"}</p>
+          </div>
+          <button
+            type="button"
+            onClick={() => updateParams({ profileComplete: "incomplete", page: undefined })}
+            className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 text-left shadow-sm transition-colors hover:bg-[#FDF8F5]"
+          >
+            <p className="text-xs font-medium text-stone-500">Dados incompletos</p>
+            <p className="mt-0.5 text-lg font-bold text-amber-600">{kpis?.incompleteProfiles ?? "—"}</p>
+          </button>
+          <button
+            type="button"
+            onClick={() => navigate("/hr/people/documentos?status=expiring")}
+            className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 text-left shadow-sm transition-colors hover:bg-[#FDF8F5]"
+          >
+            <p className="text-xs font-medium text-stone-500">Documentos a expirar</p>
+            <p className="mt-0.5 text-lg font-bold text-red-600">{kpis?.documentsExpiringSoon ?? "—"}</p>
+          </button>
+        </div>
 
+        <div className="space-y-4">
           {/* Filters */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <input
               value={search}
               onChange={(e) => updateParams({ search: e.target.value, page: undefined })}
@@ -191,16 +195,6 @@ export function PeopleListView() {
                   {label}
                 </option>
               ))}
-            </select>
-            <select
-              value={documentSituation}
-              onChange={(e) => updateParams({ documentSituation: e.target.value, page: undefined })}
-              className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
-            >
-              <option value="">Situação documental: Todas</option>
-              <option value="ok">Tudo ok</option>
-              <option value="expiring">A expirar</option>
-              <option value="missing">Em falta</option>
             </select>
             <select
               value={profileComplete}
@@ -238,35 +232,34 @@ export function PeopleListView() {
                   <table className="min-w-full text-sm">
                     <thead className="border-b border-[#F5C992]/40 bg-stone-50/60">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                           Colaborador
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                           Função
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                           Vínculo
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                           Contacto
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                           Estado do perfil
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                           Documentos
                         </th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                           Última atualização
                         </th>
-                        <th className="px-4 py-3" />
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#F5C992]/30">
                       {items.map((row) => (
                         <tr key={row.id} className="transition-colors hover:bg-[#FDF8F5]">
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-3">
+                          <td className="px-3 py-2">
+                            <div className="flex items-center gap-2.5">
                               <Avatar name={row.fullName} photoUrl={row.photoUrl} size="sm" />
                               <div>
                                 <button
@@ -280,35 +273,26 @@ export function PeopleListView() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-4 py-3 text-stone-600">{JOB_ROLE_LABELS[row.jobRole]}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2 text-stone-600">{JOB_ROLE_LABELS[row.jobRole]}</td>
+                          <td className="px-3 py-2">
                             <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-600">
                               {EMPLOYMENT_TYPE_LABELS[row.employmentType]}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-stone-500">{row.phone ?? <span className="text-stone-300">—</span>}</td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2 text-stone-500">{row.phone ?? <span className="text-stone-300">—</span>}</td>
+                          <td className="px-3 py-2">
                             <ProfileStateBadge complete={row.profileCompletionPercent === 100} />
                           </td>
-                          <td className="px-4 py-3">
+                          <td className="px-3 py-2">
                             <DocumentSituationBadge situation={row.documentSituation} />
                           </td>
-                          <td className="px-4 py-3 text-stone-500">{formatDate(row.updatedAt)}</td>
-                          <td className="px-4 py-3 text-right">
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/hr/people/${row.id}`)}
-                              className="text-sm font-medium text-[#ED5C32] hover:underline"
-                            >
-                              Ver perfil
-                            </button>
-                          </td>
+                          <td className="px-3 py-2 text-stone-500">{formatDate(row.updatedAt)}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
-                <div className="flex items-center justify-between border-t border-[#F5C992]/30 px-4 py-3 text-sm text-stone-500">
+                <div className="flex items-center justify-between border-t border-[#F5C992]/30 px-3 py-2 text-sm text-stone-500">
                   <span>
                     Mostrando {(page - 1) * PAGE_SIZE + 1} a {Math.min(page * PAGE_SIZE, total)} de {total} colaborador
                     {total !== 1 ? "es" : ""}
@@ -337,32 +321,6 @@ export function PeopleListView() {
             )}
           </div>
         </div>
-
-        {/* Pendências prioritárias */}
-        <aside className="h-fit rounded-xl border border-[#F5C992]/40 bg-white p-4 shadow-sm">
-          <h2 className="mb-3 text-sm font-semibold text-stone-800">Pendências prioritárias</h2>
-          {!kpis || kpis.priorityPendencies.length === 0 ? (
-            <p className="text-sm text-stone-400">Sem pendências no momento.</p>
-          ) : (
-            <ul className="space-y-3">
-              {kpis.priorityPendencies.slice(0, 8).map((p, i) => (
-                <li key={i} className="flex items-start gap-2 text-sm">
-                  <span className="mt-0.5">{PENDENCY_ICON[p.kind] ?? "•"}</span>
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => navigate(`/hr/people/${p.employeeId}`)}
-                      className="font-medium text-stone-800 hover:text-[#ED5C32] hover:underline"
-                    >
-                      {p.employeeName}
-                    </button>
-                    <p className="text-xs text-stone-500">{p.detail}</p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </aside>
       </div>
 
       <EmployeeDrawer

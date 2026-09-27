@@ -244,6 +244,11 @@ As contagens e filtros de estado/conciliação são calculados client-side sobre
 dados já carregados. Evita chamadas adicionais à API. Os filtros persistem entre
 tabs — só `page` e seleção de linhas são resetados ao mudar de tab.
 
+**Tabela: Fornecedor antes de Fatura; mês atual predefinido.**
+A coluna "Fornecedor" vem antes de "Fatura" (pedido do utilizador — é o que
+se procura primeiro). `monthFilter` abre já no mês corrente (não em "Todos
+os meses"); "Limpar" no seletor de mês continua disponível para ver tudo.
+
 **Kebab menu via createPortal.**
 O menu de ações ("...") de cada linha é renderizado em `document.body` via
 `createPortal` com posicionamento `fixed` calculado por `getBoundingClientRect()`.

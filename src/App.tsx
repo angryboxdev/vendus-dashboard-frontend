@@ -17,12 +17,14 @@ import { HrEmployeeDetailPage } from "./pages/hr/HrEmployeeDetailPage";
 import { HrLayout } from "./pages/hr/HrLayout";
 import { HrAuditLogPage } from "./pages/hr/HrAuditLogPage";
 import { HrLeavePage } from "./pages/hr/HrLeavePage";
-import { HrReportPage } from "./pages/hr/HrReportPage";
+import { AttendanceView } from "./modules/hr/adapters/in/AttendanceView.tsx";
 import { HrProvider } from "./modules/hr/hr.module.tsx";
 import { PeopleListView } from "./modules/hr/adapters/in/PeopleListView.tsx";
+import { PeopleDocumentsView } from "./modules/hr/adapters/in/PeopleDocumentsView.tsx";
 import { EmployeeProfileView } from "./modules/hr/adapters/in/EmployeeProfileView.tsx";
 import { OverviewView } from "./modules/hr/adapters/in/OverviewView.tsx";
 import { ShiftsToReviewView } from "./modules/hr/adapters/in/ShiftsToReviewView.tsx";
+import { SchedulesView } from "./modules/hr/adapters/in/SchedulesView.tsx";
 import { KioskDisplayPage } from "./pages/kiosk/KioskDisplayPage";
 import { KioskCheckinPage } from "./pages/kiosk/KioskCheckinPage";
 import { CashClosingPage } from "./pages/cashClosing/CashClosingPage";
@@ -193,6 +195,14 @@ export default function App() {
                     }
                   />
                   <Route
+                    path="/hr/people/documentos"
+                    element={
+                      <HrProvider>
+                        <PeopleDocumentsView />
+                      </HrProvider>
+                    }
+                  />
+                  <Route
                     path="/hr/people/:id"
                     element={
                       <HrProvider>
@@ -200,9 +210,25 @@ export default function App() {
                       </HrProvider>
                     }
                   />
+                  <Route
+                    path="/hr/schedules"
+                    element={
+                      <HrProvider>
+                        <SchedulesView />
+                      </HrProvider>
+                    }
+                  />
                   <Route path="/hr/calendar" element={<HrCalendarPage />} />
                   <Route path="/hr/ferias" element={<HrLeavePage />} />
-                  <Route path="/hr/relatorio" element={<HrReportPage />} />
+                  <Route path="/hr/relatorio" element={<Navigate to="/hr/assiduidade" replace />} />
+                  <Route
+                    path="/hr/assiduidade"
+                    element={
+                      <HrProvider>
+                        <AttendanceView />
+                      </HrProvider>
+                    }
+                  />
                   <Route path="/hr/historico" element={<HrAuditLogPage />} />
                   <Route
                     path="/hr/employees/:id"

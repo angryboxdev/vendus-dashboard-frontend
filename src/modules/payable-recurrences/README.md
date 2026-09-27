@@ -49,6 +49,7 @@ Não há use cases formais; a lógica de UI é orquestrada diretamente nos adapt
 - **D4**: Upload de documento na criação: a recorrência é criada primeiro e depois o documento é enviado num segundo pedido. Se o upload falhar, a recorrência existe mas sem documento.
 - **D5**: `autoCreatePayable` é desabilitado no UI para tipos `variable_invoice` e `fiscal` (o backend rejeita, mas prevenimos antes).
 - **D6**: O módulo usa `useFinancialBaseModule()` para aceder à lista de fornecedores e grupos de centros de custo no drawer — não duplica a lógica de supplier/CC.
+- **D7**: `RecurrencesView` abre com o filtro de estado predefinido em "Ativa" (antes "Todos os estados") — pausadas/encerradas continuam disponíveis trocando o filtro, mas não poluem a vista por omissão (pedido do utilizador).
 
 ## Como testar
 - Funções puras: `npx vitest run src/modules/payable-recurrences` — cobre `expectedDocumentLabel`, `nextDueDate`, `formatPeriod` (15 testes, 0 falhos).
