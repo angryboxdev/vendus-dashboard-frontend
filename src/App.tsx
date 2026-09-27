@@ -23,6 +23,7 @@ import { PeopleListView } from "./modules/hr/adapters/in/PeopleListView.tsx";
 import { EmployeeProfileView } from "./modules/hr/adapters/in/EmployeeProfileView.tsx";
 import { OverviewView } from "./modules/hr/adapters/in/OverviewView.tsx";
 import { ShiftsToReviewView } from "./modules/hr/adapters/in/ShiftsToReviewView.tsx";
+import { SchedulesView } from "./modules/hr/adapters/in/SchedulesView.tsx";
 import { KioskDisplayPage } from "./pages/kiosk/KioskDisplayPage";
 import { KioskCheckinPage } from "./pages/kiosk/KioskCheckinPage";
 import { CashClosingPage } from "./pages/cashClosing/CashClosingPage";
@@ -197,6 +198,14 @@ export default function App() {
                     element={
                       <HrProvider>
                         <EmployeeProfileView />
+                      </HrProvider>
+                    }
+                  />
+                  <Route
+                    path="/hr/schedules"
+                    element={
+                      <HrProvider>
+                        <SchedulesView />
                       </HrProvider>
                     }
                   />

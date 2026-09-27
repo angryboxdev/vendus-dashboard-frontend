@@ -1,10 +1,76 @@
-import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { useState } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link, useNavigate } from "react-router-dom";
 import { useHrModule } from "../../hr.module.tsx";
 import { SeverityBadge } from "./components/SeverityBadge.tsx";
-import type { BlockResult } from "../../domain/entities/overview.ts";
+import { ShiftReviewModal } from "./ShiftReviewModal.tsx";
+import type { BlockResult, OverviewOperationRow } from "../../domain/entities/overview.ts";
 
 const REFRESH_INTERVAL_MS = 60_000;
+
+const OPERATION_STATE_STYLES: Record<string, string> = {
+  AGENDADO: "bg-sky-50 text-sky-700",
+  EM_TOLERANCIA: "bg-violet-50 text-violet-700",
+  PRESENTE: "bg-emerald-50 text-emerald-700",
+  ATRASADO: "bg-amber-50 text-amber-700",
+  AUSENTE: "bg-red-50 text-red-700",
+  INTERVALO: "bg-indigo-50 text-indigo-700",
+  FINALIZADO: "bg-stone-100 text-stone-600",
+  FERIAS: "bg-sky-50 text-sky-700",
+  BAIXA: "bg-stone-100 text-stone-600",
+  FOLGA: "bg-stone-100 text-stone-600",
+  CONFLITO: "bg-red-100 text-red-800",
+};
+
+const OPERATION_STATE_LABELS: Record<string, string> = {
+  AGENDADO: "Agendado",
+  EM_TOLERANCIA: "Em tolerância",
+  PRESENTE: "Presente",
+  ATRASADO: "Atrasado",
+  AUSENTE: "Ausente",
+  INTERVALO: "Intervalo",
+  FINALIZADO: "Concluído",
+  FERIAS: "Férias",
+  BAIXA: "Baixa",
+  FOLGA: "Folga",
+  CONFLITO: "Conflito",
+};
+
+function OperationStateBadge({ state }: { state: string }) {
+  const cls = OPERATION_STATE_STYLES[state] ?? "bg-stone-100 text-stone-600";
+  return <span className={`inline-block whitespace-nowrap rounded-full px-2 py-0.5 text-[11px] font-medium ${cls}`}>{OPERATION_STATE_LABELS[state] ?? state}</span>;
+}
+
+/** Primeiro + segundo nome — mesma convenção de `SchedulesView.tsx`/`DaySummaryPanel.tsx` (ex: "Gabriel Gomes Souza" → "Gabriel Gomes"), para o mesmo colaborador aparecer sempre com o mesmo nome curto em toda a parte do módulo. */
+function shortName(fullName: string): string {
+  return fullName.trim().split(/\s+/).slice(0, 2).join(" ");
+}
+
+/**
+ * Nome curto por linha, com desambiguação: quando duas ou mais linhas
+ * partilham o mesmo nome curto (1º + 2º nome), essas linhas passam a
+ * mostrar também o último nome. Não é um algoritmo de desambiguação
+ * mínima rigoroso (ex: 2 colisões com o mesmo último nome continuam
+ * iguais) — suficiente para o volume de equipa deste ecrã.
+ */
+function computeShortNames(rows: OverviewOperationRow[]): Map<string, string> {
+  const countByShort = new Map<string, number>();
+  for (const row of rows) {
+    const short = shortName(row.employeeName);
+    countByShort.set(short, (countByShort.get(short) ?? 0) + 1);
+  }
+  const result = new Map<string, string>();
+  for (const row of rows) {
+    const short = shortName(row.employeeName);
+    if ((countByShort.get(short) ?? 0) <= 1) {
+      result.set(row.employeeId, short);
+      continue;
+    }
+    const parts = row.employeeName.trim().split(/\s+/);
+    result.set(row.employeeId, parts.length <= 2 ? short : `${short} ${parts[parts.length - 1]}`);
+  }
+  return result;
+}
 
 function formatDateTime(iso: string): string {
   const d = new Date(iso);
@@ -48,12 +114,25 @@ function KpiCard({
 
 export function OverviewView() {
   const { api } = useHrModule();
+  const qc = useQueryClient();
+  const navigate = useNavigate();
+  const [reviewShiftId, setReviewShiftId] = useState<string | null>(null);
 
   const { data: overview, isLoading } = useQuery({
     queryKey: ["hr-overview"],
     queryFn: () => api.getOverview(),
     refetchInterval: REFRESH_INTERVAL_MS,
   });
+
+  const { data: reviewingShift } = useQuery({
+    queryKey: ["hr-shift-to-review", reviewShiftId],
+    queryFn: () => api.getShiftToReview(reviewShiftId!),
+    enabled: reviewShiftId !== null,
+  });
+
+  function openEmployeeSchedule(row: OverviewOperationRow) {
+    navigate(`/hr/schedules?employeeId=${row.employeeId}`);
+  }
 
   if (isLoading || !overview) {
     return (
@@ -197,34 +276,87 @@ export function OverviewView() {
             ) : operation.data.length === 0 ? (
               <p className="text-sm text-stone-400">Sem eventos hoje.</p>
             ) : (
-              <table className="min-w-full text-sm">
-                <thead>
-                  <tr className="text-left text-xs font-semibold uppercase tracking-wide text-stone-400">
-                    <th className="pb-2">Funcionário</th>
-                    <th className="pb-2">Estado</th>
-                    <th className="pb-2">Último evento</th>
-                    <th className="pb-2">Local</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-stone-100">
-                  {operation.data.map((row) => (
-                    <tr key={row.employeeId}>
-                      <td className="py-2">
-                        <Link to={`/hr/people/${row.employeeId}`} className="font-medium text-stone-700 hover:text-[#ED5C32] hover:underline">
-                          {row.employeeName}
-                        </Link>
-                      </td>
-                      <td className="py-2 text-stone-600">{row.state}</td>
-                      <td className="py-2 text-stone-500">{row.lastEvent}</td>
-                      <td className="py-2 text-stone-400">{row.locationId ?? "—"}</td>
+              <div className="max-h-80 overflow-y-auto">
+                <table className="min-w-full text-sm">
+                  <thead className="sticky top-0 bg-white">
+                    <tr className="text-left text-[11px] font-semibold uppercase tracking-wide text-stone-400">
+                      <th className="pb-2">Funcionário</th>
+                      <th className="pb-2">Estado</th>
+                      <th className="pb-2">Turno hoje</th>
+                      <th className="pb-2">Situação</th>
+                      <th className="pb-2">Local</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-stone-100">
+                    {(() => {
+                      const shortNames = computeShortNames(operation.data);
+                      return operation.data.map((row) => (
+                        <tr key={row.employeeId} className={row.state === "CONFLITO" ? "bg-red-50/40" : undefined}>
+                          <td className="py-2 pr-2">
+                            <button
+                              type="button"
+                              onClick={() => openEmployeeSchedule(row)}
+                              className="text-left font-medium text-stone-700 hover:text-[#ED5C32] hover:underline"
+                              title={row.employeeName}
+                            >
+                              {shortNames.get(row.employeeId) ?? row.employeeName}
+                            </button>
+                          </td>
+                          <td className="py-2 pr-2">
+                            <OperationStateBadge state={row.state} />
+                          </td>
+                          <td className="py-2 pr-2 text-[12px] leading-snug text-stone-500">
+                            {row.shiftToday ? row.shiftToday.map((s, i) => <div key={i}>{s}</div>) : "—"}
+                          </td>
+                          <td className="py-2 pr-2 text-[12px]">
+                            {row.reviewShiftId ? (
+                              <button
+                                type="button"
+                                onClick={() => setReviewShiftId(row.reviewShiftId)}
+                                className="font-medium text-red-600 hover:underline"
+                                title="Requer conferência — clique para abrir"
+                              >
+                                {row.situation}
+                              </button>
+                            ) : (
+                              <span className={row.state === "CONFLITO" ? "font-medium text-red-700" : "text-stone-500"}>{row.situation}</span>
+                            )}
+                            {row.situationWarning &&
+                              (row.reviewShiftId ? (
+                                <div className="text-[11px] text-amber-600">⚠ {row.situationWarning}</div>
+                              ) : (
+                                <button
+                                  type="button"
+                                  onClick={() => openEmployeeSchedule(row)}
+                                  className="block text-[11px] text-amber-600 hover:underline"
+                                  title="Ver na escala"
+                                >
+                                  ⚠ {row.situationWarning}
+                                </button>
+                              ))}
+                          </td>
+                          <td className="py-2 text-[12px] text-stone-400">{row.locationName ?? "—"}</td>
+                        </tr>
+                      ));
+                    })()}
+                  </tbody>
+                </table>
+              </div>
             )}
           </div>
         </div>
       </div>
+
+      {reviewShiftId && reviewingShift && (
+        <ShiftReviewModal
+          shift={reviewingShift}
+          onClose={() => setReviewShiftId(null)}
+          onConfirmed={() => {
+            setReviewShiftId(null);
+            void qc.invalidateQueries({ queryKey: ["hr-overview"] });
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -34,9 +34,18 @@ export interface OverviewAlert {
 export interface OverviewOperationRow {
   employeeId: string;
   employeeName: string;
+  /** AGENDADO|EM_TOLERANCIA|PRESENTE|ATRASADO|AUSENTE|INTERVALO|FINALIZADO|FERIAS|BAIXA|FOLGA|CONFLITO */
   state: string;
-  lastEvent: string;
+  /** Texto contextual — nunca repete o que `state` já diz. */
+  situation: string;
+  /** Linha secundária de alerta (ex: "1º turno sem entrada") — continua visível mesmo depois de `state`/`situation` já não a refletirem. Null = sem inconsistência a sinalizar. */
+  situationWarning: string | null;
+  /** 1 ou 2 partes por turno do dia (repartido inclui as 2; mais de 1 turno no dia soma todas). Null quando não há turno hoje. */
+  shiftToday: string[] | null;
   locationId: string | null;
+  locationName: string | null;
+  /** Turno "por conferir" associado — permite abrir a conferência diretamente. Null quando não aplicável. */
+  reviewShiftId: string | null;
 }
 
 export interface HrOverview {
@@ -63,6 +72,7 @@ export interface ShiftToReview {
   exceptionLabel: string;
   priority: ReviewPriority;
   locationId: string;
+  locationName: string | null;
 }
 
 export interface ListShiftsToReviewParams {
