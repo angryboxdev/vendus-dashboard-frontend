@@ -23,6 +23,12 @@ import type {
 } from "../../entities/overview.ts";
 import type { DocumentCategoryDefinition, DocumentCategoryPayload } from "../../entities/document-category.ts";
 import type {
+  AttendanceIssueDetail,
+  CorrectShiftAttendancePayload,
+  ListAttendanceIssuesResult,
+  MonthlyClosureStatus,
+} from "../../entities/attendance-conference.ts";
+import type {
   ApplyBaseScheduleResult,
   BaseScheduleCell,
   ClearShiftsScope,
@@ -124,4 +130,12 @@ export interface HrApiPort {
   listLeaveOverview(year: number): Promise<LeaveOverviewEntry[]>;
   /** Rota legacy `GET /api/hr/leave/holidays` diretamente. */
   listPublicHolidays(year: number): Promise<PublicHoliday[]>;
+
+  // ── Fase 2: Assiduidade, Correções e Fecho Mensal ────────────────────────
+  listAttendanceIssues(year: number, month: number, locationId?: string): Promise<ListAttendanceIssuesResult>;
+  getAttendanceIssueDetail(workDate: string, key: { shiftId?: string; attendanceId?: string }): Promise<AttendanceIssueDetail | null>;
+  correctShiftAttendance(payload: CorrectShiftAttendancePayload): Promise<AttendanceIssueDetail | null>;
+  getMonthlyClosureStatus(year: number, month: number): Promise<MonthlyClosureStatus>;
+  closeMonthlyPeriod(year: number, month: number): Promise<MonthlyClosureStatus>;
+  reopenMonthlyPeriod(year: number, month: number, reason: string): Promise<MonthlyClosureStatus>;
 }

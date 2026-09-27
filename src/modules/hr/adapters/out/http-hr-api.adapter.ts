@@ -25,6 +25,12 @@ import type {
 } from "../../domain/entities/overview.ts";
 import type { DocumentCategoryDefinition, DocumentCategoryPayload } from "../../domain/entities/document-category.ts";
 import type {
+  AttendanceIssueDetail,
+  CorrectShiftAttendancePayload,
+  ListAttendanceIssuesResult,
+  MonthlyClosureStatus,
+} from "../../domain/entities/attendance-conference.ts";
+import type {
   ApplyBaseScheduleResult,
   BaseScheduleCell,
   ClearShiftsScope,
@@ -56,6 +62,7 @@ const DOCUMENT_OVERVIEW_BASE = "/api/hr/document-overview";
 const OVERVIEW_BASE = "/api/hr/overview";
 const DOCUMENT_CATEGORIES_BASE = "/api/hr/document-categories";
 const SCHEDULES_BASE = "/api/hr/schedules";
+const ATTENDANCE_BASE = "/api/hr/attendance";
 /** Rotas legacy (src/routes/hrLeaveRoutes.ts) — reaproveitadas diretamente, sem importar código do frontend legacy. */
 const LEGACY_LEAVE_BASE = "/api/hr/leave";
 /** Rota legacy (src/routes/hrRoutes.ts) — reaproveitada diretamente, sem importar código do frontend legacy. */
@@ -328,5 +335,42 @@ export class HttpHrApiAdapter implements HrApiPort {
 
   async listPublicHolidays(year: number): Promise<PublicHoliday[]> {
     return apiGet<PublicHoliday[]>(`${LEGACY_LEAVE_BASE}/holidays?year=${year}`);
+  }
+
+  async listAttendanceIssues(year: number, month: number, locationId?: string): Promise<ListAttendanceIssuesResult> {
+    const q = new URLSearchParams({ year: String(year), month: String(month) });
+    if (locationId) q.set("locationId", locationId);
+    return apiGet<ListAttendanceIssuesResult>(`${ATTENDANCE_BASE}/issues?${q.toString()}`);
+  }
+
+  async getAttendanceIssueDetail(
+    workDate: string,
+    key: { shiftId?: string; attendanceId?: string },
+  ): Promise<AttendanceIssueDetail | null> {
+    const q = new URLSearchParams({ workDate });
+    if (key.shiftId) q.set("shiftId", key.shiftId);
+    if (key.attendanceId) q.set("attendanceId", key.attendanceId);
+    try {
+      return await apiGet<AttendanceIssueDetail>(`${ATTENDANCE_BASE}/issues/detail?${q.toString()}`);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return null;
+      throw e;
+    }
+  }
+
+  async correctShiftAttendance(payload: CorrectShiftAttendancePayload): Promise<AttendanceIssueDetail | null> {
+    return apiPost<AttendanceIssueDetail | null>(`${ATTENDANCE_BASE}/issues/correct`, payload);
+  }
+
+  async getMonthlyClosureStatus(year: number, month: number): Promise<MonthlyClosureStatus> {
+    return apiGet<MonthlyClosureStatus>(`${ATTENDANCE_BASE}/closure?year=${year}&month=${month}`);
+  }
+
+  async closeMonthlyPeriod(year: number, month: number): Promise<MonthlyClosureStatus> {
+    return apiPost<MonthlyClosureStatus>(`${ATTENDANCE_BASE}/closure/close`, { year, month });
+  }
+
+  async reopenMonthlyPeriod(year: number, month: number, reason: string): Promise<MonthlyClosureStatus> {
+    return apiPost<MonthlyClosureStatus>(`${ATTENDANCE_BASE}/closure/reopen`, { year, month, reason });
   }
 }

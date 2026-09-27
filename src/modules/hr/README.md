@@ -17,7 +17,11 @@ alertas prioritários, um drawer sobreposto que explica cada pendência sem
 sair da Visão Geral, e uma fila de conferência de turnos), e agora também o
 **planeamento da escala** em si: criar/editar/duplicar/publicar turnos,
 escala base semanal por colaborador e rotações automáticas entre 2
-colaboradores da mesma função.
+colaboradores da mesma função. Desde a Fase 2 ("Assiduidade, Correções,
+Ausências e Fecho Mensal"), fecha também o ciclo planeado→realizado:
+**Assiduidade** (conferência do planeado vs. registado, correção
+estruturada pelo gestor com motivo obrigatório) e **Fecho mensal**
+(bloqueia/reabre um período).
 
 **O problema que resolve:**
 A lista antiga não mostrava quem tinha o perfil incompleto nem que
@@ -241,6 +245,25 @@ Um método por endpoint do backend — ver `domain/ports/out/hr-api.port.ts`.
   Pessoas", secção 4: "categorias de documentos" é gestão documental, não
   gestão de colaboradores). Desativar (nunca apagar) para de exigir/
   sugerir a categoria sem tocar nos documentos já enviados nela.
+- `AttendanceView` (novo, Fase 2 "Assiduidade, Correções, Ausências e
+  Fecho Mensal") → substitui `src/pages/hr/HrReportPage.tsx` (legacy,
+  deixado órfão de rota — mesma cautela já usada com
+  `HrEmployeesPage.tsx`). Rota `/hr/assiduidade` (`/hr/relatorio` antigo
+  passa a `<Navigate replace>` para lá — preserva o link existente).
+  3 tabs — **Conferência** (funcional), **Resumo mensal**/**Horas &
+  saldos** ("em construção", ver Known gaps): KPIs do topo (turnos com
+  pendência/atrasos/horas realizadas/planeadas/saldo), seletor de mês
+  (`?year=&month=`), lista de pendências à esquerda + `AttendanceIssueDetailPanel`
+  à direita, e `MonthlyClosureBar` no rodapé.
+- `AttendanceIssueDetailPanel` (novo) → "Planeado/Registado/Resultado" +
+  "Ações do gestor" (adicionar/corrigir entrada ou saída, marcar
+  ausência, confirmar, observação) — o botão de submissão só ativa depois
+  de o campo "Motivo da correção" ter texto (nunca opcional, task secção
+  12). Mostra também o histórico de correções já aplicadas a este turno.
+- `MonthlyClosureBar` (novo) → status do fecho mensal: bloqueadores com
+  atalho direto para a Conferência (secção 21), "Fechar período"
+  desativado enquanto houver bloqueadores, "Reabrir período" exige motivo
+  explícito antes de confirmar (secção 23).
 - `SchedulesView` (RH-03) → página "Escalas & Turnos": tabs "Calendário" /
   "Turnos rotativos" / **"Alertas e ações"** (esta última passou de painel
   lateral fixo a tab própria — pedido do utilizador: liberta a largura do
@@ -679,8 +702,47 @@ de férias/baixa/feriado no calendário novo, mas criar/editar uma
 ausência/feriado continua exclusivamente em `/hr/ferias` (legacy) — RH-03
 não pediu isso, só pediu mostrá-los "no próprio dia".
 
+### Fase 2 ("Assiduidade, Correções, Ausências e Fecho Mensal") — 3 ficheiros em vez do plano original de mais componentes
+
+O plano inicial previa `AttendanceIssuesList`/`AttendanceIssueDetailPanel`/
+`MonthlyClosureBar` como componentes totalmente separados; a lista de
+pendências acabou por ficar inline dentro de `AttendanceView.tsx` (só o
+detalhe e a barra de fecho justificavam ficheiro próprio, pela
+complexidade de estado/mutações) — evita 1 ficheiro extra só para passar
+props para baixo sem lógica própria. Se a lista crescer (filtros,
+paginação), extrair nessa altura.
+
+### Fase 2 — motivo obrigatório é aplicado no frontend E no backend
+
+`AttendanceIssueDetailPanel` desativa o botão de submissão enquanto
+`reason.trim()` estiver vazio — mas isto é só UX, não segurança: o
+backend (`CorrectShiftAttendanceUseCase`) rejeita com
+`AttendanceCorrectionReasonRequiredError` de qualquer forma, mesmo que
+alguém contorne o frontend. O frontend nunca é a única validação.
+
+### Fase 2 — Resumo mensal/Horas & saldos mostram "em construção", nunca dados incompletos ou zerados
+
+As 2 abas ainda não têm use case/dados por trás (Fase B, próxima ronda) —
+mostrar `0`/`—` em todos os campos seria indistinguível de "sem
+atividade este mês", enganoso. Preferiu-se um aviso explícito de que a
+funcionalidade ainda não existe, seguindo a mesma regra já usada noutras
+partes do módulo (nunca mostrar `0` como fallback técnico quando a fonte
+real está indisponível/incompleta).
+
 ## Known gaps / dívidas conhecidas
 
+- **Fase 2 — Resumo mensal/Horas & saldos completos, migração de Férias
+  & Ausências, e exportação Excel/CSV ficam para rondas seguintes**
+  (confirmado com o utilizador antes de começar) — mostram "em
+  construção" em vez de dados incompletos.
+- **Fase 2 — sem testes automatizados de UI** para
+  `AttendanceView`/`AttendanceIssueDetailPanel`/`MonthlyClosureBar` —
+  mesma dívida já aceite para o resto do módulo; `tsc`/`eslint`/`build`
+  passam, mas não verificam comportamento real no ecrã (sem acesso a
+  browser nesta sessão).
+- **Fase 2 — `HrReportPage.tsx` (legacy) fica órfão de rota**, não foi
+  apagado — mesma cautela já usada com `HrEmployeesPage.tsx`, limpeza
+  futura depois de confirmar que nada mais aponta para lá.
 - **"Melhorar Visão Geral e reorganizar Pessoas" — aba Admissão não
   construída**: pedido explícito do utilizador para ignorar essa parte
   desta ronda ("para já ignora a criação de admissão, nao vejo necessario
