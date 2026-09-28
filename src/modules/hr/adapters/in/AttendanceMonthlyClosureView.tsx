@@ -2,7 +2,9 @@ import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useHrModule } from "../../hr.module.tsx";
+import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
 import { formatMinutes, formatMinutesAsWholeHours } from "../../../../lib/format-minutes.ts";
+import { JOB_ROLE_LABELS } from "../../domain/entities/employee.ts";
 import type { MonthlyAttendanceSummaryRow } from "../../domain/entities/attendance-summary.ts";
 
 type ReadinessFilter = "all" | "ready" | "pending";
@@ -19,31 +21,47 @@ function downloadCsv(filename: string, rows: string[][]) {
   URL.revokeObjectURL(url);
 }
 
-/** Pronto = sem nenhuma pendência (task "Simplificar Assiduidade", secção 16) — colapsa os 3 estados internos do backend (`pronto_para_fecho|pendencias|requer_atencao`, usados só em relatórios/exportação) para os 2 que o ecrã pede. Nunca depende de saldo negativo (secção 13/16). */
+/** Pronto = sem nenhuma pendência — colapsa os 3 estados internos do backend (`pronto_para_fecho|pendencias|requer_atencao`) para os 2 que o ecrã pede. Nunca depende de saldo negativo. */
 function isReady(row: MonthlyAttendanceSummaryRow): boolean {
   return row.pendingCount === 0;
 }
 
+/** Redesign do Fecho Mensal, secção 9 — agrupa ausências/atrasos numa única célula "Ocorrências", em vez de colunas separadas. */
+function occurrencesText(row: MonthlyAttendanceSummaryRow): string {
+  const parts: string[] = [];
+  if (row.absenceDaysCount > 0) parts.push(`${row.absenceDaysCount} ausência${row.absenceDaysCount === 1 ? "" : "s"}`);
+  if (row.lateDaysCount > 0) {
+    const suffix = row.lateMinutesTotal > 0 ? ` · ${formatMinutes(row.lateMinutesTotal)}` : "";
+    parts.push(`${row.lateDaysCount} atraso${row.lateDaysCount === 1 ? "" : "s"}${suffix}`);
+  }
+  return parts.length > 0 ? parts.join(" · ") : "—";
+}
+
 /**
- * "Fecho mensal" (task "Simplificar Assiduidade em Conferência + Fecho
- * Mensal") — funde o antigo "Por colaborador" (tabela por colaborador) com
- * a antiga `MonthlyClosureBar` (estado do período, fechar/reabrir) numa
- * única aba. Responde "como está cada colaborador e já posso encerrar o
- * mês?" (secção 11) — nunca um fecho individual por colaborador (secção
- * 17): só existe um "Fechar mês", a nível do período inteiro.
+ * "Fecho mensal" — funde o "Por colaborador" (tabela por colaborador) com
+ * o estado do período (fechar/reabrir) numa única aba. Redesign
+ * ("Redesign completo do Fecho Mensal") reduziu de 11 para 8 colunas e
+ * trocou o grid de KPIs por um resumo compacto de 1 linha — ver
+ * README para a correspondência exata com os campos já existentes
+ * (nenhum endpoint novo: o ratio "Conferência X/Y" e "Ocorrências"
+ * são só reapresentação de `plannedShiftsCount`/`pendingCount`/
+ * `absenceDaysCount`/`lateDaysCount` que já existiam). Nunca um fecho
+ * individual por colaborador: só existe um "Fechar mês", a nível do
+ * período inteiro.
  */
 export function AttendanceMonthlyClosureView({
   year,
   month,
   locationId,
-  onGoToConference,
+  onLocationChange,
 }: {
   year: number;
   month: number;
-  locationId?: string;
-  onGoToConference: () => void;
+  locationId: string;
+  onLocationChange: (locationId: string) => void;
 }) {
   const { api } = useHrModule();
+  const { locations } = useLocations();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
   const [readinessFilter, setReadinessFilter] = useState<ReadinessFilter>("all");
@@ -53,7 +71,7 @@ export function AttendanceMonthlyClosureView({
 
   const { data: summary, isLoading: summaryLoading, isError: summaryError, error: summaryErrorObj } = useQuery({
     queryKey: ["hr-attendance-summary", year, month, locationId],
-    queryFn: () => api.getMonthlyAttendanceSummary(year, month, locationId),
+    queryFn: () => api.getMonthlyAttendanceSummary(year, month, locationId || undefined),
   });
 
   const { data: closure, isLoading: closureLoading, isError: closureError } = useQuery({
@@ -84,6 +102,7 @@ export function AttendanceMonthlyClosureView({
   });
 
   const monthLabel = new Date(year, month - 1, 1).toLocaleDateString("pt-PT", { month: "long", year: "numeric" });
+  const isClosed = closure?.status === "closed";
 
   const filteredRows = useMemo(() => {
     if (!summary) return [];
@@ -97,7 +116,9 @@ export function AttendanceMonthlyClosureView({
   }, [summary, search, readinessFilter]);
 
   const readyCount = summary ? summary.rows.filter(isReady).length : 0;
-  const pendingEmployeeCount = summary ? summary.rows.length - readyCount : 0;
+  const employeeCount = summary?.rows.length ?? 0;
+  const pendingEmployeeCount = employeeCount - readyCount;
+  const readyPct = employeeCount > 0 ? Math.round((readyCount / employeeCount) * 100) : 0;
   const periodReady = closure ? closure.blockerCount === 0 : false;
 
   function handleClose() {
@@ -111,18 +132,16 @@ export function AttendanceMonthlyClosureView({
   function handleExport() {
     if (!summary) return;
     const rows: string[][] = [
-      ["Colaborador", "Turnos", "Pendências", "Ausências (dias)", "Dias atraso", "H. atraso", "H. planeadas", "H. realizadas", "Saldo", "Estado"],
+      ["Colaborador", "Cargo", "Conferência (conferidos/planeados)", "Planeado", "Realizado", "Ocorrências", "Saldo", "Estado"],
       ...filteredRows.map((r) => [
         r.employeeName,
-        String(r.plannedShiftsCount),
-        String(r.pendingCount),
-        String(r.absenceDaysCount),
-        String(r.lateDaysCount),
-        formatMinutes(r.lateMinutesTotal),
+        JOB_ROLE_LABELS[r.jobRole],
+        `${r.plannedShiftsCount - r.pendingCount}/${r.plannedShiftsCount}`,
         formatMinutesAsWholeHours(r.plannedMinutes),
         formatMinutesAsWholeHours(r.actualMinutes),
+        occurrencesText(r),
         isReady(r) ? formatMinutes(r.balanceMinutes) : "aguarda conferência",
-        isReady(r) ? "Pronto" : "Com pendências",
+        isClosed ? "Fechado" : isReady(r) ? "Pronto" : "Com pendências",
       ]),
     ];
     downloadCsv(`fecho-mensal-assiduidade-${year}-${String(month).padStart(2, "0")}.csv`, rows);
@@ -142,45 +161,49 @@ export function AttendanceMonthlyClosureView({
 
   return (
     <div className="space-y-4">
-      {/* Cabeçalho compacto do período — secção 11: sem grid de cards */}
-      <div className="flex flex-col gap-3 rounded-xl border border-[#F5C992]/40 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-sm font-semibold capitalize text-stone-800">Fecho mensal — {monthLabel}</p>
-          {closure.status === "closed" ? (
-            <p className="text-xs text-emerald-600">
+      {/* Resumo do período — compacto, nunca um card gigante */}
+      <div className="flex flex-col gap-4 rounded-xl border border-stone-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">{monthLabel}</p>
+          {isClosed ? (
+            <p className="mt-1 text-sm text-emerald-700">
               Fechado por {closure.closedBy} em{" "}
               {closure.closedAt
                 ? new Date(closure.closedAt).toLocaleDateString("pt-PT") + " às " + new Date(closure.closedAt).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" })
                 : "—"}
             </p>
           ) : (
-            <p className="text-xs text-stone-500">
-              {summary.kpis.employeeCount} colaboradores · {readyCount} pronto{readyCount === 1 ? "" : "s"} ·{" "}
-              {pendingEmployeeCount > 0 ? (
-                <button type="button" onClick={onGoToConference} className="font-medium text-red-600 hover:underline">
-                  {pendingEmployeeCount} com pendências
-                </button>
-              ) : (
-                "0 com pendências"
-              )}
-            </p>
+            <>
+              <p className="mt-1 text-sm text-stone-700">
+                <span className="font-semibold">{employeeCount}</span> colaboradores ·{" "}
+                <span className="font-semibold text-emerald-600">{readyCount}</span> prontos ·{" "}
+                <span className="font-semibold text-amber-600">{pendingEmployeeCount}</span> com pendências
+              </p>
+              <div className="mt-2 h-1.5 max-w-sm rounded-full bg-stone-100">
+                <div className="h-1.5 rounded-full bg-emerald-500 transition-all" style={{ width: `${readyPct}%` }} />
+              </div>
+              <p className="mt-1 text-xs text-stone-400">
+                {readyCount} / {employeeCount} colaboradores prontos para fechar
+              </p>
+            </>
           )}
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex shrink-0 items-center gap-2">
           <span
             className={`rounded-full px-3 py-1 text-xs font-medium ${
-              closure.status === "closed" ? "bg-emerald-50 text-emerald-700" : periodReady ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+              isClosed ? "bg-stone-100 text-stone-600" : periodReady ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
             }`}
           >
-            {closure.status === "closed" ? "Fechado" : periodReady ? "Pronto para fecho" : "Com pendências"}
+            {isClosed ? "Fechado" : periodReady ? "Pronto para fecho" : "Fecho pendente"}
           </span>
 
-          {closure.status === "open" ? (
+          {!isClosed ? (
             <button
               type="button"
               disabled={!periodReady || closeMutation.isPending}
               onClick={handleClose}
+              title={!periodReady ? "Resolva todas as pendências antes de fechar o mês." : undefined}
               className="rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-40"
             >
               {closeMutation.isPending ? "A fechar…" : "Fechar mês"}
@@ -209,7 +232,7 @@ export function AttendanceMonthlyClosureView({
             <button
               type="button"
               onClick={() => setReopening(true)}
-              className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+              className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
             >
               Reabrir período
             </button>
@@ -219,7 +242,7 @@ export function AttendanceMonthlyClosureView({
 
       {actionError && <p className="text-xs text-red-600">{actionError}</p>}
 
-      {/* Filtros — secção 12: sem cards de resumo extra */}
+      {/* Filtros */}
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex rounded-lg border border-stone-200 bg-white p-0.5 text-sm">
           {(
@@ -249,6 +272,20 @@ export function AttendanceMonthlyClosureView({
             placeholder="Pesquisar colaborador..."
             className="w-56 rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none focus:border-[#ED5C32]"
           />
+          {locations.length > 1 && (
+            <select
+              value={locationId}
+              onChange={(e) => onLocationChange(e.target.value)}
+              className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none focus:border-[#ED5C32]"
+            >
+              <option value="">Todos os locais</option>
+              {locations.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          )}
           <button
             type="button"
             onClick={handleExport}
@@ -259,18 +296,15 @@ export function AttendanceMonthlyClosureView({
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-[#F5C992]/40 bg-white">
+      <div className="overflow-x-auto rounded-xl border border-stone-200 bg-white">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-stone-100 text-left text-xs font-medium uppercase text-stone-400">
               <th className="px-4 py-2.5">Colaborador</th>
-              <th className="px-4 py-2.5">Turnos</th>
-              <th className="px-4 py-2.5">Pendências</th>
-              <th className="px-4 py-2.5">Ausências</th>
-              <th className="px-4 py-2.5">Dias atraso</th>
-              <th className="px-4 py-2.5">H. atraso</th>
-              <th className="px-4 py-2.5">H. planeadas</th>
-              <th className="px-4 py-2.5">H. realizadas</th>
+              <th className="px-4 py-2.5">Conferência</th>
+              <th className="px-4 py-2.5">Planeado</th>
+              <th className="px-4 py-2.5">Realizado</th>
+              <th className="px-4 py-2.5">Ocorrências</th>
               <th className="px-4 py-2.5">Saldo</th>
               <th className="px-4 py-2.5">Estado</th>
               <th className="px-4 py-2.5">Ação</th>
@@ -279,45 +313,62 @@ export function AttendanceMonthlyClosureView({
           <tbody>
             {filteredRows.length === 0 ? (
               <tr>
-                <td colSpan={11} className="px-4 py-8 text-center text-stone-400">
+                <td colSpan={8} className="px-4 py-8 text-center text-stone-400">
                   Sem colaboradores para este filtro.
                 </td>
               </tr>
             ) : (
               filteredRows.map((r) => {
                 const ready = isReady(r);
+                const conferred = r.plannedShiftsCount - r.pendingCount;
+                const pct = r.plannedShiftsCount > 0 ? Math.round((conferred / r.plannedShiftsCount) * 100) : 100;
                 return (
                   <tr key={r.employeeId} className="border-b border-stone-50 last:border-0 hover:bg-stone-50/60">
-                    <td className="px-4 py-2.5 font-medium text-stone-800">{r.employeeName}</td>
-                    <td className="px-4 py-2.5 text-stone-600">{r.plannedShiftsCount}</td>
-                    <td className={`px-4 py-2.5 font-medium ${r.pendingCount > 0 ? "text-red-600" : "text-stone-600"}`}>{r.pendingCount}</td>
-                    <td className="px-4 py-2.5 text-stone-600">{r.absenceDaysCount}</td>
-                    <td className="px-4 py-2.5 text-stone-600">{r.lateDaysCount}</td>
-                    <td className="px-4 py-2.5 text-stone-600">{formatMinutes(r.lateMinutesTotal)}</td>
-                    <td className="px-4 py-2.5 text-stone-600">{formatMinutesAsWholeHours(r.plannedMinutes)}</td>
-                    <td className="px-4 py-2.5 text-stone-600">{formatMinutesAsWholeHours(r.actualMinutes)}</td>
+                    <td className="max-w-[220px] px-4 py-2.5">
+                      <p className="truncate font-medium text-stone-800" title={r.employeeName}>
+                        {r.employeeName}
+                      </p>
+                      <p className="text-xs text-stone-400">{JOB_ROLE_LABELS[r.jobRole]}</p>
+                    </td>
                     <td className="px-4 py-2.5">
+                      <p className="whitespace-nowrap text-stone-700">
+                        {conferred}/{r.plannedShiftsCount} <span className="text-xs text-stone-400">{pct}%</span>
+                      </p>
+                      <div className="mt-1 h-1 w-20 rounded-full bg-stone-100">
+                        <div className={`h-1 rounded-full ${pct === 100 ? "bg-emerald-500" : "bg-amber-500"}`} style={{ width: `${pct}%` }} />
+                      </div>
+                      {r.pendingCount > 0 && <p className="mt-0.5 text-xs text-red-600">{r.pendingCount} por resolver</p>}
+                    </td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-stone-600">{formatMinutesAsWholeHours(r.plannedMinutes)}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-stone-600">{formatMinutesAsWholeHours(r.actualMinutes)}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-stone-600">{occurrencesText(r)}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5">
                       {ready ? (
                         <span className={r.balanceMinutes < 0 ? "font-medium text-red-600" : "font-medium text-emerald-600"}>
                           {formatMinutes(r.balanceMinutes)}
                         </span>
                       ) : (
-                        <span className="text-stone-400" title="Saldo só é definitivo depois de resolvidas todas as pendências">
-                          — <span className="text-xs">aguarda conferência</span>
+                        <span className="text-stone-400">
+                          Por calcular
+                          <span className="block text-xs">aguarda conferência</span>
                         </span>
                       )}
                     </td>
-                    <td className="px-4 py-2.5">
-                      <span className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${ready ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
-                        {ready ? "Pronto" : "Com pendências"}
+                    <td className="whitespace-nowrap px-4 py-2.5">
+                      <span
+                        className={`inline-block whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                          isClosed ? "bg-stone-100 text-stone-600" : ready ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
+                        }`}
+                      >
+                        {isClosed ? "Fechado" : ready ? "Pronto" : "Com pendências"}
                       </span>
                     </td>
-                    <td className="px-4 py-2.5">
+                    <td className="whitespace-nowrap px-4 py-2.5">
                       <Link
                         to={`/hr/assiduidade/colaborador/${r.employeeId}?year=${year}&month=${month}`}
-                        className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50"
+                        className="whitespace-nowrap rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50"
                       >
-                        Ver detalhe
+                        {isClosed ? "Ver resumo →" : "Rever fecho →"}
                       </Link>
                     </td>
                   </tr>

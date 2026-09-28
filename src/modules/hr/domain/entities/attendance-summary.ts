@@ -1,3 +1,5 @@
+import type { JobRole } from "./employee.ts";
+
 /**
  * Evolução "Assiduidade — Conferência, Por Colaborador e Horas & Saldos":
  * `status` não tem fórmula definida na task (secção 17 só nomeia os 3
@@ -10,6 +12,8 @@ export type AttendanceEmployeeStatus = "pronto_para_fecho" | "pendencias" | "req
 export interface MonthlyAttendanceSummaryRow {
   employeeId: string;
   employeeName: string;
+  /** Redesign do Fecho Mensal — subtítulo do nome na tabela geral. */
+  jobRole: JobRole;
   /** Turnos planeados no mês. */
   plannedShiftsCount: number;
   actualShiftsCount: number;

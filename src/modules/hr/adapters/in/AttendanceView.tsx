@@ -94,7 +94,7 @@ export function AttendanceView() {
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("pending");
   const [activeFilter, setActiveFilter] = useState<AttendanceOccurrenceKind | "all">("all");
   const [dateFilter, setDateFilter] = useState<DateFilter>("all");
-  const [search, setSearch] = useState("");
+  const [search, setSearch] = useState(() => searchParams.get("q") ?? "");
   const [locationId, setLocationId] = useState("");
   const [rulesModalOpen, setRulesModalOpen] = useState(false);
 
@@ -398,12 +398,7 @@ export function AttendanceView() {
         )}
 
         {tab === "fechamento" && (
-          <AttendanceMonthlyClosureView
-            year={year}
-            month={month}
-            locationId={locationId || undefined}
-            onGoToConference={() => updateParams({ tab: "conferencia" })}
-          />
+          <AttendanceMonthlyClosureView year={year} month={month} locationId={locationId} onLocationChange={setLocationId} />
         )}
       </div>
 

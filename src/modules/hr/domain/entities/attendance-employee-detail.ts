@@ -1,4 +1,5 @@
 import type { AttendanceIssueRow } from "./attendance-conference.ts";
+import type { JobRole } from "./employee.ts";
 
 /**
  * Ficha individual — "Assiduidade — Nome" (evolução "Assiduidade —
@@ -27,6 +28,8 @@ export interface AttendanceEmployeeDetailKpis {
 export interface AttendanceEmployeeDetailResult {
   employeeId: string;
   employeeName: string;
+  /** Redesign do Fecho Mensal — subtítulo do cabeçalho da ficha individual. */
+  jobRole: JobRole;
   kpis: AttendanceEmployeeDetailKpis;
   rows: AttendanceIssueRow[];
 }

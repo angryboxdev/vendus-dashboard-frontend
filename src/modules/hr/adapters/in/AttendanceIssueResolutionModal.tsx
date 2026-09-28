@@ -80,6 +80,7 @@ export function AttendanceIssueResolutionModal({
       void qc.invalidateQueries({ queryKey: ["hr-attendance-issues"] });
       void qc.invalidateQueries({ queryKey: ["hr-attendance-closure"] });
       void qc.invalidateQueries({ queryKey: ["hr-attendance-summary"] });
+      void qc.invalidateQueries({ queryKey: ["hr-attendance-employee-detail"] });
       onCorrected();
     },
   });

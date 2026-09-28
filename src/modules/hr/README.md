@@ -293,7 +293,14 @@ Um método por endpoint do backend — ver `domain/ports/out/hr-api.port.ts`.
   `reviewStatus`) e os chips por `occurrenceKind`, atalhos de data,
   pesquisa por nome e filtro de local, tal como antes — só a
   apresentação do resumo no topo e o nº de tabs mudou. Clicar em
-  "Resolver"/"Ver" abre `AttendanceIssueResolutionModal`.
+  "Resolver"/"Ver" abre `AttendanceIssueResolutionModal`. **Redesign do
+  Fecho Mensal**: a pesquisa da Conferência (`search`) passou a aceitar
+  um valor inicial via `?q=` — usado pelo link "Ver conferência
+  completa" da nova `AttendanceEmployeeDetailView` para pré-preencher o
+  nome do colaborador (`?tab=conferencia&q=<nome>`); `locationId`
+  também passou a ser passado como prop (com o respetivo setter) para
+  `AttendanceMonthlyClosureView`, que ganhou o seu próprio seletor de
+  loja em vez de só herdar o valor.
 - `AttendanceIssueResolutionModal` (Fase 2.1, substitui
   `AttendanceIssueDetailPanel` — painel lateral fixo vira modal, seguindo
   o mockup) → "Planeado/Registado" + diferença + 3 tabs internas (Ação/
@@ -302,8 +309,11 @@ Um método por endpoint do backend — ver `domain/ports/out/hr-api.port.ts`.
   conjunto mais granular da Fase 2, ver Decisões de design), cada uma com
   um aviso curto da consequência. O botão de submissão só ativa depois de
   o campo "Motivo" ter texto (nunca opcional, task secção 12). Também
-  reaproveitado, sem alterações, pela ficha individual
-  (`AttendanceEmployeeDetailView`) — nunca 2 fluxos de resolução.
+  reaproveitado, sem alterações de lógica, pela ficha individual
+  (`AttendanceEmployeeDetailView`) — nunca 2 fluxos de resolução; ganhou
+  mais uma invalidação (`["hr-attendance-employee-detail"]`) para que a
+  lista de pendências dessa página se atualize assim que uma é
+  resolvida, sem precisar de recarregar.
 - `AttendanceRulesModal` (Fase 2.1) → "⚙ Configurar regras" no cabeçalho
   de `AttendanceView`. 3 tabs: Regras gerais (5 tolerâncias/janelas em
   minutos + "Início do controlo de assiduidade" + caixa "Exemplo
@@ -312,47 +322,69 @@ Um método por endpoint do backend — ver `domain/ports/out/hr-api.port.ts`.
   nesta fase), Histórico de alterações (`AttendanceRuleChangeEntry[]` —
   só os 5 campos numéricos, `controlStartDate` não entra nesse
   histórico, ver README do backend).
-- `AttendanceMonthlyClosureView` (**novo**, substitui
-  `AttendancePeopleSummaryView` + `MonthlyClosureBar` numa só aba — task
-  "Simplificar Assiduidade em Conferência + Fecho Mensal", secção 6:
-  "nunca 2 fluxos de resolução distintos") → aba "Fecho mensal":
-  cabeçalho compacto (nome do mês, "N colaboradores · N pronto(s) · N
-  com pendências" ou "Fechado por X em DD/MM/AAAA às HH:mm", badge de
-  estado) + filtro Todos/Prontos/Com pendências + pesquisa + tabela
-  (Colaborador/Turnos/Pendências/Ausências/Dias atraso/H. atraso/
-  H. planeadas/H. realizadas/Saldo/Estado/**Ação**, a última sempre "Ver
-  detalhe" → `/hr/assiduidade/colaborador/:employeeId`). Estado por
-  colaborador **colapsado a 2 valores na UI** (`isReady(row) =
-  row.pendingCount === 0` → "Pronto"/"Com pendências") — o backend
-  continua a devolver 3 (`pronto_para_fecho|pendencias|requer_atencao`,
-  ver README do backend), mas a task pede só 2 no ecrã (secção 16); não
-  há mudança de contrato, só de apresentação. Saldo só mostra o valor
-  real (`formatMinutes`) quando `pendingCount === 0` — caso contrário
-  "— aguarda conferência" (task secção 14, nunca um número
-  potencialmente errado antes de tudo conferido). "Fechar mês" só existe
-  a nível do período inteiro (nunca um botão por colaborador, secção
-  17), fica desativado enquanto `blockerCount > 0`, e pede confirmação
-  (`window.confirm`, mesmo padrão já usado por
-  `EmployeeDocumentsTab.handleRemove`) antes de executar. "Reabrir
-  período" reaproveita a UX inline (input de motivo + confirmar/cancelar)
-  que já existia em `MonthlyClosureBar`. "⬇ Exportar" continua CSV
-  client-side, ganhou a coluna Estado (Pronto/Com pendências) e Saldo já
-  no formato "aguarda conferência" quando aplicável.
-- `AttendanceEmployeeDetailView` (evolução "Por Colaborador") — rota
-  `/hr/assiduidade/colaborador/:employeeId?year=&month=`: ficha
-  "Assiduidade — Nome" com breadcrumb (Assiduidade / **Fecho mensal** /
-  Nome — atualizado da task "Simplificar Assiduidade", já não existe
-  `?tab=colaborador`) + "← Voltar ao resumo" (aponta para
-  `?tab=fechamento`), 9 KPIs (Turnos planeados/realizados/Pendências/
-  Dias com atraso/Horas em atraso/Ausências/Horas planeadas/Horas
-  realizadas confirmadas/Saldo confirmado), filtros
-  Todos/Pendentes/Atrasos/Ausências/Conferidos, e o extrato diário
-  completo — ao contrário da Conferência, **nunca pula um turno
-  "Regular"** (mostra o mês inteiro). Clicar em "Resolver"/"Ver" reaproveita
-  o MESMO `AttendanceIssueResolutionModal` da Conferência — nunca duplica
-  o workflow (task, secção 19, literal); linhas "Regular" sem nenhuma
-  ocorrência (`occurrenceKind: "ok"`) não têm botão de ação, só um "—"
-  (nada para resolver).
+- `AttendanceMonthlyClosureView` (substitui `AttendancePeopleSummaryView`
+  + `MonthlyClosureBar` numa só aba — "nunca 2 fluxos de resolução
+  distintos") → aba "Fecho mensal". **Redesenhada por completo** pela
+  task "Redesign completo do Fecho Mensal" (a versão anterior tinha 11
+  colunas e reaproveitava muito da estética "cheia de cards" da
+  Conferência — a task pediu uma hierarquia mais executiva, ver Decisões
+  de design): resumo compacto do período (nome do mês, "N colaboradores
+  · N prontos · N com pendências", barra de progresso fina, badge de
+  estado) + filtro Todos/Prontos/Com pendências + pesquisa + seletor de
+  loja (**novo** — antes só herdava o filtro de loja da Conferência sem
+  ter controlo próprio) + tabela de **8 colunas** (Colaborador com
+  cargo por baixo do nome/Conferência/Planeado/Realizado/Ocorrências/
+  Saldo/Estado/Ação — reduzida das 11 anteriores, "Pendências"/"Dias
+  atraso"/"H. atraso"/"Ausências" fundidas numa única célula
+  "Ocorrências"). O ratio "Conferência X/Y" e a célula "Ocorrências" são
+  só reapresentação de campos que já existiam
+  (`plannedShiftsCount - pendingCount`, `absenceDaysCount`/
+  `lateDaysCount`/`lateMinutesTotal`) — nenhum endpoint novo. Estado por
+  colaborador **colapsado a 2 valores** (`isReady(row) = row.pendingCount
+  === 0` → "Pronto"/"Com pendências"), mais um 3º valor visual
+  ("Fechado") quando o período inteiro já foi fechado — sobrepõe o
+  estado de todas as linhas, já que nesse momento ninguém tem pendências
+  por definição (o fecho já as bloqueava). Saldo mostra "Por calcular" +
+  "aguarda conferência" enquanto `pendingCount > 0`. "Fechar mês" só
+  existe a nível do período inteiro (nunca um botão por colaborador),
+  desativado enquanto `blockerCount > 0` com `title` explicando o
+  motivo, e pede confirmação (`window.confirm`) antes de executar.
+  "Reabrir período" reaproveita a UX inline (input de motivo +
+  confirmar/cancelar) que já existia em `MonthlyClosureBar`. Bordas
+  `border-[#F5C992]/40` (âmbar, usadas em quase todo o resto do módulo)
+  trocadas por `border-stone-200` **só nesta view** — pedido explícito
+  do utilizador ("bordas amarelas em praticamente todos os elementos"),
+  deliberadamente não propagado a `AttendanceView`/Conferência (fora do
+  âmbito da task, evita mudar o visual de uma área que não foi pedida).
+- `AttendanceEmployeeDetailView` — rota
+  `/hr/assiduidade/colaborador/:employeeId?year=&month=`. **Reescrita
+  por completo** pela mesma task: a versão anterior mostrava o extrato
+  diário completo do mês (9 KPIs, filtros
+  Todos/Pendentes/Atrasos/Ausências/Conferidos, todas as linhas
+  incluindo "Regular") — praticamente uma cópia da Conferência, só que
+  filtrada a um colaborador. A task pediu que esta página responda só
+  "o que falta resolver para fechar este colaborador?": breadcrumb
+  (Assiduidade / Fecho mensal / Nome) + "← Voltar ao fecho mensal";
+  **1 card "Resumo do mês"** subdividido (Planeado/Realizado/Saldo +
+  "N turnos conferidos" + "N ausências · N atrasos" — nunca 9 cards
+  separados); **lista só das pendências**
+  (`rows.filter(reviewStatus === "pending")`, nunca as linhas
+  "Regular" — mesma chamada `getEmployeeAttendanceDetail` de sempre, só
+  filtrada de outra forma, sem endpoint novo), com paginação simples
+  ("Ver mais N pendências ↓" a partir de 8 linhas) e coluna "Tipo"
+  (badge derivado de `occurrenceKind`, nova função local
+  `OCCURRENCE_TYPE_LABEL`); "Ver conferência completa →" que leva a
+  `/hr/assiduidade?tab=conferencia&q=<nome>` (novo parâmetro `?q=` lido
+  por `AttendanceView` como valor inicial da pesquisa — ver abaixo).
+  Quando não há pendências: banner "✓ Conferência concluída — pronto
+  para fechar" + botão que volta ao Fecho mensal geral — **nunca** um
+  "Fechar mês do colaborador" que fingisse uma ação real (decisão
+  tomada com o utilizador, ver README do backend: não existe nem vai
+  existir fecho por colaborador nesta task). Quando o mês inteiro já
+  está fechado: estado read-only "✓ {mês} fechado — Fechado por X em
+  data", sem lista nem botões. Resolver uma pendência continua a
+  reaproveitar o MESMO `AttendanceIssueResolutionModal` da Conferência
+  — nunca duplica o workflow.
 - `SchedulesView` (RH-03) → página "Escalas & Turnos": tabs "Calendário" /
   "Turnos rotativos" / **"Alertas e ações"** (esta última passou de painel
   lateral fixo a tab própria — pedido do utilizador: liberta a largura do
