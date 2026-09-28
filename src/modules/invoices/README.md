@@ -1,7 +1,7 @@
 # Módulo: invoices
 
 > Status: ativo
-> Última atualização: 2026-08-18 (delete linha; edit inline tipo+categoria em EditLineForm; edição inline do nº fatura; aviso de impacto na modal de delete; refreshFullInvoice após mutações de linha; alteração de fornecedor no ReviewDrawer)
+> Última atualização: 2026-09-28 (refinamento visual da lista de Faturas: colunas/cores/bordas, ordenação, tamanho de página, Classificação real em vez do CC padrão do fornecedor)
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -140,28 +140,64 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 
 ### Entrada (UI)
 
-- **`InvoicesView`** — página `/financial/invoices`:
+- **`InvoicesView`** — página `/financial/invoices`. Vista Tabela redesenhada por completo pela task
+  "Refinamento visual da lista de Faturas" (identidade "ERP financeiro" — Linear/Stripe: fundo branco,
+  bordas `stone-200`, sem laranja fora do CTA/tab ativa, hierarquia por peso tipográfico em vez de
+  badges/pontos coloridos). Preserva toda a lógica de negócio (tabs, contagens, ciclo de vida,
+  correção estruturada) — mudou só apresentação + as adições explicitamente pedidas (ordenação,
+  tamanho de página).
   - **Toggle Tabela / Calendário** — segmented control no header para alternar entre as duas vistas.
   - **Vista Tabela**:
-    - Tabs com badge de contagem: *Por pagar*, *Aguardando conciliação*, *Concluídas*, *Todas*.
-      - "Por pagar": status `pending | overdue | draft_ai | pending_review | review` **e** `reconciliationStatus !== "pending_reconciliation"`.
-      - "Aguardando conciliação": `reconciliationStatus === "pending_reconciliation"`.
-      - "Concluídas": status `paid | cancelled` **e** `reconciliationStatus !== "pending_reconciliation"`.
-      - "Todas": todas as faturas sem filtro de estado.
-      - Mudar de tab preserva todos os filtros ativos; só reseta `page` e seleção de linhas.
-    - **Barra de filtros**:
-      - Pesquisa (fornecedor/nº fatura).
-      - *Todos os estados*: select com `appearance-none` + chevron SVG customizado; filtra por `InvoiceStatus`.
-      - *Todas as contas*: select com `appearance-none` + chevron SVG customizado; filtra por `paymentBankAccountId` (contas bancárias cadastradas na conciliação bancária).
-      - *Month picker*: botão que abre dropdown com navegação de ano + grelha 3×4 de meses; filtra por `issueDate ?? dueDate ?? paidAt` com `startsWith(YYYY-MM)`.
-      - *Filtros*: abre painel lateral (drawer) com filtros avançados — Fornecedor, Intervalo de valor, Classificação (CC padrão do fornecedor), Data de vencimento (De/Até), Débito direto. O botão fica laranja e exibe badge com contagem quando há filtros avançados ativos.
-    - **Colunas**: Checkbox | Fatura (`invoiceNumber` + `issueDate` abaixo; badge "DD" se `isDirectDebit`; badge vermelho "Duplicada" se `isDuplicate`) | Fornecedor | Vencimento (data + urgência: "Em atraso" vermelho / "Hoje" laranja / "N dias" âmbar) | Classificação (CC padrão do fornecedor: `● CODE — Name`) | Valor total | Ações.
-      - **Badge "Duplicada"**: reflecte `InvoiceDTO.isDuplicate`, calculado pelo backend a cada listagem (não é um campo editável nem persistido do lado do frontend) — aparece quando outra fatura activa do mesmo fornecedor tem o mesmo número. Complementa o aviso `duplicate_invoice` do import (que só aparece no drawer de revisão, antes de confirmar); este badge cobre o caso em que o utilizador confirma mesmo assim.
-      - **Coluna Estado** (badges `StatusBadge` + `ReconciliationBadge`): visível **apenas** na tab "Todas".
-      - **Badge DD**: aparece junto ao `invoiceNumber` para faturas com `isDirectDebit=true` (roxo, texto "DD").
-      - **Coluna Classificação**: mostra o `code` e `name` da categoria de CC padrão do fornecedor (derivado de `supplier.defaultCostCenterCategoryId` → `categoryById`); `—` se não configurado.
+    - Tabs com badge de contagem: *Por pagar*, *Aguardando conciliação*, *Concluídas*, *Todas*
+      (mesmas regras de sempre — ver combinações de `status`/`reconciliationStatus` no código).
+      Mudar de tab preserva todos os filtros ativos; só reseta `page` e seleção de linhas.
+      Altura/peso reduzidos (`px-3 py-2` em vez de `px-4 py-3`) — só a tab ativa tem laranja.
+    - **Barra de filtros** — reduzida a Pesquisa + Período (month picker) + Filtros:
+      - **Removido "Todos os estados"** — redundante com as 4 tabs, que já cobrem toda a superfície
+        de `InvoiceStatus`/`reconciliationStatus`; o `useQuery(["invoices"])` deixou de filtrar por
+        estado no pedido (busca sempre tudo, os tabs continuam a filtrar client-side como já faziam).
+      - **"Todas as contas" mudou-se para dentro do painel "Filtros avançados"**, e só é mostrado
+        quando `activeTab !== "por_pagar"` — nenhuma fatura "por pagar" tem `paymentBankAccountId`
+        ainda, por isso o filtro nunca seria útil nessa tab (task, secção 2: "o filtro de conta deve
+        aparecer apenas onde for relevante"). Conta para o badge de `activeAdvancedCount`.
+      - *Filtros avançados* (painel lateral): Fornecedor, Intervalo de valor, Classificação (CC padrão
+        do fornecedor), Data de vencimento (De/Até), Débito direto, Conta (condicional, acima).
+    - **Colunas**: Checkbox | Fornecedor | Fatura | (Estado — só na tab "Todas") | Vencimento |
+      Classificação | Valor total | Ações. Linhas mais compactas (`py-3.5`), divisórias
+      `divide-stone-100`, sem borda âmbar externa (`border-stone-200`).
+      - **Fornecedor**: até 2 linhas (`line-clamp-2`), sem dados adicionais.
+      - **Fatura**: `invoiceNumber` semibold + badges (NC/DD/Duplicada) numa linha, `invoiceDate`
+        pequeno e cinza por baixo.
+      - **Vencimento**: data + contexto temporal sempre visível — `"N dia(s) em atraso"` (vermelho,
+        `N` calculado a partir de `dueDate`, nunca um "Em atraso" genérico sem contagem), `"vence
+        hoje"` / `"vence em N dia(s)"` (laranja discreto se `≤7` dias, cinza se mais longe — nunca
+        colore a linha inteira, só o texto).
+      - **Classificação — mudou de fonte de dados**: antes mostrava o CC padrão do *fornecedor*
+        (`supplier.defaultCostCenterCategoryId`), sempre o mesmo valor informativo independentemente
+        de a fatura estar realmente classificada. Passou a mostrar `invoice.classificationSummary`
+        (a classificação REAL da fatura, já calculada pelo backend) — `mode: "none"` → "Classificação
+        pendente" (texto de atenção, âmbar; nunca um "—" mudo quando há uma pendência real de facto,
+        task secção 10); `mode: "unique"` → nome do centro de custo (`entries[0].costCenterCategoryId`
+        → `categoryById` → `groupId` → `groupById`, semibold) por cima do nome da subcategoria
+        (`entries[0].name`, cinza pequeno) — nunca o código interno (ex. `OPD.01`), nunca um ponto
+        colorido; `mode: "mixed"` → "Classificação mista" + "N categorias" (mesma ideia já usada no
+        card de Classificação do `InvoiceDetailDrawer`, nunca duplicada, só reaproveitada em miniatura).
+      - **Valor total**: `tabular-nums` adicionado para os valores alinharem verticalmente por dígito.
+      - **Ações**: "Ver"/"PDF" com padding reduzido (`py-1`); kebab ("...") com padding reduzido
+        (`p-1`) — nenhuma mudou de função.
+    - **Ordenação (nova)** — Fornecedor/Fatura/Vencimento/Valor total são clicáveis; 1 seta (▲/▼) só
+      na coluna atualmente ativa; alterna asc/desc no 2º clique na mesma coluna. Client-side
+      (`compareInvoices`, função pura em módulo, testável isoladamente), aplicada depois dos filtros
+      e antes da paginação — nunca muda `tabCounts` (que continua a contar sobre `filtered`, não
+      `sorted`). "Fatura" ordena por `invoiceNumber` (o valor semibold da coluna, não por
+      `issueDate`). "Vencimento" põe faturas sem `dueDate` sempre no fim, em qualquer direção.
+    - **Cabeçalho sticky** (`sticky top-0`) — fica visível durante o scroll da tabela.
     - **Ações por linha**: kebab menu ("...") via `createPortal` em `document.body` com posicionamento `fixed` (escapa do contexto `overflow-x-auto` da tabela). Overlay transparente fecha o menu ao clicar fora.
-    - **Paginação client-side**: 10 linhas por página; mostra "Mostrando X a Y de Z faturas"; botões Anterior/Próxima.
+    - **Paginação client-side**: tamanho de página agora escolhível (25/50/100, default 25 — antes
+      fixo em 10, task secção 16); mostra "Mostrando X a Y de Z faturas"; botões Anterior/Próxima.
+    - **Checkboxes/seleção em lote**: mantidos — já existe pelo menos uma ação em lote real
+      ("Marcar pagas"), por isso a task (secção 13: "remover se não houver ação em lote") não se
+      aplica aqui.
   - **Vista Calendário**:
     - Grid mensal Seg→Dom com navegação mês a mês e botão "Hoje".
     - Cada célula mostra chips das faturas com `dueDate` nesse dia (fallback: `paidAt` se não houver `dueDate`). Cor do chip = status da fatura.
@@ -254,10 +290,14 @@ O menu de ações ("...") de cada linha é renderizado em `document.body` via
 `createPortal` com posicionamento `fixed` calculado por `getBoundingClientRect()`.
 Resolve o problema de clipping causado pelo `overflow-x-auto` da tabela.
 
-**Coluna Classificação derivada do CC padrão do fornecedor, não da fatura.**
-A coluna mostra `supplier.defaultCostCenterCategoryId` resolvido via `categoryById`
-(mapa de categorias já carregado). É informativa — serve de referência visual para
-o manager saber se a classificação esperada está configurada.
+**Coluna Classificação passou a mostrar a classificação real da fatura, não o CC padrão do fornecedor.**
+*(Substitui a decisão anterior — mantida por histórico: até à task "Refinamento visual da lista de
+Faturas" a coluna mostrava `supplier.defaultCostCenterCategoryId`, só informativo, independente de a
+fatura estar de facto classificada.)* Agora usa `invoice.classificationSummary` — a mesma estrutura
+já calculada pelo backend e já usada no `InvoiceDetailDrawer` — para poder distinguir uma fatura
+realmente pendente de classificar (`mode: "none"`) de uma já classificada, o que o CC padrão do
+fornecedor nunca permitia (um fornecedor pode ter CC padrão configurado mesmo que esta fatura em
+concreto nunca tenha sido classificada, e vice-versa).
 
 **`ClassifyPanel` inline por linha (sem modal separado).**
 A classificação é frequente. Ter o painel directamente visível elimina um nível
@@ -319,10 +359,32 @@ Ao clicar "Editar pagamento" no card Pagamento, o modal inicializa com os valore
 **`UndoPaidConfirmModal` inline no drawer.**
 O modal de confirmação de "Desfazer pagamento" é renderizado dentro do `createPortal` do drawer (z-60, acima do drawer z-50). Ao confirmar, chama `api.setInvoiceStatus(id, "pending")` e notifica o pai via `onInvoiceUpdated`.
 
-**Identidade visual consistente com o grupo financeiro.**
+**Identidade visual consistente com o grupo financeiro — com uma exceção deliberada na lista de Faturas.**
 Bordas `border-[#F5C992]/40`, fundo `#FAF6F3`, gradiente `from-[#ED5C32] to-[#EF8935]`.
 Selects com `appearance-none` + chevron SVG customizado para uniformidade visual com
-outros inputs da app.
+outros inputs da app. **Exceção** (task "Refinamento visual da lista de Faturas"): o container
+da tabela, tabs, thead e divisórias da Vista Tabela passaram de `border-[#F5C992]/40` para
+`border-stone-200`/`divide-stone-100` — pedido explícito do utilizador ("remover a borda
+laranja externa", "sem excesso... bordas amarelas") para uma estética mais neutra tipo
+ERP. **Só a lista foi alterada** — os drawers (`InvoiceDetailDrawer`, `CreateInvoiceDrawer`,
+`ReviewImportedInvoiceDrawer`), o calendário e o resto do grupo financeiro mantêm
+`border-[#F5C992]/40` inalterado; se um pedido futuro quiser estender esta paleta mais
+neutra a todo o módulo/grupo, é uma decisão à parte, não implícita nesta.
+
+**Ordenação da lista de Faturas é client-side, sobre os dados já filtrados (nunca afeta contagens).**
+`compareInvoices` (função pura, módulo `InvoicesView.tsx`) ordena `tabFiltered` num novo
+`sorted`, inserido depois de `tabFiltered`/`tabCounts` e antes da paginação — garante que
+ordenar nunca muda os números dos badges das tabs. Só 1 coluna ativa de cada vez (clicar
+noutra troca a coluna e volta a `asc`; clicar na mesma alterna direção) — nunca ordenação
+multi-coluna, mantém a UI simples como pedido.
+
+**Filtro "Conta" mudou de posição, não de comportamento.**
+Antes vivia na barra principal, sempre visível; passou para dentro do painel "Filtros
+avançados", e só é renderizado quando `activeTab !== "por_pagar"`. A lógica de filtragem em
+si (`filtered` sobre `accountFilter`) não mudou nada — só onde e quando o controlo aparece
+(task, secção 2). O filtro "Todos os estados" foi removido por completo (não relocado): as 4
+tabs já cobrem toda a superfície de estados/conciliação que esse select oferecia, tornando-o
+puramente redundante.
 
 ## Como testar
 
@@ -333,7 +395,9 @@ outros inputs da app.
 
 - Testes de UI não implementados. A lógica de filtragem (tabs, filtros avançados,
   agrupamento do calendário) é candidata a extração para funções puras e testes
-  unitários com Vitest.
+  unitários com Vitest. `compareInvoices` (nova, ordenação da lista) já está extraída
+  como função pura de módulo — candidata mais imediata a ganhar teste unitário quando
+  a suite de testes deste módulo for criada.
 - Ao fechar e reabrir o `InvoiceDetailDrawer`, as linhas são recarregadas. Considerar
   cache via `useQuery` com `queryKey: ["invoice-lines", id]`.
 - `suggestLineClassification` está exposto no port/adapter mas ainda não é chamado

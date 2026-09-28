@@ -12,8 +12,6 @@ import {
   type ReconciliationStatus,
   type LineDetailMode,
   type PaymentMethod,
-  type CreateInvoicePayload,
-  type CreateInvoiceLinePayload,
   type InvoiceImportResultDTO,
   INVOICE_STATUS_LABELS,
   INVOICE_LINE_TYPE_LABELS,
@@ -63,16 +61,50 @@ function formatDate(s: string | null): string {
   return `${d}/${m}/${y}`;
 }
 
+/** Refinamento visual da lista de Faturas, secção 14 — ordenação client-side, uma coluna ativa de cada vez. */
+type InvoiceSortKey = "supplier" | "invoiceNumber" | "dueDate" | "amount";
+
+/**
+ * Melhoria dos Filtros avançados — "Vencimento" deixou de ser sempre um
+ * período (De/Até); passou a ter 4 modos mutuamente exclusivos: uma data
+ * exata, um período, um mês inteiro (ou "Todos os meses", i.e. modo ativo
+ * sem mês escolhido = sem restrição), ou só faturas vencidas (sem nenhum
+ * campo de data — deriva-se de `dueDate < hoje` e do estado da fatura).
+ */
+type DueDateFilterMode = "none" | "exact" | "range" | "month" | "overdue";
+
+function compareInvoices(a: InvoiceDTO, b: InvoiceDTO, key: InvoiceSortKey, dir: "asc" | "desc"): number {
+  const sign = dir === "asc" ? 1 : -1;
+  switch (key) {
+    case "supplier":
+      return sign * a.supplierName.localeCompare(b.supplierName, "pt");
+    case "invoiceNumber":
+      return sign * a.invoiceNumber.localeCompare(b.invoiceNumber, "pt", { numeric: true });
+    case "dueDate":
+      if (!a.dueDate && !b.dueDate) return 0;
+      if (!a.dueDate) return 1;
+      if (!b.dueDate) return -1;
+      return sign * a.dueDate.localeCompare(b.dueDate);
+    case "amount":
+      return sign * (a.totalWithVat - b.totalWithVat);
+    default:
+      return 0;
+  }
+}
+
 // ── StatusBadge ────────────────────────────────────────────────────────────────
+// Refinamento visual da lista de Faturas — texto simples, sem pill/contorno (pedido
+// explícito do utilizador para "Paga"/"Aguardando conciliação"; aplicado a todos os
+// valores para manter a coluna Estado consistente, em vez de misturar pill e texto).
 
 const STATUS_COLORS: Record<InvoiceStatus, string> = {
-  draft_ai: "bg-stone-100 text-stone-500",
-  pending_review: "bg-purple-50 text-purple-700",
-  pending: "bg-amber-50 text-amber-700",
-  paid: "bg-emerald-50 text-emerald-700",
-  overdue: "bg-red-50 text-red-700",
-  cancelled: "bg-stone-100 text-stone-500",
-  review: "bg-purple-50 text-purple-700",
+  draft_ai: "text-stone-500",
+  pending_review: "text-purple-600",
+  pending: "text-amber-600",
+  paid: "text-emerald-600",
+  overdue: "text-red-600",
+  cancelled: "text-stone-400",
+  review: "text-purple-600",
 };
 
 const STATUS_DOT: Record<InvoiceStatus, string> = {
@@ -87,10 +119,7 @@ const STATUS_DOT: Record<InvoiceStatus, string> = {
 
 function StatusBadge({ status }: { status: InvoiceStatus }) {
   return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_COLORS[status]}`}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full ${STATUS_DOT[status]}`} />
+    <span className={`font-medium ${STATUS_COLORS[status]}`}>
       {INVOICE_STATUS_LABELS[status]}
     </span>
   );
@@ -120,17 +149,17 @@ const RECON_CONFIG: Record<
   },
 };
 
+/** Lista de Faturas — texto simples (sem pill), independente do `RECON_CONFIG.cls` acima, que continua a ser um pill e é partilhado com o `InvoiceDetailDrawer`. */
+const RECON_TEXT_COLORS: Record<ReconciliationStatus, string> = {
+  none: "",
+  pending_reconciliation: "text-violet-600",
+  partially_reconciled: "text-amber-600",
+  reconciled: "text-teal-600",
+};
+
 function ReconciliationBadge({ status }: { status: ReconciliationStatus }) {
   if (status === "none") return null;
-  const { label, cls, dot } = RECON_CONFIG[status];
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${cls}`}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full ${dot}`} />
-      {label}
-    </span>
-  );
+  return <span className={`font-medium ${RECON_TEXT_COLORS[status]}`}>{RECON_CONFIG[status].label}</span>;
 }
 
 // ── MarkPaidModal ─────────────────────────────────────────────────────────────
@@ -2390,501 +2419,6 @@ function InvoiceDetailDrawer({
   );
 }
 
-// ── Create Invoice Form ────────────────────────────────────────────────────────
-
-interface CreateFormProps {
-  open: boolean;
-  suppliers: { id: string; name: string }[];
-  categories: CostCenterCategory[];
-  saving: boolean;
-  onClose: () => void;
-  onSave: (payload: CreateInvoicePayload) => void;
-}
-
-// Mini line builder used inside CreateInvoiceDrawer
-interface LineBuilder {
-  description: string;
-  type: InvoiceLineType;
-  quantity: string;
-  unit: string;
-  unitCost: string;
-  vatRate: string;
-  catId: string;
-  locationId: string | null;
-}
-
-function emptyLineBuilder(): LineBuilder {
-  return {
-    description: "",
-    type: "other",
-    quantity: "1",
-    unit: "",
-    unitCost: "",
-    vatRate: "23",
-    catId: "",
-    locationId: null,
-  };
-}
-
-function lineBuilderToPayload(b: LineBuilder): CreateInvoiceLinePayload {
-  const unitCostEur = parseFloat(b.unitCost || "0");
-  const subtotal = parseFloat(b.quantity || "0") * unitCostEur;
-  const vatAmount = Math.round(subtotal * (parseFloat(b.vatRate) / 100) * 100);
-  const payload: CreateInvoiceLinePayload = {
-    description: b.description,
-    type: b.type,
-    quantity: parseFloat(b.quantity),
-    unitCostWithoutVat: Math.round(unitCostEur * 100),
-    vatRate: parseFloat(b.vatRate),
-    vatAmount,
-    totalWithVat: Math.round(subtotal * 100) + vatAmount,
-    // Optional (D4): omitted means "organization-wide, no store". Never defaulted.
-    locationId: b.locationId,
-  };
-  if (b.unit) payload.unit = b.unit;
-  if (b.catId) payload.costCenterCategoryId = b.catId;
-  return payload;
-}
-
-function CreateInvoiceDrawer({
-  open,
-  suppliers,
-  categories,
-  saving,
-  onClose,
-  onSave,
-}: CreateFormProps) {
-  const [supplierId, setSupplierId] = useState("");
-  const [supplierName, setSupplierName] = useState("");
-  const [invoiceNumber, setInvoiceNumber] = useState("");
-  const [invoiceDate, setInvoiceDate] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [subtotal, setSubtotal] = useState("");
-  const [totalVat, setTotalVat] = useState("");
-  const [totalWithVat, setTotalWithVat] = useState("");
-  const [notes, setNotes] = useState("");
-  const [lines, setLines] = useState<CreateInvoiceLinePayload[]>([]);
-  const [addingLine, setAddingLine] = useState(false);
-  const [lineBuilder, setLineBuilder] = useState<LineBuilder>(emptyLineBuilder);
-
-  if (!open) return null;
-
-  function handleSupplierChange(id: string) {
-    setSupplierId(id);
-    if (id) {
-      const sup = suppliers.find((s) => s.id === id);
-      if (sup) setSupplierName(sup.name);
-    }
-  }
-
-  function handleAddLine() {
-    if (!lineBuilder.description || !lineBuilder.unitCost) return;
-    setLines((prev) => [...prev, lineBuilderToPayload(lineBuilder)]);
-    setLineBuilder(emptyLineBuilder());
-    setAddingLine(false);
-  }
-
-  function handleRemoveLine(idx: number) {
-    setLines((prev) => prev.filter((_, i) => i !== idx));
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const payload: CreateInvoicePayload = {
-      supplierName: supplierId
-        ? (suppliers.find((s) => s.id === supplierId)?.name ?? supplierName)
-        : supplierName,
-      invoiceNumber,
-      invoiceDate,
-      subtotalWithoutVat: Math.round(parseFloat(subtotal) * 100),
-      totalVat: Math.round(parseFloat(totalVat) * 100),
-      totalWithVat: Math.round(parseFloat(totalWithVat) * 100),
-    };
-    if (supplierId) payload.supplierId = supplierId;
-    if (dueDate) payload.dueDate = dueDate;
-    if (notes) payload.notes = notes;
-    if (lines.length > 0) payload.lines = lines;
-    onSave(payload);
-  }
-
-  const labelCls = "block text-xs font-medium text-stone-500 mb-1";
-  const inputCls =
-    "w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]";
-  const inputSmCls =
-    "w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]";
-
-  const lbSubtotal =
-    parseFloat(lineBuilder.quantity || "0") *
-    parseFloat(lineBuilder.unitCost || "0");
-  const lbTotal =
-    Math.round(lbSubtotal * 100) +
-    Math.round(lbSubtotal * (parseFloat(lineBuilder.vatRate) / 100) * 100);
-
-  return createPortal(
-    <div className="fixed inset-0 z-50 flex" aria-modal="true">
-      <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
-      <aside className="flex h-full w-full max-w-lg flex-col bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-[#F5C992]/40 px-6 py-4">
-          <h2 className="text-lg font-bold text-stone-800">Nova Fatura</h2>
-          <button
-            onClick={onClose}
-            className="rounded-md p-1 text-stone-400 hover:bg-stone-100"
-          >
-            <svg className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-            </svg>
-          </button>
-        </div>
-        <form
-          onSubmit={handleSubmit}
-          className="flex flex-1 flex-col overflow-y-auto px-6 py-4"
-        >
-          <div className="flex-1 space-y-4">
-            {/* Supplier */}
-            <div>
-              <label className={labelCls}>Fornecedor</label>
-              <select
-                value={supplierId}
-                onChange={(e) => handleSupplierChange(e.target.value)}
-                className={inputCls}
-              >
-                <option value="">
-                  — selecionar ou preencher manualmente —
-                </option>
-                {suppliers.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-            {!supplierId && (
-              <div>
-                <label className={labelCls}>Nome do fornecedor (manual)</label>
-                <input
-                  type="text"
-                  required
-                  value={supplierName}
-                  onChange={(e) => setSupplierName(e.target.value)}
-                  className={inputCls}
-                  placeholder="ex: EDP"
-                />
-              </div>
-            )}
-
-            {/* Invoice number + date */}
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <label className={labelCls}>Nº de fatura</label>
-                <input
-                  type="text"
-                  required
-                  value={invoiceNumber}
-                  onChange={(e) => setInvoiceNumber(e.target.value)}
-                  className={inputCls}
-                  placeholder="EDP-2026-001"
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Data de emissão</label>
-                <input
-                  type="date"
-                  required
-                  value={invoiceDate}
-                  onChange={(e) => setInvoiceDate(e.target.value)}
-                  className={inputCls}
-                />
-              </div>
-            </div>
-
-            {/* Due date */}
-            <div>
-              <label className={labelCls}>Data de vencimento</label>
-              <input
-                type="date"
-                value={dueDate}
-                onChange={(e) => setDueDate(e.target.value)}
-                className={inputCls}
-              />
-            </div>
-
-            {/* Amounts */}
-            <div className="grid grid-cols-3 gap-3">
-              <div>
-                <label className={labelCls}>Total s/ IVA (€)</label>
-                <NumericInput
-                  required
-                  value={subtotal}
-                  onChange={(e) => setSubtotal(e.target.value)}
-                  className={inputCls}
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className={labelCls}>IVA (€)</label>
-                <NumericInput
-                  required
-                  value={totalVat}
-                  onChange={(e) => setTotalVat(e.target.value)}
-                  className={inputCls}
-                  placeholder="0.00"
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Total c/ IVA (€)</label>
-                <NumericInput
-                  required
-                  value={totalWithVat}
-                  onChange={(e) => setTotalWithVat(e.target.value)}
-                  className={inputCls}
-                  placeholder="0.00"
-                />
-              </div>
-            </div>
-
-            {/* Notes */}
-            <div>
-              <label className={labelCls}>Notas</label>
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                rows={2}
-                className={inputCls}
-                placeholder="Opcional"
-              />
-            </div>
-
-            {/* Lines section */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium text-stone-500">
-                  Linhas
-                </label>
-                <span className="text-xs text-stone-400">
-                  {lines.length} linha{lines.length !== 1 ? "s" : ""}
-                </span>
-              </div>
-
-              {/* Added lines list */}
-              {lines.length > 0 && (
-                <ul className="space-y-1">
-                  {lines.map((l, i) => (
-                    <li
-                      key={i}
-                      className="flex items-center justify-between rounded-md border border-stone-200 bg-stone-50 px-3 py-2 text-xs"
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate font-medium text-stone-700">
-                          {l.description}
-                        </p>
-                        <p className="text-stone-400">
-                          {INVOICE_LINE_TYPE_LABELS[l.type ?? "other"]} ·{" "}
-                          {(l.totalWithVat / 100).toLocaleString("pt-PT", {
-                            style: "currency",
-                            currency: "EUR",
-                          })}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveLine(i)}
-                        className="ml-2 shrink-0 text-stone-400 hover:text-red-500"
-                      >
-                        <svg
-                          className="h-3.5 w-3.5"
-                          viewBox="0 0 20 20"
-                          fill="currentColor"
-                        >
-                          <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-                        </svg>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-
-              {/* Add line mini-form */}
-              {addingLine ? (
-                <div className="space-y-2 rounded-lg border border-[#F5C992]/60 bg-[#FDF8F5] p-3">
-                  <input
-                    type="text"
-                    value={lineBuilder.description}
-                    onChange={(e) =>
-                      setLineBuilder((b) => ({
-                        ...b,
-                        description: e.target.value,
-                      }))
-                    }
-                    placeholder="Descrição *"
-                    className={inputSmCls}
-                  />
-                  <select
-                    value={lineBuilder.type}
-                    onChange={(e) =>
-                      setLineBuilder((b) => ({
-                        ...b,
-                        type: e.target.value as InvoiceLineType,
-                      }))
-                    }
-                    className={inputSmCls}
-                  >
-                    {(
-                      Object.entries(INVOICE_LINE_TYPE_LABELS) as [
-                        InvoiceLineType,
-                        string,
-                      ][]
-                    ).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                  <div className="grid grid-cols-2 gap-2">
-                    <NumericInput
-                      decimals={3}
-                      value={lineBuilder.quantity}
-                      onChange={(e) =>
-                        setLineBuilder((b) => ({
-                          ...b,
-                          quantity: e.target.value,
-                        }))
-                      }
-                      placeholder="Qtd *"
-                      className={inputSmCls}
-                    />
-                    <input
-                      type="text"
-                      value={lineBuilder.unit}
-                      onChange={(e) =>
-                        setLineBuilder((b) => ({ ...b, unit: e.target.value }))
-                      }
-                      placeholder="Unidade"
-                      className={inputSmCls}
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-2">
-                    <NumericInput
-                      value={lineBuilder.unitCost}
-                      onChange={(e) =>
-                        setLineBuilder((b) => ({
-                          ...b,
-                          unitCost: e.target.value,
-                        }))
-                      }
-                      placeholder="Preço s/ IVA (€) *"
-                      className={inputSmCls}
-                    />
-                    <select
-                      value={lineBuilder.vatRate}
-                      onChange={(e) =>
-                        setLineBuilder((b) => ({
-                          ...b,
-                          vatRate: e.target.value,
-                        }))
-                      }
-                      className={inputSmCls}
-                    >
-                      <option value="0">IVA 0%</option>
-                      <option value="6">IVA 6%</option>
-                      <option value="13">IVA 13%</option>
-                      <option value="23">IVA 23%</option>
-                    </select>
-                  </div>
-                  <select
-                    value={lineBuilder.catId}
-                    onChange={(e) =>
-                      setLineBuilder((b) => ({ ...b, catId: e.target.value }))
-                    }
-                    className={inputSmCls}
-                  >
-                    <option value="">Subcategoria CC</option>
-                    {categories
-                      .filter((c) => c.isActive)
-                      .map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.code} — {c.name}
-                        </option>
-                      ))}
-                  </select>
-                  {/* Store (D4): optional — a cost may belong to the whole organization and to no store */}
-                  <LocationSelect
-                    value={lineBuilder.locationId}
-                    onChange={(locationId) =>
-                      setLineBuilder((b) => ({ ...b, locationId }))
-                    }
-                    allowUnset
-                    className={inputSmCls}
-                  />
-                  {lbSubtotal > 0 && (
-                    <p className="text-xs text-stone-500 tabular-nums">
-                      Total c/ IVA:{" "}
-                      <span className="font-semibold text-stone-800">
-                        {(lbTotal / 100).toLocaleString("pt-PT", {
-                          style: "currency",
-                          currency: "EUR",
-                        })}
-                      </span>
-                    </p>
-                  )}
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setAddingLine(false);
-                        setLineBuilder(emptyLineBuilder());
-                      }}
-                      className="flex-1 rounded-md border border-stone-300 px-2 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50"
-                    >
-                      Cancelar
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleAddLine}
-                      disabled={
-                        !lineBuilder.description || !lineBuilder.unitCost
-                      }
-                      className="flex-1 rounded-md bg-stone-800 px-2 py-1.5 text-xs font-medium text-white hover:bg-stone-700 disabled:opacity-40"
-                    >
-                      Adicionar
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => setAddingLine(true)}
-                  className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-dashed border-stone-300 py-2 text-xs font-medium text-stone-500 hover:border-[#ED5C32] hover:text-[#ED5C32]"
-                >
-                  <span className="text-base leading-none">+</span> Adicionar
-                  linha
-                </button>
-              )}
-            </div>
-          </div>
-
-          <div className="flex gap-3 border-t border-[#F5C992]/40 pt-4 mt-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={saving}
-              className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-            >
-              {saving ? "A guardar…" : "Criar fatura"}
-            </button>
-          </div>
-        </form>
-      </aside>
-    </div>,
-    document.body,
-  );
-}
-
 // ── Invoice Calendar View ──────────────────────────────────────────────────────
 
 const MONTH_NAMES_PT = [
@@ -3447,7 +2981,6 @@ export function InvoicesView() {
   const [activeTab, setActiveTab] = useState<
     "por_pagar" | "aguardando_conciliacao" | "concluidas" | "todas"
   >("por_pagar");
-  const [statusFilter, setStatusFilter] = useState<InvoiceStatus | "">("");
   const [accountFilter, setAccountFilter] = useState<string>("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [search, setSearch] = useState("");
@@ -3472,11 +3005,25 @@ export function InvoicesView() {
   const [maxAmount, setMaxAmount] = useState<string>("");
   const [categoryFilter, setCategoryFilter] = useState<string>("");
   const [directDebitFilter, setDirectDebitFilter] = useState(false);
+  const [dueDateMode, setDueDateMode] = useState<DueDateFilterMode>("none");
+  const [dueDateExact, setDueDateExact] = useState<string>("");
   const [dueDateFrom, setDueDateFrom] = useState<string>("");
   const [dueDateTo, setDueDateTo] = useState<string>("");
+  const [dueDateMonth, setDueDateMonth] = useState<string>("");
   const [page, setPage] = useState(1);
-  const pageSize = 10;
-  const [showCreate, setShowCreate] = useState(false);
+  const [pageSize, setPageSize] = useState(25);
+  const [sortBy, setSortBy] = useState<InvoiceSortKey | null>(null);
+  const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
+
+  function toggleSort(key: InvoiceSortKey) {
+    if (sortBy === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(key);
+      setSortDir("asc");
+    }
+    setPage(1);
+  }
   const [showImport, setShowImport] = useState(false);
   const [importResult, setImportResult] =
     useState<InvoiceImportResultDTO | null>(null);
@@ -3490,9 +3037,8 @@ export function InvoicesView() {
 
   // Data
   const { data: invoices = [], isLoading } = useQuery({
-    queryKey: ["invoices", statusFilter],
-    queryFn: () =>
-      api.listInvoices(statusFilter ? { status: statusFilter } : undefined),
+    queryKey: ["invoices"],
+    queryFn: () => api.listInvoices(),
   });
 
   useQuery({
@@ -3553,6 +3099,11 @@ export function InvoicesView() {
     [categories],
   );
 
+  const groupById = useMemo(
+    () => new Map(groups.map((g) => [g.id, g])),
+    [groups],
+  );
+
   const invoicesByDueDate = useMemo(() => {
     const map = new Map<string, InvoiceDTO[]>();
     for (const inv of invoices) {
@@ -3589,15 +3140,6 @@ export function InvoicesView() {
       navigate("/financial/invoices", { replace: true });
     }
   }, [searchParams, invoices, navigate]);
-
-  const createMutation = useMutation({
-    mutationFn: (payload: CreateInvoicePayload) => api.createInvoice(payload),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["invoices"] });
-      void qc.invalidateQueries({ queryKey: ["invoice-lines-all"] });
-      setShowCreate(false);
-    },
-  });
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteInvoice(id),
@@ -3653,8 +3195,8 @@ export function InvoicesView() {
     maxAmount,
     categoryFilter,
     directDebitFilter,
-    dueDateFrom,
-    dueDateTo,
+    dueDateMode !== "none",
+    accountFilter,
   ].filter(Boolean).length;
 
   function clearAdvancedFilters() {
@@ -3663,10 +3205,20 @@ export function InvoicesView() {
     setMaxAmount("");
     setCategoryFilter("");
     setDirectDebitFilter(false);
+    setDueDateMode("none");
+    setDueDateExact("");
     setDueDateFrom("");
     setDueDateTo("");
+    setDueDateMonth("");
+    setAccountFilter("");
     setPage(1);
   }
+
+  // Today string for due-date urgency/filter
+  const todayStr = (() => {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  })();
 
   // Filtered by search + account + month + advanced
   const filtered = useMemo(() => {
@@ -3698,14 +3250,38 @@ export function InvoicesView() {
       });
     }
     if (directDebitFilter) result = result.filter((inv) => inv.isDirectDebit);
-    if (dueDateFrom)
-      result = result.filter(
-        (inv) => !!inv.dueDate && inv.dueDate >= dueDateFrom,
-      );
-    if (dueDateTo)
-      result = result.filter(
-        (inv) => !!inv.dueDate && inv.dueDate <= dueDateTo,
-      );
+    switch (dueDateMode) {
+      case "exact":
+        if (dueDateExact)
+          result = result.filter((inv) => inv.dueDate === dueDateExact);
+        break;
+      case "range":
+        if (dueDateFrom)
+          result = result.filter(
+            (inv) => !!inv.dueDate && inv.dueDate >= dueDateFrom,
+          );
+        if (dueDateTo)
+          result = result.filter(
+            (inv) => !!inv.dueDate && inv.dueDate <= dueDateTo,
+          );
+        break;
+      case "month":
+        if (dueDateMonth)
+          result = result.filter(
+            (inv) => !!inv.dueDate && inv.dueDate.startsWith(dueDateMonth),
+          );
+        break;
+      case "overdue":
+        result = result.filter(
+          (inv) =>
+            !!inv.dueDate &&
+            inv.dueDate < todayStr &&
+            !["paid", "cancelled"].includes(inv.status),
+        );
+        break;
+      default:
+        break;
+    }
     if (!search) return result;
     const q = search.toLowerCase();
     return result.filter(
@@ -3723,8 +3299,12 @@ export function InvoicesView() {
     maxAmount,
     categoryFilter,
     directDebitFilter,
+    dueDateMode,
+    dueDateExact,
     dueDateFrom,
     dueDateTo,
+    dueDateMonth,
+    todayStr,
     supplierById,
   ]);
 
@@ -3788,18 +3368,17 @@ export function InvoicesView() {
     setActiveTab(tab);
     setPage(1);
     setSelectedIds(new Set());
-    setStatusFilter("");
   }
 
-  // Pagination
-  const totalPages = Math.ceil(tabFiltered.length / pageSize);
-  const paginated = tabFiltered.slice((page - 1) * pageSize, page * pageSize);
+  const sorted = useMemo(() => {
+    if (!sortBy) return tabFiltered;
+    return [...tabFiltered].sort((a, b) => compareInvoices(a, b, sortBy, sortDir));
+  }, [tabFiltered, sortBy, sortDir]);
 
-  // Today string for due-date urgency
-  const todayStr = (() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-  })();
+  // Pagination
+  const totalPages = Math.ceil(sorted.length / pageSize);
+  const paginated = sorted.slice((page - 1) * pageSize, page * pageSize);
+
 
   return (
     <div className="min-h-screen bg-[#FAF6F3]">
@@ -3885,19 +3464,6 @@ export function InvoicesView() {
               </svg>
               <span className="hidden sm:inline">Importar faturas</span>
             </button>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="flex items-center gap-2 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-3 py-2 text-sm font-medium text-white hover:opacity-90 sm:px-4"
-            >
-              <svg
-                className="h-4 w-4 shrink-0"
-                viewBox="0 0 20 20"
-                fill="currentColor"
-              >
-                <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-              </svg>
-              <span className="hidden sm:inline">Nova fatura manual</span>
-            </button>
           </div>
         </div>
       </div>
@@ -3927,70 +3493,6 @@ export function InvoicesView() {
               placeholder="Pesquisar fornecedor, nº fatura, referência..."
               className="w-72 rounded-md border border-stone-300 bg-white pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
             />
-          </div>
-          {/* Status select */}
-          <div className="relative">
-            <select
-              value={statusFilter}
-              onChange={(e) => {
-                setStatusFilter(e.target.value as InvoiceStatus | "");
-                setPage(1);
-              }}
-              className="appearance-none rounded-md border border-stone-300 bg-white py-2 pl-3 pr-8 text-sm text-stone-700 focus:outline-none focus:border-[#ED5C32]"
-            >
-              <option value="">Todos os estados</option>
-              {(
-                Object.entries(INVOICE_STATUS_LABELS) as [
-                  InvoiceStatus,
-                  string,
-                ][]
-              ).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
-            <svg
-              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-                clipRule="evenodd"
-              />
-            </svg>
-          </div>
-
-          {/* Accounts select */}
-          <div className="relative">
-            <select
-              value={accountFilter}
-              onChange={(e) => {
-                setAccountFilter(e.target.value);
-                setPage(1);
-              }}
-              className="appearance-none rounded-md border border-stone-300 bg-white py-2 pl-3 pr-8 text-sm text-stone-700 focus:outline-none focus:border-[#ED5C32] w-40"
-            >
-              <option value="">Todas as contas</option>
-              {bankAccounts.map((acc) => (
-                <option key={acc.id} value={acc.id}>
-                  {acc.label}
-                </option>
-              ))}
-            </select>
-            <svg
-              className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400"
-              viewBox="0 0 20 20"
-              fill="currentColor"
-            >
-              <path
-                fillRule="evenodd"
-                d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
-                clipRule="evenodd"
-              />
-            </svg>
           </div>
 
           {/* Month picker */}
@@ -4272,32 +3774,97 @@ export function InvoicesView() {
                     </div>
                   </div>
 
-                  {/* Data de vencimento */}
+                  {/* Vencimento — 4 modos mutuamente exclusivos, cada um só com os campos que faz sentido pedir */}
                   <div>
                     <label className="mb-1.5 block text-xs font-medium text-stone-600">
-                      Data de vencimento
+                      Vencimento
                     </label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="date"
-                        value={dueDateFrom}
-                        onChange={(e) => {
-                          setDueDateFrom(e.target.value);
-                          setPage(1);
-                        }}
-                        className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
-                      />
-                      <span className="text-stone-400 text-sm">—</span>
-                      <input
-                        type="date"
-                        value={dueDateTo}
-                        onChange={(e) => {
-                          setDueDateTo(e.target.value);
-                          setPage(1);
-                        }}
-                        className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
-                      />
+                    <div className="flex flex-wrap gap-1 rounded-lg border border-stone-200 bg-white p-0.5 text-xs">
+                      {(
+                        [
+                          { key: "none" as const, label: "Todos" },
+                          { key: "exact" as const, label: "Data específica" },
+                          { key: "range" as const, label: "Período" },
+                          { key: "month" as const, label: "Mês" },
+                          { key: "overdue" as const, label: "Vencidas" },
+                        ]
+                      ).map(({ key, label }) => (
+                        <button
+                          key={key}
+                          type="button"
+                          onClick={() => {
+                            setDueDateMode(key);
+                            setPage(1);
+                          }}
+                          className={`rounded-md px-2 py-1 font-medium transition-colors ${
+                            dueDateMode === key
+                              ? "bg-stone-800 text-white"
+                              : "text-stone-500 hover:bg-stone-100"
+                          }`}
+                        >
+                          {label}
+                        </button>
+                      ))}
                     </div>
+
+                    {dueDateMode === "exact" && (
+                      <input
+                        type="date"
+                        value={dueDateExact}
+                        onChange={(e) => {
+                          setDueDateExact(e.target.value);
+                          setPage(1);
+                        }}
+                        className="mt-2 w-full rounded-md border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
+                      />
+                    )}
+
+                    {dueDateMode === "range" && (
+                      <div className="mt-2 flex items-center gap-2">
+                        <input
+                          type="date"
+                          value={dueDateFrom}
+                          onChange={(e) => {
+                            setDueDateFrom(e.target.value);
+                            setPage(1);
+                          }}
+                          className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
+                        />
+                        <span className="text-stone-400 text-sm">—</span>
+                        <input
+                          type="date"
+                          value={dueDateTo}
+                          onChange={(e) => {
+                            setDueDateTo(e.target.value);
+                            setPage(1);
+                          }}
+                          className="w-full rounded-md border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
+                        />
+                      </div>
+                    )}
+
+                    {dueDateMode === "month" && (
+                      <input
+                        type="month"
+                        value={dueDateMonth}
+                        onChange={(e) => {
+                          setDueDateMonth(e.target.value);
+                          setPage(1);
+                        }}
+                        className="mt-2 w-full rounded-md border border-stone-300 px-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32]"
+                      />
+                    )}
+                    {dueDateMode === "month" && !dueDateMonth && (
+                      <p className="mt-1 text-xs text-stone-400">
+                        Sem mês escolhido = todos os meses.
+                      </p>
+                    )}
+
+                    {dueDateMode === "overdue" && (
+                      <p className="mt-2 text-xs text-stone-400">
+                        Mostra só faturas com vencimento ultrapassado e por pagar.
+                      </p>
+                    )}
                   </div>
 
                   {/* Débito direto */}
@@ -4323,6 +3890,43 @@ export function InvoicesView() {
                       />
                     </button>
                   </div>
+
+                  {/* Conta — só relevante fora de "Por pagar" (nenhuma fatura por pagar tem paymentBankAccountId ainda) */}
+                  {activeTab !== "por_pagar" && (
+                    <div>
+                      <label className="mb-1.5 block text-xs font-medium text-stone-600">
+                        Conta
+                      </label>
+                      <div className="relative">
+                        <select
+                          value={accountFilter}
+                          onChange={(e) => {
+                            setAccountFilter(e.target.value);
+                            setPage(1);
+                          }}
+                          className="w-full appearance-none rounded-md border border-stone-300 bg-white py-2 pl-3 pr-8 text-sm text-stone-700 focus:outline-none focus:border-[#ED5C32]"
+                        >
+                          <option value="">Todas as contas</option>
+                          {bankAccounts.map((acc) => (
+                            <option key={acc.id} value={acc.id}>
+                              {acc.label}
+                            </option>
+                          ))}
+                        </select>
+                        <svg
+                          className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 h-4 w-4 text-stone-400"
+                          viewBox="0 0 20 20"
+                          fill="currentColor"
+                        >
+                          <path
+                            fillRule="evenodd"
+                            d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                            clipRule="evenodd"
+                          />
+                        </svg>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div className="border-t border-stone-200 px-5 py-4 flex gap-3">
@@ -4349,9 +3953,9 @@ export function InvoicesView() {
 
         {/* Table container */}
         {viewMode === "table" && (
-          <div className="overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white">
+          <div className="overflow-hidden rounded-xl border border-stone-200 bg-white">
             {/* Tabs */}
-            <div className="flex border-b border-[#F5C992]/40 px-2 overflow-x-auto">
+            <div className="flex border-b border-stone-200 px-2 overflow-x-auto">
               {[
                 { key: "por_pagar" as const, label: "Por pagar" },
                 {
@@ -4364,7 +3968,7 @@ export function InvoicesView() {
                 <button
                   key={key}
                   onClick={() => handleTabChange(key)}
-                  className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
+                  className={`-mb-px flex items-center gap-1.5 border-b-2 px-3 py-2 text-sm font-medium whitespace-nowrap transition-colors ${
                     activeTab === key
                       ? "border-[#ED5C32] text-[#ED5C32]"
                       : "border-transparent text-stone-500 hover:text-stone-700"
@@ -4386,7 +3990,7 @@ export function InvoicesView() {
 
             {/* Batch action bar */}
             {selectedIds.size > 0 && (
-              <div className="border-b border-[#F5C992]/40 bg-[#ED5C32]/5 px-4 py-2">
+              <div className="border-b border-stone-200 bg-[#ED5C32]/5 px-4 py-2">
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-medium text-stone-700">
                     {selectedIds.size} selecionada
@@ -4426,9 +4030,9 @@ export function InvoicesView() {
             ) : (
               <div className="overflow-x-auto">
                 <table className="min-w-full text-sm">
-                  <thead className="border-b border-[#F5C992]/40 bg-stone-50/60">
+                  <thead className="sticky top-0 z-10 border-b border-stone-200 bg-stone-50">
                     <tr>
-                      <th className="w-8 px-3 py-3">
+                      <th className="w-8 px-3 py-2.5">
                         <input
                           type="checkbox"
                           checked={
@@ -4445,54 +4049,80 @@ export function InvoicesView() {
                           className="h-3.5 w-3.5 rounded border-stone-300 text-[#ED5C32] focus:ring-[#ED5C32]"
                         />
                       </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
-                        Fornecedor
-                      </th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
-                        Fatura
-                      </th>
+                      {(
+                        [
+                          { key: "supplier" as const, label: "Fornecedor", align: "left" as const },
+                          { key: "invoiceNumber" as const, label: "Fatura", align: "left" as const },
+                        ]
+                      ).map(({ key, label, align }) => (
+                        <th key={key} className={`px-4 py-2.5 text-${align} text-xs font-semibold uppercase tracking-wide text-stone-500`}>
+                          <button type="button" onClick={() => toggleSort(key)} className="inline-flex items-center gap-1 hover:text-stone-700">
+                            {label}
+                            {sortBy === key && (
+                              <svg className={`h-3 w-3 transition-transform ${sortDir === "desc" ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor">
+                                <path fillRule="evenodd" d="M10 3a.75.75 0 01.75.75v10.638l3.96-4.158a.75.75 0 111.08 1.04l-5.25 5.5a.75.75 0 01-1.08 0l-5.25-5.5a.75.75 0 111.08-1.04l3.96 4.158V3.75A.75.75 0 0110 3z" clipRule="evenodd" />
+                              </svg>
+                            )}
+                          </button>
+                        </th>
+                      ))}
                       {activeTab === "todas" && (
-                        <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className="hidden md:table-cell px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                           Estado
                         </th>
                       )}
-                      <th className="hidden md:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
-                        Vencimento
+                      <th className="hidden md:table-cell px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <button type="button" onClick={() => toggleSort("dueDate")} className="inline-flex items-center gap-1 hover:text-stone-700">
+                          Vencimento
+                          {sortBy === "dueDate" && (
+                            <svg className={`h-3 w-3 transition-transform ${sortDir === "desc" ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 3a.75.75 0 01.75.75v10.638l3.96-4.158a.75.75 0 111.08 1.04l-5.25 5.5a.75.75 0 01-1.08 0l-5.25-5.5a.75.75 0 111.08-1.04l3.96 4.158V3.75A.75.75 0 0110 3z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                        </button>
                       </th>
-                      <th className="hidden lg:table-cell px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                      <th className="hidden lg:table-cell px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                         Classificação
                       </th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">
-                        Valor total
+                      <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <button type="button" onClick={() => toggleSort("amount")} className="inline-flex items-center gap-1 hover:text-stone-700">
+                          {sortBy === "amount" && (
+                            <svg className={`h-3 w-3 transition-transform ${sortDir === "desc" ? "rotate-180" : ""}`} viewBox="0 0 20 20" fill="currentColor">
+                              <path fillRule="evenodd" d="M10 3a.75.75 0 01.75.75v10.638l3.96-4.158a.75.75 0 111.08 1.04l-5.25 5.5a.75.75 0 01-1.08 0l-5.25-5.5a.75.75 0 111.08-1.04l3.96 4.158V3.75A.75.75 0 0110 3z" clipRule="evenodd" />
+                            </svg>
+                          )}
+                          Valor total
+                        </button>
                       </th>
-                      <th className="sticky right-0 bg-stone-50/60 px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500 shadow-[-1px_0_0_0_rgba(245,201,146,0.4)]">
+                      <th className="sticky right-0 bg-stone-50 px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">
                         Ações
                       </th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#F5C992]/30">
+                  <tbody className="divide-y divide-stone-100">
                     {paginated.map((inv) => {
-                      const sup = inv.supplierId
-                        ? supplierById.get(inv.supplierId)
-                        : null;
-                      const cat = sup?.defaultCostCenterCategoryId
-                        ? categoryById.get(sup.defaultCostCenterCategoryId)
-                        : null;
+                      const classification = inv.classificationSummary;
                       const dueUrgency = (() => {
                         if (
                           !inv.dueDate ||
                           ["paid", "cancelled"].includes(inv.status)
                         )
                           return null;
-                        if (inv.dueDate < todayStr)
+                        if (inv.dueDate < todayStr) {
+                          const daysLate = Math.round(
+                            (new Date(todayStr).getTime() -
+                              new Date(inv.dueDate).getTime()) /
+                              86400000,
+                          );
                           return {
-                            label: "Em atraso",
+                            label: `${daysLate} dia${daysLate === 1 ? "" : "s"} em atraso`,
                             cls: "text-red-600 font-medium",
                           };
+                        }
                         if (inv.dueDate === todayStr)
                           return {
-                            label: "Hoje",
-                            cls: "text-orange-600 font-medium",
+                            label: "vence hoje",
+                            cls: "text-orange-500 font-medium",
                           };
                         const diff = Math.round(
                           (new Date(inv.dueDate).getTime() -
@@ -4500,8 +4130,8 @@ export function InvoicesView() {
                             86400000,
                         );
                         return {
-                          label: `${diff} dias`,
-                          cls: diff <= 7 ? "text-amber-600" : "text-stone-400",
+                          label: `vence em ${diff} dia${diff === 1 ? "" : "s"}`,
+                          cls: diff <= 7 ? "text-orange-500 font-medium" : "text-stone-400",
                         };
                       })();
 
@@ -4522,7 +4152,7 @@ export function InvoicesView() {
                         >
                           {/* Checkbox */}
                           <td
-                            className="w-8 px-3 py-3"
+                            className="w-8 px-3 py-2"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <input
@@ -4539,29 +4169,16 @@ export function InvoicesView() {
                           </td>
 
                           {/* Fornecedor */}
-                          <td className="px-4 py-3 text-stone-700">
-                            {inv.supplierName}
+                          <td className="px-4 py-2 text-stone-800">
+                            <p className="line-clamp-2 font-medium">{inv.supplierName}</p>
                           </td>
 
                           {/* Fatura */}
-                          <td className="px-4 py-3">
+                          <td className="px-4 py-2">
                             <div className="flex items-center gap-2">
                               <p className="font-semibold text-stone-900">
                                 {inv.invoiceNumber}
                               </p>
-                              {inv.documentType === "credit_note" && (
-                                <span
-                                  title="Nota de crédito — reduz o valor devido ao fornecedor"
-                                  className="rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-sky-100 text-sky-700"
-                                >
-                                  NC
-                                </span>
-                              )}
-                              {inv.isDirectDebit && (
-                                <span className="rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-violet-100 text-violet-700">
-                                  DD
-                                </span>
-                              )}
                               {inv.isDuplicate && (
                                 <span
                                   title="Existe outra fatura activa do mesmo fornecedor com este número"
@@ -4573,13 +4190,22 @@ export function InvoicesView() {
                             </div>
                             <p className="mt-0.5 text-xs text-stone-400">
                               {formatDate(inv.invoiceDate)}
+                              {inv.documentType === "credit_note" && (
+                                <span
+                                  title="Nota de crédito — reduz o valor devido ao fornecedor"
+                                  className="text-sky-600"
+                                >
+                                  {" "}
+                                  · Nota de crédito
+                                </span>
+                              )}
                             </p>
                           </td>
 
                           {/* Estado — só na tab "Todas" */}
                           {activeTab === "todas" && (
-                            <td className="hidden md:table-cell px-4 py-3">
-                              <div className="flex flex-wrap items-center gap-1">
+                            <td className="hidden md:table-cell px-4 py-2">
+                              <div className="flex flex-wrap items-baseline gap-x-1.5 text-xs font-medium">
                                 <StatusBadge status={inv.status} />
                                 {inv.reconciliationStatus !== "none" && (
                                   <ReconciliationBadge
@@ -4591,40 +4217,55 @@ export function InvoicesView() {
                           )}
 
                           {/* Vencimento */}
-                          <td className="hidden md:table-cell px-4 py-3">
-                            <p className="text-stone-700">
+                          <td className="hidden md:table-cell px-4 py-2">
+                            <p className="whitespace-nowrap text-stone-700">
                               {formatDate(inv.dueDate)}
                             </p>
-                            {dueUrgency && (
-                              <p className={`mt-0.5 text-xs ${dueUrgency.cls}`}>
-                                {dueUrgency.label}
+                            {(dueUrgency || inv.isDirectDebit) && (
+                              <p className="mt-0.5 text-xs">
+                                {dueUrgency && <span className={dueUrgency.cls}>{dueUrgency.label}</span>}
+                                {dueUrgency && inv.isDirectDebit && <span className="text-stone-400"> · </span>}
+                                {inv.isDirectDebit && <span className="text-stone-400">Débito direto</span>}
                               </p>
                             )}
                           </td>
 
                           {/* Classificação */}
-                          <td className="hidden lg:table-cell px-4 py-3">
-                            {cat ? (
-                              <span className="inline-flex items-center gap-1.5 text-sm text-stone-700">
-                                <span className="h-2 w-2 shrink-0 rounded-full bg-stone-400" />
-                                <span className="font-medium">{cat.code}</span>
-                                <span className="text-stone-500">
-                                  — {cat.name}
-                                </span>
+                          <td className="hidden lg:table-cell px-4 py-2">
+                            {classification.mode === "none" ? (
+                              <span className="text-xs font-medium text-amber-600">
+                                Classificação pendente
                               </span>
+                            ) : classification.mode === "mixed" ? (
+                              <div>
+                                <p className="font-semibold text-stone-800">Classificação mista</p>
+                                <p className="text-xs text-stone-400">
+                                  {classification.entries.length} categorias
+                                </p>
+                              </div>
                             ) : (
-                              <span className="text-stone-300 text-xs">—</span>
+                              (() => {
+                                const entry = classification.entries[0];
+                                const entryCat = categoryById.get(entry.costCenterCategoryId);
+                                const group = entryCat ? groupById.get(entryCat.groupId) : null;
+                                return (
+                                  <div>
+                                    <p className="font-semibold text-stone-800">{group?.name ?? "—"}</p>
+                                    <p className="text-xs text-stone-400">{entry.name}</p>
+                                  </div>
+                                );
+                              })()
                             )}
                           </td>
 
                           {/* Valor total */}
-                          <td className={`px-4 py-3 text-right font-semibold ${inv.documentType === "credit_note" ? "text-red-600" : "text-stone-800"}`}>
+                          <td className={`whitespace-nowrap px-4 py-2 text-right font-semibold tabular-nums ${inv.documentType === "credit_note" ? "text-red-600" : "text-stone-800"}`}>
                             {fromCents(inv.totalWithVat)}
                           </td>
 
                           {/* Ações */}
                           <td
-                            className="sticky right-0 z-10 bg-white px-3 py-3 group-hover:bg-[#FDF8F5] shadow-[-1px_0_0_0_rgba(245,201,146,0.4)]"
+                            className="sticky right-0 z-10 bg-white px-3 py-2 group-hover:bg-[#FDF8F5]"
                             onClick={(e) => e.stopPropagation()}
                           >
                             <div className="flex items-center justify-end gap-1">
@@ -4636,7 +4277,7 @@ export function InvoicesView() {
                                     setDetail(inv);
                                   }
                                 }}
-                                className="flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1.5 text-xs font-medium text-stone-500 hover:bg-stone-50 hover:text-stone-700"
+                                className="flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-xs font-medium text-stone-500 hover:bg-stone-50 hover:text-stone-700"
                               >
                                 Ver
                               </button>
@@ -4646,7 +4287,7 @@ export function InvoicesView() {
                                   target="_blank"
                                   rel="noopener noreferrer"
                                   title="Ver PDF"
-                                  className="flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1.5 text-xs font-medium text-stone-500 hover:bg-stone-50 hover:text-stone-700"
+                                  className="flex items-center gap-1 rounded-md border border-stone-200 px-2 py-1 text-xs font-medium text-stone-500 hover:bg-stone-50 hover:text-stone-700"
                                 >
                                   <svg
                                     className="h-3.5 w-3.5"
@@ -4677,7 +4318,7 @@ export function InvoicesView() {
                                         },
                                   );
                                 }}
-                                className="rounded-md p-1.5 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
+                                className="rounded-md p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600"
                                 title="Mais opções"
                               >
                                 <svg
@@ -4700,14 +4341,41 @@ export function InvoicesView() {
 
             {/* Pagination */}
             {!isLoading && tabFiltered.length > 0 && (
-              <div className="flex items-center justify-between border-t border-[#F5C992]/40 px-4 py-3">
-                <p className="text-xs text-stone-500">
-                  Mostrando{" "}
-                  {Math.min((page - 1) * pageSize + 1, tabFiltered.length)} a{" "}
-                  {Math.min(page * pageSize, tabFiltered.length)} de{" "}
-                  {tabFiltered.length} fatura
-                  {tabFiltered.length !== 1 ? "s" : ""}
-                </p>
+              <div className="flex items-center justify-between border-t border-stone-200 px-4 py-3">
+                <div className="flex items-center gap-4">
+                  <p className="text-xs text-stone-500">
+                    Mostrando{" "}
+                    {Math.min((page - 1) * pageSize + 1, tabFiltered.length)} a{" "}
+                    {Math.min(page * pageSize, tabFiltered.length)} de{" "}
+                    {tabFiltered.length} fatura
+                    {tabFiltered.length !== 1 ? "s" : ""}
+                  </p>
+                  <div className="relative">
+                    <select
+                      value={pageSize}
+                      onChange={(e) => {
+                        setPageSize(Number(e.target.value));
+                        setPage(1);
+                      }}
+                      className="appearance-none rounded-md border border-stone-200 bg-white py-1 pl-2.5 pr-7 text-xs text-stone-600 focus:outline-none focus:border-[#ED5C32]"
+                    >
+                      <option value={25}>25 por página</option>
+                      <option value={50}>50 por página</option>
+                      <option value={100}>100 por página</option>
+                    </select>
+                    <svg
+                      className="pointer-events-none absolute right-2 top-1/2 h-3 w-3 -translate-y-1/2 text-stone-400"
+                      viewBox="0 0 20 20"
+                      fill="currentColor"
+                    >
+                      <path
+                        fillRule="evenodd"
+                        d="M5.23 7.21a.75.75 0 011.06.02L10 11.168l3.71-3.938a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z"
+                        clipRule="evenodd"
+                      />
+                    </svg>
+                  </div>
+                </div>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setPage((p) => Math.max(1, p - 1))}
@@ -4839,17 +4507,6 @@ export function InvoicesView() {
               setImportResult(null);
               setDetail(inv);
             }}
-          />
-        )}
-
-        {showCreate && (
-          <CreateInvoiceDrawer
-            open={showCreate}
-            suppliers={suppliers}
-            categories={categories}
-            saving={createMutation.isPending}
-            onClose={() => setShowCreate(false)}
-            onSave={(payload) => createMutation.mutate(payload)}
           />
         )}
 
