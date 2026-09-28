@@ -11,8 +11,7 @@ hexagonal**. As regras deste arquivo valem para este repositório (frontend).
 
 - **Frontend** — este repositório, onde você está sendo executado.
 - **Backend** — repositório separado. Caminho local (setup da minha máquina):
-  `<CAMINHO_DO_BACKEND>`
-  <!-- preencha com o caminho local do repo de backend -->
+  `C:\Users\Bruno Fontes\vendus-dashboard-backend`
 
 Ao mexer no contrato com o backend (endpoints, formatos de request/response,
 tipos compartilhados), ajuste o outro lado na mesma tarefa e me avise se algo
