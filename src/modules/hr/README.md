@@ -176,10 +176,20 @@ Um método por endpoint do backend — ver `domain/ports/out/hr-api.port.ts`.
   documental do que junto de "Novo colaborador").
 - `EmployeeProfileView` → perfil 360º (Mockup 02) com 5 tabs (Resumo, Dados
   pessoais, Documentos, Contrato & Remuneração, Histórico). Cabeçalho com
-  `AvatarUpload` (clique → upload imediato). Lê agora também `?category=`
-  (além do já existente `?tab=`) — vindo de "Pessoas > Documentos" ou do
-  drawer da Visão Geral, pré-seleciona a categoria no formulário de
-  upload da aba Documentos.
+  `AvatarUpload` — clicar no círculo da foto **expande-a em ecrã inteiro**
+  quando existe foto (clicar fora fecha); upload/troca da foto passou a um
+  link de texto próprio "Alterar foto" por baixo do círculo (antes era o
+  próprio clique no círculo que abria o seletor de ficheiro — mudado a
+  pedido do utilizador, para não misturar "ver" com "trocar"). Sem foto
+  ainda definida, o círculo (com as iniciais) continua a abrir o seletor
+  de ficheiro diretamente, não há nada para expandir. Lê agora também
+  `?category=` (além do já existente `?tab=`) — vindo de "Pessoas >
+  Documentos" ou do drawer da Visão Geral, pré-seleciona a categoria no
+  formulário de upload da aba Documentos. A secção "Outras áreas"
+  (Turnos/Pagamentos/Férias) foi removida — os 3 links apontavam para
+  `/hr/employees/:id` (rota legacy sem relação real com essas áreas,
+  reportado pelo utilizador como "leva para um lugar errado"); nenhuma
+  dessas áreas tem hoje uma página própria para linkar a partir daqui.
 - `EmployeeDocumentsTab` → dossiê (Mockup 03): upload drag-and-drop,
   substituir/remover/ver histórico de versões por documento, alertas,
   histórico documental recente. Aceita agora `initialCategory` (prop nova)
@@ -189,8 +199,11 @@ Um método por endpoint do backend — ver `domain/ports/out/hr-api.port.ts`.
 - `EmployeeDrawer` → formulário criar/editar colaborador (reutilizado nos
   dois modos).
 - `components/Avatar` / `components/AvatarUpload` → avatar com fallback de
-  iniciais (mesma convenção visual de `financial-base`'s `SupplierDetailView`)
-  e overlay de upload.
+  iniciais (mesma convenção visual de `financial-base`'s `SupplierDetailView`).
+  `AvatarUpload` combina 2 ações distintas: clicar no círculo expande a
+  foto (lightbox, `fixed inset-0`, fecha ao clicar no fundo — `stopPropagation`
+  no `<img>` para não fechar ao clicar na própria foto); "Alterar foto"
+  (link de texto) abre o seletor de ficheiro.
 - `OverviewView` (RH-01) → Visão Geral: 3 grupos de KPI cards (Equipa/
   Operação hoje/Pendências), cada um a ler o seu `BlockResult` próprio
   (nunca mostra `0` quando `status: "unavailable"`), painel de Alertas
