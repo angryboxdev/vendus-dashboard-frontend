@@ -1,7 +1,7 @@
 # Módulo: hr
 
 > Status: ativo
-> Última atualização: 2026-09-27
+> Última atualização: 2026-09-28
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -263,30 +263,24 @@ Um método por endpoint do backend — ver `domain/ports/out/hr-api.port.ts`.
   Pessoas", secção 4: "categorias de documentos" é gestão documental, não
   gestão de colaboradores). Desativar (nunca apagar) para de exigir/
   sugerir a categoria sem tocar nos documentos já enviados nela.
-- `AttendanceView` (novo, Fase 2 "Assiduidade, Correções, Ausências e
-  Fecho Mensal") → substitui `src/pages/hr/HrReportPage.tsx` (legacy,
-  deixado órfão de rota — mesma cautela já usada com
-  `HrEmployeesPage.tsx`). Rota `/hr/assiduidade` (`/hr/relatorio` antigo
-  passa a `<Navigate replace>` para lá — preserva o link existente).
-  3 tabs — **Conferência** (funcional), **Por colaborador** (antes
-  "Resumo mensal", funcional), **Horas & saldos** ("em construção", ver
-  Known gaps): seletor de mês (`?year=&month=`) e "⚙ Configurar regras"
-  no cabeçalho. KPIs do topo (task "Assiduidade — Conferência, Por
-  Colaborador e Horas & Saldos", secção 3 — só 6, todos escopados à fila
-  de pendências: Pendências de conferência/Dias em atraso/Horas em
-  atraso/Possíveis ausências/Sem saída/Conflitos; Horas planeadas/
-  realizadas/Saldo saíram daqui, vivem em "Por colaborador"). A aba
-  Conferência tem 2 filtros primários empilhados: **Por conferir |
-  Resolvidos | Todos** (`reviewStatus`, novo) e, dentro disso, chips por
-  `occurrenceKind` (Atrasos/Possíveis ausências/Sem entrada/Sem saída/
-  Turno incompleto/Saída antecipada/Presença sem escala/Conflitos — task,
-  secção 4) + atalhos de data (Este mês/Esta semana/Hoje, client-side
-  sobre os dados já carregados do mês) + pesquisa por nome + filtro de
-  local (`useLocations`, mesmo padrão de `ShiftsToReviewView`). Todas as
-  contagens são calculadas no cliente a partir dos `items` já carregados
-  — não é lógica de negócio, só agrupar registos já rotulados pelo
-  backend. Clicar em "Resolver"/"Ver" abre `AttendanceIssueResolutionModal`.
-  `MonthlyClosureBar` continua no rodapé da Conferência.
+- `AttendanceView` (Fase 2 "Assiduidade, Correções, Ausências e Fecho
+  Mensal"; **reduzida a 2 tabs** pela task "Simplificar Assiduidade em
+  Conferência + Fecho Mensal") → substitui `src/pages/hr/HrReportPage.tsx`
+  (legacy, deixado órfão de rota). Rota `/hr/assiduidade`
+  (`/hr/relatorio` antigo passa a `<Navigate replace>` para lá). Só
+  **Conferência** e **Fecho mensal** — "Por colaborador" deixou de ser
+  uma aba própria (absorvida por Fecho mensal) e "Horas & saldos" foi
+  removida por completo (redundante com o que já aparece nas outras 2,
+  task secção 20; nunca chegou a sair de "em construção"). Seletor de mês
+  (`?year=&month=`) e "⚙ Configurar regras" continuam no cabeçalho. O
+  antigo grid de 6 `KpiCard` deu lugar a uma linha compacta só na aba
+  Conferência: "N por conferir · N possíveis ausências · N sem saída · N
+  conflitos" (task secção 3 — nunca cards). A aba Conferência mantém os 2
+  filtros primários empilhados (**Por conferir | Resolvidos | Todos**,
+  `reviewStatus`) e os chips por `occurrenceKind`, atalhos de data,
+  pesquisa por nome e filtro de local, tal como antes — só a
+  apresentação do resumo no topo e o nº de tabs mudou. Clicar em
+  "Resolver"/"Ver" abre `AttendanceIssueResolutionModal`.
 - `AttendanceIssueResolutionModal` (Fase 2.1, substitui
   `AttendanceIssueDetailPanel` — painel lateral fixo vira modal, seguindo
   o mockup) → "Planeado/Registado" + diferença + 3 tabs internas (Ação/
@@ -294,34 +288,51 @@ Um método por endpoint do backend — ver `domain/ports/out/hr-api.port.ts`.
   `justify_no_impact`/`mark_absence`/`remove_marking` — substituem o
   conjunto mais granular da Fase 2, ver Decisões de design), cada uma com
   um aviso curto da consequência. O botão de submissão só ativa depois de
-  o campo "Motivo" ter texto (nunca opcional, task secção 12).
-- `AttendanceRulesModal` (Fase 2.1, novo) → "⚙ Configurar regras" no
-  cabeçalho de `AttendanceView`. 3 tabs: Regras gerais (5 tolerâncias/
-  janelas em minutos + "Início do controlo de assiduidade" (novo, evolução
-  "Por Colaborador" — turnos anteriores a esta data nunca geram pendência
-  automática) + caixa "Exemplo prático", calculada localmente só como
-  preview de UI), Aplicação (texto estático — task proíbe regras por
-  colaborador/função/local nesta fase), Histórico de alterações
-  (`AttendanceRuleChangeEntry[]` — só os 5 campos numéricos,
-  `controlStartDate` não entra nesse histórico, ver README do backend).
-- `AttendancePeopleSummaryView` (substitui `AttendanceMonthlySummaryView` —
-  evolução "Por Colaborador") → aba "Por colaborador": KPIs + tabela com
-  Turnos/Pendentes/Dias em atraso/H. atraso/Ausências/H. planeadas/
-  H. realizadas/Saldo/**Estado** (novo — badge `Pronto para fecho`/
-  `Pendências`/`Requer atenção`, cor por severidade), nome do colaborador
-  é um `Link` para `/hr/assiduidade/colaborador/:employeeId` (ficha
-  individual, nunca abre o perfil de "Pessoas" — são conceitos
-  diferentes). Pesquisa por nome (client-side). "Exportar" continua CSV
-  client-side (`Blob`/`URL.createObjectURL`), colunas atualizadas para
-  bater com a tabela nova. Filtros de função/vínculo do mockup ficam de
-  fora — ver Known gaps. Aba "Horas & saldos" continua "em construção"
-  (fora do âmbito desta ronda).
-- `AttendanceEmployeeDetailView` (novo, evolução "Por Colaborador") —
-  rota `/hr/assiduidade/colaborador/:employeeId?year=&month=`: ficha
-  "Assiduidade — Nome" com breadcrumb (Assiduidade / Por colaborador /
-  Nome) + "← Voltar ao resumo", 9 KPIs (Turnos planeados/realizados/
-  Pendências/Dias com atraso/Horas em atraso/Ausências/Horas planeadas/
-  Horas realizadas confirmadas/Saldo confirmado), filtros
+  o campo "Motivo" ter texto (nunca opcional, task secção 12). Também
+  reaproveitado, sem alterações, pela ficha individual
+  (`AttendanceEmployeeDetailView`) — nunca 2 fluxos de resolução.
+- `AttendanceRulesModal` (Fase 2.1) → "⚙ Configurar regras" no cabeçalho
+  de `AttendanceView`. 3 tabs: Regras gerais (5 tolerâncias/janelas em
+  minutos + "Início do controlo de assiduidade" + caixa "Exemplo
+  prático", calculada localmente só como preview de UI), Aplicação
+  (texto estático — task proíbe regras por colaborador/função/local
+  nesta fase), Histórico de alterações (`AttendanceRuleChangeEntry[]` —
+  só os 5 campos numéricos, `controlStartDate` não entra nesse
+  histórico, ver README do backend).
+- `AttendanceMonthlyClosureView` (**novo**, substitui
+  `AttendancePeopleSummaryView` + `MonthlyClosureBar` numa só aba — task
+  "Simplificar Assiduidade em Conferência + Fecho Mensal", secção 6:
+  "nunca 2 fluxos de resolução distintos") → aba "Fecho mensal":
+  cabeçalho compacto (nome do mês, "N colaboradores · N pronto(s) · N
+  com pendências" ou "Fechado por X em DD/MM/AAAA às HH:mm", badge de
+  estado) + filtro Todos/Prontos/Com pendências + pesquisa + tabela
+  (Colaborador/Turnos/Pendências/Ausências/Dias atraso/H. atraso/
+  H. planeadas/H. realizadas/Saldo/Estado/**Ação**, a última sempre "Ver
+  detalhe" → `/hr/assiduidade/colaborador/:employeeId`). Estado por
+  colaborador **colapsado a 2 valores na UI** (`isReady(row) =
+  row.pendingCount === 0` → "Pronto"/"Com pendências") — o backend
+  continua a devolver 3 (`pronto_para_fecho|pendencias|requer_atencao`,
+  ver README do backend), mas a task pede só 2 no ecrã (secção 16); não
+  há mudança de contrato, só de apresentação. Saldo só mostra o valor
+  real (`formatMinutes`) quando `pendingCount === 0` — caso contrário
+  "— aguarda conferência" (task secção 14, nunca um número
+  potencialmente errado antes de tudo conferido). "Fechar mês" só existe
+  a nível do período inteiro (nunca um botão por colaborador, secção
+  17), fica desativado enquanto `blockerCount > 0`, e pede confirmação
+  (`window.confirm`, mesmo padrão já usado por
+  `EmployeeDocumentsTab.handleRemove`) antes de executar. "Reabrir
+  período" reaproveita a UX inline (input de motivo + confirmar/cancelar)
+  que já existia em `MonthlyClosureBar`. "⬇ Exportar" continua CSV
+  client-side, ganhou a coluna Estado (Pronto/Com pendências) e Saldo já
+  no formato "aguarda conferência" quando aplicável.
+- `AttendanceEmployeeDetailView` (evolução "Por Colaborador") — rota
+  `/hr/assiduidade/colaborador/:employeeId?year=&month=`: ficha
+  "Assiduidade — Nome" com breadcrumb (Assiduidade / **Fecho mensal** /
+  Nome — atualizado da task "Simplificar Assiduidade", já não existe
+  `?tab=colaborador`) + "← Voltar ao resumo" (aponta para
+  `?tab=fechamento`), 9 KPIs (Turnos planeados/realizados/Pendências/
+  Dias com atraso/Horas em atraso/Ausências/Horas planeadas/Horas
+  realizadas confirmadas/Saldo confirmado), filtros
   Todos/Pendentes/Atrasos/Ausências/Conferidos, e o extrato diário
   completo — ao contrário da Conferência, **nunca pula um turno
   "Regular"** (mostra o mês inteiro). Clicar em "Resolver"/"Ver" reaproveita
@@ -329,10 +340,6 @@ Um método por endpoint do backend — ver `domain/ports/out/hr-api.port.ts`.
   o workflow (task, secção 19, literal); linhas "Regular" sem nenhuma
   ocorrência (`occurrenceKind: "ok"`) não têm botão de ação, só um "—"
   (nada para resolver).
-- `MonthlyClosureBar` (novo) → status do fecho mensal: bloqueadores com
-  atalho direto para a Conferência (secção 21), "Fechar período"
-  desativado enquanto houver bloqueadores, "Reabrir período" exige motivo
-  explícito antes de confirmar (secção 23).
 - `SchedulesView` (RH-03) → página "Escalas & Turnos": tabs "Calendário" /
   "Turnos rotativos" / **"Alertas e ações"** (esta última passou de painel
   lateral fixo a tab própria — pedido do utilizador: liberta a largura do
@@ -525,11 +532,15 @@ dependem de dados que o backend ainda não persiste (ver README do módulo
 
 ### RH-01 — cards sem destino real ficam sem link
 
-"Pagamentos pendentes" não é clicável — não existe página de lista global
-de pagamentos (só por colaborador, dentro do perfil). "Ver agenda
-completa" nunca aparece — não existe essa rota. "Escalados/Presentes/
-Atrasos/Ausentes hoje" linkam para `/hr/calendar`, mas essa página legacy
-não aceita parâmetros — o link não pré-filtra nada, só abre a fonte.
+"Ver agenda completa" nunca aparece — não existe essa rota.
+"Escalados/Presentes/Atrasos/Ausentes hoje" linkam para `/hr/calendar`,
+mas essa página legacy não aceita parâmetros — o link não pré-filtra
+nada, só abre a fonte. **"Pagamentos pendentes" foi removido** (task
+"Simplificar Assiduidade em Conferência + Fecho Mensal", secção 22): já
+não era clicável (não existe página de lista global de pagamentos, só
+por colaborador, dentro do perfil) e a task pediu removê-lo sem
+substituir por outro card — não há lógica de payroll implementada neste
+módulo.
 
 ### RH-01 — tolerância de atraso duplicada como constante local
 
@@ -794,12 +805,32 @@ alguém contorne o frontend. O frontend nunca é a única validação.
 
 ### Fase 2 — Resumo mensal/Horas & saldos mostram "em construção", nunca dados incompletos ou zerados
 
-As 2 abas ainda não têm use case/dados por trás (Fase B, próxima ronda) —
-mostrar `0`/`—` em todos os campos seria indistinguível de "sem
-atividade este mês", enganoso. Preferiu-se um aviso explícito de que a
-funcionalidade ainda não existe, seguindo a mesma regra já usada noutras
-partes do módulo (nunca mostrar `0` como fallback técnico quando a fonte
-real está indisponível/incompleta).
+*(Superseded — ver "Simplificar Assiduidade em Conferência + Fecho
+Mensal" abaixo. Mantido por contexto histórico: a decisão de nunca
+mostrar `0`/`—` como fallback técnico quando uma fonte está
+indisponível continua válida noutras partes do módulo, mesmo que estas
+2 abas específicas já não existam separadamente.)*
+
+As 2 abas ainda não tinham use case/dados por trás nesta ronda — mostrar
+`0`/`—` em todos os campos seria indistinguível de "sem atividade este
+mês", enganoso. Preferiu-se um aviso explícito de que a funcionalidade
+ainda não existia, seguindo a mesma regra já usada noutras partes do
+módulo.
+
+### "Simplificar Assiduidade em Conferência + Fecho Mensal" — 2 abas em vez de 3, "Horas & saldos" removida, não adiada
+
+A task seguinte já tinha o "Resumo mensal" implementado (Fase 2.1, como
+"Por colaborador") quando pediu explicitamente reduzir Assiduidade a só
+2 abas: fundir "Por colaborador" dentro de "Fecho mensal" (nunca 2
+fluxos de resolução para o mesmo colaborador, secção 6) e **remover**
+"Horas & saldos" por completo — não adiar para outra ronda, a própria
+task considera-a redundante com o que já aparece nas outras 2 (secção
+20). Por isso `AttendancePeopleSummaryView.tsx` e `MonthlyClosureBar.tsx`
+foram apagados (a lógica de ambos foi absorvida por
+`AttendanceMonthlyClosureView.tsx`, ver Components acima) em vez de
+ficarem órfãos como `HrReportPage.tsx`/`HrEmployeesPage.tsx` — não havia
+nenhuma rota nem link a apontar para eles fora do próprio
+`AttendanceView.tsx`, que também deixou de os importar.
 
 ### Fase 2.1 ("Regras de Assiduidade, Tolerâncias e Conferência") — contrato implementado no backend na mesma sessão
 

@@ -127,8 +127,8 @@ export function AttendanceEmployeeDetailView() {
             Assiduidade
           </Link>
           <span>/</span>
-          <Link to="/hr/assiduidade?tab=colaborador" className="hover:text-stone-700 hover:underline">
-            Por colaborador
+          <Link to="/hr/assiduidade?tab=fechamento" className="hover:text-stone-700 hover:underline">
+            Fecho mensal
           </Link>
           <span>/</span>
           <span className="truncate font-medium text-stone-700">{data?.employeeName ?? "…"}</span>
@@ -148,7 +148,7 @@ export function AttendanceEmployeeDetailView() {
                 →
               </button>
             </div>
-            <Link to="/hr/assiduidade?tab=colaborador" className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50">
+            <Link to="/hr/assiduidade?tab=fechamento" className="rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50">
               ← Voltar ao resumo
             </Link>
           </div>

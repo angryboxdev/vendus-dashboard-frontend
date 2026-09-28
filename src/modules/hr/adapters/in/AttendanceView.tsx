@@ -5,12 +5,11 @@ import { useHrModule } from "../../hr.module.tsx";
 import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
 import { AttendanceIssueResolutionModal } from "./AttendanceIssueResolutionModal.tsx";
 import { AttendanceRulesModal } from "./AttendanceRulesModal.tsx";
-import { AttendancePeopleSummaryView } from "./AttendancePeopleSummaryView.tsx";
-import { MonthlyClosureBar } from "./MonthlyClosureBar.tsx";
+import { AttendanceMonthlyClosureView } from "./AttendanceMonthlyClosureView.tsx";
 import { formatMinutes } from "../../../../lib/format-minutes.ts";
 import type { AttendanceIssueRow, AttendanceOccurrenceKind, AttendanceState } from "../../domain/entities/attendance-conference.ts";
 
-type Tab = "conferencia" | "colaborador" | "horas";
+type Tab = "conferencia" | "fechamento";
 type ReviewFilter = "all" | "pending" | "conferred";
 type DateFilter = "all" | "today" | "week";
 
@@ -63,22 +62,6 @@ function issueKey(row: { shiftId: string | null; attendanceId: string | null }):
   return row.shiftId ? `shift:${row.shiftId}` : `att:${row.attendanceId}`;
 }
 
-function KpiCard({ label, value, sub, valueCls, isError }: { label: string; value: string | number; sub?: string; valueCls: string; isError: boolean }) {
-  return (
-    <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-3 shadow-sm">
-      <p className="text-xs font-medium text-stone-500">{label}</p>
-      {isError ? (
-        <p className="mt-0.5 text-sm font-medium text-stone-400">Indisponível</p>
-      ) : (
-        <>
-          <p className={`mt-0.5 text-lg font-bold ${valueCls}`}>{value}</p>
-          {sub && <p className="text-[11px] text-stone-400">{sub}</p>}
-        </>
-      )}
-    </div>
-  );
-}
-
 function isInCurrentIsoWeek(workDate: string, today: Date): boolean {
   const d = new Date(`${workDate}T00:00:00`);
   const day = (today.getDay() + 6) % 7; // 0 = segunda
@@ -91,12 +74,13 @@ function isInCurrentIsoWeek(workDate: string, today: Date): boolean {
 }
 
 /**
- * "Assiduidade" — Conferência (fila de pendências) + "Por colaborador"
- * (substitui "Resumo mensal") + "Horas & saldos" (em construção). Segue
- * a task "Assiduidade — Conferência, Por Colaborador e Horas & Saldos":
- * Conferência nunca mostra Horas planeadas/realizadas/Saldo (secção 3,
- * esses vivem em "Por colaborador"), tem filtro primário por estado de
- * revisão (secção 2) e filtros rápidos por ocorrência (secção 4).
+ * "Assiduidade" (task "Simplificar Assiduidade em Conferência + Fecho
+ * Mensal") — reduzida a 2 abas: Conferência (fila de pendências) e Fecho
+ * mensal (por colaborador + fechar/reabrir o período, fundidos numa só
+ * aba — nunca 2 fluxos de resolução distintos, secção 6). "Horas &
+ * saldos" foi removida por ser redundante com o que já aparece nas
+ * outras 2 (secção 20). Conferência nunca mostra Horas planeadas/
+ * realizadas/Saldo (esses vivem em Fecho mensal).
  */
 export function AttendanceView() {
   const { api } = useHrModule();
@@ -105,7 +89,7 @@ export function AttendanceView() {
   const now = new Date();
   const year = Number(searchParams.get("year")) || now.getFullYear();
   const month = Number(searchParams.get("month")) || now.getMonth() + 1;
-  const tab = (searchParams.get("tab") as Tab | null) ?? "colaborador";
+  const tab = (searchParams.get("tab") as Tab | null) ?? "conferencia";
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [reviewFilter, setReviewFilter] = useState<ReviewFilter>("pending");
   const [activeFilter, setActiveFilter] = useState<AttendanceOccurrenceKind | "all">("all");
@@ -210,27 +194,11 @@ export function AttendanceView() {
       </div>
 
       <div className="space-y-4 p-6">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-6">
-          <KpiCard label="Pendências de conferência" value={kpis?.pendingCount ?? 0} sub="turnos" valueCls="text-red-600" isError={isError} />
-          <KpiCard label="Dias em atraso" value={kpis?.lateDaysCount ?? 0} sub="dias" valueCls="text-amber-600" isError={isError} />
-          <KpiCard
-            label="Horas em atraso"
-            value={kpis ? formatMinutes(kpis.lateMinutesTotal) : "0min"}
-            sub={kpis ? `(${kpis.lateOccurrencesCount} ocorrências)` : undefined}
-            valueCls="text-red-600"
-            isError={isError}
-          />
-          <KpiCard label="Possíveis ausências" value={kpis?.possibleAbsencesCount ?? 0} valueCls="text-stone-800" isError={isError} />
-          <KpiCard label="Sem saída" value={kpis?.noExitCount ?? 0} valueCls="text-amber-600" isError={isError} />
-          <KpiCard label="Conflitos" value={kpis?.conflictsCount ?? 0} valueCls="text-red-700" isError={isError} />
-        </div>
-
         <div className="flex gap-1 border-b border-transparent">
           {(
             [
-              { key: "colaborador", label: "Por colaborador" },
               { key: "conferencia", label: "Conferência" },
-              { key: "horas", label: "Horas & saldos" },
+              { key: "fechamento", label: "Fecho mensal" },
             ] as { key: Tab; label: string }[]
           ).map(({ key, label }) => (
             <button
@@ -247,6 +215,17 @@ export function AttendanceView() {
 
         {tab === "conferencia" && (
           <>
+            {isError ? (
+              <p className="text-sm text-stone-400">Indisponível — não foi possível carregar os indicadores.</p>
+            ) : (
+              <p className="text-sm text-stone-500">
+                <span className="font-semibold text-red-600">{kpis?.pendingCount ?? 0}</span> por conferir ·{" "}
+                <span className="font-semibold text-stone-800">{kpis?.possibleAbsencesCount ?? 0}</span> possíveis ausências ·{" "}
+                <span className="font-semibold text-amber-600">{kpis?.noExitCount ?? 0}</span> sem saída ·{" "}
+                <span className="font-semibold text-red-700">{kpis?.conflictsCount ?? 0}</span> conflitos
+              </p>
+            )}
+
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex rounded-lg border border-stone-200 bg-white p-0.5 text-sm">
                 {(
@@ -415,17 +394,16 @@ export function AttendanceView() {
                 </tbody>
               </table>
             </div>
-
-            <MonthlyClosureBar year={year} month={month} onGoToConference={() => updateParams({ tab: "conferencia" })} />
           </>
         )}
 
-        {tab === "colaborador" && <AttendancePeopleSummaryView year={year} month={month} locationId={locationId || undefined} />}
-
-        {tab === "horas" && (
-          <div className="rounded-xl border border-dashed border-stone-200 bg-white p-8 text-center text-sm text-stone-400">
-            Horas & saldos completos — em construção (próxima ronda).
-          </div>
+        {tab === "fechamento" && (
+          <AttendanceMonthlyClosureView
+            year={year}
+            month={month}
+            locationId={locationId || undefined}
+            onGoToConference={() => updateParams({ tab: "conferencia" })}
+          />
         )}
       </div>
 
