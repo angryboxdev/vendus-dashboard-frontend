@@ -130,6 +130,7 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 - `InvoicesApiPort` — métodos HTTP:
   - CRUD base: `listInvoices(params?)`, `getInvoice(id)`, `createInvoice`, `updateInvoice`, `deleteInvoice`
   - Linhas: `listInvoiceLines()`, `addLine`, `updateLine`, `deleteLine(invoiceId, lineId)`, `classifyLine` (aceita `channelId` no payload). `addLine`/`updateLine` aceitam `locationId?: string | null` — omitir/`null` significa "organização, sem loja"; nunca é assumido a partir da primeira loja (D4, ticket 19).
+  - `setLineDeductibilityOverride(invoiceId, lineId, { deductiblePercentage, deductibilityOverrideReason })` → `InvoiceLineDTO` — módulo Contabilidade: override de % dedutível de IVA por linha. `deductiblePercentage: null` repõe a sugestão da subcategoria (`vatDeductible` boolean em `CostCenterCategory`); um valor não-nulo exige `deductibilityOverrideReason` (validado no backend). `InvoiceLineDTO` passou a incluir os dois campos.
   - Modo de linhas: `setLineDetailMode(id, mode)` → `InvoiceDTO` — transição *simple → detailed* é livre; *detailed → simple* apaga as linhas no backend
   - Ciclo de vida: `markInvoicePaid(id, paidAt?)`; `setInvoiceStatus(id, status)` — usado pelo "Desfazer pagamento" para repor `pending`
   - Import IA: `importInvoice(file)` → `InvoiceImportResultDTO`; `confirmImportedInvoice(id, payload)`
@@ -321,7 +322,12 @@ O tab Detalhes mostra "Saldo das linhas" (diferença entre `linesSummary.totalWi
 **`EditLineForm` edita tipo e subcategoria de CC inline.**
 O formulário de edição de linha faz `updateLine` seguido de `classifyLine` numa
 sequência — assim o tipo e a subcategoria ficam persistidos sem precisar de um passo
-separado de classificação. O resultado retornado é sempre o da classificação (último).
+separado de classificação. Se o campo "% dedutível (IVA)" (módulo Contabilidade) mudou
+face ao valor já gravado na linha, chama-se ainda `setLineDeductibilityOverride` — só
+quando houve mesmo alteração, para não gerar um pedido extra à toa. O campo "Motivo do
+desvio" só aparece (e é obrigatório) quando a percentagem não fica em branco (branco =
+usa a sugestão da subcategoria). O resultado retornado ao pai é o último a resolver
+(classificação, ou o override de dedutibilidade quando houve).
 
 **Delete de linha com confirmação inline e refreshFullInvoice.**
 Ao eliminar uma linha, o drawer faz `api.deleteLine` e refaz `api.getInvoice` para

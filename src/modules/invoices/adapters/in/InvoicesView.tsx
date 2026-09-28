@@ -688,8 +688,21 @@ function EditLineForm({
   const [vatRate, setVatRate] = useState(String(line.vatRate));
   const [catId, setCatId] = useState(line.costCenterCategoryId ?? "");
   const [locationId, setLocationId] = useState<string | null>(line.locationId);
+  const [deductiblePercentageInput, setDeductiblePercentageInput] = useState(
+    line.deductiblePercentage != null ? String(line.deductiblePercentage) : "",
+  );
+  const [deductibilityOverrideReason, setDeductibilityOverrideReason] = useState(
+    line.deductibilityOverrideReason ?? "",
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const deductiblePercentage = deductiblePercentageInput.trim() === "" ? null : Number(deductiblePercentageInput);
+  const selectedCategory = categories.find((c) => c.id === catId) ?? null;
+  const deductibilityReasonRequired = deductiblePercentage !== null;
+  const deductibilityChanged =
+    deductiblePercentage !== line.deductiblePercentage ||
+    (deductibilityReasonRequired && deductibilityOverrideReason !== (line.deductibilityOverrideReason ?? ""));
 
   const subtotal = parseFloat(quantity || "0") * parseFloat(unitCost || "0");
   const vatAmount = Math.round(subtotal * (parseFloat(vatRate) / 100) * 100);
@@ -716,7 +729,13 @@ function EditLineForm({
           costCenterCategoryId: catId || null,
         },
       });
-      onDone(classified);
+      const final = deductibilityChanged
+        ? await api.setLineDeductibilityOverride(invoiceId, line.id, {
+            deductiblePercentage,
+            deductibilityOverrideReason: deductibilityReasonRequired ? deductibilityOverrideReason || null : null,
+          })
+        : classified;
+      onDone(final);
     } catch (e: unknown) {
       setError(e instanceof Error ? e.message : "Erro ao guardar");
     } finally {
@@ -822,6 +841,33 @@ function EditLineForm({
             </option>
           ))}
       </select>
+      {/* Módulo Contabilidade — override de % dedutível de IVA por linha */}
+      <div className="grid grid-cols-2 gap-2">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-stone-500">% dedutível (IVA)</label>
+          <input
+            type="text"
+            value={deductiblePercentageInput}
+            onChange={(e) => setDeductiblePercentageInput(e.target.value)}
+            placeholder={
+              selectedCategory ? `Sugestão: ${selectedCategory.vatDeductible ? "100%" : "0%"}` : "Sugestão da subcategoria"
+            }
+            className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+          />
+        </div>
+        {deductibilityReasonRequired && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-500">Motivo do desvio *</label>
+            <input
+              type="text"
+              value={deductibilityOverrideReason}
+              onChange={(e) => setDeductibilityOverrideReason(e.target.value)}
+              placeholder="Obrigatório quando diverge da sugestão"
+              className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
+            />
+          </div>
+        )}
+      </div>
       {/* Store (D4): optional — a cost may belong to the whole organization and to no store */}
       <LocationSelect
         value={locationId}
@@ -851,7 +897,12 @@ function EditLineForm({
         </button>
         <button
           type="submit"
-          disabled={saving || !description || !unitCost}
+          disabled={
+            saving ||
+            !description ||
+            !unitCost ||
+            (deductibilityReasonRequired && !deductibilityOverrideReason.trim())
+          }
           className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
         >
           {saving ? "A guardar…" : "Guardar"}

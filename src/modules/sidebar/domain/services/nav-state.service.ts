@@ -40,6 +40,7 @@ const FINANCIAL_ITEMS: NavItem[] = [
   { kind: "item", path: "/financial/invoices", label: "Faturas" },
   { kind: "item", path: "/financial/recurrences", label: "Recorrências" },
   { kind: "item", path: "/financial/bank-statements", label: "Conciliação Bancária" },
+  { kind: "item", path: "/financial/accounting", label: "Contabilidade" },
 ];
 
 export function buildTree(user: SidebarUser): SidebarNavEntry[] {

@@ -1,7 +1,7 @@
 # Módulo: financial-base
 
 > Status: ativo
-> Última atualização: 2026-08-12
+> Última atualização: 2026-09-29
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -151,7 +151,10 @@ do fornecedor mostra as suas faturas, mas só lê — não gere o ciclo de vida 
     `sortOrder` e toggle de estado. Drawer lateral para criar/editar.
   - *Tab 2 — Subcategorias*: tabela de `CostCenterCategory` com filtro por grupo,
     badge de `financialType`, flags DRE/cashflow/rentabilidade e toggle de estado.
-    Drawer lateral para criar/editar.
+    Drawer lateral para criar/editar — ganhou o flag "IVA dedutível"
+    (módulo `accounting`, default ligado) no mesmo `FLAGS` array dos
+    outros flags de impacto; decisão sempre manual do gestor, nunca
+    inferida automaticamente.
   - *Tab 3 — Análise*: tabela de analytics por subcategoria cruzando linhas de fatura
     classificadas com `costCenterCategoryId`. Dados vindos do módulo `invoices` via
     `useInvoicesModule()`. Rows expandíveis mostram o detalhe das linhas individuais.

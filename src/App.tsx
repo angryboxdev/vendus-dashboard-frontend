@@ -47,6 +47,8 @@ import { SuppliersView } from "./modules/financial-base/adapters/in/SuppliersVie
 import { SupplierDetailView } from "./modules/financial-base/adapters/in/SupplierDetailView.tsx";
 import { InvoicesProvider } from "./modules/invoices/invoices.module.tsx";
 import { InvoicesView } from "./modules/invoices/adapters/in/InvoicesView.tsx";
+import { AccountingProvider } from "./modules/accounting/accounting.module.tsx";
+import { AccountingView } from "./modules/accounting/adapters/in/AccountingView.tsx";
 import { PayableEntriesProvider } from "./modules/payable-entries/payable-entries.module.tsx";
 import { PayableEntriesView } from "./modules/payable-entries/adapters/in/PayableEntriesView.tsx";
 import { BankStatementsProvider } from "./modules/bank-statements/bank-statements.module.tsx";
@@ -257,8 +259,9 @@ export default function App() {
                   element={
                     <FinancialBaseProvider>
                       <InvoicesProvider>
-                        <PayableEntriesProvider>
-                          <PayableRecurrencesProvider>
+                        <AccountingProvider>
+                          <PayableEntriesProvider>
+                            <PayableRecurrencesProvider>
                               <BankStatementsProvider>
                                 <BankAccountsProvider>
                                   <Routes>
@@ -266,6 +269,7 @@ export default function App() {
                                     <Route path="suppliers" element={<SuppliersView />} />
                                     <Route path="suppliers/:id" element={<SupplierDetailView />} />
                                     <Route path="invoices" element={<InvoicesView />} />
+                                    <Route path="accounting" element={<AccountingView />} />
                                     <Route path="payable-entries" element={<PayableEntriesView />} />
                                     <Route path="recurrences" element={<RecurrencesView />} />
                                     <Route path="recurrences/monthly/:year/:month" element={<RecurrencesMonthlyView />} />
@@ -277,8 +281,9 @@ export default function App() {
                                   </Routes>
                                 </BankAccountsProvider>
                               </BankStatementsProvider>
-                          </PayableRecurrencesProvider>
-                        </PayableEntriesProvider>
+                            </PayableRecurrencesProvider>
+                          </PayableEntriesProvider>
+                        </AccountingProvider>
                       </InvoicesProvider>
                     </FinancialBaseProvider>
                   }
