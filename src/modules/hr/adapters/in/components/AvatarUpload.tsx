@@ -17,6 +17,7 @@ export function AvatarUpload({
 }) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [error, setError] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState(false);
 
   function handleFile(file: File) {
     setError(null);
@@ -36,21 +37,11 @@ export function AvatarUpload({
       <button
         type="button"
         disabled={uploading}
-        onClick={() => inputRef.current?.click()}
+        onClick={() => (photoUrl ? setExpanded(true) : inputRef.current?.click())}
         className="group relative disabled:cursor-not-allowed"
-        title="Alterar foto"
+        title={photoUrl ? "Ver foto" : "Adicionar foto"}
       >
         <Avatar name={name} photoUrl={photoUrl} size="lg" />
-        <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/0 text-white opacity-0 transition-all group-hover:bg-black/40 group-hover:opacity-100">
-          <svg className="h-6 w-6" viewBox="0 0 20 20" fill="currentColor">
-            <path fillRule="evenodd" d="M10 12a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-            <path
-              fillRule="evenodd"
-              d="M9.344 3.071a49.52 49.52 0 015.312 0c.967.052 1.83.585 2.332 1.39l.821 1.317c.24.383.645.643 1.11.71.386.054.77.113 1.152.177 1.432.239 2.429 1.493 2.429 2.909V15.75a2.25 2.25 0 01-2.25 2.25h-15A2.25 2.25 0 011.5 15.75V9.574c0-1.416.997-2.67 2.429-2.909.382-.064.766-.123 1.152-.178a1.56 1.56 0 001.11-.71l.822-1.315a2.942 2.942 0 012.332-1.39zM10 15a3.75 3.75 0 100-7.5 3.75 3.75 0 000 7.5z"
-              clipRule="evenodd"
-            />
-          </svg>
-        </span>
         {uploading && (
           <span className="absolute inset-0 flex items-center justify-center rounded-full bg-black/40">
             <svg className="h-6 w-6 animate-spin text-white" viewBox="0 0 24 24" fill="none">
@@ -59,6 +50,14 @@ export function AvatarUpload({
             </svg>
           </span>
         )}
+      </button>
+      <button
+        type="button"
+        disabled={uploading}
+        onClick={() => inputRef.current?.click()}
+        className="text-xs font-medium text-stone-400 transition-colors hover:text-stone-600 disabled:cursor-not-allowed"
+      >
+        Alterar foto
       </button>
       <input
         ref={inputRef}
@@ -72,6 +71,20 @@ export function AvatarUpload({
         }}
       />
       {error && <p className="text-xs text-red-600">{error}</p>}
+
+      {expanded && photoUrl && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-6"
+          onClick={() => setExpanded(false)}
+        >
+          <img
+            src={photoUrl}
+            alt={name}
+            onClick={(e) => e.stopPropagation()}
+            className="max-h-[85vh] max-w-[85vw] rounded-lg object-contain shadow-2xl"
+          />
+        </div>
+      )}
     </div>
   );
 }

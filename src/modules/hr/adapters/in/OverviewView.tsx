@@ -262,11 +262,6 @@ export function OverviewView() {
                 valueCls="text-violet-600"
                 to="/hr/overview/shifts-to-review"
               />
-              <KpiCard
-                label="Pagamentos pendentes"
-                block={pending.status === "ok" ? { status: "ok", data: pending.data.unpaidPaymentsCount } : pending}
-                valueCls="text-stone-600"
-              />
             </div>
           </div>
         </div>

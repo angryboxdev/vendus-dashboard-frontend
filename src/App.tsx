@@ -18,6 +18,7 @@ import { HrLayout } from "./pages/hr/HrLayout";
 import { HrAuditLogPage } from "./pages/hr/HrAuditLogPage";
 import { HrLeavePage } from "./pages/hr/HrLeavePage";
 import { AttendanceView } from "./modules/hr/adapters/in/AttendanceView.tsx";
+import { AttendanceEmployeeDetailView } from "./modules/hr/adapters/in/AttendanceEmployeeDetailView.tsx";
 import { HrProvider } from "./modules/hr/hr.module.tsx";
 import { PeopleListView } from "./modules/hr/adapters/in/PeopleListView.tsx";
 import { PeopleDocumentsView } from "./modules/hr/adapters/in/PeopleDocumentsView.tsx";
@@ -226,6 +227,14 @@ export default function App() {
                     element={
                       <HrProvider>
                         <AttendanceView />
+                      </HrProvider>
+                    }
+                  />
+                  <Route
+                    path="/hr/assiduidade/colaborador/:employeeId"
+                    element={
+                      <HrProvider>
+                        <AttendanceEmployeeDetailView />
                       </HrProvider>
                     }
                   />

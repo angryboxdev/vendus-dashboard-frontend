@@ -31,6 +31,13 @@ import type {
   MonthlyClosureStatus,
 } from "../../domain/entities/attendance-conference.ts";
 import type {
+  AttendanceRuleChangeEntry,
+  AttendanceRulesConfig,
+  UpdateAttendanceRulesPayload,
+} from "../../domain/entities/attendance-rules.ts";
+import type { MonthlyAttendanceSummaryResult } from "../../domain/entities/attendance-summary.ts";
+import type { AttendanceEmployeeDetailResult } from "../../domain/entities/attendance-employee-detail.ts";
+import type {
   ApplyBaseScheduleResult,
   BaseScheduleCell,
   ClearShiftsScope,
@@ -372,5 +379,36 @@ export class HttpHrApiAdapter implements HrApiPort {
 
   async reopenMonthlyPeriod(year: number, month: number, reason: string): Promise<MonthlyClosureStatus> {
     return apiPost<MonthlyClosureStatus>(`${ATTENDANCE_BASE}/closure/reopen`, { year, month, reason });
+  }
+
+  // ── Fase 2.1: Regras de Assiduidade, Tolerâncias e Conferência ───────────
+  // Contrato pendente de implementação no backend — ver README do módulo,
+  // secção "Known gaps".
+  async getAttendanceRules(): Promise<AttendanceRulesConfig> {
+    return apiGet<AttendanceRulesConfig>(`${ATTENDANCE_BASE}/rules`);
+  }
+
+  async updateAttendanceRules(payload: UpdateAttendanceRulesPayload): Promise<AttendanceRulesConfig> {
+    return apiPut<AttendanceRulesConfig>(`${ATTENDANCE_BASE}/rules`, payload);
+  }
+
+  async listAttendanceRuleChanges(): Promise<AttendanceRuleChangeEntry[]> {
+    return apiGet<AttendanceRuleChangeEntry[]>(`${ATTENDANCE_BASE}/rules/history`);
+  }
+
+  async getMonthlyAttendanceSummary(year: number, month: number, locationId?: string): Promise<MonthlyAttendanceSummaryResult> {
+    const q = new URLSearchParams({ year: String(year), month: String(month) });
+    if (locationId) q.set("locationId", locationId);
+    return apiGet<MonthlyAttendanceSummaryResult>(`${ATTENDANCE_BASE}/summary?${q.toString()}`);
+  }
+
+  async getEmployeeAttendanceDetail(employeeId: string, year: number, month: number): Promise<AttendanceEmployeeDetailResult | null> {
+    const q = new URLSearchParams({ year: String(year), month: String(month) });
+    try {
+      return await apiGet<AttendanceEmployeeDetailResult>(`${ATTENDANCE_BASE}/employee/${encodeURIComponent(employeeId)}?${q.toString()}`);
+    } catch (e) {
+      if (e instanceof ApiError && e.status === 404) return null;
+      throw e;
+    }
   }
 }

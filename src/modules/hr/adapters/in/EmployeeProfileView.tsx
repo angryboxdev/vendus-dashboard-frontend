@@ -297,21 +297,6 @@ export function EmployeeProfileView() {
               </div>
             )}
 
-            <div>
-              <h3 className="mb-2 text-sm font-semibold text-stone-800">Outras áreas</h3>
-              <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
-                {["Turnos", "Pagamentos", "Férias"].map((label) => (
-                  <Link
-                    key={label}
-                    to={`/hr/employees/${id}`}
-                    className="flex items-center justify-between rounded-xl border border-[#F5C992]/40 bg-white p-4 text-sm font-medium text-stone-700 shadow-sm transition-colors hover:bg-[#FDF8F5]"
-                  >
-                    {label}
-                    <span className="text-stone-300">→</span>
-                  </Link>
-                ))}
-              </div>
-            </div>
           </div>
         )}
 

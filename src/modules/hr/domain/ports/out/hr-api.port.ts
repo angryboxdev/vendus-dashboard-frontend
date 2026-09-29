@@ -29,6 +29,13 @@ import type {
   MonthlyClosureStatus,
 } from "../../entities/attendance-conference.ts";
 import type {
+  AttendanceRuleChangeEntry,
+  AttendanceRulesConfig,
+  UpdateAttendanceRulesPayload,
+} from "../../entities/attendance-rules.ts";
+import type { MonthlyAttendanceSummaryResult } from "../../entities/attendance-summary.ts";
+import type { AttendanceEmployeeDetailResult } from "../../entities/attendance-employee-detail.ts";
+import type {
   ApplyBaseScheduleResult,
   BaseScheduleCell,
   ClearShiftsScope,
@@ -138,4 +145,13 @@ export interface HrApiPort {
   getMonthlyClosureStatus(year: number, month: number): Promise<MonthlyClosureStatus>;
   closeMonthlyPeriod(year: number, month: number): Promise<MonthlyClosureStatus>;
   reopenMonthlyPeriod(year: number, month: number, reason: string): Promise<MonthlyClosureStatus>;
+
+  // ── Fase 2.1: Regras de Assiduidade, Tolerâncias e Conferência ───────────
+  /** Implementado no backend; `hr_attendance_rules`/a troca de tipos de correção ainda dependem de 2 migrações pendentes de aplicação manual — ver README. */
+  getAttendanceRules(): Promise<AttendanceRulesConfig>;
+  updateAttendanceRules(payload: UpdateAttendanceRulesPayload): Promise<AttendanceRulesConfig>;
+  listAttendanceRuleChanges(): Promise<AttendanceRuleChangeEntry[]>;
+  getMonthlyAttendanceSummary(year: number, month: number, locationId?: string): Promise<MonthlyAttendanceSummaryResult>;
+  /** Ficha individual ("Assiduidade — Nome") — `null` se o colaborador não existir. */
+  getEmployeeAttendanceDetail(employeeId: string, year: number, month: number): Promise<AttendanceEmployeeDetailResult | null>;
 }
