@@ -12,26 +12,28 @@ async function getAuthHeaders(): Promise<Record<string, string>> {
 
 export class ApiError extends Error {
   readonly status: number;
+  /** Corpo JSON já parseado da resposta de erro (quando o backend devolve um, ex.: `{ error, candidate }` no 409 de duplicados). `undefined` quando o corpo não é JSON. */
+  readonly data: unknown;
 
-  constructor(message: string, status: number) {
+  constructor(message: string, status: number, data?: unknown) {
     super(message);
     this.name = "ApiError";
     this.status = status;
+    this.data = data;
   }
 }
 
-async function readErrorMessage(res: Response): Promise<string> {
+async function readErrorBody(res: Response): Promise<{ message: string; data: unknown }> {
   const text = await res.text();
-  if (!text) return `HTTP ${res.status}`;
+  if (!text) return { message: `HTTP ${res.status}`, data: undefined };
   try {
-    const parsed = JSON.parse(text) as { error?: string };
-    if (typeof parsed?.error === "string" && parsed.error.length > 0) {
-      return parsed.error;
-    }
+    const parsed = JSON.parse(text) as unknown;
+    const errorField = (parsed as { error?: unknown } | null)?.error;
+    const message = typeof errorField === "string" && errorField.length > 0 ? errorField : text;
+    return { message, data: parsed };
   } catch {
-    /* ignore */
+    return { message: text, data: undefined };
   }
-  return text;
 }
 
 async function request(
@@ -48,8 +50,8 @@ async function request(
     body: options.body,
   });
   if (!res.ok) {
-    const message = await readErrorMessage(res);
-    throw new ApiError(message, res.status);
+    const { message, data } = await readErrorBody(res);
+    throw new ApiError(message, res.status, data);
   }
   return res;
 }
@@ -122,8 +124,8 @@ export async function apiPostFormData<T>(
     body: formData,
   });
   if (!res.ok) {
-    const message = await readErrorMessage(res);
-    throw new ApiError(message, res.status);
+    const { message, data } = await readErrorBody(res);
+    throw new ApiError(message, res.status, data);
   }
   return res.json() as Promise<T>;
 }

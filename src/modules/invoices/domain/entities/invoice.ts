@@ -92,6 +92,10 @@ export interface InvoiceLineDTO {
   requiresAllocation: boolean;
   dreValue: number;
   cashflowValue: number;
+  /** Módulo Contabilidade — `null` = usa a sugestão da subcategoria (`vatDeductible` boolean → 100% ou 0%). */
+  deductiblePercentage: number | null;
+  /** Obrigatório sempre que `deductiblePercentage` não é `null` (validado no backend). */
+  deductibilityOverrideReason: string | null;
   createdAt: string;
 }
 
@@ -294,6 +298,12 @@ export interface UpdateInvoiceLinePayload {
   totalWithVat?: number;
   /** Optional (D4): omitted means "organization-wide, no store". Never defaulted. */
   locationId?: string | null;
+}
+
+/** Módulo Contabilidade — override de dedutibilidade de IVA por linha de fatura. `deductiblePercentage: null` repõe a sugestão da subcategoria. */
+export interface SetLineDeductibilityOverridePayload {
+  deductiblePercentage: number | null;
+  deductibilityOverrideReason: string | null;
 }
 
 export interface ClassifyLinePayload {

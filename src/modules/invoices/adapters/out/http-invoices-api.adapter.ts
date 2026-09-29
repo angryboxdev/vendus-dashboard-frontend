@@ -21,6 +21,7 @@ import type {
   SuggestClassificationResult,
   LineDetailMode,
   InvoiceDocumentType,
+  SetLineDeductibilityOverridePayload,
 } from "../../domain/entities/invoice.ts";
 
 const BASE = "/api/invoices";
@@ -92,6 +93,17 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
   async classifyLine(invoiceId: string, lineId: string, payload: ClassifyLinePayload): Promise<InvoiceLineDTO> {
     return apiPatch(
       `${BASE}/${encodeURIComponent(invoiceId)}/lines/${encodeURIComponent(lineId)}/classify`,
+      payload,
+    );
+  }
+
+  async setLineDeductibilityOverride(
+    invoiceId: string,
+    lineId: string,
+    payload: SetLineDeductibilityOverridePayload,
+  ): Promise<InvoiceLineDTO> {
+    return apiPatch(
+      `${BASE}/${encodeURIComponent(invoiceId)}/lines/${encodeURIComponent(lineId)}/deductibility`,
       payload,
     );
   }

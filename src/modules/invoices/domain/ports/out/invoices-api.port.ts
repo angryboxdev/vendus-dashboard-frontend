@@ -13,6 +13,7 @@ import type {
   SuggestClassificationResult,
   LineDetailMode,
   InvoiceDocumentType,
+  SetLineDeductibilityOverridePayload,
 } from "../../entities/invoice.ts";
 
 export interface AddInvoiceLinePayload {
@@ -43,6 +44,7 @@ export interface InvoicesApiPort {
   deleteInvoice(id: string): Promise<void>;
   deleteLine(invoiceId: string, lineId: string): Promise<void>;
   classifyLine(invoiceId: string, lineId: string, payload: ClassifyLinePayload): Promise<InvoiceLineDTO>;
+  setLineDeductibilityOverride(invoiceId: string, lineId: string, payload: SetLineDeductibilityOverridePayload): Promise<InvoiceLineDTO>;
   importInvoice(file: File, documentType?: InvoiceDocumentType): Promise<InvoiceImportResultDTO>;
   confirmImportedInvoice(id: string, payload: ConfirmImportedInvoicePayload): Promise<InvoiceDTO>;
   getInvoiceAlerts(): Promise<InvoiceAlertsDTO>;
