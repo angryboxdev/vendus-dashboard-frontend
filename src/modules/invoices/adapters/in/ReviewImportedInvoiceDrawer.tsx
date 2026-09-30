@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ApiError } from "../../../../lib/api.ts";
 import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { LocationSelect } from "../../../../components/LocationSelect.tsx";
 import { useInvoicesModule } from "../../invoices.module.tsx";
@@ -865,9 +866,19 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   const [paidAt, setPaidAt] = useState(inv.invoiceDate ?? todayStr());
   const [isDirectDebit, setIsDirectDebit] = useState(false);
   const [directDebitDate, setDirectDebitDate] = useState(inv.dueDate ?? "");
-  const [detailMode, setDetailMode] = useState<LineDetailMode>(
-    importResult.extractedLines.length > 0 ? "detailed" : "simple"
-  );
+  // Por defeito "Classificação única" mesmo quando a IA extraiu várias
+  // linhas — o utilizador pode sempre clicar "Detalhar por linha" e as
+  // linhas já vêm totalmente preenchidas (ver `lines` abaixo, inicializado
+  // sempre a partir de `importResult.extractedLines`, independente do modo
+  // inicial aqui).
+  const [detailMode, setDetailMode] = useState<LineDetailMode>("simple");
+  // Módulo Stock (Compra por rever) — mudar "Impacto no stock" ou descartar
+  // linhas detalhadas pode tornar órfã uma revisão de stock já criada para
+  // esta fatura ainda não aplicada. O backend responde 409 com
+  // `requiresConfirmation: true` nesse caso (ver shared-stock-review-guard
+  // no backend); mostramos um diálogo de confirmação e, se aceite,
+  // reenviamos o mesmo pedido com `confirmRemoveStockReview: true`.
+  const [stockReviewConfirmMessage, setStockReviewConfirmMessage] = useState<string | null>(null);
 
   const [lines, setLines] = useState<DraftLine[]>(() =>
     importResult.extractedLines.map((l, i) => {
@@ -935,7 +946,11 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   // freshly imported" framing: type/category/unit/location reset to blank,
   // same as a fresh import's extracted lines, for the user to reclassify.
   const editMutation = useMutation({
-    mutationFn: async () => {
+    // `confirmRemove` chega como variável do `mutate(confirmRemove)`, nunca
+    // de estado React — evita o problema clássico de `setState` + `mutate()`
+    // no mesmo handler lerem o valor antigo por causa do fecho (closure) do
+    // render corrente.
+    mutationFn: async (confirmRemove: boolean) => {
       let resolvedSupplierId = supplierId;
       if (newSupplierData) {
         const created = await fbModule.api.createSupplier(newSupplierData);
@@ -957,9 +972,10 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
         costCenterCategoryId: detailMode === "simple" ? (costCenterCategoryId || null) : null,
         stockReviewOverride,
         stockReviewOverrideReason: stockReviewOverride === "force_skip" ? (stockReviewOverrideReason.trim() || null) : null,
+        confirmRemoveStockReview: confirmRemove || undefined,
       });
 
-      await api.setLineDetailMode(inv.id, detailMode);
+      await api.setLineDetailMode(inv.id, detailMode, confirmRemove || undefined);
       if (detailMode === "detailed") {
         for (const lineId of existingLineIds) {
           await api.deleteLine(inv.id, lineId);
@@ -976,7 +992,25 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
       void qc.invalidateQueries({ queryKey: ["invoice-alerts"] });
       onConfirmed(updated);
     },
+    onError: (err) => {
+      if (err instanceof ApiError && err.status === 409 && (err.data as { requiresConfirmation?: boolean } | null)?.requiresConfirmation) {
+        setStockReviewConfirmMessage(err.message);
+      }
+    },
   });
+
+  function confirmStockReviewRemovalAndRetry() {
+    setStockReviewConfirmMessage(null);
+    editMutation.mutate(true);
+  }
+
+  function cancelStockReviewConfirm() {
+    setStockReviewConfirmMessage(null);
+    // Limpa o erro 409 guardado pelo useMutation — sem isto, o banner de
+    // erro normal (`confirmError` abaixo) reapareceria com a mesma
+    // mensagem de pedido-de-confirmação, como se fosse um erro bloqueante.
+    editMutation.reset();
+  }
 
   function buildPayload(saveAsPayable: boolean): ConfirmImportedInvoicePayload {
     const payload: ConfirmImportedInvoicePayload = {
@@ -1020,7 +1054,9 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
 
   const saving = isEdit ? editMutation.isPending : confirmMutation.isPending;
   const activeError = isEdit ? editMutation.error : confirmMutation.error;
-  const confirmError = activeError instanceof Error ? activeError.message : null;
+  // Enquanto o diálogo de confirmação de remoção da revisão de stock está
+  // visível, não duplicamos a mesma mensagem no banner de erro normal.
+  const confirmError = stockReviewConfirmMessage ? null : activeError instanceof Error ? activeError.message : null;
 
   const labelCls = "block text-xs font-medium text-stone-500 mb-1";
   const inputCls =
@@ -1371,7 +1407,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
             <div className="flex flex-col gap-2 sm:flex-row">
               {isEdit ? (
                 <button
-                  onClick={() => editMutation.mutate()}
+                  onClick={() => editMutation.mutate(false)}
                   disabled={saving}
                   className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
                 >
@@ -1447,6 +1483,31 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
           </div>
         )}
       </div>
+
+      {/* Confirmação — remover revisão de stock ainda não aplicada (409 requiresConfirmation) */}
+      {stockReviewConfirmMessage && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-2xl">
+            <p className="text-sm font-semibold text-stone-800">Revisão de stock associada</p>
+            <p className="mt-2 text-sm text-stone-600">{stockReviewConfirmMessage}</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={cancelStockReviewConfirm}
+                className="rounded-md px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmStockReviewRemovalAndRetry}
+                disabled={editMutation.isPending}
+                className="rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );
