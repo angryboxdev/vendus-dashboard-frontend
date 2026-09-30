@@ -308,3 +308,79 @@ export interface CreateRulePayload {
   requiresDocument?: boolean;
   riskLevel?: RiskLevel;
 }
+
+// ── Grouped settlement ("Liquidação agrupada") ─────────────────────────────────
+
+/**
+ * Document type as seen from the bank-statements module — deliberately not
+ * imported from `invoices`' own `InvoiceDocumentType` to keep this module's
+ * domain self-contained (same literal values, `invoice` | `credit_note`).
+ */
+export type GroupedSettlementDocumentType = "invoice" | "credit_note";
+
+export interface GroupedSettlementDocDTO {
+  entityId: string;
+  documentType: GroupedSettlementDocumentType;
+  entityLabel: string;
+  supplierId: string | null;
+  /** Signed: positive for an invoice, negative for a credit note. */
+  openBalanceCents: number;
+  invoiceDate: string; // YYYY-MM-DD
+  dueDate: string | null;
+  isOverdue: boolean;
+  isBeforeMovementDate: boolean;
+}
+
+export interface GroupedSettlementCombinationDTO {
+  docs: GroupedSettlementDocDTO[];
+  documentCount: number;
+  invoiceCount: number;
+  creditNoteCount: number;
+  invoiceTotalCents: number;
+  creditNoteTotalCents: number; // ≤ 0
+  netTotalCents: number; // always equals the movement amount here
+  isExactMatch: true;
+}
+
+export interface GetGroupedSettlementSuggestionsResult {
+  movementId: string;
+  movementAmountCents: number;
+  currency: string;
+  supplierId: string | null;
+  supplierName: string | null;
+  /** Present only when a plain 1:1 match exists — the existing single-suggestion UI already handles this case. */
+  singleExactMatch: MovementCandidateDTO | null;
+  /** The "Liquidação agrupada encontrada" card — null when `singleExactMatch` is present, or when no exact combination was found. */
+  primaryCombination: GroupedSettlementCombinationDTO | null;
+  /** Non-empty ⇒ show the "Encontrámos N liquidações possíveis" picker instead of the single suggestion card. */
+  alternateCombinations: GroupedSettlementCombinationDTO[];
+  /** Full pool for manual multi-select search — already excludes fully-settled documents and is same-supplier/same-currency/open/compatible-type/on-or-before-movement-date filtered. */
+  eligibleDocuments: GroupedSettlementDocDTO[];
+  totalEligibleBeforeCap: number;
+  candidatePoolCap: number;
+}
+
+export interface GroupedEntityLinkInput {
+  entityId: string;
+  documentType: GroupedSettlementDocumentType;
+  /** Signed, same as the `openBalanceCents` of the document being (fully) used. */
+  allocatedAmountCents: number;
+  /**
+   * The `openBalanceCents` observed for this doc when the user built the
+   * selection — sent back exactly as it came from `eligibleDocuments` /
+   * the combination. The backend revalidates this and rejects (409) the
+   * whole request if any one has changed.
+   */
+  expectedOpenBalanceCents: number;
+}
+
+export interface ConfirmGroupedSettlementResult {
+  movementId: string;
+  reconciliationStatus: ReconciliationStatus;
+}
+
+/** Shape of the 409 response body from `POST .../grouped-settlement`. */
+export interface GroupedSettlementConflictDTO {
+  error: string;
+  entityIds: string[];
+}
