@@ -15,8 +15,9 @@ import type {
   LineDetailMode,
   InvoiceLineType,
   InvoiceDocumentType,
+  StockReviewOverride,
 } from "../../domain/entities/invoice.ts";
-import { VALIDATION_ISSUE_LABELS, INVOICE_LINE_TYPE_LABELS, DOCUMENT_TYPE_LABELS } from "../../domain/entities/invoice.ts";
+import { VALIDATION_ISSUE_LABELS, INVOICE_LINE_TYPE_LABELS, DOCUMENT_TYPE_LABELS, STOCK_REVIEW_OVERRIDE_LABELS } from "../../domain/entities/invoice.ts";
 import type { CostCenterGroup, CostCenterCategory } from "../../../financial-base/domain/entities/cost-center.ts";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -856,6 +857,8 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   const [totalStr, setTotalStr] = useState((Math.abs(inv.totalWithVat) / 100).toFixed(2));
   const [docType, setDocType] = useState<InvoiceDocumentType>(inv.documentType ?? "invoice");
   const [notes, setNotes] = useState(inv.notes ?? "");
+  const [stockReviewOverride, setStockReviewOverride] = useState<StockReviewOverride>(inv.stockReviewOverride ?? "auto");
+  const [stockReviewOverrideReason, setStockReviewOverrideReason] = useState(inv.stockReviewOverrideReason ?? "");
   const [costCenterGroupId, setCostCenterGroupId] = useState<string | null>(inv.costCenterGroupId ?? null);
   const [costCenterCategoryId, setCostCenterCategoryId] = useState<string | null>(inv.costCenterCategoryId ?? null);
   const [alreadyPaid, setAlreadyPaid] = useState(false);
@@ -952,6 +955,8 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
         notes: notes.trim() || null,
         costCenterGroupId: detailMode === "simple" ? (costCenterGroupId || null) : null,
         costCenterCategoryId: detailMode === "simple" ? (costCenterCategoryId || null) : null,
+        stockReviewOverride,
+        stockReviewOverrideReason: stockReviewOverride === "force_skip" ? (stockReviewOverrideReason.trim() || null) : null,
       });
 
       await api.setLineDetailMode(inv.id, detailMode);
@@ -987,6 +992,8 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
       totalWithVat: toCents(totalStr),
       documentType: docType,
       notes: notes.trim() || null,
+      stockReviewOverride,
+      stockReviewOverrideReason: stockReviewOverride === "force_skip" ? (stockReviewOverrideReason.trim() || null) : null,
       saveAsPayable: (alreadyPaid || isDirectDebit || docType === "credit_note") ? false : saveAsPayable,
       markAsPaid: alreadyPaid,
       paidAt: alreadyPaid ? paidAt : undefined,
@@ -1259,6 +1266,29 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
               className={inputCls}
               placeholder="Opcional"
             />
+          </div>
+
+          {/* Impacto no stock — largura total */}
+          <div>
+            <label className={labelCls}>Impacto no stock</label>
+            <select
+              value={stockReviewOverride}
+              onChange={(e) => setStockReviewOverride(e.target.value as StockReviewOverride)}
+              className={inputCls}
+            >
+              {(Object.entries(STOCK_REVIEW_OVERRIDE_LABELS) as [StockReviewOverride, string][]).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            {stockReviewOverride === "force_skip" && (
+              <input
+                type="text"
+                value={stockReviewOverrideReason}
+                onChange={(e) => setStockReviewOverrideReason(e.target.value)}
+                className={`${inputCls} mt-2`}
+                placeholder="Motivo (opcional)"
+              />
+            )}
           </div>
 
           {/* Modo de classificação — largura total */}

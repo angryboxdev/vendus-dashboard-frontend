@@ -28,6 +28,15 @@ export type ReconciliationStatus = "none" | "pending_reconciliation" | "partiall
 export type LineDetailMode = "simple" | "detailed";
 export type PaymentMethod = "bank_transfer" | "direct_debit" | "mbway" | "card" | "cash" | "cheque" | "other";
 
+/** Módulo "Compra por rever" (stock-purchase-review) — decide se a fatura força/ignora a geração de revisão de stock, ou deixa a decisão automática (categoria/fornecedor). */
+export type StockReviewOverride = "auto" | "force_create" | "force_skip";
+
+export const STOCK_REVIEW_OVERRIDE_LABELS: Record<StockReviewOverride, string> = {
+  auto: "Automático (categoria/fornecedor)",
+  force_create: "Forçar criação de revisão",
+  force_skip: "Não criar revisão",
+};
+
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   bank_transfer: "Transferência bancária",
   direct_debit: "Débito direto",
@@ -136,6 +145,9 @@ export interface InvoiceDTO {
   paymentMethod: string | null;
   paymentNotes: string | null;
   competenceDate: string | null;
+  /** Default `"auto"` — deixa o backend decidir (categoria/fornecedor, nunca Centro de Custo) se gera revisão de impacto em stock. */
+  stockReviewOverride: StockReviewOverride;
+  stockReviewOverrideReason: string | null;
   createdAt: string;
   updatedAt: string;
   lines?: InvoiceLineDTO[];
@@ -222,6 +234,8 @@ export interface CreateInvoicePayload {
   totalVat: number;
   totalWithVat: number;
   notes?: string | null;
+  stockReviewOverride?: StockReviewOverride;
+  stockReviewOverrideReason?: string | null;
   lines?: CreateInvoiceLinePayload[];
 }
 
@@ -246,6 +260,8 @@ export interface UpdateInvoicePayload {
   affectsCashflow?: boolean;
   affectsProfitability?: boolean;
   currency?: string;
+  stockReviewOverride?: StockReviewOverride;
+  stockReviewOverrideReason?: string | null;
 }
 
 export interface NewSupplierPayload {
@@ -282,6 +298,8 @@ export interface ConfirmImportedInvoicePayload {
   affectsCashflow?: boolean;
   affectsProfitability?: boolean;
   currency?: string;
+  stockReviewOverride?: StockReviewOverride;
+  stockReviewOverrideReason?: string | null;
   saveAsPayable?: boolean;
   markAsPaid?: boolean;
   paidAt?: string; // YYYY-MM-DD — used when markAsPaid is true

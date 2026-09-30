@@ -48,6 +48,10 @@ padrão novo, abra o `README.md` dele e veja o campo `Status`; sem README ou com
 - `hr` (setembro 2026) — só a área "Pessoas & Documentos" (lista, perfil 360º,
   dossiê documental, foto); turnos/pagamentos/férias/kiosk/auditoria
   continuam em `src/pages/hr/*` (legacy)
+- `stock-purchase-review` (setembro 2026) — "Compras por rever" (Fase 1:
+  lista + formulário simples, sem wizard)
+- `stock-count` (setembro 2026) — "Contagens de stock" (Fase 1: funcional
+  simples, sem wizard, sem unidades alternativas nem UI de zonas)
 
 ## Stack
 

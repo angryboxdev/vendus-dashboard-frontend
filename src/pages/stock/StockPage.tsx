@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { NumericInput } from "../../components/NumericInput.tsx";
 
 import { apiGet, apiPost, apiPut } from "../../lib/api";
@@ -17,7 +17,6 @@ import type {
 import {
   STOCK_BASE_UNIT_LABELS,
   STOCK_ITEM_TYPE_LABELS,
-  STOCK_MOVEMENT_TYPE_LABELS,
 } from "./stock.types";
 import { LocationSelect } from "../../components/LocationSelect.tsx";
 import { useLocations } from "../../modules/locations/adapters/in/use-locations.ts";
@@ -25,6 +24,8 @@ import { resolveLocationId } from "../../modules/locations/domain/services/resol
 import { InvoiceImportModal } from "./invoiceImport/InvoiceImportModal";
 import type { ReviewableInvoiceLine } from "./invoiceImport/invoiceImport.types";
 import { mapInvoiceLineToNewStockItemForm } from "./invoiceImport/mapInvoiceLineToNewStockItem";
+import type { StockPurchaseReviewRowDTO } from "../../modules/stock-purchase-review/domain/entities/stock-purchase-review.ts";
+import { OPEN_STOCK_PURCHASE_REVIEW_STATUSES } from "../../modules/stock-purchase-review/domain/entities/stock-purchase-review.ts";
 
 const DEFAULT_CATEGORY_NAME = "Geral";
 
@@ -67,23 +68,6 @@ export function StockPage() {
   const [editForm, setEditForm] = useState<StockItemUpdateBody>({});
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  const [updateModalOpen, setUpdateModalOpen] = useState(false);
-  const [updateMovementDate, setUpdateMovementDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
-  const [updateRows, setUpdateRows] = useState<UpdateMovementRow[]>([
-    {
-      itemId: "",
-      quantity: 0,
-      movementType: "adjustment",
-      unitCostWithVat: "",
-      unitCostWithoutVat: "",
-      reference: "",
-    },
-  ]);
-  const [updateError, setUpdateError] = useState<string | null>(null);
-  const [updateLocationId, setUpdateLocationId] = useState<string | null>(null);
-
   const [newItemModalOpen, setNewItemModalOpen] = useState(false);
   const [newItemMovementDate, setNewItemMovementDate] = useState(() =>
     new Date().toISOString().slice(0, 10),
@@ -111,10 +95,32 @@ export function StockPage() {
   >(null);
 
   const [invoiceImportOpen, setInvoiceImportOpen] = useState(false);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (invoiceImportId) setInvoiceImportOpen(true);
   }, [invoiceImportId]);
+
+  // Contagem de "Compras por rever" ainda não terminais (pending/in_review/partial/ready),
+  // para o badge do link no lugar do antigo "Importar fatura" — reaproveita a listagem
+  // existente do módulo stock-purchase-review, sem endpoint novo dedicado a contagens.
+  const [openReviewsCount, setOpenReviewsCount] = useState(0);
+  useEffect(() => {
+    let cancelled = false;
+    apiGet<StockPurchaseReviewRowDTO[]>("/api/stock-purchase-reviews")
+      .then((rows) => {
+        if (cancelled) return;
+        setOpenReviewsCount(
+          rows.filter((r) => OPEN_STOCK_PURCHASE_REVIEW_STATUSES.includes(r.status)).length,
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setOpenReviewsCount(0);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const loadCategories = useCallback(async () => {
     try {
@@ -246,88 +252,6 @@ export function StockPage() {
     }
   }, [editItem, editForm, closeEdit, loadItems]);
 
-  const submitUpdateStock = useCallback(async () => {
-    setUpdateError(null);
-    const valid = updateRows.filter((r) => r.itemId && r.quantity !== 0);
-    if (valid.length === 0) {
-      setUpdateError("Selecione pelo menos um item e indique quantidade.");
-      return;
-    }
-    const locationId = resolveLocationId(updateLocationId, locations);
-    if (!locationId) {
-      setUpdateError("Selecione uma loja.");
-      return;
-    }
-    try {
-      const movementDateIso = updateMovementDate
-        ? new Date(updateMovementDate + "T12:00:00").toISOString()
-        : undefined;
-      for (const r of valid) {
-        await apiPost<unknown>("/api/stock/movements", {
-          item_id: r.itemId,
-          type: r.movementType,
-          quantity: r.quantity,
-          unit_cost_per_base_unit_with_vat:
-            r.unitCostWithVat !== "" ? Number(r.unitCostWithVat) || null : null,
-          unit_cost_per_base_unit_without_vat:
-            r.unitCostWithoutVat !== ""
-              ? Number(r.unitCostWithoutVat) || null
-              : null,
-          reference: r.reference.trim() || null,
-          movement_date: movementDateIso,
-          location_id: locationId,
-        } satisfies StockMovementCreateBody);
-      }
-      setUpdateModalOpen(false);
-      setUpdateMovementDate(new Date().toISOString().slice(0, 10));
-      setUpdateLocationId(null);
-      setUpdateRows([
-        {
-          itemId: "",
-          quantity: 0,
-          movementType: "adjustment",
-          unitCostWithVat: "",
-          unitCostWithoutVat: "",
-          reference: "",
-        },
-      ]);
-      await loadItems();
-    } catch (e) {
-      setUpdateError(
-        e instanceof Error ? e.message : "Erro ao registar movimento",
-      );
-    }
-  }, [updateRows, updateMovementDate, updateLocationId, locations, loadItems]);
-
-  const addUpdateRow = useCallback(() => {
-    setUpdateRows((prev) => [
-      ...prev,
-      {
-        itemId: "",
-        quantity: 0,
-        movementType: "adjustment" as StockMovementType,
-        unitCostWithVat: "",
-        unitCostWithoutVat: "",
-        reference: "",
-      },
-    ]);
-  }, []);
-
-  const updateUpdateRow = useCallback(
-    (idx: number, patch: Partial<UpdateMovementRow>) => {
-      setUpdateRows((prev) =>
-        prev.map((r, i) => (i === idx ? { ...r, ...patch } : r)),
-      );
-    },
-    [],
-  );
-
-  const removeUpdateRow = useCallback((idx: number) => {
-    setUpdateRows((prev) =>
-      prev.length > 1 ? prev.filter((_, i) => i !== idx) : prev,
-    );
-  }, []);
-
   const submitNewItem = useCallback(async () => {
     setNewItemError(null);
     const name = newItemForm.name.trim();
@@ -439,31 +363,17 @@ export function StockPage() {
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
-            onClick={() => setInvoiceImportOpen(true)}
+            onClick={() => navigate("/stock/compras-por-rever")}
             className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
-            Importar fatura
+            Compras por rever{openReviewsCount > 0 ? ` (${openReviewsCount})` : ""}
           </button>
           <button
             type="button"
-            onClick={() => {
-              setUpdateModalOpen(true);
-              setUpdateError(null);
-              setUpdateMovementDate(new Date().toISOString().slice(0, 10));
-              setUpdateRows([
-                {
-                  itemId: "",
-                  quantity: 0,
-                  movementType: "adjustment",
-                  unitCostWithVat: "",
-                  unitCostWithoutVat: "",
-                  reference: "",
-                },
-              ]);
-            }}
+            onClick={() => navigate("/stock/contagens")}
             className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
           >
-            Atualizar stock
+            Contagens de stock
           </button>
           <button
             type="button"
@@ -474,23 +384,6 @@ export function StockPage() {
           </button>
         </div>
       </div>
-
-      {updateModalOpen && (
-        <UpdateStockModal
-          items={items}
-          movementDate={updateMovementDate}
-          setMovementDate={setUpdateMovementDate}
-          locationId={updateLocationId}
-          setLocationId={setUpdateLocationId}
-          rows={updateRows}
-          updateRow={updateUpdateRow}
-          addRow={addUpdateRow}
-          removeRow={removeUpdateRow}
-          error={updateError}
-          onSubmit={submitUpdateStock}
-          onClose={() => setUpdateModalOpen(false)}
-        />
-      )}
 
       <InvoiceImportModal
         open={invoiceImportOpen}
@@ -1118,245 +1011,6 @@ function StockEditModal({
             className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
           >
             Guardar
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-type UpdateMovementRow = {
-  itemId: string;
-  quantity: number;
-  movementType: StockMovementType;
-  unitCostWithVat: string;
-  unitCostWithoutVat: string;
-  reference: string;
-};
-
-function UpdateStockModal({
-  items,
-  movementDate,
-  setMovementDate,
-  locationId,
-  setLocationId,
-  rows,
-  updateRow,
-  addRow,
-  removeRow,
-  error,
-  onSubmit,
-  onClose,
-}: {
-  items: StockItem[];
-  movementDate: string;
-  setMovementDate: (v: string) => void;
-  locationId: string | null;
-  setLocationId: (v: string | null) => void;
-  rows: UpdateMovementRow[];
-  updateRow: (idx: number, patch: Partial<UpdateMovementRow>) => void;
-  addRow: () => void;
-  removeRow: (idx: number) => void;
-  error: string | null;
-  onSubmit: () => void;
-  onClose: () => void;
-}) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="update-stock-title"
-    >
-      <div className="max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-lg">
-        <h3
-          id="update-stock-title"
-          className="text-base font-semibold text-slate-800"
-        >
-          Atualizar stock
-        </h3>
-        <div className="mt-4 flex flex-wrap items-end gap-4">
-          <div>
-            <label className="mb-1 block text-xs text-slate-500">
-              Data da movimentação
-            </label>
-            <input
-              type="date"
-              value={movementDate}
-              onChange={(e) => setMovementDate(e.target.value)}
-              className="rounded border border-slate-200 px-3 py-2 text-sm"
-            />
-          </div>
-          {/* Loja onde os movimentos ocorreram — só aparece com mais de uma location */}
-          <LocationSelect
-            value={locationId}
-            onChange={setLocationId}
-            label="Loja"
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 text-slate-600">
-                <th className="pr-4 py-2 font-medium">Item</th>
-                <th className="pr-4 py-2 font-medium">Quantidade (+/−)</th>
-                <th className="pr-4 py-2 font-medium">Tipo</th>
-                <th className="pr-4 py-2 font-medium">Custo c/ IVA</th>
-                <th className="pr-4 py-2 font-medium">Custo s/ IVA</th>
-                <th className="pr-4 py-2 font-medium">Notas</th>
-                <th className="w-20 text-center">Ações</th>
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((row, idx) => (
-                <tr key={idx} className="border-t border-slate-100">
-                  <td className="py-2 pr-4">
-                    <select
-                      value={row.itemId}
-                      onChange={(e) => {
-                        const itemId = e.target.value;
-                        const patch: Partial<UpdateMovementRow> = { itemId };
-                        if (row.movementType === "purchase" && itemId) {
-                          const item = items.find((i) => i.id === itemId);
-                          if (
-                            item &&
-                            row.unitCostWithVat === "" &&
-                            row.unitCostWithoutVat === ""
-                          ) {
-                            const withVat =
-                              item.last_purchase_unit_cost_with_vat ??
-                              item.purchase_reference_unit_cost_with_vat;
-                            const withoutVat =
-                              item.last_purchase_unit_cost_without_vat ??
-                              item.purchase_reference_unit_cost_without_vat;
-                            if (withVat != null && withVat > 0)
-                              patch.unitCostWithVat = String(withVat);
-                            if (withoutVat != null && withoutVat > 0)
-                              patch.unitCostWithoutVat = String(withoutVat);
-                          }
-                        }
-                        updateRow(idx, patch);
-                      }}
-                      className="w-full min-w-[160px] rounded border border-slate-200 px-3 py-2 text-sm"
-                    >
-                      <option value="">Selecionar</option>
-                      {items.map((i) => (
-                        <option key={i.id} value={i.id}>
-                          {i.name}
-                          {i.sku ? ` (${i.sku})` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="py-2 pr-4">
-                    <NumericInput
-                      decimals={3}
-                      value={row.quantity === 0 ? "" : row.quantity}
-                      onChange={(e) =>
-                        updateRow(idx, {
-                          quantity: Number(e.target.value) || 0,
-                        })
-                      }
-                      className="w-28 rounded border border-slate-200 px-3 py-2 text-sm"
-                      placeholder="0"
-                    />
-                  </td>
-                  <td className="py-2 pr-4">
-                    <select
-                      value={row.movementType}
-                      onChange={(e) =>
-                        updateRow(idx, {
-                          movementType: e.target.value as StockMovementType,
-                        })
-                      }
-                      className="rounded border border-slate-200 px-3 py-2 text-sm"
-                    >
-                      {(
-                        Object.entries(STOCK_MOVEMENT_TYPE_LABELS) as [
-                          StockMovementType,
-                          string,
-                        ][]
-                      ).map(([k, v]) => (
-                        <option key={k} value={k}>
-                          {v}
-                        </option>
-                      ))}
-                    </select>
-                  </td>
-                  <td className="py-2 pr-4">
-                    <NumericInput
-                      value={row.unitCostWithVat}
-                      onChange={(e) =>
-                        updateRow(idx, { unitCostWithVat: e.target.value })
-                      }
-                      className="w-20 rounded border border-slate-200 px-3 py-2 text-sm"
-                      placeholder="—"
-                    />
-                  </td>
-                  <td className="py-2 pr-4">
-                    <NumericInput
-                      value={row.unitCostWithoutVat}
-                      onChange={(e) =>
-                        updateRow(idx, { unitCostWithoutVat: e.target.value })
-                      }
-                      className="w-20 rounded border border-slate-200 px-3 py-2 text-sm"
-                      placeholder="—"
-                    />
-                  </td>
-                  <td className="py-2 pr-4">
-                    <input
-                      type="text"
-                      value={row.reference}
-                      onChange={(e) =>
-                        updateRow(idx, { reference: e.target.value })
-                      }
-                      className="w-36 rounded border border-slate-200 px-3 py-2 text-sm"
-                      placeholder="—"
-                    />
-                  </td>
-                  <td className="py-2">
-                    <button
-                      type="button"
-                      onClick={() => removeRow(idx)}
-                      className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
-                    >
-                      Remover
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-        <div className="mt-4 flex flex-wrap items-center gap-4">
-          <button
-            type="button"
-            onClick={addRow}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            + Adicionar item
-          </button>
-          <p className="text-xs text-slate-500">
-            O custo só atualiza o «último custo» do item na tabela quando o tipo
-            for <strong>Compra</strong>.
-          </p>
-        </div>
-        {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
-        <div className="mt-6 flex justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Cancelar
-          </button>
-          <button
-            type="button"
-            onClick={onSubmit}
-            className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-          >
-            Registar
           </button>
         </div>
       </div>
