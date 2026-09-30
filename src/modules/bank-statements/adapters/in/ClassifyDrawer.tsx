@@ -1,11 +1,12 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { createPortal } from "react-dom";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
 import { useInvoicesModule } from "../../../invoices/invoices.module.tsx";
 import { usePayableRecurrencesModule } from "../../../payable-recurrences/payable-recurrences.module.tsx";
+import { ApiError } from "../../../../lib/api.ts";
 import type {
   CostCenterGroup,
   CostCenterCategory,
@@ -15,6 +16,10 @@ import type { InvoiceDTO } from "../../../invoices/domain/entities/invoice.ts";
 import {
   type BankMovementDTO,
   type ClassifyMovementPayload,
+  type ConfirmGroupedSettlementResult,
+  type GroupedEntityLinkInput,
+  type GroupedSettlementConflictDTO,
+  type GroupedSettlementDocDTO,
   type JustificationType,
   type MovementCandidateDTO,
   type OccurrenceCandidateDTO,
@@ -22,6 +27,16 @@ import {
   RECONCILIATION_STATUS_LABELS,
   JUSTIFICATION_TYPE_LABELS,
 } from "../../domain/entities/bank-statement.ts";
+import {
+  DocumentTypeTag,
+  GroupedSettlementSuggestions,
+  ManualMultiSelectSearch,
+  StaleDocumentsModal,
+} from "./GroupedSettlementSection.tsx";
+
+function isVersionConflict(e: unknown): e is ApiError {
+  return e instanceof ApiError && e.status === 409;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -195,6 +210,21 @@ interface AllocationEntry {
   totalCents: number;
   openBalanceCents: number;
   allocatedCents: number;
+  /**
+   * Only set for entries sourced from the grouped-settlement flow (a grouped
+   * suggestion, or the manual multi-select search over `eligibleDocuments`) —
+   * `undefined` for entries from the legacy one-at-a-time candidates/search
+   * flow. Its presence (together with `expectedOpenBalanceCents`) is what
+   * `handleSubmit` uses to decide which endpoint to submit through — see the
+   * comment above `needsGroupedEndpoint`.
+   */
+  documentType?: "invoice" | "credit_note";
+  /**
+   * The `openBalanceCents` this entry was staged with, replayed back to the
+   * grouped-settlement endpoint for its optimistic-concurrency check. Only
+   * meaningful together with `documentType`.
+   */
+  expectedOpenBalanceCents?: number;
 }
 
 // ── ClassifyDrawer ────────────────────────────────────────────────────────────
@@ -205,6 +235,7 @@ export function ClassifyDrawer({
   onClose,
   onSave,
   onReconcile,
+  onConfirmGroupedSettlement,
   onUnreconcile,
   saving,
   inline = false,
@@ -222,6 +253,17 @@ export function ClassifyDrawer({
       supplierId: string | null;
     }>,
   ) => void;
+  /**
+   * "Liquidação agrupada" — submits one or more invoices/credit notes at
+   * once via the new grouped-settlement endpoint. Returns a promise so the
+   * drawer can await it and show its own stale-document (409) modal without
+   * the caller needing to know about that error shape; the caller is still
+   * responsible for invalidating queries / closing / toasting on success,
+   * exactly like `onReconcile` today.
+   */
+  onConfirmGroupedSettlement: (
+    entityLinks: GroupedEntityLinkInput[],
+  ) => Promise<ConfirmGroupedSettlementResult>;
   onUnreconcile?: () => void;
   saving: boolean;
   /** When true, renders inline (no portal/backdrop). Use for side-panel layouts. */
@@ -303,6 +345,16 @@ export function ClassifyDrawer({
     () => new Map(candidates.map((c) => [c.entityId, c.openBalanceCents])),
     [candidates],
   );
+
+  // "Liquidação agrupada" — combinations of invoices/credit notes of the same
+  // supplier that exactly sum to the movement amount, plus the eligible-doc
+  // pool for manual multi-select. Only relevant to tab A ("sistema").
+  const { data: groupedData, isLoading: loadingGroupedData, isError: groupedDataError } = useQuery({
+    queryKey: ["grouped-settlement-suggestions", movement.id],
+    queryFn: () => api.getGroupedSettlementSuggestions(movement.id),
+    enabled: activeTab === "sistema",
+    staleTime: 30_000,
+  });
 
   const { data: invoiceSearchResults = [], isLoading: loadingSearch } = useQuery({
     queryKey: ["invoices-search", debouncedSearch],
@@ -494,8 +546,46 @@ export function ClassifyDrawer({
 
   function addAllocation(entry: Omit<AllocationEntry, "allocatedCents">) {
     if (allocatedEntityIds.has(entry.entityId)) return;
+    // The grouped-settlement endpoint has no concept of `payable_entry` (its
+    // GroupedEntityLinkInput is invoice/credit_note only) — a `payable_entry`
+    // candidate can't be mixed into a submission that will need that
+    // endpoint (see `needsGroupedEndpoint` below), so block it here rather
+    // than surface a confusing 500 on submit.
+    const hasGroupedOrCreditNoteEntry = allocations.some((a) => a.documentType != null);
+    if (entry.entityType === "payable_entry" && hasGroupedOrCreditNoteEntry) return;
     const suggested = Math.min(entry.openBalanceCents, Math.max(0, remaining));
     setAllocations((prev) => [...prev, { ...entry, allocatedCents: suggested }]);
+  }
+
+  /**
+   * Stages one or more grouped-settlement documents (from "Usar sugestão",
+   * an alternate combination, or the manual multi-select) into `allocations`
+   * — staging only, exactly like `addAllocation` above; the grouped-settlement
+   * endpoint is only ever called from `handleSubmit`/`submitGroupedSettlement`.
+   * Each document is used in full (`allocatedCents = openBalanceCents`,
+   * signed — negative for a credit note), matching what an exact-match
+   * combination or a manually-balanced selection both assume.
+   */
+  function stageGroupedDocs(docs: GroupedSettlementDocDTO[]) {
+    setAllocations((prev) => {
+      const existingIds = new Set(prev.map((a) => a.entityId));
+      const hasPayableEntry = prev.some((a) => a.entityType === "payable_entry");
+      if (hasPayableEntry) return prev;
+      const additions: AllocationEntry[] = docs
+        .filter((d) => !existingIds.has(d.entityId))
+        .map((d) => ({
+          entityType: "invoice",
+          entityId: d.entityId,
+          entityLabel: d.entityLabel,
+          supplierId: d.supplierId,
+          totalCents: d.openBalanceCents,
+          openBalanceCents: d.openBalanceCents,
+          allocatedCents: d.openBalanceCents,
+          documentType: d.documentType,
+          expectedOpenBalanceCents: d.openBalanceCents,
+        }));
+      return [...prev, ...additions];
+    });
   }
 
   function removeAllocation(entityId: string) {
@@ -506,6 +596,80 @@ export function ClassifyDrawer({
     setAllocations((prev) =>
       prev.map((a) => a.entityId === entityId ? { ...a, allocatedCents: Math.max(0, cents) } : a)
     );
+  }
+
+  // ── Grouped settlement submission ─────────────────────────────────────────
+  //
+  // "Usar sugestão" / an alternate combination / finishing the manual
+  // multi-select never call the settlement endpoint directly — they only
+  // stage documents into `allocations` via `stageGroupedDocs` above, exactly
+  // like the legacy one-at-a-time click. The actual endpoint is chosen here,
+  // once, when the user submits the form:
+  //
+  //   - `needsGroupedEndpoint` false → legacy `onReconcile` (unchanged path).
+  //   - `needsGroupedEndpoint` true  → `onConfirmGroupedSettlement`, which
+  //     revalidates every entry's `expectedOpenBalanceCents` server-side and
+  //     can 409 if something went stale in the meantime.
+  //
+  // Rule (documented per the task): submit via the grouped endpoint whenever
+  // the final allocation set has more than one entry, OR includes a credit
+  // note, OR includes anything sourced from the grouped-suggestions/manual
+  // multi-select UI (`documentType` set) — a true single legacy
+  // invoice-only allocation keeps using the existing path. `payable_entry`
+  // is never sent to the grouped endpoint (it has no concept of it); this is
+  // also guarded earlier in `addAllocation`/`stageGroupedDocs` so the two
+  // kinds can't actually end up mixed in the same submission.
+  const hasCreditNoteAllocation = allocations.some((a) => a.documentType === "credit_note");
+  const hasGroupedOriginAllocation = allocations.some((a) => a.documentType != null);
+  const hasPayableEntryAllocation = allocations.some((a) => a.entityType === "payable_entry");
+  const needsGroupedEndpoint =
+    !hasPayableEntryAllocation &&
+    (allocations.length > 1 || hasCreditNoteAllocation || hasGroupedOriginAllocation);
+
+  const [staleConflict, setStaleConflict] = useState<GroupedSettlementConflictDTO | null>(null);
+
+  const groupedSettlementMut = useMutation({
+    mutationFn: (entityLinks: GroupedEntityLinkInput[]) => onConfirmGroupedSettlement(entityLinks),
+    onError: (err: unknown) => {
+      if (isVersionConflict(err)) {
+        setStaleConflict((err.data as GroupedSettlementConflictDTO | undefined) ?? { error: err.message, entityIds: [] });
+      }
+      // Non-409 errors: the caller's own mutation (which `onConfirmGroupedSettlement`
+      // wraps) already surfaces its own error toast — nothing else to do here.
+    },
+  });
+
+  async function submitGroupedSettlement() {
+    try {
+      await groupedSettlementMut.mutateAsync(
+        allocations.map((a) => ({
+          entityId: a.entityId,
+          documentType: a.documentType ?? "invoice",
+          allocatedAmountCents: a.allocatedCents,
+          expectedOpenBalanceCents: a.expectedOpenBalanceCents ?? a.openBalanceCents,
+        })),
+      );
+    } catch {
+      // Already handled by groupedSettlementMut.onError above.
+    }
+  }
+
+  /**
+   * "Atualizar documentos" on the stale-document modal: drops only the
+   * entries the backend flagged as stale from the staged allocation (never
+   * lets the user resubmit the same stale `expectedOpenBalanceCents`
+   * unchanged) and refetches the suggestion/candidate data so a retry uses
+   * fresh values.
+   */
+  function handleRefreshAfterConflict() {
+    if (staleConflict) {
+      const staleIds = new Set(staleConflict.entityIds);
+      setAllocations((prev) => prev.filter((a) => !staleIds.has(a.entityId)));
+    }
+    void qc.invalidateQueries({ queryKey: ["grouped-settlement-suggestions", movement.id] });
+    void qc.invalidateQueries({ queryKey: ["movement-candidates", movement.id] });
+    void qc.invalidateQueries({ queryKey: ["invoice-open-balances"] });
+    setStaleConflict(null);
   }
 
   const [pendingOccurrencePayload, setPendingOccurrencePayload] = useState<ClassifyMovementPayload | null>(null);
@@ -533,14 +697,18 @@ export function ClassifyDrawer({
     e.preventDefault();
     if (activeTab === "sistema") {
       if (allocations.length > 0 && !overAllocated) {
-        onReconcile(
-          allocations.map((a) => ({
-            entityType: a.entityType,
-            entityId: a.entityId,
-            allocatedAmountCents: a.allocatedCents,
-            supplierId: a.supplierId,
-          })),
-        );
+        if (needsGroupedEndpoint) {
+          void submitGroupedSettlement();
+        } else {
+          onReconcile(
+            allocations.map((a) => ({
+              entityType: a.entityType,
+              entityId: a.entityId,
+              allocatedAmountCents: a.allocatedCents,
+              supplierId: a.supplierId,
+            })),
+          );
+        }
       }
       return;
     }
@@ -578,7 +746,12 @@ export function ClassifyDrawer({
     onSave(payload);
   }
 
-  const canSubmitA = activeTab === "sistema" && allocations.length > 0 && !overAllocated && allocations.every((a) => a.allocatedCents > 0);
+  const canSubmitA =
+    activeTab === "sistema" &&
+    allocations.length > 0 &&
+    !overAllocated &&
+    allocations.every((a) => (a.documentType === "credit_note" ? a.allocatedCents < 0 : a.allocatedCents > 0)) &&
+    !groupedSettlementMut.isPending;
   const canSubmitB =
     activeTab === "justificar" &&
     (!requiresSupplier(subType) || !!supplierId) &&
@@ -809,7 +982,7 @@ export function ClassifyDrawer({
         {/* Tabs */}
         <div className="flex border-b border-[#F5C992]/40 shrink-0">
           {(
-            [["sistema", "Justificar com fatura"], ["justificar", "Justificar despesa"]] as [ClassifyTab, string][]
+            [["sistema", "Justificar com documentos"], ["justificar", "Justificar despesa"]] as [ClassifyTab, string][]
           ).map(([tab, label]) => (
             <button key={tab} type="button" onClick={() => setActiveTab(tab)}
               className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
@@ -858,9 +1031,38 @@ export function ClassifyDrawer({
 
                 {allocations.length > 0 && (
                   <div>
-                    <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Faturas / contas a alocar ({allocations.length})</p>
+                    <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Documentos associados ({allocations.length})</p>
                     <div className="space-y-2">
                       {allocations.map((a) => {
+                        if (a.documentType) {
+                          // Grouped-origin entry (suggestion / alternate combination / manual
+                          // multi-select) — staged as a whole document, not editable per-row.
+                          return (
+                            <div key={a.entityId}
+                              className={`rounded-lg border px-3 py-2.5 ${a.documentType === "credit_note" ? "border-rose-200 bg-rose-50/50" : "border-[#F5C992]/60 bg-[#FDF8F5]"}`}>
+                              <div className="flex items-start justify-between gap-2">
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <DocumentTypeTag documentType={a.documentType} />
+                                    <p className="text-sm font-medium text-stone-800 truncate">{a.entityLabel}</p>
+                                  </div>
+                                  <p className="text-xs text-stone-400 mt-0.5">
+                                    Valor:{" "}
+                                    <span className={a.allocatedCents < 0 ? "text-red-600 font-medium" : "text-stone-600 font-medium"}>
+                                      {fromCents(a.allocatedCents)}
+                                    </span>
+                                  </p>
+                                </div>
+                                <button type="button" onClick={() => removeAllocation(a.entityId)}
+                                  className="shrink-0 text-stone-300 hover:text-red-400 mt-0.5" title="Remover">
+                                  <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                                    <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
+                                  </svg>
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        }
                         const exceedsBalance = a.allocatedCents > a.openBalanceCents;
                         return (
                           <div key={a.entityId} className={`rounded-lg border px-3 py-2.5 ${exceedsBalance ? "border-red-200 bg-red-50" : "border-[#F5C992]/60 bg-[#FDF8F5]"}`}>
@@ -898,12 +1100,42 @@ export function ClassifyDrawer({
                         );
                       })}
                     </div>
+
+                    {/* Faturas / NC / Total líquido breakdown — only meaningful once at least one grouped-origin document is staged. */}
+                    {hasGroupedOriginAllocation && (() => {
+                      const groupedEntries = allocations.filter((a) => a.documentType != null);
+                      const invoiceTotal = groupedEntries.filter((a) => a.documentType === "invoice").reduce((s, a) => s + a.allocatedCents, 0);
+                      const creditNoteTotal = groupedEntries.filter((a) => a.documentType === "credit_note").reduce((s, a) => s + a.allocatedCents, 0);
+                      return (
+                        <div className="mt-2 rounded-lg border border-stone-100 bg-stone-50 px-4 py-2.5 space-y-1 text-xs">
+                          <div className="flex justify-between">
+                            <span className="text-stone-500">Faturas</span>
+                            <span className="font-medium text-stone-800">{fromCents(invoiceTotal)}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-stone-500">Notas de crédito</span>
+                            <span className="font-medium text-red-600">{fromCents(creditNoteTotal)}</span>
+                          </div>
+                          <div className="flex justify-between border-t border-stone-200 pt-1">
+                            <span className="text-stone-500">Total líquido</span>
+                            <span className="font-semibold text-stone-800">{fromCents(invoiceTotal + creditNoteTotal)}</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+
+                    {hasGroupedOriginAllocation && remaining === 0 && (
+                      <div className="mt-2 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5 flex items-center justify-between">
+                        <span className="text-sm font-medium text-emerald-700">Documentos associados</span>
+                        <span className="inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold bg-emerald-100 text-emerald-700">Correspondência exata</span>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {allocations.length === 0 && (
                   <p className="text-xs text-stone-400 bg-stone-50 rounded-md px-3 py-3 text-center">
-                    Seleciona faturas ou contas a pagar abaixo para associar a este movimento.
+                    Seleciona documentos ou contas a pagar abaixo para associar a este movimento.
                   </p>
                 )}
 
@@ -923,31 +1155,67 @@ export function ClassifyDrawer({
                   )}
                 </div>
 
-                <div>
-                  <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Procurar faturas</p>
-                  <input type="search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
-                    placeholder="Nome do fornecedor ou nº de fatura…" className={inputCls} />
-                  {loadingSearch && debouncedSearch.length >= 2 && <p className="text-xs text-stone-400 mt-2">A procurar…</p>}
-                  {!loadingSearch && debouncedSearch.length >= 2 && filteredSearchResults.length === 0 && (
-                    <p className="text-xs text-stone-400 mt-2">Sem resultados para "{debouncedSearch}".</p>
-                  )}
-                  {filteredSearchResults.length > 0 && (
-                    <div className="mt-2 border border-stone-200 rounded-lg overflow-hidden">
-                      <div className="space-y-1.5 p-2 max-h-56 overflow-y-auto">
-                        {filteredSearchResults.map((inv) => {
-                          const openBalanceCents = candidatesOpenBalanceMap.get(inv.id) ?? searchOpenBalances[inv.id] ?? inv.totalWithVat;
-                          return (
-                            <InvoiceCard key={inv.id} invoice={inv} openBalanceCents={openBalanceCents}
-                              onAdd={() => addAllocation({ entityType: "invoice", entityId: inv.id, entityLabel: `${inv.supplierName} — ${inv.invoiceNumber}`, supplierId: inv.supplierId ?? null, totalCents: inv.totalWithVat, openBalanceCents })} />
-                          );
-                        })}
+                {loadingGroupedData && (
+                  <p className="text-xs text-stone-400 py-1">A procurar liquidações agrupadas…</p>
+                )}
+
+                {/*
+                  When a plain 1:1 match exists (`singleExactMatch`), or the new
+                  endpoint failed / hasn't answered yet, fall back to the original
+                  invoice-only free-text search — untouched. Otherwise ("Liquidação
+                  agrupada") the manual search is the new multi-select over
+                  `eligibleDocuments` (never the old invoice-only search — it
+                  already excludes fully-settled documents and understands credit
+                  notes), optionally preceded by the grouped-suggestion card/picker.
+                */}
+                {(groupedData?.singleExactMatch || groupedDataError || (!loadingGroupedData && !groupedData)) && (
+                  <div>
+                    <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Procurar faturas</p>
+                    <input type="search" value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)}
+                      placeholder="Nome do fornecedor ou nº de fatura…" className={inputCls} />
+                    {loadingSearch && debouncedSearch.length >= 2 && <p className="text-xs text-stone-400 mt-2">A procurar…</p>}
+                    {!loadingSearch && debouncedSearch.length >= 2 && filteredSearchResults.length === 0 && (
+                      <p className="text-xs text-stone-400 mt-2">Sem resultados para "{debouncedSearch}".</p>
+                    )}
+                    {filteredSearchResults.length > 0 && (
+                      <div className="mt-2 border border-stone-200 rounded-lg overflow-hidden">
+                        <div className="space-y-1.5 p-2 max-h-56 overflow-y-auto">
+                          {filteredSearchResults.map((inv) => {
+                            const openBalanceCents = candidatesOpenBalanceMap.get(inv.id) ?? searchOpenBalances[inv.id] ?? inv.totalWithVat;
+                            return (
+                              <InvoiceCard key={inv.id} invoice={inv} openBalanceCents={openBalanceCents}
+                                onAdd={() => addAllocation({ entityType: "invoice", entityId: inv.id, entityLabel: `${inv.supplierName} — ${inv.invoiceNumber}`, supplierId: inv.supplierId ?? null, totalCents: inv.totalWithVat, openBalanceCents })} />
+                            );
+                          })}
+                        </div>
+                        <div className="border-t border-stone-100 bg-stone-50 px-3 py-1.5">
+                          <p className="text-xs text-stone-400">{filteredSearchResults.length} resultado{filteredSearchResults.length !== 1 ? "s" : ""}</p>
+                        </div>
                       </div>
-                      <div className="border-t border-stone-100 bg-stone-50 px-3 py-1.5">
-                        <p className="text-xs text-stone-400">{filteredSearchResults.length} resultado{filteredSearchResults.length !== 1 ? "s" : ""}</p>
-                      </div>
-                    </div>
-                  )}
-                </div>
+                    )}
+                  </div>
+                )}
+
+                {!loadingGroupedData && !groupedDataError && groupedData && !groupedData.singleExactMatch && (
+                  <>
+                    {groupedData.primaryCombination && (
+                      <GroupedSettlementSuggestions
+                        primary={groupedData.primaryCombination}
+                        alternates={groupedData.alternateCombinations}
+                        supplierName={groupedData.supplierName}
+                        disabled={groupedSettlementMut.isPending}
+                        onUse={stageGroupedDocs}
+                      />
+                    )}
+                    <ManualMultiSelectSearch
+                      eligibleDocuments={groupedData.eligibleDocuments}
+                      movementAmountCents={movement.amount}
+                      excludeEntityIds={allocatedEntityIds}
+                      disabled={groupedSettlementMut.isPending}
+                      onAssociate={stageGroupedDocs}
+                    />
+                  </>
+                )}
               </>
             )}
 
@@ -1146,9 +1414,9 @@ export function ClassifyDrawer({
               className="flex-1 rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">
               Cancelar
             </button>
-            <button type="submit" disabled={saving || uploading || !canSubmit}
+            <button type="submit" disabled={saving || uploading || !canSubmit || groupedSettlementMut.isPending}
               className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-40">
-              {saving ? "A guardar…" : uploading ? "A carregar ficheiro…" : "Classificar"}
+              {groupedSettlementMut.isPending ? "A confirmar liquidação…" : saving ? "A guardar…" : uploading ? "A carregar ficheiro…" : "Classificar"}
             </button>
           </div>
         </form>
@@ -1192,7 +1460,16 @@ export function ClassifyDrawer({
     document.body,
   );
 
-  if (inline) return <>{panel}{fullOrPartialModal}</>;
+  const staleConflictModal = staleConflict && createPortal(
+    <StaleDocumentsModal
+      onCancel={() => setStaleConflict(null)}
+      onRefresh={handleRefreshAfterConflict}
+      refreshing={groupedSettlementMut.isPending}
+    />,
+    document.body,
+  );
+
+  if (inline) return <>{panel}{fullOrPartialModal}{staleConflictModal}</>;
 
   return createPortal(
     <>
@@ -1201,6 +1478,7 @@ export function ClassifyDrawer({
         {panel}
       </div>
       {fullOrPartialModal}
+      {staleConflictModal}
     </>,
     document.body,
   );

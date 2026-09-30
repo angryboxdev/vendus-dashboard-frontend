@@ -6,6 +6,7 @@ import { useBankAccountsModule } from "../../../bank-accounts/bank-accounts.modu
 import {
   type BankMovementDTO,
   type ClassifyMovementPayload,
+  type GroupedEntityLinkInput,
   type MonthlyEntityMatchSuggestionDTO,
   type RepeatJustificationSuggestionDTO,
   type ReconciliationStatus,
@@ -14,8 +15,13 @@ import {
 } from "../../domain/entities/bank-statement.ts";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 import { useToast, ToastContainer } from "../../../../components/Toast.tsx";
+import { ApiError } from "../../../../lib/api.ts";
 import { ImportModal } from "./ImportModal.tsx";
 import { ClassifyDrawer, type ClassifyDrawerSuggestion } from "./ClassifyDrawer.tsx";
+
+function isVersionConflict(e: unknown): e is ApiError {
+  return e instanceof ApiError && e.status === 409;
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -310,6 +316,33 @@ export function MonthDetailView() {
     onError: (e: Error) => showToast(e.message, "error"),
   });
 
+  // "Liquidação agrupada" — settles one or more invoices/credit notes at
+  // once. `ClassifyDrawer` calls this via `mutateAsync` and catches the 409
+  // itself (to show its own stale-document modal), so this mutation's
+  // `onError` only needs to toast for anything that isn't that conflict.
+  const groupedSettlementMut = useMutation({
+    mutationFn: (args: { movementId: string; entityLinks: GroupedEntityLinkInput[] }) =>
+      api.confirmGroupedSettlement(args.movementId, args.entityLinks),
+    onSuccess: () => {
+      void qc.invalidateQueries({
+        queryKey: ["bank-month", accountId, year, month],
+      });
+      void qc.invalidateQueries({
+        queryKey: ["bank-calendar", accountId, year],
+      });
+      void qc.invalidateQueries({
+        queryKey: ["bank-month-suggestions", accountId, year, month],
+      });
+      setClassifying(null);
+      setClassifyingSuggestion(null);
+      showToast("Movimento conciliado com sucesso");
+    },
+    onError: (e: unknown) => {
+      if (isVersionConflict(e)) return; // ClassifyDrawer shows its own stale-document modal
+      showToast(e instanceof Error ? e.message : "Erro ao confirmar liquidação", "error");
+    },
+  });
+
   // Opens the drawer with the reconciliation/classification already filled in
   // from the suggestion, so the user reviews (and can still change) it before
   // confirming — nothing is applied until they submit the drawer's form.
@@ -390,11 +423,13 @@ export function MonthDetailView() {
             supplierId: string | null;
           }>,
         ) => reconcileMut.mutate({ movementId: classifying.id, entityLinks }),
+        onConfirmGroupedSettlement: (entityLinks: GroupedEntityLinkInput[]) =>
+          groupedSettlementMut.mutateAsync({ movementId: classifying.id, entityLinks }),
         onUnreconcile: () => {
           void qc.invalidateQueries({ queryKey: ["bank-month", accountId, year, month] });
           void qc.invalidateQueries({ queryKey: ["bank-calendar", accountId, year] });
         },
-        saving: classifyMut.isPending || reconcileMut.isPending,
+        saving: classifyMut.isPending || reconcileMut.isPending || groupedSettlementMut.isPending,
       }
     : null;
 
