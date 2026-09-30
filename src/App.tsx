@@ -70,6 +70,17 @@ import { DevicePairingGate } from "./modules/location-credentials/adapters/in/De
 import { LocationCredentialsAdminView } from "./modules/location-credentials/adapters/in/LocationCredentialsAdminView.tsx";
 import { SalesSummaryProvider } from "./modules/sales-summary/sales-summary.module.tsx";
 import { SalesSummaryView } from "./modules/sales-summary/adapters/in/SalesSummaryView.tsx";
+import { StockPurchaseReviewProvider } from "./modules/stock-purchase-review/stock-purchase-review.module.tsx";
+import { StockPurchaseReviewsListView } from "./modules/stock-purchase-review/adapters/in/StockPurchaseReviewsListView.tsx";
+import { StockPurchaseReviewDetailView } from "./modules/stock-purchase-review/adapters/in/StockPurchaseReviewDetailView.tsx";
+import { StockCountProvider } from "./modules/stock-count/stock-count.module.tsx";
+import { StockCountSessionsListView } from "./modules/stock-count/adapters/in/StockCountSessionsListView.tsx";
+import { StockCountSessionDetailView } from "./modules/stock-count/adapters/in/StockCountSessionDetailView.tsx";
+import { StockPlanningProvider } from "./modules/stock-planning/stock-planning.module.tsx";
+import { PlanningMainView } from "./modules/stock-planning/adapters/in/PlanningMainView.tsx";
+import { PlanningAlertsView } from "./modules/stock-planning/adapters/in/PlanningAlertsView.tsx";
+import { SuggestedPurchaseListView } from "./modules/stock-planning/adapters/in/SuggestedPurchaseListView.tsx";
+import { ForecastHistoryView } from "./modules/stock-planning/adapters/in/ForecastHistoryView.tsx";
 
 export default function App() {
   return (
@@ -166,6 +177,76 @@ export default function App() {
                   />
                   <Route path="/stock/stock" element={<StockPage />} />
                   <Route path="/stock/pizzas" element={<PizzasPage />} />
+                  <Route
+                    path="/stock/compras-por-rever"
+                    element={
+                      <FinancialBaseProvider>
+                        <StockPurchaseReviewProvider>
+                          <StockPurchaseReviewsListView />
+                        </StockPurchaseReviewProvider>
+                      </FinancialBaseProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/compras-por-rever/:id"
+                    element={
+                      <FinancialBaseProvider>
+                        <StockPurchaseReviewProvider>
+                          <StockPurchaseReviewDetailView />
+                        </StockPurchaseReviewProvider>
+                      </FinancialBaseProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/contagens"
+                    element={
+                      <StockCountProvider>
+                        <StockCountSessionsListView />
+                      </StockCountProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/contagens/:id"
+                    element={
+                      <StockCountProvider>
+                        <StockCountSessionDetailView />
+                      </StockCountProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/planeamento"
+                    element={
+                      <FinancialBaseProvider>
+                        <StockPlanningProvider>
+                          <PlanningMainView />
+                        </StockPlanningProvider>
+                      </FinancialBaseProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/planeamento/alertas"
+                    element={
+                      <StockPlanningProvider>
+                        <PlanningAlertsView />
+                      </StockPlanningProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/planeamento/lista-compras"
+                    element={
+                      <StockPlanningProvider>
+                        <SuggestedPurchaseListView />
+                      </StockPlanningProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/planeamento/historico"
+                    element={
+                      <StockPlanningProvider>
+                        <ForecastHistoryView />
+                      </StockPlanningProvider>
+                    }
+                  />
                 </Route>
                 <Route
                   path="/angrybox/hr"

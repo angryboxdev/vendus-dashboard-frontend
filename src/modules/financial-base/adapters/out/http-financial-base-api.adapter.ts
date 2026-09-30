@@ -1,4 +1,4 @@
-import { apiGet, apiGetBlob, apiPost, apiPatch } from "../../../../lib/api.ts";
+import { apiGet, apiGetBlob, apiPost, apiPatch, apiPut } from "../../../../lib/api.ts";
 import type {
   FinancialBaseApiPort,
   ListCostCenterGroupsParams,
@@ -22,6 +22,10 @@ import type {
   CreateSupplierPayload,
   UpdateSupplierPayload,
 } from "../../domain/entities/supplier.ts";
+import type {
+  SupplierDeliveryScheduleDTO,
+  UpsertSupplierDeliverySchedulePayload,
+} from "../../domain/entities/supplier-delivery-schedule.ts";
 
 const BASE = "/api/financial-base";
 
@@ -144,5 +148,18 @@ export class HttpFinancialBaseApiAdapter implements FinancialBaseApiPort {
 
   async listChannels(): Promise<ChannelDTO[]> {
     return apiGet(`${BASE}/channels`);
+  }
+
+  // ── Delivery schedule (módulo Stock — Planeamento, D10) ──────────────────────
+
+  async listSupplierDeliverySchedules(supplierId: string): Promise<SupplierDeliveryScheduleDTO[]> {
+    return apiGet(`${BASE}/suppliers/${encodeURIComponent(supplierId)}/delivery-schedule`);
+  }
+
+  async upsertSupplierDeliverySchedule(
+    supplierId: string,
+    payload: UpsertSupplierDeliverySchedulePayload,
+  ): Promise<SupplierDeliveryScheduleDTO> {
+    return apiPut(`${BASE}/suppliers/${encodeURIComponent(supplierId)}/delivery-schedule`, payload);
   }
 }

@@ -17,6 +17,8 @@ const STOCK_ITEMS: NavItem[] = [
   },
   { kind: "item", path: "/stock/stock", label: "Itens de stock" },
   { kind: "item", path: "/stock/pizzas", label: "Fichas Técnicas" },
+  { kind: "item", path: "/stock/contagens", label: "Contagens de stock" },
+  { kind: "item", path: "/stock/planeamento", label: "Planeamento" },
 ];
 
 const HR_ITEMS: NavItem[] = [
