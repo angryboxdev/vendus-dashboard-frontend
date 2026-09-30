@@ -76,6 +76,11 @@ import { StockPurchaseReviewDetailView } from "./modules/stock-purchase-review/a
 import { StockCountProvider } from "./modules/stock-count/stock-count.module.tsx";
 import { StockCountSessionsListView } from "./modules/stock-count/adapters/in/StockCountSessionsListView.tsx";
 import { StockCountSessionDetailView } from "./modules/stock-count/adapters/in/StockCountSessionDetailView.tsx";
+import { StockPlanningProvider } from "./modules/stock-planning/stock-planning.module.tsx";
+import { PlanningMainView } from "./modules/stock-planning/adapters/in/PlanningMainView.tsx";
+import { PlanningAlertsView } from "./modules/stock-planning/adapters/in/PlanningAlertsView.tsx";
+import { SuggestedPurchaseListView } from "./modules/stock-planning/adapters/in/SuggestedPurchaseListView.tsx";
+import { ForecastHistoryView } from "./modules/stock-planning/adapters/in/ForecastHistoryView.tsx";
 
 export default function App() {
   return (
@@ -206,6 +211,40 @@ export default function App() {
                       <StockCountProvider>
                         <StockCountSessionDetailView />
                       </StockCountProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/planeamento"
+                    element={
+                      <FinancialBaseProvider>
+                        <StockPlanningProvider>
+                          <PlanningMainView />
+                        </StockPlanningProvider>
+                      </FinancialBaseProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/planeamento/alertas"
+                    element={
+                      <StockPlanningProvider>
+                        <PlanningAlertsView />
+                      </StockPlanningProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/planeamento/lista-compras"
+                    element={
+                      <StockPlanningProvider>
+                        <SuggestedPurchaseListView />
+                      </StockPlanningProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/planeamento/historico"
+                    element={
+                      <StockPlanningProvider>
+                        <ForecastHistoryView />
+                      </StockPlanningProvider>
                     }
                   />
                 </Route>

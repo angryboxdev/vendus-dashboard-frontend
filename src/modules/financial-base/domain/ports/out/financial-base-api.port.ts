@@ -15,6 +15,10 @@ import type {
   CreateSupplierPayload,
   UpdateSupplierPayload,
 } from "../../entities/supplier.ts";
+import type {
+  SupplierDeliveryScheduleDTO,
+  UpsertSupplierDeliverySchedulePayload,
+} from "../../entities/supplier-delivery-schedule.ts";
 
 export interface ListCostCenterGroupsParams {
   isActive?: boolean;
@@ -61,4 +65,8 @@ export interface FinancialBaseApiPort {
 
   // Channels
   listChannels(): Promise<ChannelDTO[]>;
+
+  // Delivery schedule (módulo Stock — Planeamento, D10)
+  listSupplierDeliverySchedules(supplierId: string): Promise<SupplierDeliveryScheduleDTO[]>;
+  upsertSupplierDeliverySchedule(supplierId: string, payload: UpsertSupplierDeliverySchedulePayload): Promise<SupplierDeliveryScheduleDTO>;
 }

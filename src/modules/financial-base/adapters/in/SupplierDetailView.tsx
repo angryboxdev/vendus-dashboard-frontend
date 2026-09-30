@@ -4,8 +4,11 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useFinancialBaseModule } from "../../financial-base.module.tsx";
 import { SupplierDrawer } from "./SupplierDrawer.tsx";
 import { ExportStatementModal } from "./ExportStatementModal.tsx";
+import { SupplierPlanningTab } from "./SupplierPlanningTab.tsx";
+import { SupplierAssociatedItemsTab } from "./SupplierAssociatedItemsTab.tsx";
 import { formatEUR } from "../../../../lib/format.ts";
 import type { UpdateSupplierPayload } from "../../domain/entities/supplier.ts";
+import type { SupplierDetail } from "../../domain/entities/supplier.ts";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -49,6 +52,153 @@ function InvoiceStatusBadge({ status }: { status: string }) {
   );
 }
 
+// ── Secções reaproveitadas entre "Dados gerais" e as tabs dedicadas ─────────
+// Extraídas para evitar duplicar JSX: "Dados gerais" continua a mostrar tudo
+// (nunca uma remoção), e "Histórico de compras"/"Contactos e notas" só
+// tornam essas mesmas secções acessíveis diretamente, sem replicar markup.
+
+function SupplierInvoicesSection({ supplier, navigate }: { supplier: SupplierDetail; navigate: ReturnType<typeof useNavigate> }) {
+  if (supplier.invoices.length === 0) {
+    return (
+      <div className="rounded-xl border border-[#F5C992]/40 bg-white py-16 text-center shadow-sm">
+        <p className="text-sm text-stone-400">Nenhuma fatura registada para este fornecedor.</p>
+      </div>
+    );
+  }
+  return (
+    <div className="overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white shadow-sm">
+      <div className="border-b border-[#F5C992]/40 px-4 py-3">
+        <h3 className="text-sm font-semibold text-stone-700">
+          Faturas ({supplier.invoices.length})
+        </h3>
+      </div>
+      <table className="min-w-full text-sm">
+        <thead className="border-b border-[#F5C992]/40 bg-stone-50/60">
+          <tr>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Nº Fatura</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Emissão</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Vencimento</th>
+            <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">Valor</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Estado</th>
+            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Ações</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-[#F5C992]/30">
+          {supplier.invoices.map((inv) => (
+            <tr key={inv.id} className="transition-colors hover:bg-[#FDF8F5]">
+              <td className="px-4 py-3 font-mono text-xs font-medium text-stone-700">
+                <div className="flex items-center gap-1.5">
+                  {inv.invoiceNumber}
+                  {inv.documentType === "credit_note" && (
+                    <span className="rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-sky-100 text-sky-700">
+                      NC
+                    </span>
+                  )}
+                </div>
+              </td>
+              <td className="px-4 py-3 text-stone-600">{formatDate(inv.invoiceDate)}</td>
+              <td className="px-4 py-3 text-stone-600">{formatDate(inv.dueDate)}</td>
+              <td className={`px-4 py-3 text-right font-medium ${inv.documentType === "credit_note" ? "text-red-600" : "text-stone-900"}`}>
+                {formatEUR(inv.totalWithVat)}
+              </td>
+              <td className="px-4 py-3">
+                <InvoiceStatusBadge status={inv.status} />
+              </td>
+              <td className="px-4 py-3">
+                <div className="flex items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/financial/invoices?open=${inv.id}`)}
+                    className="inline-flex items-center gap-1 text-xs text-stone-500 transition-colors hover:text-[#ED5C32]"
+                  >
+                    <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                      <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
+                      <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+                    </svg>
+                    Ver fatura
+                  </button>
+                  {inv.attachmentUrl && (
+                    <a
+                      href={inv.attachmentUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-stone-500 transition-colors hover:text-[#ED5C32]"
+                    >
+                      <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M15.621 4.379a3 3 0 00-4.242 0l-7 7a3 3 0 004.241 4.243h.001l.497-.5a.75.75 0 011.064 1.057l-.498.501-.002.002a4.5 4.5 0 01-6.364-6.364l7-7a4.5 4.5 0 016.368 6.36l-3.455 3.553A2.625 2.625 0 119.52 9.52l3.45-3.451a.75.75 0 111.061 1.06l-3.45 3.451a1.125 1.125 0 001.587 1.595l3.454-3.553a3 3 0 000-4.242z" clipRule="evenodd" />
+                      </svg>
+                      Anexo
+                    </a>
+                  )}
+                </div>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SupplierContactAndNotes({ supplier }: { supplier: SupplierDetail }) {
+  return (
+    <>
+      <div className="rounded-xl border border-stone-100 bg-white p-4 shadow-sm">
+        <h3 className="mb-3 text-sm font-semibold text-stone-700">Contacto</h3>
+        <dl className="space-y-3 text-sm">
+          <div>
+            <dt className="text-xs text-stone-400">Email</dt>
+            <dd className="mt-0.5 font-medium text-stone-700">
+              {supplier.email
+                ? <a href={`mailto:${supplier.email}`} className="text-[#ED5C32] hover:underline">{supplier.email}</a>
+                : <span className="text-stone-400">—</span>}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-stone-400">Telefone</dt>
+            <dd className="mt-0.5 font-medium text-stone-700">
+              {supplier.phone
+                ? <a href={`tel:${supplier.phone}`} className="hover:text-[#ED5C32]">{supplier.phone}</a>
+                : <span className="text-stone-400">—</span>}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-stone-400">Morada</dt>
+            <dd className="mt-0.5 font-medium text-stone-700">
+              {supplier.address ?? <span className="text-stone-400">—</span>}
+            </dd>
+          </div>
+          <div>
+            <dt className="text-xs text-stone-400">IBAN</dt>
+            <dd className="mt-0.5 font-mono text-xs text-stone-700">
+              {supplier.iban ?? <span className="font-sans font-medium text-stone-400">—</span>}
+            </dd>
+          </div>
+        </dl>
+      </div>
+
+      <div className="rounded-xl border border-stone-100 bg-white p-4 shadow-sm">
+        <h3 className="mb-2 text-sm font-semibold text-stone-700">Observações</h3>
+        {supplier.notes
+          ? <p className="whitespace-pre-wrap text-sm text-stone-600">{supplier.notes}</p>
+          : <p className="text-sm text-stone-400">Sem observações.</p>}
+      </div>
+    </>
+  );
+}
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+
+type SupplierTab = "general" | "planning" | "history" | "items" | "contacts";
+
+const TABS: { key: SupplierTab; label: string }[] = [
+  { key: "general", label: "Dados gerais" },
+  { key: "planning", label: "Planeamento de stock" },
+  { key: "history", label: "Histórico de compras" },
+  { key: "items", label: "Itens associados" },
+  { key: "contacts", label: "Contactos e notas" },
+];
+
 // ── Main view ────────────────────────────────────────────────────────────────
 
 export function SupplierDetailView() {
@@ -58,6 +208,7 @@ export function SupplierDetailView() {
   const qc = useQueryClient();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
+  const [tab, setTab] = useState<SupplierTab>("general");
 
   const { data: groups = [] } = useQuery({
     queryKey: ["cost-center-groups"],
@@ -199,209 +350,121 @@ export function SupplierDetailView() {
             </button>
           </div>
         </div>
+
+        {/* Tab switcher — sem componente de Tabs partilhado no repo (confirmado), botão + render condicional local */}
+        <div className="mt-4 flex gap-1 overflow-x-auto">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              onClick={() => setTab(t.key)}
+              className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                tab === t.key ? "bg-[#ED5C32] text-white" : "text-stone-600 hover:bg-stone-100"
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="space-y-6 p-6">
-        {/* KPI Cards */}
-        <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-            <p className="text-xs font-medium text-stone-500">Total faturado</p>
-            <p className="mt-1 text-xl font-bold text-[#ED5C32]">{formatEUR(supplier.stats.totalBilled)}</p>
-            <p className="mt-0.5 text-xs text-stone-400">
-              {supplier.stats.invoiceCount > 0
-                ? `${supplier.stats.invoiceCount} fatura${supplier.stats.invoiceCount !== 1 ? "s" : ""}`
-                : "Sem faturas"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-            <p className="text-xs font-medium text-stone-500">Total pago</p>
-            <p className="mt-1 text-xl font-bold text-emerald-600">{formatEUR(supplier.stats.totalPaid)}</p>
-            <p className="mt-0.5 text-xs text-stone-400">
-              {supplier.stats.lastPaymentDate
-                ? `Último: ${formatDate(supplier.stats.lastPaymentDate)}`
-                : "Sem pagamentos"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-            <p className="text-xs font-medium text-stone-500">Total pendente</p>
-            <p className={`mt-1 text-xl font-bold ${supplier.stats.totalPending > 0 ? "text-amber-600" : "text-stone-400"}`}>
-              {formatEUR(supplier.stats.totalPending)}
-            </p>
-            <p className="mt-0.5 text-xs text-stone-400">
-              {supplier.stats.totalPending > 0 ? "Em aberto" : "Sem pendências"}
-            </p>
-          </div>
-          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-            <p className="text-xs font-medium text-stone-500">Faturas</p>
-            <p className="mt-1 text-xl font-bold text-stone-700">{supplier.stats.invoiceCount}</p>
-            <p className="mt-0.5 text-xs text-stone-400">
-              {supplier.stats.lastInvoiceDate
-                ? `Última: ${formatDate(supplier.stats.lastInvoiceDate)}`
-                : "Nenhuma fatura"}
-            </p>
-          </div>
-        </div>
-
-        {/* Main content: invoices + sidebar */}
-        <div className="flex gap-6">
-          {/* Invoices */}
-          <div className="min-w-0 flex-1">
-            {supplier.invoices.length === 0 ? (
-              <div className="rounded-xl border border-[#F5C992]/40 bg-white py-16 text-center shadow-sm">
-                <p className="text-sm text-stone-400">Nenhuma fatura registada para este fornecedor.</p>
+        {tab === "general" && (
+          <>
+            {/* KPI Cards */}
+            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
+                <p className="text-xs font-medium text-stone-500">Total faturado</p>
+                <p className="mt-1 text-xl font-bold text-[#ED5C32]">{formatEUR(supplier.stats.totalBilled)}</p>
+                <p className="mt-0.5 text-xs text-stone-400">
+                  {supplier.stats.invoiceCount > 0
+                    ? `${supplier.stats.invoiceCount} fatura${supplier.stats.invoiceCount !== 1 ? "s" : ""}`
+                    : "Sem faturas"}
+                </p>
               </div>
-            ) : (
-              <div className="overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white shadow-sm">
-                <div className="border-b border-[#F5C992]/40 px-4 py-3">
-                  <h3 className="text-sm font-semibold text-stone-700">
-                    Faturas ({supplier.invoices.length})
-                  </h3>
-                </div>
-                <table className="min-w-full text-sm">
-                  <thead className="border-b border-[#F5C992]/40 bg-stone-50/60">
-                    <tr>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Nº Fatura</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Emissão</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Vencimento</th>
-                      <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">Valor</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Estado</th>
-                      <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Ações</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[#F5C992]/30">
-                    {supplier.invoices.map((inv) => (
-                      <tr key={inv.id} className="transition-colors hover:bg-[#FDF8F5]">
-                        <td className="px-4 py-3 font-mono text-xs font-medium text-stone-700">
-                          <div className="flex items-center gap-1.5">
-                            {inv.invoiceNumber}
-                            {inv.documentType === "credit_note" && (
-                              <span className="rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-sky-100 text-sky-700">
-                                NC
-                              </span>
-                            )}
-                          </div>
-                        </td>
-                        <td className="px-4 py-3 text-stone-600">{formatDate(inv.invoiceDate)}</td>
-                        <td className="px-4 py-3 text-stone-600">{formatDate(inv.dueDate)}</td>
-                        <td className={`px-4 py-3 text-right font-medium ${inv.documentType === "credit_note" ? "text-red-600" : "text-stone-900"}`}>
-                          {formatEUR(inv.totalWithVat)}
-                        </td>
-                        <td className="px-4 py-3">
-                          <InvoiceStatusBadge status={inv.status} />
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-3">
-                            <button
-                              type="button"
-                              onClick={() => navigate(`/financial/invoices?open=${inv.id}`)}
-                              className="inline-flex items-center gap-1 text-xs text-stone-500 transition-colors hover:text-[#ED5C32]"
-                            >
-                              <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
-                                <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                              </svg>
-                              Ver fatura
-                            </button>
-                            {inv.attachmentUrl && (
-                              <a
-                                href={inv.attachmentUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-xs text-stone-500 transition-colors hover:text-[#ED5C32]"
-                              >
-                                <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                                  <path fillRule="evenodd" d="M15.621 4.379a3 3 0 00-4.242 0l-7 7a3 3 0 004.241 4.243h.001l.497-.5a.75.75 0 011.064 1.057l-.498.501-.002.002a4.5 4.5 0 01-6.364-6.364l7-7a4.5 4.5 0 016.368 6.36l-3.455 3.553A2.625 2.625 0 119.52 9.52l3.45-3.451a.75.75 0 111.061 1.06l-3.45 3.451a1.125 1.125 0 001.587 1.595l3.454-3.553a3 3 0 000-4.242z" clipRule="evenodd" />
-                                </svg>
-                                Anexo
-                              </a>
-                            )}
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+              <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
+                <p className="text-xs font-medium text-stone-500">Total pago</p>
+                <p className="mt-1 text-xl font-bold text-emerald-600">{formatEUR(supplier.stats.totalPaid)}</p>
+                <p className="mt-0.5 text-xs text-stone-400">
+                  {supplier.stats.lastPaymentDate
+                    ? `Último: ${formatDate(supplier.stats.lastPaymentDate)}`
+                    : "Sem pagamentos"}
+                </p>
               </div>
-            )}
+              <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
+                <p className="text-xs font-medium text-stone-500">Total pendente</p>
+                <p className={`mt-1 text-xl font-bold ${supplier.stats.totalPending > 0 ? "text-amber-600" : "text-stone-400"}`}>
+                  {formatEUR(supplier.stats.totalPending)}
+                </p>
+                <p className="mt-0.5 text-xs text-stone-400">
+                  {supplier.stats.totalPending > 0 ? "Em aberto" : "Sem pendências"}
+                </p>
+              </div>
+              <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
+                <p className="text-xs font-medium text-stone-500">Faturas</p>
+                <p className="mt-1 text-xl font-bold text-stone-700">{supplier.stats.invoiceCount}</p>
+                <p className="mt-0.5 text-xs text-stone-400">
+                  {supplier.stats.lastInvoiceDate
+                    ? `Última: ${formatDate(supplier.stats.lastInvoiceDate)}`
+                    : "Nenhuma fatura"}
+                </p>
+              </div>
+            </div>
+
+            {/* Main content: invoices + sidebar */}
+            <div className="flex gap-6">
+              <div className="min-w-0 flex-1">
+                <SupplierInvoicesSection supplier={supplier} navigate={navigate} />
+              </div>
+
+              <div className="w-72 shrink-0 space-y-4">
+                <SupplierContactAndNotes supplier={supplier} />
+
+                <div className="rounded-xl border border-stone-100 bg-white p-4 shadow-sm">
+                  <h3 className="mb-3 text-sm font-semibold text-stone-700">Classificação e definições</h3>
+                  <dl className="space-y-3 text-sm">
+                    <div>
+                      <dt className="text-xs text-stone-400">NIF</dt>
+                      <dd className="mt-0.5 font-mono text-xs text-stone-700">
+                        {supplier.nif ?? <span className="font-sans font-medium text-stone-400">—</span>}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-stone-400">Prazo de pagamento</dt>
+                      <dd className="mt-0.5 font-medium text-stone-700">
+                        {supplier.paymentTermsDays != null ? `${supplier.paymentTermsDays} dias` : <span className="text-stone-400">—</span>}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-stone-400">Grupo CC padrão</dt>
+                      <dd className="mt-0.5 font-medium text-stone-700">
+                        {group ? `${group.code} — ${group.name}` : <span className="text-stone-400">—</span>}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="text-xs text-stone-400">Subcategoria CC padrão</dt>
+                      <dd className="mt-0.5 font-medium text-stone-700">
+                        {category ? `${category.code} — ${category.name}` : <span className="text-stone-400">—</span>}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {tab === "planning" && <SupplierPlanningTab supplier={supplier} />}
+
+        {tab === "history" && <SupplierInvoicesSection supplier={supplier} navigate={navigate} />}
+
+        {tab === "items" && <SupplierAssociatedItemsTab supplierId={supplier.id} />}
+
+        {tab === "contacts" && (
+          <div className="grid max-w-xl gap-4">
+            <SupplierContactAndNotes supplier={supplier} />
           </div>
-
-          {/* Sidebar */}
-          <div className="w-72 shrink-0 space-y-4">
-            {/* Contact info */}
-            <div className="rounded-xl border border-stone-100 bg-white p-4 shadow-sm">
-              <h3 className="mb-3 text-sm font-semibold text-stone-700">Contacto</h3>
-              <dl className="space-y-3 text-sm">
-                <div>
-                  <dt className="text-xs text-stone-400">Email</dt>
-                  <dd className="mt-0.5 font-medium text-stone-700">
-                    {supplier.email
-                      ? <a href={`mailto:${supplier.email}`} className="text-[#ED5C32] hover:underline">{supplier.email}</a>
-                      : <span className="text-stone-400">—</span>}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-stone-400">Telefone</dt>
-                  <dd className="mt-0.5 font-medium text-stone-700">
-                    {supplier.phone
-                      ? <a href={`tel:${supplier.phone}`} className="hover:text-[#ED5C32]">{supplier.phone}</a>
-                      : <span className="text-stone-400">—</span>}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-stone-400">Morada</dt>
-                  <dd className="mt-0.5 font-medium text-stone-700">
-                    {supplier.address ?? <span className="text-stone-400">—</span>}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-stone-400">IBAN</dt>
-                  <dd className="mt-0.5 font-mono text-xs text-stone-700">
-                    {supplier.iban ?? <span className="font-sans font-medium text-stone-400">—</span>}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-
-            {/* Classification */}
-            <div className="rounded-xl border border-stone-100 bg-white p-4 shadow-sm">
-              <h3 className="mb-3 text-sm font-semibold text-stone-700">Classificação e definições</h3>
-              <dl className="space-y-3 text-sm">
-                <div>
-                  <dt className="text-xs text-stone-400">NIF</dt>
-                  <dd className="mt-0.5 font-mono text-xs text-stone-700">
-                    {supplier.nif ?? <span className="font-sans font-medium text-stone-400">—</span>}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-stone-400">Prazo de pagamento</dt>
-                  <dd className="mt-0.5 font-medium text-stone-700">
-                    {supplier.paymentTermsDays != null ? `${supplier.paymentTermsDays} dias` : <span className="text-stone-400">—</span>}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-stone-400">Grupo CC padrão</dt>
-                  <dd className="mt-0.5 font-medium text-stone-700">
-                    {group ? `${group.code} — ${group.name}` : <span className="text-stone-400">—</span>}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-stone-400">Subcategoria CC padrão</dt>
-                  <dd className="mt-0.5 font-medium text-stone-700">
-                    {category ? `${category.code} — ${category.name}` : <span className="text-stone-400">—</span>}
-                  </dd>
-                </div>
-              </dl>
-            </div>
-
-            {/* Notes */}
-            <div className="rounded-xl border border-stone-100 bg-white p-4 shadow-sm">
-              <h3 className="mb-2 text-sm font-semibold text-stone-700">Observações</h3>
-              {supplier.notes
-                ? <p className="whitespace-pre-wrap text-sm text-stone-600">{supplier.notes}</p>
-                : <p className="text-sm text-stone-400">Sem observações.</p>}
-            </div>
-          </div>
-        </div>
+        )}
       </div>
 
       <SupplierDrawer
