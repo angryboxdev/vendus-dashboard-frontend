@@ -53,7 +53,7 @@ function History({ locationId }: { locationId: string }) {
 export function LocationDrawer({ editing, saving, error, onSubmit, onClose }: LocationDrawerProps) {
   const [values, setValues] = useState<LocationFormValues>(() => (editing ? toLocationFormValues(editing) : EMPTY_LOCATION_FORM));
   const fieldErrors = error instanceof LocationValidationError ? error.fieldErrors : [];
-  const genericError = error && !(error instanceof LocationValidationError);
+  const genericError = Boolean(error) && !(error instanceof LocationValidationError);
 
   function errorOf(field: LocationField) {
     return fieldErrors.find((e) => e.field === field)?.message;

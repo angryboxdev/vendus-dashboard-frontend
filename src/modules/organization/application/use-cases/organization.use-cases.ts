@@ -14,7 +14,11 @@ import type { OrganizationApiPort } from "../../domain/ports/out/organization-ap
 import { diffChanges, hasChanges, validateLogoFile } from "../../domain/services/organization-form.service.ts";
 
 export class GetOrganizationProfileUseCase implements GetOrganizationProfilePort {
-  constructor(private readonly api: OrganizationApiPort) {}
+  private readonly api: OrganizationApiPort;
+
+  constructor(api: OrganizationApiPort) {
+    this.api = api;
+  }
 
   execute(): Promise<OrganizationProfile> {
     return this.api.getProfile();
@@ -22,7 +26,11 @@ export class GetOrganizationProfileUseCase implements GetOrganizationProfilePort
 }
 
 export class UpdateOrganizationProfileUseCase implements UpdateOrganizationProfilePort {
-  constructor(private readonly api: OrganizationApiPort) {}
+  private readonly api: OrganizationApiPort;
+
+  constructor(api: OrganizationApiPort) {
+    this.api = api;
+  }
 
   async execute(current: OrganizationProfile, values: OrganizationFormValues): Promise<OrganizationProfile> {
     const changes = diffChanges(current, values);
@@ -32,7 +40,11 @@ export class UpdateOrganizationProfileUseCase implements UpdateOrganizationProfi
 }
 
 export class UploadOrganizationLogoUseCase implements UploadOrganizationLogoPort {
-  constructor(private readonly api: OrganizationApiPort) {}
+  private readonly api: OrganizationApiPort;
+
+  constructor(api: OrganizationApiPort) {
+    this.api = api;
+  }
 
   async execute(file: File): Promise<OrganizationProfile> {
     const error = validateLogoFile(file);
@@ -42,7 +54,11 @@ export class UploadOrganizationLogoUseCase implements UploadOrganizationLogoPort
 }
 
 export class ListOrganizationHistoryUseCase implements ListOrganizationHistoryPort {
-  constructor(private readonly api: OrganizationApiPort) {}
+  private readonly api: OrganizationApiPort;
+
+  constructor(api: OrganizationApiPort) {
+    this.api = api;
+  }
 
   execute(): Promise<OrganizationHistoryEntry[]> {
     return this.api.listHistory();

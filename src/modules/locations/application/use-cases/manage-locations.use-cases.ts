@@ -9,7 +9,11 @@ import type { LocationsApiPort } from "../../domain/ports/out/locations-api.port
 import { toCreatePayload, toUpdatePayload } from "../../domain/services/location-form.service.ts";
 
 export class CreateLocationUseCase implements CreateLocationPort {
-  constructor(private readonly api: LocationsApiPort) {}
+  private readonly api: LocationsApiPort;
+
+  constructor(api: LocationsApiPort) {
+    this.api = api;
+  }
 
   execute(values: LocationFormValues): Promise<LocationDTO> {
     return this.api.createLocation(toCreatePayload(values));
@@ -17,7 +21,11 @@ export class CreateLocationUseCase implements CreateLocationPort {
 }
 
 export class UpdateLocationUseCase implements UpdateLocationPort {
-  constructor(private readonly api: LocationsApiPort) {}
+  private readonly api: LocationsApiPort;
+
+  constructor(api: LocationsApiPort) {
+    this.api = api;
+  }
 
   async execute(current: LocationDTO, values: LocationFormValues): Promise<LocationDTO> {
     const payload = toUpdatePayload(current, values);
@@ -27,7 +35,11 @@ export class UpdateLocationUseCase implements UpdateLocationPort {
 }
 
 export class SetLocationActiveUseCase implements SetLocationActivePort {
-  constructor(private readonly api: LocationsApiPort) {}
+  private readonly api: LocationsApiPort;
+
+  constructor(api: LocationsApiPort) {
+    this.api = api;
+  }
 
   execute(id: string, active: boolean): Promise<LocationDTO> {
     return this.api.setLocationActive(id, active);
@@ -35,7 +47,11 @@ export class SetLocationActiveUseCase implements SetLocationActivePort {
 }
 
 export class ListLocationHistoryUseCase implements ListLocationHistoryPort {
-  constructor(private readonly api: LocationsApiPort) {}
+  private readonly api: LocationsApiPort;
+
+  constructor(api: LocationsApiPort) {
+    this.api = api;
+  }
 
   execute(id: string): Promise<LocationHistoryEntry[]> {
     return this.api.listLocationHistory(id);

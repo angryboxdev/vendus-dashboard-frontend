@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { InMemoryLocationsApiAdapter } from "../../adapters/out/in-memory-locations-api.adapter.ts";
+import { InMemoryLocationsApiAdapter, locationFixture } from "../../adapters/out/in-memory-locations-api.adapter.ts";
 import { ListLocationsUseCase } from "./list-locations.use-case.ts";
 
 describe("ListLocationsUseCase", () => {
@@ -11,8 +11,8 @@ describe("ListLocationsUseCase", () => {
   it("returns all of the organization's locations", async () => {
     const useCase = new ListLocationsUseCase(
       InMemoryLocationsApiAdapter.withSeed([
-        { id: "1", name: "Loja Centro", code: "CTR", timezone: "Europe/Lisbon", isActive: true },
-        { id: "2", name: "Loja Norte", code: "NRT", timezone: "Europe/Lisbon", isActive: true },
+        locationFixture({ id: "1", name: "Loja Centro", code: "CTR" }),
+        locationFixture({ id: "2", name: "Loja Norte", code: "NRT" }),
       ]),
     );
     const result = await useCase.execute();

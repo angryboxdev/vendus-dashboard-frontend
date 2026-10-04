@@ -37,7 +37,11 @@ export class InMemoryOrganizationApiAdapter implements OrganizationApiPort {
   readonly updateCalls: OrganizationProfileChanges[] = [];
   private history: OrganizationHistoryEntry[] = [];
 
-  constructor(private profile: OrganizationProfile = sampleOrganizationProfile()) {}
+  private profile: OrganizationProfile;
+
+  constructor(profile: OrganizationProfile = sampleOrganizationProfile()) {
+    this.profile = profile;
+  }
 
   async getProfile(): Promise<OrganizationProfile> {
     return this.profile;
