@@ -865,9 +865,20 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   const [paidAt, setPaidAt] = useState(inv.invoiceDate ?? todayStr());
   const [isDirectDebit, setIsDirectDebit] = useState(false);
   const [directDebitDate, setDirectDebitDate] = useState(inv.dueDate ?? "");
-  const [detailMode, setDetailMode] = useState<LineDetailMode>(
-    importResult.extractedLines.length > 0 ? "detailed" : "simple"
+  // Em edição, mantém o heurístico antigo (reflete o estado real já
+  // gravado — `importResult.extractedLines` é sintetizado a partir das
+  // linhas atuais da fatura nesse modo). Numa importação nova, enquanto o
+  // utilizador não escolher manualmente (`manualDetailMode`), o modo é
+  // derivado da preferência do fornecedor: "normalmente gera revisão de
+  // stock" → "Detalhar por linha" (sem linhas, o Stock nunca consegue
+  // resolver a revisão — ver RecordInvoiceFinalizedForStockUseCase);
+  // qualquer outra preferência (ou nenhuma) → "Classificação única".
+  const [manualDetailMode, setManualDetailMode] = useState<LineDetailMode | null>(
+    isEdit ? (importResult.extractedLines.length > 0 ? "detailed" : "simple") : null
   );
+  const supplierDefaultStockPolicy = suppliers.find((s) => s.id === supplierId)?.defaultStockPolicy;
+  const detailMode: LineDetailMode =
+    manualDetailMode ?? (supplierDefaultStockPolicy === "usually_creates_review" ? "detailed" : "simple");
 
   const [lines, setLines] = useState<DraftLine[]>(() =>
     importResult.extractedLines.map((l, i) => {
@@ -1297,7 +1308,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
             <div className="flex rounded-lg border border-stone-200 p-0.5 bg-stone-50">
               <button
                 type="button"
-                onClick={() => setDetailMode("simple")}
+                onClick={() => setManualDetailMode("simple")}
                 className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   detailMode === "simple"
                     ? "bg-white text-stone-800 shadow-sm"
@@ -1308,7 +1319,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
               </button>
               <button
                 type="button"
-                onClick={() => setDetailMode("detailed")}
+                onClick={() => setManualDetailMode("detailed")}
                 className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   detailMode === "detailed"
                     ? "bg-white text-stone-800 shadow-sm"

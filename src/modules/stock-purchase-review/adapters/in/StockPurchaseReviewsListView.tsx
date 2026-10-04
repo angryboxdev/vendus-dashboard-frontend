@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { createPortal } from "react-dom";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useStockPurchaseReviewModule } from "../../stock-purchase-review.module.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
@@ -36,12 +37,28 @@ export function StockPurchaseReviewsListView() {
   const { api } = useStockPurchaseReviewModule();
   const fbModule = useFinancialBaseModule();
   const navigate = useNavigate();
+  const qc = useQueryClient();
 
   const [status, setStatus] = useState<StockPurchaseReviewStatus | "all">("all");
   const [supplierId, setSupplierId] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [search, setSearch] = useState("");
+  const [showCancelEmptyConfirm, setShowCancelEmptyConfirm] = useState(false);
+  const [cancelEmptyNotice, setCancelEmptyNotice] = useState<string | null>(null);
+
+  const cancelEmptyMutation = useMutation({
+    mutationFn: () => api.cancelEmptyReviews(),
+    onSuccess: (result) => {
+      void qc.invalidateQueries({ queryKey: ["stock-purchase-reviews"] });
+      setShowCancelEmptyConfirm(false);
+      setCancelEmptyNotice(
+        result.cancelledCount === 0
+          ? "Não havia nenhuma revisão sem linhas por cancelar."
+          : `${result.cancelledCount} revisão(ões) sem linhas cancelada(s).`,
+      );
+    },
+  });
 
   const { data: suppliers = [] } = useQuery({
     queryKey: ["financial-base-suppliers"],
@@ -62,12 +79,26 @@ export function StockPurchaseReviewsListView() {
 
   return (
     <div className="flex min-h-full flex-col bg-[#FAF6F3]">
-      <div className="border-b border-stone-200 bg-white px-6 py-4">
-        <h1 className="text-xl font-bold text-stone-900">Compras por rever</h1>
-        <p className="mt-0.5 text-sm text-stone-500">
-          Faturas com potencial impacto em stock — mapeia cada linha para um item existente, um item novo, ou marca que não afeta stock, e confirma para atualizar o inventário.
-        </p>
+      <div className="flex items-start justify-between gap-4 border-b border-stone-200 bg-white px-6 py-4">
+        <div>
+          <h1 className="text-xl font-bold text-stone-900">Compras por rever</h1>
+          <p className="mt-0.5 text-sm text-stone-500">
+            Faturas com potencial impacto em stock — mapeia cada linha para um item existente, um item novo, ou marca que não afeta stock, e confirma para atualizar o inventário.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setShowCancelEmptyConfirm(true)}
+          title="Cancela revisões sem linhas (ex.: notas de crédito, faturas em classificação única) que nunca conseguem chegar a 'pronta para confirmar'"
+          className="shrink-0 rounded-md border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50"
+        >
+          Cancelar revisões sem linhas
+        </button>
       </div>
+
+      {cancelEmptyNotice && (
+        <div className="border-b border-stone-200 bg-stone-50 px-6 py-2 text-xs font-medium text-stone-600">{cancelEmptyNotice}</div>
+      )}
 
       <div className="space-y-4 p-6">
         <div className="flex flex-wrap items-center gap-3">
@@ -143,6 +174,35 @@ export function StockPurchaseReviewsListView() {
           </table>
         </div>
       </div>
+
+      {showCancelEmptyConfirm &&
+        createPortal(
+          <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" aria-modal="true">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowCancelEmptyConfirm(false)} />
+            <div className="relative w-full max-w-sm rounded-xl bg-white p-6 shadow-2xl">
+              <h3 className="text-base font-bold text-stone-900">Cancelar revisões sem linhas</h3>
+              <p className="mt-2 text-sm text-stone-600">
+                Cancela todas as revisões em aberto (pendentes ou em revisão) que não têm nenhuma linha — normalmente notas de crédito ou faturas em "classificação única". Estas nunca conseguem chegar a "pronta para confirmar", por isso ficam presas para sempre. A ação é auditada e não afeta revisões com linhas, aplicadas, ou já canceladas.
+              </p>
+              <div className="mt-5 flex gap-3">
+                <button
+                  onClick={() => setShowCancelEmptyConfirm(false)}
+                  className="flex-1 rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={() => cancelEmptyMutation.mutate()}
+                  disabled={cancelEmptyMutation.isPending}
+                  className="flex-1 rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  {cancelEmptyMutation.isPending ? "A cancelar…" : "Confirmar"}
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body,
+        )}
     </div>
   );
 }

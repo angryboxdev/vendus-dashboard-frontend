@@ -163,6 +163,18 @@ export interface CancelStockPurchaseReviewPayload {
   reason: string;
 }
 
+/** Remediação em lote — ver "Cancelar revisões sem linhas" na lista. */
+export interface CancelledEmptyReviewSummaryDTO {
+  id: string;
+  invoiceNumber: string;
+  supplierName: string;
+}
+
+export interface CancelEmptyStockPurchaseReviewsResultDTO {
+  cancelledCount: number;
+  cancelled: CancelledEmptyReviewSummaryDTO[];
+}
+
 /** Corpo `{ error, currentVersion }` do 409 de conflito optimistic-lock. */
 export interface StockReviewVersionConflictData {
   error: string;
