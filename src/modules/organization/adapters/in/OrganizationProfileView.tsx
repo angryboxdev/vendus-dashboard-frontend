@@ -12,7 +12,6 @@ import {
 } from "../../domain/entities/organization-profile.ts";
 import { diffChanges, hasChanges, LOGO_ACCEPTED_TYPES, toFormValues } from "../../domain/services/organization-form.service.ts";
 import { changedFieldLabels, historyActionLabel } from "../../domain/services/organization-history.service.ts";
-import { CompanyStructureTabs } from "./CompanyStructureTabs.tsx";
 import { useOrganizationHistory, useOrganizationProfile } from "./use-organization.ts";
 
 const inputCls =
@@ -249,7 +248,7 @@ function HistorySection() {
   );
 }
 
-/** Empresa & Estrutura → Empresa. Leitura para todos; edição, logotipo e histórico só `admin` (como o backend). */
+/** Empresa & Estrutura → Empresa (conteúdo da aba; moldura em `CompanyStructureLayout`). Leitura para todos; edição, logotipo e histórico só `admin` (como o backend). */
 export function OrganizationProfileView() {
   const { user } = useAuth();
   const canEdit = user?.role === "admin";
@@ -257,25 +256,17 @@ export function OrganizationProfileView() {
   const profile = profileQuery.data;
 
   return (
-    <div className="flex min-h-full flex-col bg-[#FAF6F3]">
-      <div className="border-b border-[#F5C992]/40 bg-white px-6 py-3">
-        <h1 className="text-lg font-bold text-stone-900">Empresa & Estrutura</h1>
-        <p className="text-xs text-stone-500">Dados da entidade legal e estrutura da organização.</p>
-        <CompanyStructureTabs />
-      </div>
-
-      <div className="mx-auto w-full max-w-4xl flex-1 space-y-4 p-4">
-        {profileQuery.isLoading && <p className="text-sm text-stone-500">A carregar…</p>}
-        {profileQuery.isError && <p className="text-sm text-[#A3211A]">Não foi possível carregar os dados da empresa.</p>}
-        {profile && (
-          <>
-            <LogoCard profile={profile} canEdit={canEdit} logoMutation={logoMutation} />
-            {/* `key` reinicia o formulário quando o perfil gravado muda (sem setState em efeito); as mutations vivem aqui para sobreviver a esse remount. */}
-            <ProfileForm key={profile.updatedAt} profile={profile} canEdit={canEdit} updateMutation={updateMutation} />
-            {canEdit && <HistorySection />}
-          </>
-        )}
-      </div>
+    <div className="mx-auto w-full max-w-4xl flex-1 space-y-4 p-4">
+      {profileQuery.isLoading && <p className="text-sm text-stone-500">A carregar…</p>}
+      {profileQuery.isError && <p className="text-sm text-[#A3211A]">Não foi possível carregar os dados da empresa.</p>}
+      {profile && (
+        <>
+          <LogoCard profile={profile} canEdit={canEdit} logoMutation={logoMutation} />
+          {/* `key` reinicia o formulário quando o perfil gravado muda (sem setState em efeito); as mutations vivem aqui para sobreviver a esse remount. */}
+          <ProfileForm key={profile.updatedAt} profile={profile} canEdit={canEdit} updateMutation={updateMutation} />
+          {canEdit && <HistorySection />}
+        </>
+      )}
     </div>
   );
 }

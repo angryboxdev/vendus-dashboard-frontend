@@ -4,11 +4,12 @@
 > Última atualização: 2026-10-04
 
 ## Propósito
-Área **Empresa & Estrutura** (`/empresa`), fora de Recursos Humanos — por
-agora só a aba **Empresa**: dados da entidade legal (razão social, NIF,
+Área **Empresa & Estrutura** (`/empresa/*`), fora de Recursos Humanos — dono
+da moldura da área (`CompanyStructureLayout`: cabeçalho + abas, conteúdo por
+rota filha) e da aba **Empresa**: dados da entidade legal (razão social, NIF,
 NISS, morada fiscal, contactos, fuso horário, logotipo) e o respetivo
-histórico de alterações. Não gere Locais, Calendário nem Documentos (abas
-que entram em tickets seguintes da Base Organizacional —
+histórico de alterações. A aba Locais é do módulo `locations`; Calendário e
+Documentos entram em tickets seguintes da Base Organizacional (
 `.scratch/base-organizacional/` no backend).
 
 ## Conceitos do domínio
@@ -37,8 +38,10 @@ que entram em tickets seguintes da Base Organizacional —
 ### Entrada (UI)
 - `useOrganizationProfile` / `useOrganizationHistory` (react-query sobre
   os use cases).
-- `OrganizationProfileView` — cabeçalho, `CompanyStructureTabs`, cartão do
-  logotipo, formulário por secções, histórico (colapsável).
+- `CompanyStructureLayout` + `CompanyStructureTabs` — moldura de `/empresa/*`
+  (abas Empresa, Locais).
+- `OrganizationProfileView` — conteúdo da aba Empresa: cartão do logotipo,
+  formulário por secções, histórico (colapsável).
 ### Saída
 - `HttpOrganizationApiAdapter` → `/api/organization` (`GET`, `PATCH`,
   `POST /logo`, `GET /history`), via `src/lib/api.ts`.
@@ -47,7 +50,7 @@ que entram em tickets seguintes da Base Organizacional —
 ## Decisões de design (ADR resumido)
 - **Edição só para `admin`**, como no backend — os restantes roles veem
   os dados desativados; histórico também só `admin`.
-- **Abas só quando existem** — `CompanyStructureTabs` só mostra Empresa;
+- **Abas só quando existem** — `CompanyStructureTabs` mostra Empresa e Locais;
   a task proíbe preparar UI sem funcionalidade.
 - **Formulário reiniciado por `key={profile.updatedAt}`** em vez de
   `setState` dentro de `useEffect` (regra de lint do projeto); por isso as

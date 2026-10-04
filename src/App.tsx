@@ -69,6 +69,8 @@ import { VendusView } from "./modules/vendus/adapters/in/VendusView.tsx";
 import { DevicePairingGate } from "./modules/location-credentials/adapters/in/DevicePairingGate.tsx";
 import { OrganizationProvider } from "./modules/organization/organization.module.tsx";
 import { OrganizationProfileView } from "./modules/organization/adapters/in/OrganizationProfileView.tsx";
+import { CompanyStructureLayout } from "./modules/organization/adapters/in/CompanyStructureLayout.tsx";
+import { LocationsAdminView } from "./modules/locations/adapters/in/LocationsAdminView.tsx";
 import { LocationCredentialsAdminView } from "./modules/location-credentials/adapters/in/LocationCredentialsAdminView.tsx";
 import { SalesSummaryProvider } from "./modules/sales-summary/sales-summary.module.tsx";
 import { SalesSummaryView } from "./modules/sales-summary/adapters/in/SalesSummaryView.tsx";
@@ -400,10 +402,13 @@ export default function App() {
                   path="/empresa"
                   element={
                     <OrganizationProvider>
-                      <OrganizationProfileView />
+                      <CompanyStructureLayout />
                     </OrganizationProvider>
                   }
-                />
+                >
+                  <Route index element={<OrganizationProfileView />} />
+                  <Route path="locais" element={<LocationsAdminView />} />
+                </Route>
                 <Route path="/admin/users" element={<UsersPage />} />
                 <Route path="/admin/location-tokens" element={<LocationCredentialsAdminView />} />
               </Routes>
