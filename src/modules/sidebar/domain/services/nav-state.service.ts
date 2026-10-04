@@ -86,6 +86,8 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
     { kind: "item", path: "/cash-closings", label: "Fechos de Caixa" },
     { kind: "item", path: "/air-menu", label: "Air Menu" },
     { kind: "item", path: "/vendus", label: "Vendus" },
+    // Base Organizacional — fora de RH; abas internas (Empresa | …) na própria página.
+    { kind: "item", path: "/empresa", label: "Empresa & Estrutura" },
   ];
 
   if (user.role === "admin") {

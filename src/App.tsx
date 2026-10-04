@@ -67,6 +67,8 @@ import { AirMenuView } from "./modules/air-menu/adapters/in/AirMenuView.tsx";
 import { VendusProvider } from "./modules/vendus/vendus.module.tsx";
 import { VendusView } from "./modules/vendus/adapters/in/VendusView.tsx";
 import { DevicePairingGate } from "./modules/location-credentials/adapters/in/DevicePairingGate.tsx";
+import { OrganizationProvider } from "./modules/organization/organization.module.tsx";
+import { OrganizationProfileView } from "./modules/organization/adapters/in/OrganizationProfileView.tsx";
 import { LocationCredentialsAdminView } from "./modules/location-credentials/adapters/in/LocationCredentialsAdminView.tsx";
 import { SalesSummaryProvider } from "./modules/sales-summary/sales-summary.module.tsx";
 import { SalesSummaryView } from "./modules/sales-summary/adapters/in/SalesSummaryView.tsx";
@@ -392,6 +394,14 @@ export default function App() {
                     <VendusProvider>
                       <VendusView />
                     </VendusProvider>
+                  }
+                />
+                <Route
+                  path="/empresa"
+                  element={
+                    <OrganizationProvider>
+                      <OrganizationProfileView />
+                    </OrganizationProvider>
                   }
                 />
                 <Route path="/admin/users" element={<UsersPage />} />
