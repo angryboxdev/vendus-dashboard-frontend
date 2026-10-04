@@ -5,9 +5,11 @@ import { useHrModule } from "../../hr.module.tsx";
 import { Avatar } from "./components/Avatar.tsx";
 import { EmployeeDrawer } from "./EmployeeDrawer.tsx";
 import { PeopleTabs } from "./PeopleTabs.tsx";
+import { usePositions } from "./use-positions.ts";
+import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
+import { locationNameOf, positionNameOf } from "../../domain/services/employee-assignment.service.ts";
 import {
   EMPLOYMENT_TYPE_LABELS,
-  JOB_ROLE_LABELS,
   type CreateEmployeePayload,
   type DocumentSituation,
   type EmploymentType,
@@ -28,7 +30,7 @@ function ProfileStateBadge({ complete }: { complete: boolean }) {
       }`}
     >
       <span className={`h-1.5 w-1.5 rounded-full ${complete ? "bg-emerald-500" : "bg-amber-500"}`} />
-      {complete ? "Completo" : "Dados em falta"}
+      {complete ? "Completos" : "Dados em falta"}
     </span>
   );
 }
@@ -66,6 +68,10 @@ export function PeopleListView() {
   const employmentType = (searchParams.get("employmentType") as EmploymentType | null) ?? "";
   const documentSituation = (searchParams.get("documentSituation") as DocumentSituation | null) ?? "";
   const profileComplete = (searchParams.get("profileComplete") as "complete" | "incomplete" | null) ?? "";
+  const positionId = searchParams.get("positionId") ?? "";
+  const locationId = searchParams.get("locationId") ?? "";
+  const { data: positions = [] } = usePositions();
+  const { locations } = useLocations();
   const page = Number(searchParams.get("page")) || 1;
 
   function updateParams(patch: Record<string, string | undefined>) {
@@ -83,6 +89,8 @@ export function PeopleListView() {
     ...(employmentType && { employmentType }),
     ...(documentSituation && { documentSituation }),
     ...(profileComplete && { profileComplete }),
+    ...(positionId && { positionId }),
+    ...(locationId && { locationId }),
     page,
     pageSize: PAGE_SIZE,
   };
@@ -109,7 +117,7 @@ export function PeopleListView() {
   const total = result?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
-  const hasFilters = search !== "" || status !== "active" || employmentType !== "" || documentSituation !== "" || profileComplete !== "";
+  const hasFilters = search !== "" || status !== "active" || employmentType !== "" || documentSituation !== "" || profileComplete !== "" || positionId !== "" || locationId !== "";
 
   function clearFilters() {
     setSearchParams(new URLSearchParams());
@@ -120,7 +128,7 @@ export function PeopleListView() {
       <div className="border-b border-[#F5C992]/40 bg-white px-6 py-3">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-stone-900">Pessoas</h1>
+            <h1 className="text-lg font-bold text-stone-900">Colaboradores</h1>
             <p className="text-xs text-stone-500">Gestão de colaboradores e documentação.</p>
           </div>
           <button
@@ -139,14 +147,10 @@ export function PeopleListView() {
 
       <div className="flex-1 space-y-4 p-4">
         {/* KPI Cards — clicáveis, funcionam como filtros locais (task "Melhorar Visão Geral e reorganizar Pessoas", secção 3/11) */}
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 shadow-sm">
             <p className="text-xs font-medium text-stone-500">Funcionários ativos</p>
             <p className="mt-0.5 text-lg font-bold text-emerald-600">{kpis?.activeEmployees ?? "—"}</p>
-          </div>
-          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 shadow-sm">
-            <p className="text-xs font-medium text-stone-500">Onboarding pendente</p>
-            <p className="mt-0.5 text-lg font-bold text-violet-600">{kpis?.onboardingPending ?? "—"}</p>
           </div>
           <button
             type="button"
@@ -201,10 +205,38 @@ export function PeopleListView() {
               onChange={(e) => updateParams({ profileComplete: e.target.value, page: undefined })}
               className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
             >
-              <option value="">Estado do perfil: Todos</option>
-              <option value="complete">Completo</option>
+              <option value="">Dados do perfil: Todos</option>
+              <option value="complete">Completos</option>
               <option value="incomplete">Dados em falta</option>
             </select>
+            <select
+              aria-label="Cargo"
+              value={positionId}
+              onChange={(e) => updateParams({ positionId: e.target.value, page: undefined })}
+              className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
+            >
+              <option value="">Cargo: Todos</option>
+              {positions.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.active ? p.name : `${p.name} (inativo)`}
+                </option>
+              ))}
+            </select>
+            {locations.length > 1 && (
+              <select
+                aria-label="Local"
+                value={locationId}
+                onChange={(e) => updateParams({ locationId: e.target.value, page: undefined })}
+                className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
+              >
+                <option value="">Local: Todos</option>
+                {locations.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.isActive ? l.name : `${l.name} (inativo)`}
+                  </option>
+                ))}
+              </select>
+            )}
             {hasFilters && (
               <button
                 type="button"
@@ -236,7 +268,10 @@ export function PeopleListView() {
                           Colaborador
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
-                          Função
+                          Cargo
+                        </th>
+                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                          Local principal
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                           Vínculo
@@ -245,7 +280,7 @@ export function PeopleListView() {
                           Contacto
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
-                          Estado do perfil
+                          Dados do perfil
                         </th>
                         <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                           Documentos
@@ -273,7 +308,8 @@ export function PeopleListView() {
                               </div>
                             </div>
                           </td>
-                          <td className="px-3 py-2 text-stone-600">{JOB_ROLE_LABELS[row.jobRole]}</td>
+                          <td className="px-3 py-2 text-stone-600">{positionNameOf(positions, row.positionId)}</td>
+                          <td className="px-3 py-2 text-stone-600">{locationNameOf(locations, row.primaryLocationId)}</td>
                           <td className="px-3 py-2">
                             <span className="rounded-full bg-stone-100 px-2.5 py-0.5 text-xs font-medium text-stone-600">
                               {EMPLOYMENT_TYPE_LABELS[row.employmentType]}

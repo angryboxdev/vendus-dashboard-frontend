@@ -2,14 +2,15 @@ import { useState, type FormEvent } from "react";
 import { NumericInput } from "../../../../components/NumericInput.tsx";
 import {
   EMPLOYMENT_TYPE_LABELS,
-  JOB_ROLE_LABELS,
   type CreateEmployeePayload,
   type Employee,
   type EmploymentType,
-  type JobRole,
   type SalaryType,
   type UpdateEmployeePayload,
 } from "../../domain/entities/employee.ts";
+import { assignableOptions, normalizeAuthorizedLocations } from "../../domain/services/employee-assignment.service.ts";
+import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
+import { usePositions } from "./use-positions.ts";
 
 const inputCls =
   "w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30";
@@ -30,7 +31,17 @@ export function EmployeeDrawer({ open, editing, onClose, onSave, saving }: Emplo
   const [email, setEmail] = useState(editing?.email ?? "");
   const [phone, setPhone] = useState(editing?.phone ?? "");
   const [employmentType, setEmploymentType] = useState<EmploymentType>(editing?.employmentType ?? "permanent");
-  const [jobRole, setJobRole] = useState<JobRole>(editing?.jobRole ?? "service");
+  const [positionId, setPositionId] = useState(editing?.positionId ?? "");
+  const [primaryLocationId, setPrimaryLocationId] = useState(editing?.primaryLocationId ?? "");
+  const [authorizedLocationIds, setAuthorizedLocationIds] = useState<string[]>(editing?.authorizedLocationIds ?? []);
+  const { data: positions = [] } = usePositions();
+  const { locations } = useLocations();
+  const positionOptions = assignableOptions(positions, (p) => p.active, editing?.positionId ? [editing.positionId] : []);
+  const currentLocationIds = [
+    ...(editing?.primaryLocationId ? [editing.primaryLocationId] : []),
+    ...(editing?.authorizedLocationIds ?? []),
+  ];
+  const locationOptions = assignableOptions(locations, (l) => l.isActive, currentLocationIds);
   const [hiredAt, setHiredAt] = useState(editing?.hiredAt?.slice(0, 10) ?? "");
   const [salaryType, setSalaryType] = useState<SalaryType>(editing?.salaryType ?? "fixed");
   const [baseSalary, setBaseSalary] = useState(editing?.baseSalary != null ? String(editing.baseSalary) : "");
@@ -52,7 +63,9 @@ export function EmployeeDrawer({ open, editing, onClose, onSave, saving }: Emplo
       email: email || null,
       phone: phone || null,
       employmentType,
-      jobRole,
+      positionId: positionId || null,
+      primaryLocationId: primaryLocationId || null,
+      authorizedLocationIds: normalizeAuthorizedLocations(authorizedLocationIds, primaryLocationId || null),
       hiredAt: hiredAt || null,
       salaryType,
       baseSalary: salaryType === "fixed" && baseSalary ? Number(baseSalary) : null,
@@ -128,15 +141,67 @@ export function EmployeeDrawer({ open, editing, onClose, onSave, saving }: Emplo
                 </select>
               </div>
               <div>
-                <label className={labelCls}>Função</label>
-                <select value={jobRole} onChange={(e) => setJobRole(e.target.value as JobRole)} className={inputCls}>
-                  {Object.entries(JOB_ROLE_LABELS).map(([value, label]) => (
-                    <option key={value} value={value}>
-                      {label}
+                <label htmlFor="employee-position" className={labelCls}>
+                  Cargo <span className="text-red-500">*</span>
+                </label>
+                <select
+                  id="employee-position"
+                  required
+                  value={positionId}
+                  onChange={(e) => setPositionId(e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="" disabled>
+                    Selecione um cargo
+                  </option>
+                  {positionOptions.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
                     </option>
                   ))}
                 </select>
               </div>
+              <div>
+                <label htmlFor="employee-primary-location" className={labelCls}>
+                  Local principal
+                </label>
+                <select
+                  id="employee-primary-location"
+                  value={primaryLocationId}
+                  onChange={(e) => setPrimaryLocationId(e.target.value)}
+                  className={inputCls}
+                >
+                  <option value="">— Sem local principal</option>
+                  {locationOptions.map((o) => (
+                    <option key={o.id} value={o.id}>
+                      {o.label}
+                    </option>
+                  ))}
+                </select>
+              </div>
+              {locationOptions.filter((o) => o.id !== primaryLocationId).length > 0 && (
+                <fieldset className="md:col-span-2">
+                  <legend className={labelCls}>Outros locais autorizados (opcional)</legend>
+                  <div className="flex flex-wrap gap-x-4 gap-y-2">
+                    {locationOptions
+                      .filter((o) => o.id !== primaryLocationId)
+                      .map((o) => (
+                        <label key={o.id} className="flex items-center gap-2 text-sm text-stone-700">
+                          <input
+                            type="checkbox"
+                            checked={authorizedLocationIds.includes(o.id)}
+                            onChange={(e) =>
+                              setAuthorizedLocationIds((ids) =>
+                                e.target.checked ? [...ids, o.id] : ids.filter((id) => id !== o.id),
+                              )
+                            }
+                          />
+                          {o.label}
+                        </label>
+                      ))}
+                  </div>
+                </fieldset>
+              )}
               <div>
                 <label className={labelCls}>Data de admissão</label>
                 <input type="date" value={hiredAt} onChange={(e) => setHiredAt(e.target.value)} className={inputCls} />

@@ -1,13 +1,12 @@
 import { NavLink } from "react-router-dom";
 
 /**
- * Navegação por abas do módulo "Pessoas" (task "Melhorar Visão Geral e
- * reorganizar Pessoas" — Pessoas & Documentos vira só "Pessoas", com
- * Colaboradores/Documentos como abas internas). Admissão fica de fora por
- * pedido do utilizador ("para já ignora a criação de admissão").
- * `/hr/people` continua a ser a rota da aba Colaboradores (não um
- * redirect) para não partir nenhum dos muitos deep-links existentes
- * (`/hr/people?documentSituation=missing`, cards da Visão Geral, etc.).
+ * Navegação por abas de "Colaboradores" (antes "Pessoas" — renomeada na
+ * Base Organizacional, task §14): Lista | Cargos | Documentos. Admissão
+ * fica de fora por pedido do utilizador. `/hr/people` continua a ser a rota
+ * da aba Lista (não um redirect) para não partir nenhum dos muitos
+ * deep-links existentes (`/hr/people?documentSituation=missing`, cards da
+ * Visão Geral, etc.).
  */
 export function PeopleTabs() {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -18,7 +17,10 @@ export function PeopleTabs() {
   return (
     <div className="flex gap-1 border-b border-transparent">
       <NavLink to="/hr/people" end className={linkClass}>
-        Colaboradores
+        Lista
+      </NavLink>
+      <NavLink to="/hr/people/cargos" className={linkClass}>
+        Cargos
       </NavLink>
       <NavLink to="/hr/people/documentos" className={linkClass}>
         Documentos

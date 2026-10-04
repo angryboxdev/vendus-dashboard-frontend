@@ -22,6 +22,7 @@ import type {
   ShiftToReview,
 } from "../../entities/overview.ts";
 import type { DocumentCategoryDefinition, DocumentCategoryPayload } from "../../entities/document-category.ts";
+import type { Position, PositionPayload } from "../../entities/position.ts";
 import type {
   AttendanceIssueDetail,
   CorrectShiftAttendancePayload,
@@ -75,6 +76,12 @@ export interface HrApiPort {
     page: number,
     pageSize: number,
   ): Promise<{ items: EmployeeHistoryEntry[]; total: number }>;
+
+  // ── Cargos (Base Organizacional) — `/api/hr/positions`; nunca há delete ──
+  listPositions(): Promise<Position[]>;
+  createPosition(payload: Required<Pick<PositionPayload, "name" | "operationalCategory">> & PositionPayload): Promise<Position>;
+  updatePosition(id: string, payload: PositionPayload): Promise<Position>;
+  setPositionActive(id: string, active: boolean): Promise<Position>;
 
   listEmployeeDocuments(employeeId: string): Promise<EmployeeDocument[]>;
   uploadEmployeeDocument(employeeId: string, payload: UploadDocumentPayload): Promise<EmployeeDocument>;

@@ -112,7 +112,7 @@ export function PendencyDrawer({ panel, onClose }: { panel: PendencyPanelKind; o
             onClick={() => navigate(SEE_ALL_HREF_BY_PANEL[panel])}
             className="w-full rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
           >
-            Ver todos em Pessoas →
+            Ver todos em Colaboradores →
           </button>
         </div>
       </div>

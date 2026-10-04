@@ -1,16 +1,16 @@
 # Módulo: hr
 
 > Status: ativo
-> Última atualização: 2026-09-28
+> Última atualização: 2026-10-04 (Base Organizacional — Colaboradores, Cargos, Local principal)
 
 ## O que é e para que serve (perspectiva de negócio)
 
-Área **Pessoas** (RH-02, antes "Pessoas & Documentos" — renomeada e
-reorganizada em abas Colaboradores/Documentos pela task "Melhorar Visão
-Geral e reorganizar Pessoas") + **Visão Geral operacional** (RH-01) +
+Área **Colaboradores** (RH-02 — antes "Pessoas & Documentos", depois
+"Pessoas"; renomeada para Colaboradores com abas Lista | Cargos |
+Documentos na Base Organizacional) + **Visão Geral operacional** (RH-01) +
 **Escalas & Turnos** (RH-03). Substitui a antiga entrada "Funcionários"
 por uma vista central do cadastro de colaboradores, com sinais claros de
-completude de perfil, onboarding e situação documental, um perfil 360º com
+completude dos dados do perfil e situação documental, um perfil 360º com
 dossiê documental versionado (substituir nunca apaga a versão anterior), um
 dashboard operacional de entrada (KPIs de equipa/operação do dia/pendências,
 alertas prioritários, um drawer sobreposto que explica cada pendência sem
@@ -35,9 +35,10 @@ anterior.
 ```
 RH/Gerente
 ────────────────────────────────────────────────────
-1. Abre "Pessoas" (aba Colaboradores) — vê KPIs (ativos, onboarding
-   pendente, dados incompletos, documentos a expirar) e a lista
-   de colaboradores com badges de estado de perfil/documentos
+1. Abre "Colaboradores" (aba Lista) — vê KPIs (ativos, dados
+   incompletos, documentos a expirar) e a lista de colaboradores
+   com cargo, local principal e badges de dados/documentos;
+   filtra por cargo e por local
 2. Clica num colaborador → perfil 360º (Resumo, Dados pessoais,
    Documentos, Contrato & Remuneração, Histórico)
 3. Na aba Documentos de "Pessoas" (visão de TODOS os
@@ -553,11 +554,30 @@ O Mockup 02 mostra estes dois botões no cabeçalho do perfil — omitidos
 nesta fase por não terem endpoint correspondente no backend. Preferível a
 simular um botão que não faz nada.
 
-### Filtro de "Local" omitido na lista
+### Base Organizacional — Colaboradores, Cargos e Local principal
 
-O Mockup 01 mostra um seletor "Todos os locais" — `hr_employees` não tem
-`location_id` (confirmado no table-registry do backend), colaboradores
-pertencem à organização como um todo, não a uma loja específica.
+- **Pessoas → Colaboradores** (menu, títulos, breadcrumbs); abas **Lista |
+  Cargos | Documentos**. As rotas mantêm-se (`/hr/people`,
+  `/hr/people/documentos`; nova `/hr/people/cargos`) — nenhum deep-link
+  parte.
+- **Cargos** (`PositionsView`, `usePositions`/`useManagePositions`):
+  criar/editar/ativar/inativar, nº de colaboradores ativos; nunca apagar;
+  `hr_viewer` só lê. Nome duplicado ("preparador" = "Preparador") vem do
+  backend como 409. Cargo ≠ permissão.
+- **Função → Cargo no formulário** (`EmployeeDrawer`): o seletor "Função"
+  passou a "Cargo" (obrigatório); o `jobRole` deixa de ser enviado — o
+  backend deriva-o da categoria operacional do cargo (D4). Escalas e
+  Assiduidade continuam a mostrar a categoria (`JOB_ROLE_LABELS`) — não
+  são alteradas nesta fase.
+- **Local principal + outros locais autorizados** no formulário, na Lista
+  (coluna + filtro "Local", só quando há mais de um local) e no perfil.
+  Só se oferecem cargos/locais ativos, mais o valor atual mesmo que
+  inativo (`assignableOptions`) — mesma regra do backend. Os nomes
+  resolvem-se no cliente (`positionNameOf`/`locationNameOf`) a partir de
+  `usePositions` e do `useLocations` global.
+- **Resumo do perfil**: "Dados do perfil: X% completos" (só dados
+  cadastrais — documentação conta à parte) e **sem card nem KPI de
+  Onboarding** (não existe workflow de onboarding — task §19/§20).
 
 ### Categorias/contagens que o mockup mostra mas o backend não calcula
 

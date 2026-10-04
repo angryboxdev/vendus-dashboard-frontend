@@ -10,6 +10,12 @@ export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
   extra: "Extra",
 };
 
+/**
+ * Categoria operacional (antiga "Função"). Desde a Base Organizacional o
+ * colaborador tem um Cargo (`positionId`); o `jobRole` é sempre a categoria
+ * operacional desse cargo e só continua a ser usado pelas Escalas e pelas
+ * categorias de documentos (decisão D4 do backend).
+ */
 export const JOB_ROLE_LABELS: Record<JobRole, string> = {
   manager: "Gerente",
   prep: "Preparador",
@@ -24,6 +30,12 @@ export interface Employee {
   roleOrNotes: string | null;
   employmentType: EmploymentType;
   jobRole: JobRole;
+  /** Cargo (Base Organizacional). */
+  positionId: string | null;
+  /** Local principal. */
+  primaryLocationId: string | null;
+  /** Outros locais autorizados. */
+  authorizedLocationIds: string[];
   status: EmployeeStatus;
   hiredAt: string | null;
   endedAt: string | null;
@@ -48,6 +60,8 @@ export interface EmployeeListRow {
   id: string;
   fullName: string;
   jobRole: JobRole;
+  positionId: string | null;
+  primaryLocationId: string | null;
   employmentType: EmploymentType;
   email: string | null;
   phone: string | null;
@@ -64,6 +78,9 @@ export interface ListEmployeesParams {
   employmentType?: EmploymentType;
   documentSituation?: DocumentSituation;
   profileComplete?: "complete" | "incomplete";
+  positionId?: string;
+  /** Local principal ou autorizado. */
+  locationId?: string;
   page: number;
   pageSize: number;
 }
@@ -90,7 +107,6 @@ export interface PriorityPendency {
 
 export interface PeopleKpis {
   activeEmployees: number;
-  onboardingPending: number;
   incompleteProfiles: number;
   documentsExpiringSoon: number;
   priorityPendencies: PriorityPendency[];
@@ -115,7 +131,6 @@ export interface EmployeeProfile {
     missingOptional: string[];
     expiringSoonCount: number;
   };
-  onboardingStatus: "completed" | "pending";
   alerts: Array<{ type: "document_expiring" | "document_missing" | "emergency_contact_pending"; message: string }>;
 }
 
@@ -125,7 +140,10 @@ export interface CreateEmployeePayload {
   phone?: string | null;
   roleOrNotes?: string | null;
   employmentType?: EmploymentType;
-  jobRole?: JobRole;
+  /** Cargo — o backend deriva daqui o `jobRole` (já não é enviado). */
+  positionId?: string | null;
+  primaryLocationId?: string | null;
+  authorizedLocationIds?: string[];
   hiredAt?: string | null;
   baseSalary?: number | null;
   salaryType?: SalaryType;

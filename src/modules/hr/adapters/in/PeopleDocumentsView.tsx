@@ -92,7 +92,7 @@ export function PeopleDocumentsView() {
       <div className="border-b border-[#F5C992]/40 bg-white px-6 py-3">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-bold text-stone-900">Pessoas</h1>
+            <h1 className="text-lg font-bold text-stone-900">Colaboradores</h1>
             <p className="text-xs text-stone-500">Gestão de colaboradores e documentação.</p>
           </div>
           <button
