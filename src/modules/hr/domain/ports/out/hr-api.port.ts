@@ -22,7 +22,14 @@ import type {
   ShiftToReview,
 } from "../../entities/overview.ts";
 import type { DocumentCategoryDefinition, DocumentCategoryPayload } from "../../entities/document-category.ts";
-import type { ShiftTemplate, ShiftTemplatePayload } from "../../entities/shift-template.ts";
+import type {
+  ApplyTemplateResult,
+  OccurrenceDecision,
+  ShiftTemplate,
+  ShiftTemplatePayload,
+  TemplateApplicationConfig,
+  TemplateApplicationPreview,
+} from "../../entities/shift-template.ts";
 import type { PayslipCategory, PayslipImportResult, PayslipMappingEntry, PayslipPreviewRow } from "../../entities/payslip-import.ts";
 import type { Position, PositionPayload } from "../../entities/position.ts";
 import type {
@@ -132,6 +139,10 @@ export interface HrApiPort {
   createShiftTemplate(payload: ShiftTemplatePayload): Promise<ShiftTemplate>;
   updateShiftTemplate(id: string, payload: Partial<ShiftTemplatePayload>): Promise<ShiftTemplate>;
   setShiftTemplateActive(id: string, active: boolean): Promise<ShiftTemplate>;
+  /** Aplicar modelo (ticket 02) — pré-visualização, não grava nada. */
+  previewTemplateApplication(templateId: string, config: TemplateApplicationConfig): Promise<TemplateApplicationPreview>;
+  /** Aplicar modelo — confirma; o backend revalida tudo e só aplica o que continua igual. */
+  applyTemplate(templateId: string, config: TemplateApplicationConfig, decisions: Record<string, OccurrenceDecision>): Promise<ApplyTemplateResult>;
 
   listShiftRotations(): Promise<ShiftRotation[]>;
   createShiftRotation(payload: CreateShiftRotationPayload): Promise<ShiftRotation>;

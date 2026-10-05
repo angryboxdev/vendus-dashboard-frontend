@@ -14,6 +14,7 @@ import {
   type ShiftTemplateForm,
 } from "../../domain/services/shift-template.service.ts";
 import { useManageShiftTemplates, useShiftTemplates } from "./use-shift-templates.ts";
+import { ApplyTemplateModal } from "./ApplyTemplateModal.tsx";
 
 const inputCls =
   "w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30";
@@ -271,6 +272,8 @@ export function ShiftTemplatesPanel() {
   const { saveMutation, setActiveMutation } = useManageShiftTemplates();
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState<ModalState>({ open: false });
+  /** Modelo pré-selecionado no "Aplicar modelo"; `undefined` = fechado. */
+  const [applying, setApplying] = useState<string | null | undefined>(undefined);
   const locationName = new Map(locations.map((l) => [l.id, l.name]));
 
   const visible = templates.filter((t) => t.name.toLowerCase().includes(search.trim().toLowerCase()));
@@ -295,6 +298,15 @@ export function ShiftTemplatesPanel() {
             aria-label="Pesquisar modelos"
             className="w-56 rounded-lg border border-stone-200 px-3 py-2 text-sm outline-none focus:border-[#ED5C32]"
           />
+          {canEdit && templates.some((t) => t.active) && (
+            <button
+              type="button"
+              onClick={() => setApplying(null)}
+              className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
+            >
+              Aplicar modelo
+            </button>
+          )}
           {canEdit && (
             <button
               type="button"
@@ -360,6 +372,11 @@ export function ShiftTemplatesPanel() {
                   </td>
                   {canEdit && (
                     <td className="space-x-3 whitespace-nowrap px-4 py-2.5 text-right">
+                      {t.active && (
+                        <button type="button" onClick={() => setApplying(t.id)} className="text-sm font-medium text-stone-800 hover:underline" aria-label={`Aplicar ${t.name}`}>
+                          Aplicar
+                        </button>
+                      )}
                       <button type="button" onClick={() => open("Editar modelo de turno", t.id, formFromTemplate(t))} className="text-sm font-medium text-[#ED5C32] hover:underline">
                         Editar
                       </button>
@@ -382,6 +399,8 @@ export function ShiftTemplatesPanel() {
           </table>
         </div>
       )}
+
+      {applying !== undefined && <ApplyTemplateModal templates={templates} initialTemplateId={applying} onClose={() => setApplying(undefined)} />}
 
       {modal.open && (
         <ShiftTemplateModal

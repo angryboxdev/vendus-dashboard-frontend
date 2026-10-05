@@ -1,7 +1,7 @@
 # Módulo: hr
 
 > Status: ativo
-> Última atualização: 2026-10-07 (RH 2.0 — Modelos de turno, ticket 01)
+> Última atualização: 2026-10-07 (RH 2.0 — Modelos de turno e Aplicar modelo, tickets 01–02)
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -192,6 +192,15 @@ Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
   rotações continuam por baixo até o ticket 04 as passar a automatizações.
   Hooks `useShiftTemplates`/`useManageShiftTemplates`; regras puras em
   `shift-template.service.ts` (mesma validação do backend).
+- `ApplyTemplateModal` (RH 2.0, ticket 02) → "Aplicar modelo" (botão no topo
+  dos Modelos ou "Aplicar" na linha): 1. Configuração (modelo; a quem — um,
+  vários, todos, por cargo + local opcional, por local; quando — datas
+  específicas, Seg–Sex, fins de semana, personalizado + período; local do
+  turno) → 2. Pré-visualização (KPIs, filtro por estado, tabela com
+  checkbox por turno válido, "Resolver" → Manter/Substituir; Substituir
+  desativado se o turno existente tiver presença) → 3. Confirmar. O
+  backend revalida na confirmação; o que mudou entretanto aparece em "Não
+  aplicados". Regras puras em `template-application.service.ts`.
 - `ImportPayslipsModal` (ticket 10) → tipo (Recibo de vencimento / Recibo verde — categorias separadas, mesma mecânica) + período (mês anterior por omissão) +
   vários PDFs → pré-visualização Arquivo | Colaborador | Período | Estado
   (`api.previewPayslipImport`) → confirmar → gravar
