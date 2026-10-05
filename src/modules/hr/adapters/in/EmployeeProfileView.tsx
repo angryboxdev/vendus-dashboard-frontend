@@ -6,9 +6,11 @@ import { AvatarUpload } from "./components/AvatarUpload.tsx";
 import { EmployeeDrawer } from "./EmployeeDrawer.tsx";
 import { EmployeeDocumentsTab } from "./EmployeeDocumentsTab.tsx";
 import { EmployeeHistoryTab } from "./EmployeeHistoryTab.tsx";
+import { usePositions } from "./use-positions.ts";
+import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
+import { locationNameOf, positionNameOf } from "../../domain/services/employee-assignment.service.ts";
 import {
   EMPLOYMENT_TYPE_LABELS,
-  JOB_ROLE_LABELS,
   type CreateEmployeePayload,
   type UpdateEmployeePayload,
 } from "../../domain/entities/employee.ts";
@@ -58,6 +60,8 @@ function InfoRow({ label, value }: { label: string; value: string | null }) {
 export function EmployeeProfileView() {
   const { id } = useParams<{ id: string }>();
   const { api } = useHrModule();
+  const { data: positions = [] } = usePositions();
+  const { locations } = useLocations();
   const qc = useQueryClient();
   const [searchParams] = useSearchParams();
 
@@ -113,7 +117,7 @@ export function EmployeeProfileView() {
       <div className="flex min-h-full flex-col items-center justify-center gap-3 bg-[#FAF6F3]">
         <p className="text-sm text-stone-500">Colaborador não encontrado.</p>
         <Link to="/hr/people" className="text-sm text-[#ED5C32] hover:underline">
-          ← Voltar a Pessoas
+          ← Voltar a Colaboradores
         </Link>
       </div>
     );
@@ -121,6 +125,9 @@ export function EmployeeProfileView() {
 
   const e = profile.employee;
   const isActive = e.status === "active";
+  const positionName = positionNameOf(positions, e.positionId);
+  const primaryLocationName = locationNameOf(locations, e.primaryLocationId);
+  const otherLocationNames = e.authorizedLocationIds.map((id) => locationNameOf(locations, id)).join(", ") || null;
 
   return (
     <div className="flex min-h-full flex-col bg-[#FAF6F3]">
@@ -134,7 +141,7 @@ export function EmployeeProfileView() {
                 clipRule="evenodd"
               />
             </svg>
-            Pessoas
+            Colaboradores
           </Link>
           <span>/</span>
           <span className="truncate font-medium text-stone-700">{e.fullName}</span>
@@ -160,7 +167,10 @@ export function EmployeeProfileView() {
                   {isActive ? "Ativo" : "Inativo"}
                 </span>
               </div>
-              <p className="text-sm text-stone-500">{JOB_ROLE_LABELS[e.jobRole]}</p>
+              <p className="text-sm text-stone-500">
+                {positionName}
+                {e.primaryLocationId && <span className="text-stone-400"> · {primaryLocationName}</span>}
+              </p>
             </div>
           </div>
 
@@ -206,10 +216,11 @@ export function EmployeeProfileView() {
       <div className="p-6">
         {tab === "resumo" && (
           <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-                <p className="text-xs font-medium text-stone-500">Estado do perfil</p>
-                <p className="mt-1 text-xl font-bold text-stone-800">{profile.profileCompletionPercent}% completo</p>
+                {/* Dados cadastrais apenas — a documentação conta à parte, no card seguinte (task §19). */}
+                <p className="text-xs font-medium text-stone-500">Dados do perfil</p>
+                <p className="mt-1 text-xl font-bold text-stone-800">{profile.profileCompletionPercent}% completos</p>
                 <div className="mt-2 h-1.5 rounded-full bg-stone-100">
                   <div
                     className="h-1.5 rounded-full bg-emerald-500"
@@ -230,16 +241,6 @@ export function EmployeeProfileView() {
                 <p className="text-xs font-medium text-stone-500">Próximos vencimentos</p>
                 <p className="mt-1 text-xl font-bold text-amber-600">{profile.documents.expiringSoonCount}</p>
                 <p className="mt-0.5 text-xs text-stone-400">nos próximos 30 dias</p>
-              </div>
-              <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-                <p className="text-xs font-medium text-stone-500">Onboarding</p>
-                <p
-                  className={`mt-1 text-xl font-bold ${
-                    profile.onboardingStatus === "completed" ? "text-emerald-600" : "text-amber-600"
-                  }`}
-                >
-                  {profile.onboardingStatus === "completed" ? "Concluído" : "Pendente"}
-                </p>
               </div>
             </div>
 
@@ -262,7 +263,9 @@ export function EmployeeProfileView() {
                   <SectionBadge complete={profile.sections.contractData} />
                 </div>
                 <div className="grid grid-cols-2 gap-3">
-                  <InfoRow label="Função" value={JOB_ROLE_LABELS[e.jobRole]} />
+                  <InfoRow label="Cargo" value={e.positionId ? positionName : null} />
+                  <InfoRow label="Local principal" value={e.primaryLocationId ? primaryLocationName : null} />
+                  <InfoRow label="Outros locais autorizados" value={otherLocationNames} />
                   <InfoRow label="Vínculo" value={EMPLOYMENT_TYPE_LABELS[e.employmentType]} />
                   <InfoRow label="Data de admissão" value={formatDate(e.hiredAt)} />
                 </div>
@@ -338,7 +341,9 @@ export function EmployeeProfileView() {
           <div className="max-w-2xl space-y-4 rounded-xl border border-[#F5C992]/40 bg-white p-5">
             <div className="grid grid-cols-2 gap-4">
               <InfoRow label="Vínculo" value={EMPLOYMENT_TYPE_LABELS[e.employmentType]} />
-              <InfoRow label="Função" value={JOB_ROLE_LABELS[e.jobRole]} />
+              <InfoRow label="Cargo" value={e.positionId ? positionName : null} />
+              <InfoRow label="Local principal" value={e.primaryLocationId ? primaryLocationName : null} />
+              <InfoRow label="Outros locais autorizados" value={otherLocationNames} />
               <InfoRow label="Data de admissão" value={formatDate(e.hiredAt)} />
               <InfoRow label="Data de cessação" value={formatDate(e.endedAt)} />
               <InfoRow label="Tipo de remuneração" value={e.salaryType === "fixed" ? "Salário fixo" : "À hora"} />

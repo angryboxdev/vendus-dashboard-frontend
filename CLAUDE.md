@@ -52,6 +52,10 @@ padrão novo, abra o `README.md` dele e veja o campo `Status`; sem README ou com
   lista + formulário simples, sem wizard)
 - `stock-count` (setembro 2026) — "Contagens de stock" (Fase 1: funcional
   simples, sem wizard, sem unidades alternativas nem UI de zonas)
+- `organization` (outubro 2026) — "Empresa & Estrutura" (moldura + aba
+  Empresa; Base Organizacional 1.0)
+- `documents` (outubro 2026) — Empresa & Estrutura → Documentos (documentos
+  da Empresa sobre o motor único de documentos)
 
 ## Stack
 

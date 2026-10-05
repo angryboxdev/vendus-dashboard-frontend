@@ -1,5 +1,6 @@
 import { apiGet, apiPatch, apiPost, apiPostFormData, apiDeleteNoContent, apiPut, ApiError } from "../../../../lib/api.ts";
 import type { HrApiPort } from "../../domain/ports/out/hr-api.port.ts";
+import type { Position, PositionPayload } from "../../domain/entities/position.ts";
 import type {
   CreateEmployeePayload,
   Employee,
@@ -83,6 +84,8 @@ export class HttpHrApiAdapter implements HrApiPort {
     if (params.employmentType) q.set("employmentType", params.employmentType);
     if (params.documentSituation) q.set("documentSituation", params.documentSituation);
     if (params.profileComplete) q.set("profileComplete", params.profileComplete);
+    if (params.positionId) q.set("positionId", params.positionId);
+    if (params.locationId) q.set("locationId", params.locationId);
     q.set("page", String(params.page));
     q.set("pageSize", String(params.pageSize));
     return apiGet<ListEmployeesResult>(`${BASE}?${q.toString()}`);
@@ -102,6 +105,22 @@ export class HttpHrApiAdapter implements HrApiPort {
 
   async updateEmployee(id: string, payload: UpdateEmployeePayload): Promise<Employee> {
     return apiPatch<Employee>(`${BASE}/${encodeURIComponent(id)}`, payload);
+  }
+
+  async listPositions(): Promise<Position[]> {
+    return apiGet<Position[]>("/api/hr/positions");
+  }
+
+  async createPosition(payload: PositionPayload): Promise<Position> {
+    return apiPost<Position>("/api/hr/positions", payload);
+  }
+
+  async updatePosition(id: string, payload: PositionPayload): Promise<Position> {
+    return apiPatch<Position>(`/api/hr/positions/${encodeURIComponent(id)}`, payload);
+  }
+
+  async setPositionActive(id: string, active: boolean): Promise<Position> {
+    return apiPatch<Position>(`/api/hr/positions/${encodeURIComponent(id)}/active`, { active });
   }
 
   async setEmployeeStatus(id: string, status: "active" | "inactive"): Promise<Employee> {

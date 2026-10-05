@@ -10,7 +10,13 @@ import { ListActiveTokensUseCase } from "../../application/use-cases/list-active
 import { RevokeTokenUseCase } from "../../application/use-cases/revoke-token.use-case.ts";
 import { RedeemPairingCodeUseCase } from "../../application/use-cases/redeem-pairing-code.use-case.ts";
 import { GetPairingStatusUseCase } from "../../application/use-cases/get-pairing-status.use-case.ts";
-import { InMemoryLocationsApiAdapter } from "../../../locations/adapters/out/in-memory-locations-api.adapter.ts";
+import { InMemoryLocationsApiAdapter, locationFixture } from "../../../locations/adapters/out/in-memory-locations-api.adapter.ts";
+import {
+  CreateLocationUseCase,
+  ListLocationHistoryUseCase,
+  SetLocationActiveUseCase,
+  UpdateLocationUseCase,
+} from "../../../locations/application/use-cases/manage-locations.use-cases.ts";
 import { ListLocationsUseCase } from "../../../locations/application/use-cases/list-locations.use-case.ts";
 import type { LocationDTO } from "../../../locations/domain/entities/location.ts";
 import type { LocationsModule } from "../../../locations/locations.module.tsx";
@@ -45,7 +51,14 @@ function sessionWithOrg(): Session {
 }
 
 function buildLocationsModule(locations: LocationDTO[]): LocationsModule {
-  return { listLocations: new ListLocationsUseCase(InMemoryLocationsApiAdapter.withSeed(locations)) };
+  const api = InMemoryLocationsApiAdapter.withSeed(locations);
+  return {
+    listLocations: new ListLocationsUseCase(api),
+    createLocation: new CreateLocationUseCase(api),
+    updateLocation: new UpdateLocationUseCase(api),
+    setLocationActive: new SetLocationActiveUseCase(api),
+    listLocationHistory: new ListLocationHistoryUseCase(api),
+  };
 }
 
 function buildCredentialsModule(
@@ -62,8 +75,8 @@ function buildCredentialsModule(
   };
 }
 
-const LOC_A: LocationDTO = { id: "loc-a", name: "Loja Centro", code: "CTR", timezone: "Europe/Lisbon", isActive: true };
-const LOC_B: LocationDTO = { id: "loc-b", name: "Loja Norte", code: "NRT", timezone: "Europe/Lisbon", isActive: true };
+const LOC_A: LocationDTO = locationFixture({ id: "loc-a", name: "Loja Centro", code: "CTR" });
+const LOC_B: LocationDTO = locationFixture({ id: "loc-b", name: "Loja Norte", code: "NRT" });
 
 async function renderView(
   tokens: Record<string, { id: string; issuedAt: Date; locationName: string; description?: string | null }[]> = {},
