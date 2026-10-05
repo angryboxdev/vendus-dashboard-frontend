@@ -465,7 +465,7 @@ export function SchedulesView() {
         <div className="space-y-4 p-4">
           <ShiftTemplatesPanel />
           <ShiftAutomationsPanel />
-          <ShiftRotationsPanel employees={employees} />
+          <ShiftRotationsPanel />
         </div>
       ) : tab === "alerts" ? (
         <div className="p-4">

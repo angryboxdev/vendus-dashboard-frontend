@@ -201,6 +201,11 @@ Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
   desativado se o turno existente tiver presença) → 3. Confirmar. O
   backend revalida na confirmação; o que mudou entretanto aparece em "Não
   aplicados". Regras puras em `template-application.service.ts`.
+- `ShiftRotationsPanel` → **Rotações antigas (A/B)** (2026-10-06): as rotações
+  deixaram de ser usadas (substituídas pelas Automatizações). Já não se
+  criam novas; as existentes podem ser pré-visualizadas, aplicadas,
+  pausadas ou **apagadas** (confirmação; os turnos já criados ficam). Sem
+  rotações, o painel não aparece.
 - `ShiftAutomationsPanel` (RH 2.0, ticket 03) → "Automatizações de turnos"
   na aba Modelos & Automatizações: Nome (gerada até · por resolver),
   Modelo, Aplicar a, Local, Quando, Recorrência (Semanal/Diária/Período

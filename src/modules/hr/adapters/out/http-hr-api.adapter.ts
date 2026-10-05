@@ -387,6 +387,10 @@ export class HttpHrApiAdapter implements HrApiPort {
     await apiPost<{ dismissed: boolean }>(`${SCHEDULES_BASE}/automation-issues/${encodeURIComponent(id)}/dismiss`, {});
   }
 
+  async deleteShiftRotation(id: string): Promise<void> {
+    await apiDeleteNoContent(`${SCHEDULES_BASE}/rotations/${encodeURIComponent(id)}`);
+  }
+
   async listShiftRotations(): Promise<ShiftRotation[]> {
     return apiGet<ShiftRotation[]>(`${SCHEDULES_BASE}/rotations`);
   }

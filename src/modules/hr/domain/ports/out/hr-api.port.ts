@@ -165,6 +165,8 @@ export interface HrApiPort {
   previewShiftRotation(id: string, weeks?: number): Promise<RotationWeekPreview[]>;
   applyShiftRotation(id: string, fromWeekStartDate?: string, weeks?: number): Promise<ApplyBaseScheduleResult>;
   setShiftRotationActive(id: string, active: boolean): Promise<ShiftRotation>;
+  /** Apaga a rotação; os turnos já criados por ela ficam na escala. */
+  deleteShiftRotation(id: string): Promise<void>;
 
   getScheduleAlerts(from: string, to: string, locationId?: string): Promise<ScheduleAlerts>;
 
