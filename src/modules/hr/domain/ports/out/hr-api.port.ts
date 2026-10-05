@@ -23,6 +23,12 @@ import type {
 } from "../../entities/overview.ts";
 import type { DocumentCategoryDefinition, DocumentCategoryPayload } from "../../entities/document-category.ts";
 import type {
+  AutomationGenerationResult,
+  ShiftAutomation,
+  ShiftAutomationPayload,
+  ShiftAutomationStatus,
+} from "../../entities/shift-automation.ts";
+import type {
   ApplyTemplateResult,
   OccurrenceDecision,
   ShiftTemplate,
@@ -143,6 +149,16 @@ export interface HrApiPort {
   previewTemplateApplication(templateId: string, config: TemplateApplicationConfig): Promise<TemplateApplicationPreview>;
   /** Aplicar modelo — confirma; o backend revalida tudo e só aplica o que continua igual. */
   applyTemplate(templateId: string, config: TemplateApplicationConfig, decisions: Record<string, OccurrenceDecision>): Promise<ApplyTemplateResult>;
+
+  // ── RH 2.0: Automatizações ──────────────────────────────────────────────
+  listShiftAutomations(): Promise<ShiftAutomation[]>;
+  /** `generateNow`: gera já as primeiras semanas ("Guardar como automatização" no Aplicar modelo). */
+  createShiftAutomation(payload: ShiftAutomationPayload, generateNow: boolean): Promise<{ automation: ShiftAutomation; generation: AutomationGenerationResult | null }>;
+  updateShiftAutomation(id: string, payload: Partial<ShiftAutomationPayload>): Promise<ShiftAutomation>;
+  setShiftAutomationStatus(id: string, status: ShiftAutomationStatus): Promise<ShiftAutomation>;
+  /** "Gerar próximas X semanas". */
+  generateShiftAutomation(id: string, weeks?: number): Promise<AutomationGenerationResult>;
+  dismissAutomationIssue(id: string): Promise<void>;
 
   listShiftRotations(): Promise<ShiftRotation[]>;
   createShiftRotation(payload: CreateShiftRotationPayload): Promise<ShiftRotation>;

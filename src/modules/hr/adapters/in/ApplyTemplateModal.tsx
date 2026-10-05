@@ -25,9 +25,14 @@ import {
   type OccurrenceChoice,
 } from "../../domain/services/template-application.service.ts";
 import { usePositions } from "./use-positions.ts";
+import { useManageShiftAutomations } from "./use-shift-automations.ts";
+import { HORIZON_OPTIONS, type AutomationGenerationResult } from "../../domain/entities/shift-automation.ts";
+import { firstGenerationWindow, generationSummary } from "../../domain/services/shift-automation.service.ts";
 
 type AudienceKind = "one" | "many" | "all" | "position" | "location";
 type WhenKind = "dates" | "weekdays" | "weekend" | "custom";
+type Usage = "once" | "automation";
+const USAGE_LABELS: Record<Usage, string> = { once: "Aplicar apenas uma vez", automation: "Guardar como automatização" };
 
 const inputCls = "w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#ED5C32]";
 const labelCls = "mb-1 block text-sm font-medium text-stone-700";
@@ -68,7 +73,18 @@ function occurrenceTime(o: Pick<TemplateOccurrence, "startTime" | "endTime" | "s
  * ticket 02): Configuração → Pré-visualização → Confirmar. Na confirmação
  * o backend revalida tudo; o que mudou entretanto é mostrado e não aplicado.
  */
-export function ApplyTemplateModal({ templates, initialTemplateId, onClose }: { templates: ShiftTemplate[]; initialTemplateId: string | null; onClose: () => void }) {
+export function ApplyTemplateModal({
+  templates,
+  initialTemplateId,
+  initialUsage = "once",
+  onClose,
+}: {
+  templates: ShiftTemplate[];
+  initialTemplateId: string | null;
+  /** "automation": abre já em "Guardar como automatização" (botão "Nova automatização"). */
+  initialUsage?: Usage;
+  onClose: () => void;
+}) {
   const { api } = useHrModule();
   const qc = useQueryClient();
   const { locations } = useLocations();
@@ -96,6 +112,14 @@ export function ApplyTemplateModal({ templates, initialTemplateId, onClose }: { 
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState("");
   const [result, setResult] = useState<ApplyTemplateResult | null>(null);
+  // RH 2.0 ticket 03 — "Tipo de utilização": aplicar uma vez ou guardar como automatização.
+  const [usage, setUsage] = useState<Usage>(initialUsage);
+  const [automationName, setAutomationName] = useState("");
+  const [horizonWeeks, setHorizonWeeks] = useState(4);
+  const [automationResult, setAutomationResult] = useState<AutomationGenerationResult | null>(null);
+  const { createMutation } = useManageShiftAutomations();
+  const isAutomation = usage === "automation";
+  const today = new Date().toISOString().slice(0, 10);
 
   const employeesQuery = useQuery({
     queryKey: ["hr-people-list", "apply-template"],
@@ -119,7 +143,17 @@ export function ApplyTemplateModal({ templates, initialTemplateId, onClose }: { 
       audience = { kind: "location", locationId: audienceLocationId };
     }
     let days: ApplicationDays;
-    if (when === "dates") {
+    if (isAutomation) {
+      if (!automationName.trim()) return "Indique o nome da automatização.";
+      if (when === "dates") return "Uma automatização usa dias da semana — escolha Seg–Sex, fins de semana ou personalizado.";
+      if (!from) return "Indique a data inicial.";
+      if (to && to < from) return "A data final tem de ser igual ou posterior à inicial.";
+      const weekdays = when === "custom" ? customDays : WEEKDAY_PRESETS[when];
+      if (weekdays.length === 0) return "Escolha pelo menos um dia da semana.";
+      // Pré-visualiza só a 1.ª geração (a mesma janela que o backend vai gerar).
+      const window = firstGenerationWindow(from, to || null, horizonWeeks, today);
+      days = { kind: "range", from: window?.from ?? from, to: window?.to ?? from, weekdays };
+    } else if (when === "dates") {
       if (dates.length === 0) return "Adicione pelo menos uma data.";
       days = { kind: "dates", dates };
     } else {
@@ -158,19 +192,54 @@ export function ApplyTemplateModal({ templates, initialTemplateId, onClose }: { 
       return;
     }
     setConfigError(null);
+    // Automatização que começa depois do horizonte: nada a pré-visualizar agora — o cron gera quando chegar a altura.
+    if (isAutomation && firstGenerationWindow(from, to || null, horizonWeeks, today) === null) {
+      setPreview(null);
+      setStep(3);
+      return;
+    }
     previewMutation.mutate(config);
   }
 
   function confirm() {
     const config = buildConfig();
-    if (typeof config !== "string") applyMutation.mutate(config);
+    if (typeof config === "string") return;
+    if (!isAutomation) {
+      applyMutation.mutate(config);
+      return;
+    }
+    createMutation.mutate(
+      {
+        payload: {
+          name: automationName.trim(),
+          description: null,
+          templateId,
+          audience: config.audience,
+          locationId: config.locationId,
+          weekdays: config.days.kind === "range" ? config.days.weekdays : [],
+          startDate: from,
+          endDate: to || null,
+          horizonWeeks,
+        },
+        generateNow: true,
+      },
+      {
+        onSuccess: (data) =>
+          setAutomationResult(data.generation ?? { automationId: data.automation.id, window: null, created: 0, alreadyExisting: 0, issues: 0 }),
+      },
+    );
   }
 
   const occurrences = preview?.occurrences ?? [];
   const visible = statusFilter ? occurrences.filter((o) => o.status === statusFilter) : occurrences;
   const selected = occurrences.find((o) => o.key === selectedKey) ?? null;
-  const toCreate = countToCreate(occurrences, choices);
-  const mutationError = (previewMutation.error ?? applyMutation.error) as Error | null;
+  // Na automatização só as válidas são criadas (conflitos nunca são forçados — vão para Alertas e ações).
+  const toCreate = isAutomation ? occurrences.filter((o) => o.status === "valid").length : countToCreate(occurrences, choices);
+  const mutationError = (previewMutation.error ?? applyMutation.error ?? createMutation.error) as Error | null;
+  const finished = result !== null || automationResult !== null;
+  const whenOptions: Partial<Record<WhenKind, string>> = isAutomation
+    ? { weekdays: WHEN_LABELS.weekdays, weekend: WHEN_LABELS.weekend, custom: WHEN_LABELS.custom }
+    : WHEN_LABELS;
 
   const audienceSummary =
     audienceKind === "position"
@@ -280,8 +349,8 @@ export function ApplyTemplateModal({ templates, initialTemplateId, onClose }: { 
 
                 <div className="space-y-2">
                   <p className={labelCls}>Quando aplicar?</p>
-                  <Choice name="Quando aplicar?" value={when} options={WHEN_LABELS} onChange={setWhen} />
-                  {when === "dates" ? (
+                  <Choice name="Quando aplicar?" value={when} options={whenOptions as Record<WhenKind, string>} onChange={setWhen} />
+                  {when === "dates" && !isAutomation ? (
                     <div className="space-y-2">
                       <div className="flex gap-2">
                         <input type="date" aria-label="Data" value={dateDraft} onChange={(e) => setDateDraft(e.target.value)} className={inputCls} />
@@ -305,7 +374,7 @@ export function ApplyTemplateModal({ templates, initialTemplateId, onClose }: { 
                     <div className="space-y-2">
                       <div className="grid grid-cols-2 gap-3">
                         <input type="date" aria-label="De" value={from} onChange={(e) => setFrom(e.target.value)} className={inputCls} />
-                        <input type="date" aria-label="Até" value={to} onChange={(e) => setTo(e.target.value)} className={inputCls} />
+                        <input type="date" aria-label={isAutomation ? "Até (opcional)" : "Até"} value={to} onChange={(e) => setTo(e.target.value)} className={inputCls} />
                       </div>
                       {when === "custom" && (
                         <div className="flex gap-1">
@@ -339,6 +408,47 @@ export function ApplyTemplateModal({ templates, initialTemplateId, onClose }: { 
                     ))}
                   </select>
                 </div>
+
+                <div className="space-y-2">
+                  <p className={labelCls}>Tipo de utilização</p>
+                  <Choice
+                    name="Tipo de utilização"
+                    value={usage}
+                    options={USAGE_LABELS}
+                    onChange={(v) => {
+                      setUsage(v);
+                      if (v === "automation" && when === "dates") setWhen("weekdays");
+                    }}
+                  />
+                  {isAutomation && (
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label htmlFor="automation-name-new" className={labelCls}>
+                          Nome da automatização <span className="text-red-500">*</span>
+                        </label>
+                        <input
+                          id="automation-name-new"
+                          value={automationName}
+                          onChange={(e) => setAutomationName(e.target.value)}
+                          placeholder="Ex.: Fim de semana — Preparadores"
+                          className={inputCls}
+                        />
+                      </div>
+                      <div>
+                        <label htmlFor="automation-horizon-new" className={labelCls}>
+                          Horizonte de geração
+                        </label>
+                        <select id="automation-horizon-new" value={horizonWeeks} onChange={(e) => setHorizonWeeks(Number(e.target.value))} className={inputCls}>
+                          {HORIZON_OPTIONS.map((w) => (
+                            <option key={w} value={w}>
+                              Próximas {w} semana(s)
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
 
               <aside className="h-fit space-y-3 rounded-xl bg-stone-50 p-4 text-sm">
@@ -349,6 +459,11 @@ export function ApplyTemplateModal({ templates, initialTemplateId, onClose }: { 
                 <p>
                   <span className="text-stone-500">Colaboradores:</span> {audienceSummary}
                 </p>
+                {isAutomation && (
+                  <p>
+                    <span className="text-stone-500">Tipo:</span> Automatização · horizonte de {horizonWeeks} semana(s)
+                  </p>
+                )}
                 <p className="text-xs text-stone-500">Os turnos são criados em rascunho — revê e publica no Calendário.</p>
               </aside>
             </div>
@@ -371,6 +486,11 @@ export function ApplyTemplateModal({ templates, initialTemplateId, onClose }: { 
                     </div>
                   ))}
                 </div>
+                {isAutomation && (
+                  <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">
+                    Primeira geração da automatização. Só os turnos válidos são criados; conflitos e ausências vão para Alertas e ações (nunca são forçados).
+                  </p>
+                )}
                 {preview.summary.holidays > 0 && (
                   <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
                     {preview.summary.holidays} turno(s) calham em feriado — são criados na mesma (assinalados); o tratamento faz-se no Fecho Mensal.
@@ -409,7 +529,7 @@ export function ApplyTemplateModal({ templates, initialTemplateId, onClose }: { 
                               <input
                                 type="checkbox"
                                 aria-label={`Criar turno de ${o.employeeName} em ${o.workDate}`}
-                                disabled={o.status !== "valid" && !(o.status === "overlap" && choice === "replace")}
+                                disabled={isAutomation || (o.status !== "valid" && !(o.status === "overlap" && choice === "replace"))}
                                 checked={choice === "create" || choice === "replace"}
                                 onChange={(e) => setChoices((c) => ({ ...c, [o.key]: e.target.checked ? "create" : "skip" }))}
                               />
@@ -426,7 +546,7 @@ export function ApplyTemplateModal({ templates, initialTemplateId, onClose }: { 
                               {o.status === "overlap" && choice === "replace" && <p className="mt-0.5 text-xs text-[#ED5C32]">Vai substituir</p>}
                             </td>
                             <td className="px-3 py-2">
-                              {o.status === "overlap" || o.status === "duplicate" ? (
+                              {!isAutomation && (o.status === "overlap" || o.status === "duplicate") ? (
                                 <button type="button" onClick={() => setSelectedKey(o.key)} className="text-sm font-medium text-[#ED5C32] hover:underline">
                                   {o.status === "overlap" ? "Resolver" : "Ver"}
                                 </button>
@@ -488,7 +608,21 @@ export function ApplyTemplateModal({ templates, initialTemplateId, onClose }: { 
             </div>
           )}
 
-          {step === 3 && (
+          {step === 3 && isAutomation && (
+            <div className="space-y-2 text-sm">
+              {!automationResult ? (
+                <p className="text-stone-700">
+                  {preview
+                    ? `A automatização "${automationName.trim()}" é guardada e gera já ${toCreate} turno(s) válido(s) em rascunho. Depois, mantém sempre as próximas ${horizonWeeks} semana(s) geradas.`
+                    : `A automatização "${automationName.trim()}" é guardada; os turnos são gerados quando o período entrar no horizonte de ${horizonWeeks} semana(s).`}
+                </p>
+              ) : (
+                <p className="font-semibold text-emerald-700">Automatização guardada. {generationSummary(automationResult)}</p>
+              )}
+            </div>
+          )}
+
+          {step === 3 && !isAutomation && (
             <div className="space-y-3">
               {!result ? (
                 <p className="text-sm text-stone-700">
@@ -528,7 +662,7 @@ export function ApplyTemplateModal({ templates, initialTemplateId, onClose }: { 
               </button>
             )}
             <button type="button" onClick={onClose} className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-700">
-              {result ? "Fechar" : "Cancelar"}
+              {finished ? "Fechar" : "Cancelar"}
             </button>
             {step === 1 && (
               <button
@@ -544,20 +678,20 @@ export function ApplyTemplateModal({ templates, initialTemplateId, onClose }: { 
               <button
                 type="button"
                 onClick={() => setStep(3)}
-                disabled={toCreate === 0}
+                disabled={toCreate === 0 && !isAutomation}
                 className="rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 Continuar
               </button>
             )}
-            {step === 3 && !result && (
+            {step === 3 && !finished && (
               <button
                 type="button"
                 onClick={confirm}
-                disabled={applyMutation.isPending || toCreate === 0}
+                disabled={applyMutation.isPending || createMutation.isPending || (toCreate === 0 && !isAutomation)}
                 className="rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
-                {applyMutation.isPending ? "A criar…" : `Criar ${toCreate} turno(s)`}
+                {isAutomation ? (createMutation.isPending ? "A guardar…" : "Guardar automatização") : applyMutation.isPending ? "A criar…" : `Criar ${toCreate} turno(s)`}
               </button>
             )}
           </div>

@@ -26,6 +26,12 @@ import type {
 } from "../../domain/entities/overview.ts";
 import type { DocumentCategoryDefinition, DocumentCategoryPayload } from "../../domain/entities/document-category.ts";
 import type {
+  AutomationGenerationResult,
+  ShiftAutomation,
+  ShiftAutomationPayload,
+  ShiftAutomationStatus,
+} from "../../domain/entities/shift-automation.ts";
+import type {
   ApplyTemplateResult,
   OccurrenceDecision,
   ShiftTemplate,
@@ -355,6 +361,30 @@ export class HttpHrApiAdapter implements HrApiPort {
 
   async applyTemplate(templateId: string, config: TemplateApplicationConfig, decisions: Record<string, OccurrenceDecision>): Promise<ApplyTemplateResult> {
     return apiPost<ApplyTemplateResult>(`${SCHEDULES_BASE}/templates/${encodeURIComponent(templateId)}/apply`, { ...config, decisions });
+  }
+
+  async listShiftAutomations(): Promise<ShiftAutomation[]> {
+    return apiGet<ShiftAutomation[]>(`${SCHEDULES_BASE}/automations`);
+  }
+
+  async createShiftAutomation(payload: ShiftAutomationPayload, generateNow: boolean) {
+    return apiPost<{ automation: ShiftAutomation; generation: AutomationGenerationResult | null }>(`${SCHEDULES_BASE}/automations`, { ...payload, generateNow });
+  }
+
+  async updateShiftAutomation(id: string, payload: Partial<ShiftAutomationPayload>): Promise<ShiftAutomation> {
+    return apiPatch<ShiftAutomation>(`${SCHEDULES_BASE}/automations/${encodeURIComponent(id)}`, payload);
+  }
+
+  async setShiftAutomationStatus(id: string, status: ShiftAutomationStatus): Promise<ShiftAutomation> {
+    return apiPatch<ShiftAutomation>(`${SCHEDULES_BASE}/automations/${encodeURIComponent(id)}/status`, { status });
+  }
+
+  async generateShiftAutomation(id: string, weeks?: number): Promise<AutomationGenerationResult> {
+    return apiPost<AutomationGenerationResult>(`${SCHEDULES_BASE}/automations/${encodeURIComponent(id)}/generate`, weeks ? { weeks } : {});
+  }
+
+  async dismissAutomationIssue(id: string): Promise<void> {
+    await apiPost<{ dismissed: boolean }>(`${SCHEDULES_BASE}/automation-issues/${encodeURIComponent(id)}/dismiss`, {});
   }
 
   async listShiftRotations(): Promise<ShiftRotation[]> {

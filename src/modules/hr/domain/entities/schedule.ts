@@ -1,3 +1,4 @@
+import type { AutomationIssue } from "./shift-automation.ts";
 
 export type ShiftStatus = "draft" | "published";
 /** `template`/`automation`: gerado por um Modelo de turno / por uma Automatização (RH 2.0). */
@@ -26,6 +27,8 @@ export interface WorkShift {
   seriesId: string | null;
   /** Modelo de turno de origem (RH 2.0) — o horário acima é cópia; alterar o modelo não o muda. */
   templateId: string | null;
+  /** Automatização de origem (RH 2.0). */
+  automationId: string | null;
   attendanceStatus: ShiftAttendanceStatusValue | null;
   createdAt: string;
   updatedAt: string;
@@ -290,6 +293,8 @@ export interface RepeatCalendarWeekResult {
 export interface ScheduleAlerts {
   coverageGaps: Array<{ employeeId: string; employeeName: string; workDate: string; locationId: string | null }>;
   overlaps: Array<{ employeeId: string; employeeName: string; workDate: string; shiftIds: string[] }>;
+  /** RH 2.0: ocorrências que as automatizações não criaram (conflito, ausência, sem local…). */
+  automationIssues: AutomationIssue[];
   pendingPublishCount: number;
   pendingPublishRange: { from: string; to: string } | null;
 }

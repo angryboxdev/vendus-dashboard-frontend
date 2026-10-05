@@ -201,6 +201,16 @@ Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
   desativado se o turno existente tiver presença) → 3. Confirmar. O
   backend revalida na confirmação; o que mudou entretanto aparece em "Não
   aplicados". Regras puras em `template-application.service.ts`.
+- `ShiftAutomationsPanel` (RH 2.0, ticket 03) → "Automatizações de turnos"
+  na aba Modelos & Automatizações: Nome (gerada até · por resolver),
+  Modelo, Aplicar a, Local, Quando, Recorrência (Semanal/Diária/Período
+  fixo), Estado; ações Gerar ("Gerar próximas X semanas"), Editar (nome,
+  dias, fim, horizonte, local — modelo/público não mudam: cria-se outra) e
+  Pausar/Ativar. "Nova automatização" abre o `ApplyTemplateModal` em
+  "Guardar como automatização" (Tipo de utilização, como no mockup): a
+  pré-visualização mostra só a 1.ª geração e os conflitos não se resolvem
+  ali — vão para "Alertas e ações", onde cada ocorrência tem "Resolver na
+  escala" e "Dispensar". Regras puras em `shift-automation.service.ts`.
 - `ImportPayslipsModal` (ticket 10) → tipo (Recibo de vencimento / Recibo verde — categorias separadas, mesma mecânica) + período (mês anterior por omissão) +
   vários PDFs → pré-visualização Arquivo | Colaborador | Período | Estado
   (`api.previewPayslipImport`) → confirmar → gravar
