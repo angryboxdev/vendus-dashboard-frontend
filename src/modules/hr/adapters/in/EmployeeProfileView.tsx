@@ -2,6 +2,8 @@ import { useState } from "react";
 import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
+import { useAuth } from "../../../../contexts/AuthContext.tsx";
+import { KIOSK_PIN_LENGTH } from "../../domain/entities/kiosk-pin.ts";
 import { AvatarUpload } from "./components/AvatarUpload.tsx";
 import { EmployeeDrawer } from "./EmployeeDrawer.tsx";
 import { EmployeeDocumentsTab } from "./EmployeeDocumentsTab.tsx";
@@ -59,9 +61,14 @@ function InfoRow({ label, value }: { label: string; value: string | null }) {
 
 export function EmployeeProfileView() {
   const { id } = useParams<{ id: string }>();
-  const { api } = useHrModule();
   const { data: positions = [] } = usePositions();
   const { locations } = useLocations();
+  const { api, setEmployeeKioskPin } = useHrModule();
+  const { user } = useAuth();
+  const isAdmin = user?.role === "admin";
+  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [pinInput, setPinInput] = useState("");
+  const [pinConfigured, setPinConfigured] = useState(false);
   const qc = useQueryClient();
   const [searchParams] = useSearchParams();
 
@@ -103,6 +110,20 @@ export function EmployeeProfileView() {
     mutationFn: (file: File) => api.uploadEmployeePhoto(id!, file),
     onSuccess: invalidateProfile,
   });
+
+  const pinMutation = useMutation({
+    mutationFn: (pin: string) => setEmployeeKioskPin.execute(id!, pin),
+    onSuccess: () => {
+      setPinConfigured(true);
+      closePinModal();
+    },
+  });
+
+  function closePinModal() {
+    setPinModalOpen(false);
+    setPinInput("");
+    pinMutation.reset();
+  }
 
   if (isLoading) {
     return (
@@ -325,6 +346,29 @@ export function EmployeeProfileView() {
             >
               Editar dados
             </button>
+            {isAdmin && (
+              <div className="rounded-xl border border-[#F5C992]/40 bg-white p-5">
+                <h3 className="text-sm font-semibold text-stone-800">PIN de Kiosk</h3>
+                <p className="mt-1 text-xs text-stone-500">
+                  O colaborador usa este PIN de 4 dígitos para registar o ponto através do QR code na loja.
+                </p>
+                <div className="mt-3 flex items-center gap-3">
+                  {pinConfigured && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                      <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+                      PIN configurado
+                    </span>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => setPinModalOpen(true)}
+                    className="rounded-lg border border-stone-300 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:bg-stone-50"
+                  >
+                    {pinConfigured ? "Alterar PIN" : "Definir PIN"}
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -374,6 +418,60 @@ export function EmployeeProfileView() {
         onSave={(payload) => updateMutation.mutate(payload)}
         saving={updateMutation.isPending}
       />
+      {pinModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+          <div className="w-full max-w-sm rounded-xl border border-stone-200 bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
+              <h2 className="text-base font-semibold text-stone-900">
+                {pinConfigured ? "Alterar PIN de Kiosk" : "Definir PIN de Kiosk"}
+              </h2>
+              <button type="button" onClick={closePinModal} className="text-stone-400 hover:text-stone-600">
+                ✕
+              </button>
+            </div>
+            <div className="space-y-3 px-5 py-4">
+              <p className="text-sm text-stone-600">
+                Introduz um PIN de exatamente 4 dígitos para <strong>{e.fullName}</strong>.
+              </p>
+              <input
+                type="password"
+                inputMode="numeric"
+                maxLength={KIOSK_PIN_LENGTH}
+                value={pinInput}
+                onChange={(ev) => setPinInput(ev.target.value.replace(/\D/g, "").slice(0, KIOSK_PIN_LENGTH))}
+                placeholder="••••"
+                autoFocus
+                className="w-full rounded-lg border border-stone-300 px-3 py-2 text-center text-2xl tracking-[0.5em] focus:border-[#ED5C32] focus:outline-none"
+              />
+              <p className="text-xs text-stone-400">Cada colaborador deve ter um PIN único.</p>
+              {pinMutation.isError && (
+                <p className="text-sm text-red-600">
+                  {pinMutation.error instanceof Error
+                    ? pinMutation.error.message
+                    : "Erro ao definir PIN."}
+                </p>
+              )}
+            </div>
+            <div className="flex justify-end gap-2 border-t border-stone-100 px-5 py-3">
+              <button
+                type="button"
+                onClick={closePinModal}
+                className="rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700 hover:bg-stone-50"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={pinInput.length !== KIOSK_PIN_LENGTH || pinMutation.isPending}
+                onClick={() => pinMutation.mutate(pinInput)}
+                className="rounded-lg bg-[#ED5C32] px-4 py-2 text-sm font-medium text-white hover:bg-[#d94f28] disabled:opacity-50"
+              >
+                {pinMutation.isPending ? "A guardar…" : "Guardar PIN"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -127,6 +127,10 @@ export class HttpHrApiAdapter implements HrApiPort {
     return apiPatch<Employee>(`${BASE}/${encodeURIComponent(id)}/status`, { status });
   }
 
+  async setEmployeeKioskPin(id: string, pin: string): Promise<void> {
+    await apiPatch<unknown>(`/api/hr/employees/${encodeURIComponent(id)}/kiosk-pin`, { pin });
+  }
+
   async uploadEmployeePhoto(id: string, file: File): Promise<{ photoUrl: string }> {
     const formData = new FormData();
     formData.append("file", file);

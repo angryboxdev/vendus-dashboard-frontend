@@ -71,6 +71,7 @@ export interface HrApiPort {
   updateEmployee(id: string, payload: UpdateEmployeePayload): Promise<Employee>;
   setEmployeeStatus(id: string, status: "active" | "inactive"): Promise<Employee>;
   uploadEmployeePhoto(id: string, file: File): Promise<{ photoUrl: string }>;
+  setEmployeeKioskPin(id: string, pin: string): Promise<void>;
   getEmployeeHistory(
     id: string,
     page: number,

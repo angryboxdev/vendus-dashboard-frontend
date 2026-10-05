@@ -65,7 +65,7 @@ sobrepor no calendário) chamam rotas legacy diretamente
 (`GET /api/hr/leave/overview`, `GET /api/hr/leave/holidays`), sem importar
 `src/pages/hr/hrApi.ts` — mesmo padrão já usado por `confirmShiftAttendance`.
 **Não é responsabilidade deste módulo**: registar presença real/ponto, gerir
-férias/pedidos, pagamentos, kiosk, auditoria de ponto — esses continuam
+férias/pedidos, pagamentos, kiosk (exceto o PIN de kiosk do colaborador, ver Decisões de design), auditoria de ponto — esses continuam
 100% em `src/pages/hr/*` (legacy), reutilizados a partir do Resumo via link
 simples para `/hr/employees/:id`. `/hr/calendar` (legacy, só leitura)
 continua acessível por URL mas saiu do menu — `/hr/schedules` é a entrada
@@ -144,6 +144,13 @@ nova.
 Um método por endpoint do backend — ver `domain/ports/out/hr-api.port.ts`.
 `HttpHrApiAdapter` implementa-o sobre `src/lib/api.ts` (`apiGet`/`apiPost`/
 `apiPatch`/`apiPostFormData`/`apiDeleteNoContent`).
+
+### Entrada (`SetEmployeeKioskPinPort`)
+
+Único input port do módulo (as vistas chamam `HrApiPort` diretamente).
+`SetEmployeeKioskPinUseCase` valida o PIN (exatamente 4 dígitos,
+`domain/entities/kiosk-pin.ts`) antes de chamar `HrApiPort.setEmployeeKioskPin`.
+Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
 
 ## Adapters
 
@@ -536,7 +543,8 @@ Um método por endpoint do backend — ver `domain/ports/out/hr-api.port.ts`.
   (Fase 2 + 2.1, incluindo `rules`/`rules/history`/`summary`, ver Known
   gaps) + `PATCH /api/hr/shifts/:id/attendance`, `GET /api/hr/leave/overview`,
   `GET /api/hr/leave/holidays` (rotas legacy, chamadas diretamente — nunca
-  importa `src/pages/hr/hrApi.ts`).
+  importa `src/pages/hr/hrApi.ts`) + `PATCH /api/hr/employees/:id/kiosk-pin`
+  (legacy, `setEmployeeKioskPin`).
 
 ## Decisões de design
 
@@ -590,11 +598,21 @@ de documentos da lista, sem checklist de onboarding granular — todos
 dependem de dados que o backend ainda não persiste (ver README do módulo
 `hr` no backend, secção "Known gaps").
 
+### PIN de Kiosk no perfil (aba "Dados pessoais")
+
+Cartão "PIN de Kiosk" em `EmployeeProfileView`, só visível para
+`useAuth().user.role === "admin"` (o backend também exige admin). Abre um
+modal com PIN de 4 dígitos; colisão devolve "Este PIN já está em uso por
+outro funcionário", mostrado no modal. **Limitação**: o `Employee` do novo
+módulo `hr` do backend não expõe `hasKioskPin`, por isso o cartão não sabe
+se já existe PIN ao abrir — só mostra "PIN configurado" após definir na
+sessão atual. Quando o backend expuser o campo, ler dele.
+
 ## Como testar
 
 - `npx tsc --noEmit -p tsconfig.app.json` e `npx eslint src/modules/hr`.
-- `npx vitest run src/modules/hr` (ainda sem testes automatizados nesta
-  fase — ver "Known gaps").
+- `npx vitest run src/modules/hr` (só `SetEmployeeKioskPinUseCase` tem
+  testes por agora — ver "Known gaps").
 - Teste manual: as migrações do backend já foram todas aplicadas e
   confirmadas na BD real (2026-09-27) — falta só o acesso a um browser
   nesta sessão para o fazer.

@@ -1,13 +1,17 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { HttpHrApiAdapter } from "./adapters/out/http-hr-api.adapter.ts";
+import { SetEmployeeKioskPinUseCase } from "./application/use-cases/set-employee-kiosk-pin.use-case.ts";
+import type { SetEmployeeKioskPinPort } from "./domain/ports/in/set-employee-kiosk-pin.port.ts";
 import type { HrApiPort } from "./domain/ports/out/hr-api.port.ts";
 
 export interface HrModule {
   api: HrApiPort;
+  setEmployeeKioskPin: SetEmployeeKioskPinPort;
 }
 
 function buildModule(): HrModule {
-  return { api: new HttpHrApiAdapter() };
+  const api = new HttpHrApiAdapter();
+  return { api, setEmployeeKioskPin: new SetEmployeeKioskPinUseCase(api) };
 }
 
 const HrContext = createContext<HrModule | null>(null);
