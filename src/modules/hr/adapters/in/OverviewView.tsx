@@ -6,6 +6,15 @@ import { SeverityBadge } from "./components/SeverityBadge.tsx";
 import { ShiftReviewModal } from "./ShiftReviewModal.tsx";
 import { PendencyDrawer, type PendencyPanelKind } from "./PendencyDrawer.tsx";
 import type { BlockResult, OverviewOperationRow } from "../../domain/entities/overview.ts";
+import {
+  MOTION_CARD_HOVER,
+  MOTION_ROW_HOVER,
+  MotionFade,
+  MotionNumber,
+  MotionPresence,
+  MotionStagger,
+  useRetained,
+} from "../../../../components/motion/index.ts";
 
 const PENDENCY_PANELS = new Set<string>(["missing-fields", "missing-documents", "expiring-documents"]);
 
@@ -98,11 +107,16 @@ function KpiCard({
   /** Abre um drawer sobreposto em vez de navegar (pendências — task "Melhorar Visão Geral e reorganizar Pessoas", secção 6: "abrir primeiro um drawer lateral, sem sair da Visão Geral"). Tem prioridade sobre `to` quando os dois são passados. */
   onClick?: () => void;
 }) {
+  const interactive = block.status === "ok" && (to !== undefined || onClick !== undefined);
   const content = (
-    <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm transition-colors hover:bg-[#FDF8F5]">
+    <div
+      className={`h-full rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm hover:bg-[#FDF8F5] ${interactive ? MOTION_CARD_HOVER : "transition-colors"}`}
+    >
       <p className="text-xs font-medium text-stone-500">{label}</p>
       {block.status === "ok" ? (
-        <p className={`mt-1 text-xl font-bold ${valueCls}`}>{format ? format(block.data) : block.data}</p>
+        <p className={`mt-1 text-xl font-bold ${valueCls}`}>
+          <MotionNumber value={block.data} format={format} />
+        </p>
       ) : (
         <p className="mt-1 text-sm font-medium text-stone-400" title={block.reason}>
           Indisponível
@@ -135,6 +149,8 @@ export function OverviewView() {
   // Estado do drawer de pendências vive no URL (`?panel=...`) — Back funciona, refresh preserva o contexto, e é deep-linkável (task "Melhorar Visão Geral e reorganizar Pessoas", secção 13).
   const panelParam = searchParams.get("panel");
   const activePanel = panelParam && PENDENCY_PANELS.has(panelParam) ? (panelParam as PendencyPanelKind) : null;
+  // O drawer continua com o mesmo conteúdo durante a animação de saída.
+  const shownPanel = useRetained(activePanel);
   function openPanel(panel: PendencyPanelKind) {
     const next = new URLSearchParams(searchParams);
     next.set("panel", panel);
@@ -189,7 +205,7 @@ export function OverviewView() {
           {/* Equipa */}
           <div className="space-y-3">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-400">Equipa</h2>
-            <div className="grid grid-cols-2 gap-3">
+            <MotionStagger className="grid grid-cols-2 gap-3">
               <KpiCard
                 label="Funcionários ativos"
                 block={team.status === "ok" ? { status: "ok", data: team.data.activeEmployees } : team}
@@ -219,13 +235,13 @@ export function OverviewView() {
                 valueCls="text-amber-600"
                 onClick={() => openPanel("expiring-documents")}
               />
-            </div>
+            </MotionStagger>
           </div>
 
           {/* Operação hoje */}
           <div className="space-y-3">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-400">Operação hoje</h2>
-            <div className="grid grid-cols-2 gap-3">
+            <MotionStagger className="grid grid-cols-2 gap-3" startIndex={2}>
               <KpiCard
                 label="Escalados hoje"
                 block={today.status === "ok" ? { status: "ok", data: today.data.scheduledCount } : today}
@@ -249,26 +265,26 @@ export function OverviewView() {
                 valueCls="text-red-600"
                 to="/hr/calendar"
               />
-            </div>
+            </MotionStagger>
           </div>
 
           {/* Pendências */}
           <div className="space-y-3">
             <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-400">Pendências</h2>
-            <div className="grid grid-cols-2 gap-3">
+            <MotionStagger className="grid grid-cols-2 gap-3" startIndex={4}>
               <KpiCard
                 label="Turnos por conferir"
                 block={pending.status === "ok" ? { status: "ok", data: pending.data.shiftsToReviewCount } : pending}
                 valueCls="text-violet-600"
                 to="/hr/overview/shifts-to-review"
               />
-            </div>
+            </MotionStagger>
           </div>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {/* Alertas prioritários */}
-          <div className="rounded-xl border border-[#F5C992]/40 bg-white p-4 shadow-sm">
+          <MotionFade delayMs={200} className="rounded-xl border border-[#F5C992]/40 bg-white p-4 shadow-sm">
             <h2 className="mb-1 text-sm font-semibold text-stone-800">Alertas prioritários</h2>
             <p className="mb-3 text-xs text-stone-500">Principais situações que requerem atenção imediata.</p>
             {alerts.status !== "ok" ? (
@@ -292,10 +308,10 @@ export function OverviewView() {
                 ))}
               </ul>
             )}
-          </div>
+          </MotionFade>
 
           {/* Hoje na operação */}
-          <div className="rounded-xl border border-[#F5C992]/40 bg-white p-4 shadow-sm">
+          <MotionFade delayMs={250} className="rounded-xl border border-[#F5C992]/40 bg-white p-4 shadow-sm">
             <h2 className="mb-1 text-sm font-semibold text-stone-800">Hoje na operação</h2>
             <p className="mb-3 text-xs text-stone-500">Estado atual da equipa e últimos eventos de assiduidade.</p>
             {operation.status !== "ok" ? (
@@ -320,7 +336,7 @@ export function OverviewView() {
                     {(() => {
                       const shortNames = computeShortNames(operation.data);
                       return operation.data.map((row) => (
-                        <tr key={row.employeeId} className={row.state === "CONFLITO" ? "bg-red-50/40" : undefined}>
+                        <tr key={row.employeeId} className={`${MOTION_ROW_HOVER} ${row.state === "CONFLITO" ? "bg-red-50/40" : ""}`}>
                           <td className="py-2 pr-2">
                             <button
                               type="button"
@@ -372,7 +388,7 @@ export function OverviewView() {
                 </table>
               </div>
             )}
-          </div>
+          </MotionFade>
         </div>
       </div>
 
@@ -387,7 +403,9 @@ export function OverviewView() {
         />
       )}
 
-      {activePanel && <PendencyDrawer panel={activePanel} onClose={closePanel} />}
+      <MotionPresence show={activePanel !== null}>
+        {shownPanel && <PendencyDrawer panel={shownPanel} onClose={closePanel} />}
+      </MotionPresence>
     </div>
   );
 }

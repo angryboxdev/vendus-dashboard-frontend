@@ -6,6 +6,17 @@ import { useAuth } from "../../../../contexts/AuthContext.tsx";
 import { KIOSK_PIN_LENGTH } from "../../domain/entities/kiosk-pin.ts";
 import { AvatarUpload } from "./components/AvatarUpload.tsx";
 import { EmployeeDrawer } from "./EmployeeDrawer.tsx";
+import {
+  MOTION_FADE,
+  MotionFade,
+  MotionLayer,
+  MotionNumber,
+  MotionPresence,
+  MotionProgress,
+  MotionStagger,
+  MotionSuccess,
+  useSuccessFlash,
+} from "../../../../components/motion/index.ts";
 import { EmployeeDocumentsTab } from "./EmployeeDocumentsTab.tsx";
 import { EmployeeHistoryTab } from "./EmployeeHistoryTab.tsx";
 import { usePositions } from "./use-positions.ts";
@@ -92,23 +103,38 @@ export function EmployeeProfileView() {
     void qc.invalidateQueries({ queryKey: ["hr-people-kpis"] });
   }
 
+  // Microfeedback "✓ …" discreto após ações simples (task UI Motion §16).
+  const success = useSuccessFlash();
+  const [successLabel, setSuccessLabel] = useState("Guardado");
+  function confirmSaved(label: string) {
+    setSuccessLabel(label);
+    success.flash();
+  }
+
   const updateMutation = useMutation({
     mutationFn: (payload: CreateEmployeePayload | UpdateEmployeePayload) =>
       api.updateEmployee(id!, payload as UpdateEmployeePayload),
     onSuccess: () => {
       invalidateProfile();
       setDrawerOpen(false);
+      confirmSaved("Perfil guardado");
     },
   });
 
   const statusMutation = useMutation({
     mutationFn: (status: "active" | "inactive") => api.setEmployeeStatus(id!, status),
-    onSuccess: invalidateProfile,
+    onSuccess: () => {
+      invalidateProfile();
+      confirmSaved("Estado atualizado");
+    },
   });
 
   const photoMutation = useMutation({
     mutationFn: (file: File) => api.uploadEmployeePhoto(id!, file),
-    onSuccess: invalidateProfile,
+    onSuccess: () => {
+      invalidateProfile();
+      confirmSaved("Fotografia atualizada");
+    },
   });
 
   const pinMutation = useMutation({
@@ -116,6 +142,7 @@ export function EmployeeProfileView() {
     onSuccess: () => {
       setPinConfigured(true);
       closePinModal();
+      confirmSaved("PIN guardado");
     },
   });
 
@@ -180,7 +207,8 @@ export function EmployeeProfileView() {
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold text-stone-900">{e.fullName}</h1>
                 <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+                  key={String(isActive)}
+                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${MOTION_FADE} ${
                     isActive ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-500"
                   }`}
                 >
@@ -196,6 +224,7 @@ export function EmployeeProfileView() {
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
+            <MotionSuccess visible={success.visible} label={successLabel} />
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
@@ -234,20 +263,18 @@ export function EmployeeProfileView() {
         </div>
       </div>
 
-      <div className="p-6">
+      {/* Troca de tab: só fade do conteúdo (sem deslocamento nem recarregar a página). */}
+      <MotionFade key={tab} variant="fade" className="p-6">
         {tab === "resumo" && (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <MotionStagger className="grid grid-cols-1 gap-4 md:grid-cols-3">
               <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
                 {/* Dados cadastrais apenas — a documentação conta à parte, no card seguinte (task §19). */}
                 <p className="text-xs font-medium text-stone-500">Dados do perfil</p>
-                <p className="mt-1 text-xl font-bold text-stone-800">{profile.profileCompletionPercent}% completos</p>
-                <div className="mt-2 h-1.5 rounded-full bg-stone-100">
-                  <div
-                    className="h-1.5 rounded-full bg-emerald-500"
-                    style={{ width: `${profile.profileCompletionPercent}%` }}
-                  />
-                </div>
+                <p className="mt-1 text-xl font-bold text-stone-800">
+                  <MotionNumber value={profile.profileCompletionPercent} format={(n) => `${n}% completos`} />
+                </p>
+                <MotionProgress value={profile.profileCompletionPercent} label="Dados do perfil" trackClassName="mt-2 h-1.5 rounded-full bg-stone-100" />
               </div>
               <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
                 <p className="text-xs font-medium text-stone-500">Documentos obrigatórios</p>
@@ -260,12 +287,14 @@ export function EmployeeProfileView() {
               </div>
               <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
                 <p className="text-xs font-medium text-stone-500">Próximos vencimentos</p>
-                <p className="mt-1 text-xl font-bold text-amber-600">{profile.documents.expiringSoonCount}</p>
+                <p className="mt-1 text-xl font-bold text-amber-600">
+                  <MotionNumber value={profile.documents.expiringSoonCount} />
+                </p>
                 <p className="mt-0.5 text-xs text-stone-400">nos próximos 30 dias</p>
               </div>
-            </div>
+            </MotionStagger>
 
-            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <MotionStagger className="grid grid-cols-1 gap-4 md:grid-cols-2" startIndex={3}>
               <div className="rounded-xl border border-[#F5C992]/40 bg-white p-4">
                 <div className="mb-2 flex items-center justify-between">
                   <h3 className="text-sm font-semibold text-stone-800">Dados pessoais</h3>
@@ -308,7 +337,7 @@ export function EmployeeProfileView() {
                   <InfoRow label="Telefone" value={e.emergencyContactPhone} />
                 </div>
               </div>
-            </div>
+            </MotionStagger>
 
             {profile.alerts.length > 0 && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
@@ -409,7 +438,7 @@ export function EmployeeProfileView() {
         )}
 
         {tab === "historico" && id && <EmployeeHistoryTab employeeId={id} />}
-      </div>
+      </MotionFade>
 
       <EmployeeDrawer
         open={drawerOpen}
@@ -418,9 +447,9 @@ export function EmployeeProfileView() {
         onSave={(payload) => updateMutation.mutate(payload)}
         saving={updateMutation.isPending}
       />
-      {pinModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
-          <div className="w-full max-w-sm rounded-xl border border-stone-200 bg-white shadow-xl">
+      <MotionPresence show={pinModalOpen}>
+        <MotionLayer kind="overlay" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+          <MotionLayer kind="modal" className="w-full max-w-sm rounded-xl border border-stone-200 bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
               <h2 className="text-base font-semibold text-stone-900">
                 {pinConfigured ? "Alterar PIN de Kiosk" : "Definir PIN de Kiosk"}
@@ -469,9 +498,9 @@ export function EmployeeProfileView() {
                 {pinMutation.isPending ? "A guardar…" : "Guardar PIN"}
               </button>
             </div>
-          </div>
-        </div>
-      )}
+          </MotionLayer>
+        </MotionLayer>
+      </MotionPresence>
     </div>
   );
 }

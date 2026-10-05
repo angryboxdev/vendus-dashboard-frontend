@@ -4,6 +4,7 @@ import { useAuth } from "../../../../contexts/AuthContext.tsx";
 import type { Position } from "../../domain/entities/position.ts";
 import { PeopleTabs } from "./PeopleTabs.tsx";
 import { useManagePositions, usePositions } from "./use-positions.ts";
+import { MOTION_ROW_HOVER, MotionLayer, MotionPresence, useRetained } from "../../../../components/motion/index.ts";
 
 const inputCls =
   "w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30";
@@ -39,8 +40,8 @@ function PositionDrawer({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-      <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white shadow-xl" role="dialog" aria-label={editing ? "Editar cargo" : "Novo cargo"}>
+      <MotionLayer kind="overlay" className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+      <MotionLayer as="aside" kind="drawer" className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white shadow-xl" role="dialog" aria-label={editing ? "Editar cargo" : "Novo cargo"}>
         <div className="flex items-center justify-between border-b border-[#F5C992]/40 px-6 py-4">
           <h2 className="text-base font-semibold text-stone-800">{editing ? "Editar cargo" : "Novo cargo"}</h2>
           <button type="button" onClick={onClose} className="rounded-lg p-1.5 text-stone-400 hover:bg-stone-100" aria-label="Fechar">
@@ -74,7 +75,7 @@ function PositionDrawer({
             </button>
           </div>
         </form>
-      </aside>
+      </MotionLayer>
     </>
   );
 }
@@ -90,6 +91,8 @@ export function PositionsView() {
   const { data: positions = [], isLoading, isError } = usePositions();
   const { saveMutation, setActiveMutation } = useManagePositions();
   const [drawer, setDrawer] = useState<{ open: false } | { open: true; editing: Position | null }>({ open: false });
+  // O drawer mantém o conteúdo durante a animação de saída.
+  const shownDrawer = useRetained(drawer.open ? drawer : null);
 
   function openDrawer(editing: Position | null) {
     saveMutation.reset();
@@ -142,7 +145,7 @@ export function PositionsView() {
                   </tr>
                 )}
                 {positions.map((p) => (
-                  <tr key={p.id} className={p.active ? "" : "text-stone-400"}>
+                  <tr key={p.id} className={`${MOTION_ROW_HOVER} ${p.active ? "" : "text-stone-400"}`}>
                     <td className="px-3 py-2 font-medium text-stone-800">{p.name}</td>
                     <td className="px-3 py-2 text-stone-500">{p.description ?? "—"}</td>
                     <td className="px-3 py-2">{p.employeeCount}</td>
@@ -174,17 +177,19 @@ export function PositionsView() {
         )}
       </div>
 
-      {drawer.open && (
+      <MotionPresence show={drawer.open}>
+        {shownDrawer && (
         <PositionDrawer
-          editing={drawer.editing}
+          editing={shownDrawer.editing}
           saving={saveMutation.isPending}
           error={saveMutation.error}
           onClose={() => setDrawer({ open: false })}
           onSave={(payload) =>
-            saveMutation.mutate({ id: drawer.editing?.id ?? null, payload }, { onSuccess: () => setDrawer({ open: false }) })
+            saveMutation.mutate({ id: shownDrawer.editing?.id ?? null, payload }, { onSuccess: () => setDrawer({ open: false }) })
           }
         />
-      )}
+        )}
+      </MotionPresence>
     </div>
   );
 }

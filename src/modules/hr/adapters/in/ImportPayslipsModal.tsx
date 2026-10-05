@@ -19,6 +19,7 @@ import {
   initialPayslipDecision,
   type PayslipDecision,
 } from "../../domain/services/payslip-import.service.ts";
+import { MotionLayer } from "../../../../components/motion/index.ts";
 
 const MAX_FILES = 100;
 const MAX_SIZE_BYTES = 10 * 1024 * 1024;
@@ -94,8 +95,8 @@ export function ImportPayslipsModal({ onClose }: { onClose: () => void }) {
   const mutationError = (previewMutation.error ?? importMutation.error) as Error | null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="import-payslips-title">
-      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-xl">
+    <MotionLayer kind="overlay" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="import-payslips-title">
+      <MotionLayer kind="modal" className="flex max-h-[90vh] w-full max-w-4xl flex-col rounded-2xl bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
           <div>
             <h2 id="import-payslips-title" className="text-base font-semibold text-stone-900">
@@ -291,7 +292,7 @@ export function ImportPayslipsModal({ onClose }: { onClose: () => void }) {
             )}
           </div>
         </div>
-      </div>
-    </div>
+      </MotionLayer>
+    </MotionLayer>
   );
 }

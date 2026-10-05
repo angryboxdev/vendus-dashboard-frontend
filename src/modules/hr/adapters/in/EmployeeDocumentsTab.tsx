@@ -16,6 +16,7 @@ import {
   type DocumentOrigin,
   type EmployeeDocument,
 } from "../../domain/entities/employee-document.ts";
+import { MOTION_ROW_HOVER, MotionLayer, MotionSuccess, useSuccessFlash } from "../../../../components/motion/index.ts";
 
 const ACCEPTED_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const ACCEPTED_EXT = ".pdf,.jpg,.jpeg,.png";
@@ -72,8 +73,9 @@ function VersionHistoryModal({
   });
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div
+    <MotionLayer kind="overlay" className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 backdrop-blur-sm" onClick={onClose}>
+      <MotionLayer
+        kind="modal"
         className="w-full max-w-md rounded-2xl bg-white p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
@@ -102,8 +104,8 @@ function VersionHistoryModal({
         >
           Fechar
         </button>
-      </div>
-    </div>
+      </MotionLayer>
+    </MotionLayer>
   );
 }
 
@@ -135,6 +137,7 @@ export function EmployeeDocumentsTab({
   /** Recibo já existente no período (409 do backend): o utilizador cancela ou substitui a versão. */
   const [periodConflict, setPeriodConflict] = useState<{ documentId: string; file: File } | null>(null);
   const [historyDocId, setHistoryDocId] = useState<string | null>(null);
+  const uploaded = useSuccessFlash();
 
   const documentsQuery = useQuery({
     queryKey: ["hr-people-documents", employeeId],
@@ -219,6 +222,7 @@ export function EmployeeDocumentsTab({
       }),
     onSuccess: () => {
       invalidate();
+      uploaded.flash();
       setCategory("");
       setExpiresAt("");
     },
@@ -237,6 +241,7 @@ export function EmployeeDocumentsTab({
       api.replaceEmployeeDocument(employeeId, documentId, { file }),
     onSuccess: () => {
       invalidate();
+      uploaded.flash();
       setPeriodConflict(null);
     },
     onError: (e: unknown) => setError(e instanceof Error ? e.message : "Erro ao substituir o documento"),
@@ -429,6 +434,9 @@ export function EmployeeDocumentsTab({
             )}
           </div>
           {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+          <div className="mt-2">
+            <MotionSuccess visible={uploaded.visible} label="Documento guardado" />
+          </div>
           {periodConflict && (
             <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
               <span>{PAYSLIP_DUPLICATE_MESSAGE}</span>
@@ -468,7 +476,7 @@ export function EmployeeDocumentsTab({
               </thead>
               <tbody className="divide-y divide-[#F5C992]/30">
                 {documents.map((doc) => (
-                  <tr key={doc.id}>
+                  <tr key={doc.id} className={MOTION_ROW_HOVER}>
                     <td className="px-3 py-2.5">
                       <p className="text-stone-700">
                         {categoryOptionBySlug.get(doc.category)?.label ?? DOCUMENT_CATEGORY_LABELS[doc.category] ?? doc.category}

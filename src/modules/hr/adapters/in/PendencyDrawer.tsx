@@ -1,4 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
+import { MotionLayer } from "../../../../components/motion/index.ts";
 import { useNavigate } from "react-router-dom";
 import { useHrModule } from "../../hr.module.tsx";
 import type { PriorityPendency } from "../../domain/entities/employee.ts";
@@ -55,8 +56,9 @@ export function PendencyDrawer({ panel, onClose }: { panel: PendencyPanelKind; o
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-sm" onClick={onClose}>
-      <div
+    <MotionLayer kind="overlay" className="fixed inset-0 z-50 flex justify-end bg-black/30 backdrop-blur-sm" onClick={onClose}>
+      <MotionLayer
+        kind="drawer"
         role="dialog"
         aria-modal="true"
         className="flex h-full w-full max-w-md flex-col bg-white shadow-xl"
@@ -115,7 +117,7 @@ export function PendencyDrawer({ panel, onClose }: { panel: PendencyPanelKind; o
             Ver todos em Colaboradores →
           </button>
         </div>
-      </div>
-    </div>
+      </MotionLayer>
+    </MotionLayer>
   );
 }

@@ -13,6 +13,7 @@ import {
   type ValidityFilter,
 } from "../../domain/services/document-applicability.service.ts";
 import { DOCUMENT_OVERVIEW_STATUS_LABELS, type DocumentOverviewRow } from "../../domain/entities/employee-document.ts";
+import { MOTION_ROW_HOVER, MotionPresence } from "../../../../components/motion/index.ts";
 
 function formatDate(d: string | null): string {
   if (!d) return "—";
@@ -280,7 +281,7 @@ export function PeopleDocumentsView() {
                 </thead>
                 <tbody className="divide-y divide-[#F5C992]/30">
                   {filtered.map((row) => (
-                    <tr key={`${row.employeeId}:${row.requirementId}:${row.period ?? ""}`}>
+                    <tr key={`${row.employeeId}:${row.requirementId}:${row.period ?? ""}`} className={MOTION_ROW_HOVER}>
                       <td className="px-3 py-2.5">
                         <button
                           type="button"
@@ -319,8 +320,12 @@ export function PeopleDocumentsView() {
         </div>
       </div>
 
-      {categoriesModalOpen && <DocumentCategoriesModal onClose={() => setCategoriesModalOpen(false)} />}
-      {importOpen && <ImportPayslipsModal onClose={() => setImportOpen(false)} />}
+      <MotionPresence show={categoriesModalOpen}>
+        <DocumentCategoriesModal onClose={() => setCategoriesModalOpen(false)} />
+      </MotionPresence>
+      <MotionPresence show={importOpen}>
+        <ImportPayslipsModal onClose={() => setImportOpen(false)} />
+      </MotionPresence>
     </div>
   );
 }

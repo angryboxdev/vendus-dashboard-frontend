@@ -586,6 +586,23 @@ O Mockup 02 mostra estes dois botões no cabeçalho do perfil — omitidos
 nesta fase por não terem endpoint correspondente no backend. Preferível a
 simular um botão que não faz nada.
 
+### UI Motion MVP — Visão Geral e Colaboradores (2026-10-05)
+
+- Microanimações só via a camada partilhada `src/components/motion` (ver o
+  README de lá) — nunca animações avulsas nos componentes.
+- **Visão Geral:** KPIs entram em sequência e contam até ao valor (do
+  anterior para o novo a cada refresh); cartões clicáveis com hover/pressão
+  discretos; painéis com fade; linhas de "Hoje na operação" com hover;
+  drawer de pendências entra e sai da direita.
+- **Colaboradores:** KPIs animados; linhas da lista com stagger só no 1.º
+  lote (pesquisa/filtros só fazem fade das linhas novas, sem atraso);
+  badges com transição; drawers "Novo/Editar colaborador" e "Cargo" e os
+  modais "Categorias de documentos", "Importar recibos" e "Histórico de
+  versões" com entrada/saída.
+- **Perfil:** troca de tab com fade (sem deslocamento); cartões do Resumo
+  em sequência; "Dados do perfil" com `MotionProgress`; "✓ …" discreto ao
+  guardar perfil, estado, fotografia, PIN e documentos.
+
 ### Base Organizacional — Colaboradores, Cargos e Local principal
 
 - **Pessoas → Colaboradores** (menu, títulos, breadcrumbs); abas **Lista |
