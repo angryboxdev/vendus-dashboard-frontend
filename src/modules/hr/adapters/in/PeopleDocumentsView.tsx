@@ -4,6 +4,11 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useHrModule } from "../../hr.module.tsx";
 import { PeopleTabs } from "./PeopleTabs.tsx";
 import { DocumentCategoriesModal } from "./DocumentCategoriesModal.tsx";
+import {
+  matchesValidityFilter,
+  VALIDITY_FILTER_LABELS,
+  type ValidityFilter,
+} from "../../domain/services/document-applicability.service.ts";
 import { DOCUMENT_OVERVIEW_STATUS_LABELS, type DocumentOverviewRow } from "../../domain/entities/employee-document.ts";
 
 function formatDate(d: string | null): string {
@@ -40,6 +45,8 @@ export function PeopleDocumentsView() {
   const search = searchParams.get("search") ?? "";
   const status = (searchParams.get("status") as DocumentOverviewRow["status"] | null) ?? "";
   const requirementId = searchParams.get("requirement") ?? "";
+  const validity = (searchParams.get("validity") as ValidityFilter | null) ?? "";
+  const today = new Date().toISOString().slice(0, 10);
 
   const { data: rows, isLoading, isError } = useQuery({
     queryKey: ["hr-document-overview"],
@@ -69,6 +76,7 @@ export function PeopleDocumentsView() {
     if (search && !r.employeeName.toLowerCase().includes(search.toLowerCase())) return false;
     if (status && r.status !== status) return false;
     if (requirementId && r.requirementId !== requirementId) return false;
+    if (!matchesValidityFilter(r.expiresAt, validity, today)) return false;
     return true;
   });
 
@@ -171,7 +179,32 @@ export function PeopleDocumentsView() {
               </option>
             ))}
           </select>
-          {(search || status || requirementId) && (
+          <select
+            aria-label="Estado"
+            value={status}
+            onChange={(e) => updateParams({ status: e.target.value || undefined })}
+            className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
+          >
+            <option value="">Estado: Todos</option>
+            <option value="ok">Válido</option>
+            <option value="expiring">A expirar</option>
+            <option value="expired">Expirado</option>
+            <option value="missing">Em falta</option>
+          </select>
+          <select
+            aria-label="Validade"
+            value={validity}
+            onChange={(e) => updateParams({ validity: e.target.value || undefined })}
+            className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
+          >
+            <option value="">Validade: Todas</option>
+            {Object.entries(VALIDITY_FILTER_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+          {(search || status || requirementId || validity) && (
             <button
               type="button"
               onClick={() => setSearchParams(new URLSearchParams())}

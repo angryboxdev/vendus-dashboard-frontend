@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
 import type { EmployeeProfile } from "../../domain/entities/employee.ts";
+import { isCategoryApplicable } from "../../domain/services/document-applicability.service.ts";
 import {
   DOCUMENT_CATEGORY_LABELS,
   DOCUMENT_ORIGIN_LABELS,
@@ -148,11 +149,8 @@ export function EmployeeDocumentsTab({
 
   // As 3 categorias de identificação continuam fixas (fora da tela de
   // gestão); as restantes são configuráveis por organização e filtradas por
-  // cargo — ver domain/entities/employee-document.ts.
-  const jobRole = profile.employee.jobRole;
-  const dynamicCategories = (categoriesQuery.data ?? []).filter(
-    (c) => c.active && (c.jobRoles.length === 0 || c.jobRoles.includes(jobRole)),
-  );
+  // cargo ("Todos" ou "Cargos selecionados", ticket 09) — mesma regra do backend.
+  const dynamicCategories = (categoriesQuery.data ?? []).filter((c) => isCategoryApplicable(c, profile.employee));
   const categoryOptions: CategoryOption[] = [
     ...IDENTIFICATION_DOCUMENT_CATEGORIES.map((slug) => ({
       slug,

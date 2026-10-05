@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
-import { JOB_ROLE_LABELS, type JobRole } from "../../domain/entities/employee.ts";
+import { usePositions } from "./use-positions.ts";
 import {
   ACCEPTED_MIME_TYPE_OPTIONS,
   DOCUMENT_CATEGORY_SCOPE_LABELS,
@@ -9,28 +9,28 @@ import {
   type DocumentCategoryScope,
 } from "../../domain/entities/document-category.ts";
 
-const ALL_JOB_ROLES = Object.keys(JOB_ROLE_LABELS) as JobRole[];
 const DEFAULT_MIME_TYPES = ACCEPTED_MIME_TYPE_OPTIONS.map((o) => o.value);
 
 interface FormState {
   label: string;
   mandatory: boolean;
-  allRoles: boolean;
-  jobRoles: JobRole[];
+  /** "Todos os colaboradores" vs "Cargos selecionados" (ticket 09). */
+  allPositions: boolean;
+  positionIds: string[];
   acceptedMimeTypes: string[];
   scope: DocumentCategoryScope;
 }
 
 function emptyForm(): FormState {
-  return { label: "", mandatory: false, allRoles: true, jobRoles: [], acceptedMimeTypes: [...DEFAULT_MIME_TYPES], scope: "employee" };
+  return { label: "", mandatory: false, allPositions: true, positionIds: [], acceptedMimeTypes: [...DEFAULT_MIME_TYPES], scope: "employee" };
 }
 
 function formFromDefinition(def: DocumentCategoryDefinition): FormState {
   return {
     label: def.label,
     mandatory: def.mandatory,
-    allRoles: def.jobRoles.length === 0,
-    jobRoles: def.jobRoles,
+    allPositions: def.positionIds.length === 0,
+    positionIds: def.positionIds,
     acceptedMimeTypes: def.acceptedMimeTypes,
     scope: def.scope,
   };
@@ -38,6 +38,8 @@ function formFromDefinition(def: DocumentCategoryDefinition): FormState {
 
 export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
   const { api } = useHrModule();
+  const { data: positions = [] } = usePositions();
+  const positionName = new Map(positions.map((p) => [p.id, p.name]));
   const qc = useQueryClient();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
@@ -60,7 +62,8 @@ export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
       api.createDocumentCategory({
         label: form.label.trim(),
         mandatory: form.mandatory,
-        jobRoles: form.allRoles ? [] : form.jobRoles,
+        jobRoles: [],
+        positionIds: form.allPositions ? [] : form.positionIds,
         acceptedMimeTypes: form.acceptedMimeTypes,
         scope: form.scope,
       }),
@@ -76,7 +79,8 @@ export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
       api.updateDocumentCategory(id, {
         label: form.label.trim(),
         mandatory: form.mandatory,
-        jobRoles: form.allRoles ? [] : form.jobRoles,
+        jobRoles: [],
+        positionIds: form.allPositions ? [] : form.positionIds,
         acceptedMimeTypes: form.acceptedMimeTypes,
         scope: form.scope,
       }),
@@ -93,10 +97,10 @@ export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
     onSuccess: invalidate,
   });
 
-  function toggleRole(role: JobRole) {
+  function togglePosition(id: string) {
     setForm((f) => ({
       ...f,
-      jobRoles: f.jobRoles.includes(role) ? f.jobRoles.filter((r) => r !== role) : [...f.jobRoles, role],
+      positionIds: f.positionIds.includes(id) ? f.positionIds.filter((p) => p !== id) : [...f.positionIds, id],
     }));
   }
 
@@ -177,7 +181,7 @@ export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
                 onChange={(e) => {
                   const scope = e.target.value as DocumentCategoryScope;
                   // Só da Empresa: nunca é requisito de um colaborador.
-                  setForm((f) => ({ ...f, scope, ...(scope === "company" && { mandatory: false, allRoles: true, jobRoles: [] }) }));
+                  setForm((f) => ({ ...f, scope, ...(scope === "company" && { mandatory: false, allPositions: true, positionIds: [] }) }));
                 }}
                 className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none focus:border-[#ED5C32]"
               >
@@ -199,30 +203,28 @@ export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
             </label>
           </div>
 
-          {/* Cargos só se aplicam a documentos de colaborador — escondido para categorias só da Empresa. */}
+          {/* Aplicabilidade só existe em documentos de colaborador — escondido para categorias só da Empresa. */}
           {form.scope !== "company" && (
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-stone-600">Cargos</label>
+            <label className="mb-1.5 block text-xs font-medium text-stone-600">Aplica-se a</label>
             <div className="flex flex-wrap gap-3">
               <label className="flex items-center gap-1.5 text-sm text-stone-600">
                 <input
                   type="checkbox"
-                  checked={form.allRoles}
-                  onChange={(e) => setForm((f) => ({ ...f, allRoles: e.target.checked, jobRoles: [] }))}
+                  checked={form.allPositions}
+                  onChange={(e) => setForm((f) => ({ ...f, allPositions: e.target.checked, positionIds: [] }))}
                 />
-                Todos os cargos
+                Todos os colaboradores
               </label>
-              {!form.allRoles &&
-                ALL_JOB_ROLES.map((role) => (
-                  <label key={role} className="flex items-center gap-1.5 text-sm text-stone-600">
-                    <input
-                      type="checkbox"
-                      checked={form.jobRoles.includes(role)}
-                      onChange={() => toggleRole(role)}
-                    />
-                    {JOB_ROLE_LABELS[role]}
-                  </label>
-                ))}
+              {!form.allPositions &&
+                positions
+                  .filter((p) => p.active || form.positionIds.includes(p.id))
+                  .map((p) => (
+                    <label key={p.id} className="flex items-center gap-1.5 text-sm text-stone-600">
+                      <input type="checkbox" checked={form.positionIds.includes(p.id)} onChange={() => togglePosition(p.id)} />
+                      {p.active ? p.name : `${p.name} (inativo)`}
+                    </label>
+                  ))}
             </div>
           </div>
           )}
@@ -292,7 +294,7 @@ export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
                       )}
                     </td>
                     <td className="py-2 pr-2 text-stone-500">
-                      {c.jobRoles.length === 0 ? "Todos" : c.jobRoles.map((r) => JOB_ROLE_LABELS[r]).join(", ")}
+                      {c.positionIds.length === 0 ? "Todos" : c.positionIds.map((id) => positionName.get(id) ?? "Cargo removido").join(", ")}
                     </td>
                     <td className="py-2 pr-2 text-stone-500">
                       {c.acceptedMimeTypes

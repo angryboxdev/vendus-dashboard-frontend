@@ -17,8 +17,10 @@ export interface DocumentCategoryDefinition {
   slug: string;
   label: string;
   mandatory: boolean;
-  /** Vazio = aplica-se a todos os cargos. */
+  /** Legacy (antes dos Cargos) — vazio desde a migração do ticket 09; ver `positionIds`. */
   jobRoles: JobRole[];
+  /** Cargos a que se aplica ("Cargos selecionados"); vazio = todos os colaboradores. */
+  positionIds: string[];
   acceptedMimeTypes: string[];
   scope: DocumentCategoryScope;
   active: boolean;
@@ -30,6 +32,7 @@ export interface DocumentCategoryPayload {
   label: string;
   mandatory: boolean;
   jobRoles: JobRole[];
+  positionIds: string[];
   acceptedMimeTypes: string[];
   scope: DocumentCategoryScope;
 }
