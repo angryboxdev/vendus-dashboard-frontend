@@ -78,12 +78,15 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     return apiPatch(`${BASE}/${encodeURIComponent(id)}/status`, { status });
   }
 
-  async setLineDetailMode(id: string, mode: LineDetailMode): Promise<InvoiceDTO> {
-    return apiPatch(`${BASE}/${encodeURIComponent(id)}/line-detail-mode`, { mode });
+  async setLineDetailMode(id: string, mode: LineDetailMode, confirmRemoveStockReview?: boolean): Promise<InvoiceDTO> {
+    const body: Record<string, unknown> = { mode };
+    if (confirmRemoveStockReview !== undefined) body.confirmRemoveStockReview = confirmRemoveStockReview;
+    return apiPatch(`${BASE}/${encodeURIComponent(id)}/line-detail-mode`, body);
   }
 
-  async deleteInvoice(id: string): Promise<void> {
-    return apiDeleteNoContent(`${BASE}/${encodeURIComponent(id)}`);
+  async deleteInvoice(id: string, confirmRemoveStockReview?: boolean): Promise<void> {
+    const qs = confirmRemoveStockReview ? "?confirmRemoveStockReview=true" : "";
+    return apiDeleteNoContent(`${BASE}/${encodeURIComponent(id)}${qs}`);
   }
 
   async deleteLine(invoiceId: string, lineId: string): Promise<void> {
