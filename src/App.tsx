@@ -73,6 +73,8 @@ import { OrganizationProfileView } from "./modules/organization/adapters/in/Orga
 import { CompanyStructureLayout } from "./modules/organization/adapters/in/CompanyStructureLayout.tsx";
 import { LocationsAdminView } from "./modules/locations/adapters/in/LocationsAdminView.tsx";
 import { DocumentsProvider } from "./modules/documents/documents.module.tsx";
+import { CalendarProvider } from "./modules/calendar/calendar.module.tsx";
+import { CalendarView } from "./modules/calendar/adapters/in/CalendarView.tsx";
 import { CompanyDocumentsView } from "./modules/documents/adapters/in/CompanyDocumentsView.tsx";
 import { LocationCredentialsAdminView } from "./modules/location-credentials/adapters/in/LocationCredentialsAdminView.tsx";
 import { SalesSummaryProvider } from "./modules/sales-summary/sales-summary.module.tsx";
@@ -419,6 +421,14 @@ export default function App() {
                 >
                   <Route index element={<OrganizationProfileView />} />
                   <Route path="locais" element={<LocationsAdminView />} />
+                  <Route
+                    path="calendario"
+                    element={
+                      <CalendarProvider>
+                        <CalendarView />
+                      </CalendarProvider>
+                    }
+                  />
                   <Route
                     path="documentos"
                     element={

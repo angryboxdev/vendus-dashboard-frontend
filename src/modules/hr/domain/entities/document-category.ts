@@ -1,5 +1,3 @@
-import type { JobRole } from "./employee.ts";
-
 /**
  * Âmbito da categoria (Base Organizacional): Colaborador, Empresa ou Ambos.
  * Uma categoria só da Empresa nunca entra nos requisitos dos colaboradores.
@@ -17,10 +15,12 @@ export interface DocumentCategoryDefinition {
   slug: string;
   label: string;
   mandatory: boolean;
-  /** Vazio = aplica-se a todos os cargos. */
-  jobRoles: JobRole[];
+  /** Cargos a que se aplica ("Cargos selecionados"); vazio = todos os colaboradores. */
+  positionIds: string[];
   acceptedMimeTypes: string[];
   scope: DocumentCategoryScope;
+  /** Categoria periódica (ex: Recibo de vencimento): o upload pede o período Mês/Ano; nunca fica "Em falta". Definida pelo backend. */
+  requiresPeriod: boolean;
   active: boolean;
   createdAt: string;
   updatedAt: string;
@@ -29,7 +29,7 @@ export interface DocumentCategoryDefinition {
 export interface DocumentCategoryPayload {
   label: string;
   mandatory: boolean;
-  jobRoles: JobRole[];
+  positionIds: string[];
   acceptedMimeTypes: string[];
   scope: DocumentCategoryScope;
 }

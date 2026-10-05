@@ -22,6 +22,15 @@ import type {
   ShiftToReview,
 } from "../../entities/overview.ts";
 import type { DocumentCategoryDefinition, DocumentCategoryPayload } from "../../entities/document-category.ts";
+import type {
+  ApplyTemplateResult,
+  OccurrenceDecision,
+  ShiftTemplate,
+  ShiftTemplatePayload,
+  TemplateApplicationConfig,
+  TemplateApplicationPreview,
+} from "../../entities/shift-template.ts";
+import type { PayslipCategory, PayslipImportResult, PayslipMappingEntry, PayslipPreviewRow } from "../../entities/payslip-import.ts";
 import type { Position, PositionPayload } from "../../entities/position.ts";
 import type {
   AttendanceIssueDetail,
@@ -80,7 +89,7 @@ export interface HrApiPort {
 
   // ── Cargos (Base Organizacional) — `/api/hr/positions`; nunca há delete ──
   listPositions(): Promise<Position[]>;
-  createPosition(payload: Required<Pick<PositionPayload, "name" | "operationalCategory">> & PositionPayload): Promise<Position>;
+  createPosition(payload: Required<Pick<PositionPayload, "name">> & PositionPayload): Promise<Position>;
   updatePosition(id: string, payload: PositionPayload): Promise<Position>;
   setPositionActive(id: string, active: boolean): Promise<Position>;
 
@@ -96,6 +105,10 @@ export interface HrApiPort {
   getEmployeeDocumentHistory(employeeId: string, documentId: string): Promise<EmployeeDocument[]>;
   /** 1 linha por (colaborador ativo × requisito documental) — fonte única da aba "Pessoas > Documentos". */
   getDocumentOverview(): Promise<DocumentOverviewRow[]>;
+  /** Importação de recibos (ticket 10, só admin) — identifica o colaborador de cada PDF; não grava nada. */
+  previewPayslipImport(category: PayslipCategory, period: string, files: File[]): Promise<PayslipPreviewRow[]>;
+  /** Grava os recibos confirmados (os PDFs são reenviados). */
+  importPayslips(category: PayslipCategory, period: string, files: File[], mapping: PayslipMappingEntry[]): Promise<PayslipImportResult[]>;
 
   getOverview(locationId?: string): Promise<HrOverview>;
   listShiftsToReview(params: ListShiftsToReviewParams): Promise<ListShiftsToReviewResult>;
@@ -120,6 +133,16 @@ export interface HrApiPort {
   getBaseSchedule(employeeId: string): Promise<BaseScheduleCell[]>;
   upsertBaseScheduleCell(employeeId: string, payload: UpsertBaseScheduleCellPayload): Promise<BaseScheduleCell>;
   applyBaseSchedule(employeeId: string, weekStartDate: string, overrideExceptions?: boolean): Promise<ApplyBaseScheduleResult>;
+
+  // ── RH 2.0: Modelos de turno ─────────────────────────────────────────────
+  listShiftTemplates(): Promise<ShiftTemplate[]>;
+  createShiftTemplate(payload: ShiftTemplatePayload): Promise<ShiftTemplate>;
+  updateShiftTemplate(id: string, payload: Partial<ShiftTemplatePayload>): Promise<ShiftTemplate>;
+  setShiftTemplateActive(id: string, active: boolean): Promise<ShiftTemplate>;
+  /** Aplicar modelo (ticket 02) — pré-visualização, não grava nada. */
+  previewTemplateApplication(templateId: string, config: TemplateApplicationConfig): Promise<TemplateApplicationPreview>;
+  /** Aplicar modelo — confirma; o backend revalida tudo e só aplica o que continua igual. */
+  applyTemplate(templateId: string, config: TemplateApplicationConfig, decisions: Record<string, OccurrenceDecision>): Promise<ApplyTemplateResult>;
 
   listShiftRotations(): Promise<ShiftRotation[]>;
   createShiftRotation(payload: CreateShiftRotationPayload): Promise<ShiftRotation>;

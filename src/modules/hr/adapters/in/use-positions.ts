@@ -15,12 +15,11 @@ export function useManagePositions() {
   const qc = useQueryClient();
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: POSITIONS_QUERY_KEY });
-    // Mudar a categoria de um cargo muda o `jobRole` de quem o tem.
     void qc.invalidateQueries({ queryKey: ["hr-people-list"] });
   };
 
   const saveMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string | null; payload: Required<Pick<PositionPayload, "name" | "operationalCategory">> & PositionPayload }) =>
+    mutationFn: ({ id, payload }: { id: string | null; payload: Required<Pick<PositionPayload, "name">> & PositionPayload }) =>
       id ? api.updatePosition(id, payload) : api.createPosition(payload),
     onSuccess: invalidate,
   });

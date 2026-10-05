@@ -1,7 +1,7 @@
 # Módulo: hr
 
 > Status: ativo
-> Última atualização: 2026-10-04 (Base Organizacional — Colaboradores, Cargos, Local principal)
+> Última atualização: 2026-10-07 (RH 2.0 — Modelos de turno e Aplicar modelo, tickets 01–02)
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -181,7 +181,31 @@ Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
   (`?tab=documentos&category=...`) — nunca reimplementa o upload aqui,
   única fonte continua a ser `EmployeeDocumentsTab`. O botão "Categorias
   de documentos" mudou-se para aqui (fazia mais sentido junto da gestão
-  documental do que junto de "Novo colaborador").
+  documental do que junto de "Novo colaborador"). Ticket 10: coluna e
+  filtro **Período** (só recibos) e botão **Importar recibos** (só admin)
+  → `ImportPayslipsModal`.
+- `ShiftTemplatesPanel` (RH 2.0, ticket 01) → Escalas & Turnos, aba
+  **Modelos & Automatizações** (antes "Turnos rotativos"): lista de modelos
+  (Nome, Horário, Tipo, Local padrão, Estado; Editar/Duplicar/Inativar) e
+  modal "Novo modelo de turno" (Direto/Repartido, noturno automático quando
+  o fim é antes do início, pausa, local padrão, cor, pré-visualização). As
+  rotações continuam por baixo até o ticket 04 as passar a automatizações.
+  Hooks `useShiftTemplates`/`useManageShiftTemplates`; regras puras em
+  `shift-template.service.ts` (mesma validação do backend).
+- `ApplyTemplateModal` (RH 2.0, ticket 02) → "Aplicar modelo" (botão no topo
+  dos Modelos ou "Aplicar" na linha): 1. Configuração (modelo; a quem — um,
+  vários, todos, por cargo + local opcional, por local; quando — datas
+  específicas, Seg–Sex, fins de semana, personalizado + período; local do
+  turno) → 2. Pré-visualização (KPIs, filtro por estado, tabela com
+  checkbox por turno válido, "Resolver" → Manter/Substituir; Substituir
+  desativado se o turno existente tiver presença) → 3. Confirmar. O
+  backend revalida na confirmação; o que mudou entretanto aparece em "Não
+  aplicados". Regras puras em `template-application.service.ts`.
+- `ImportPayslipsModal` (ticket 10) → tipo (Recibo de vencimento / Recibo verde — categorias separadas, mesma mecânica) + período (mês anterior por omissão) +
+  vários PDFs → pré-visualização Arquivo | Colaborador | Período | Estado
+  (`api.previewPayslipImport`) → confirmar → gravar
+  (`api.importPayslips`, os PDFs são reenviados). Regras puras em
+  `payslip-import.service.ts`.
 - `EmployeeProfileView` → perfil 360º (Mockup 02) com 5 tabs (Resumo, Dados
   pessoais, Documentos, Contrato & Remuneração, Histórico). Cabeçalho com
   `AvatarUpload` — clicar no círculo da foto **expande-a em ecrã inteiro**
@@ -544,7 +568,7 @@ Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
   gaps) + `PATCH /api/hr/shifts/:id/attendance`, `GET /api/hr/leave/overview`,
   `GET /api/hr/leave/holidays` (rotas legacy, chamadas diretamente — nunca
   importa `src/pages/hr/hrApi.ts`) + `PATCH /api/hr/employees/:id/kiosk-pin`
-  (legacy, `setEmployeeKioskPin`).
+  (legacy, `setEmployeeKioskPin`) + `/api/hr/payslips/import*` (ticket 10).
 
 ## Decisões de design
 
@@ -573,10 +597,13 @@ simular um botão que não faz nada.
   `hr_viewer` só lê. Nome duplicado ("preparador" = "Preparador") vem do
   backend como 409. Cargo ≠ permissão.
 - **Função → Cargo no formulário** (`EmployeeDrawer`): o seletor "Função"
-  passou a "Cargo" (obrigatório); o `jobRole` deixa de ser enviado — o
-  backend deriva-o da categoria operacional do cargo (D4). Escalas e
-  Assiduidade continuam a mostrar a categoria (`JOB_ROLE_LABELS`) — não
-  são alteradas nesta fase.
+  passou a "Cargo" (obrigatório).
+- **"Categoria nas Escalas" retirada (2026-10-05, decisão do utilizador).**
+  A antiga "Função" (manager|prep|service, `jobRole`/`JOB_ROLE_LABELS`)
+  saiu de todo o módulo: os Cargos já não têm categoria; a Assiduidade
+  (Fecho Mensal, ficha do colaborador) mostra o nome do **Cargo**; a
+  rotação já não exige a mesma função — o seletor passou a um filtro
+  opcional "Filtrar colaboradores por cargo".
 - **Local principal + outros locais autorizados** no formulário, na Lista
   (coluna + filtro "Local", só quando há mais de um local) e no perfil.
   Só se oferecem cargos/locais ativos, mais o valor atual mesmo que
@@ -587,6 +614,17 @@ simular um botão que não faz nada.
   "Âmbito" (Colaborador / Empresa / Ambos); numa categoria só da Empresa os
   campos Obrigatório e Cargos não se aplicam. As categorias são as mesmas
   da aba Empresa & Estrutura → Documentos (módulo `documents`).
+- **Recibos de vencimento** (ticket 10): categoria periódica
+  (`requiresPeriod`, definida pelo backend). No perfil, escolher "Recibo
+  de vencimento" troca "Obrigatório" por **Período** (Mês/Ano) e a
+  categoria continua disponível depois do 1.º envio (um por período). Um
+  recibo já existente no período (409 `period_already_exists`) mostra
+  "Já existe um recibo deste colaborador para este período." com
+  **Cancelar** / **Substituir versão** — nunca duplica. Na importação em
+  massa, só os "Identificado" são gravados sem intervenção: "Rever" exige
+  escolher o colaborador e "Já existe" exige escolher Substituir versão;
+  o mesmo colaborador duas vezes no lote bloqueia a confirmação. Só admin
+  (dados salariais).
 - **Resumo do perfil**: "Dados do perfil: X% completos" (só dados
   cadastrais — documentação conta à parte) e **sem card nem KPI de
   Onboarding** (não existe workflow de onboarding — task §19/§20).
@@ -611,8 +649,8 @@ sessão atual. Quando o backend expuser o campo, ler dele.
 ## Como testar
 
 - `npx tsc --noEmit -p tsconfig.app.json` e `npx eslint src/modules/hr`.
-- `npx vitest run src/modules/hr` (só `SetEmployeeKioskPinUseCase` tem
-  testes por agora — ver "Known gaps").
+- `npx vitest run src/modules/hr` (`SetEmployeeKioskPinUseCase`, Cargos,
+  aplicabilidade de documentos e importação de recibos).
 - Teste manual: as migrações do backend já foram todas aplicadas e
   confirmadas na BD real (2026-09-27) — falta só o acesso a um browser
   nesta sessão para o fazer.

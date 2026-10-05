@@ -3,7 +3,7 @@ import type { Position } from "../entities/position.ts";
 import { assignableOptions, locationNameOf, normalizeAuthorizedLocations, positionNameOf } from "./employee-assignment.service.ts";
 
 function position(id: string, name: string, active = true): Position {
-  return { id, name, description: null, operationalCategory: "service", active, employeeCount: 0, updatedAt: "" };
+  return { id, name, description: null, active, employeeCount: 0, updatedAt: "" };
 }
 
 describe("employee-assignment.service", () => {

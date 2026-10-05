@@ -26,6 +26,15 @@ import type {
 } from "../../domain/entities/overview.ts";
 import type { DocumentCategoryDefinition, DocumentCategoryPayload } from "../../domain/entities/document-category.ts";
 import type {
+  ApplyTemplateResult,
+  OccurrenceDecision,
+  ShiftTemplate,
+  ShiftTemplatePayload,
+  TemplateApplicationConfig,
+  TemplateApplicationPreview,
+} from "../../domain/entities/shift-template.ts";
+import type { PayslipCategory, PayslipImportResult, PayslipMappingEntry, PayslipPreviewRow } from "../../domain/entities/payslip-import.ts";
+import type {
   AttendanceIssueDetail,
   CorrectShiftAttendancePayload,
   ListAttendanceIssuesResult,
@@ -159,6 +168,7 @@ export class HttpHrApiAdapter implements HrApiPort {
     formData.append("mandatory", String(payload.mandatory));
     formData.append("origin", payload.origin);
     if (payload.expiresAt) formData.append("expiresAt", payload.expiresAt);
+    if (payload.period) formData.append("period", payload.period);
     return apiPostFormData<EmployeeDocument>(`${BASE}/${encodeURIComponent(employeeId)}/documents`, formData);
   }
 
@@ -197,6 +207,24 @@ export class HttpHrApiAdapter implements HrApiPort {
 
   async getDocumentOverview(): Promise<DocumentOverviewRow[]> {
     return apiGet<DocumentOverviewRow[]>(DOCUMENT_OVERVIEW_BASE);
+  }
+
+  async previewPayslipImport(category: PayslipCategory, period: string, files: File[]): Promise<PayslipPreviewRow[]> {
+    const formData = new FormData();
+    formData.append("category", category);
+    formData.append("period", period);
+    for (const f of files) formData.append("files", f);
+    return apiPostFormData<PayslipPreviewRow[]>("/api/hr/payslips/import/preview", formData);
+  }
+
+  async importPayslips(category: PayslipCategory, period: string, files: File[], mapping: PayslipMappingEntry[]): Promise<PayslipImportResult[]> {
+    const formData = new FormData();
+    formData.append("category", category);
+    formData.append("period", period);
+    formData.append("mapping", JSON.stringify(mapping));
+    const wanted = new Set(mapping.map((m) => m.fileName));
+    for (const f of files) if (wanted.has(f.name)) formData.append("files", f);
+    return apiPostFormData<PayslipImportResult[]>("/api/hr/payslips/import", formData);
   }
 
   async getOverview(locationId?: string): Promise<HrOverview> {
@@ -303,6 +331,30 @@ export class HttpHrApiAdapter implements HrApiPort {
       weekStartDate,
       ...(overrideExceptions !== undefined && { overrideExceptions }),
     });
+  }
+
+  async listShiftTemplates(): Promise<ShiftTemplate[]> {
+    return apiGet<ShiftTemplate[]>(`${SCHEDULES_BASE}/templates`);
+  }
+
+  async createShiftTemplate(payload: ShiftTemplatePayload): Promise<ShiftTemplate> {
+    return apiPost<ShiftTemplate>(`${SCHEDULES_BASE}/templates`, payload);
+  }
+
+  async updateShiftTemplate(id: string, payload: Partial<ShiftTemplatePayload>): Promise<ShiftTemplate> {
+    return apiPatch<ShiftTemplate>(`${SCHEDULES_BASE}/templates/${encodeURIComponent(id)}`, payload);
+  }
+
+  async setShiftTemplateActive(id: string, active: boolean): Promise<ShiftTemplate> {
+    return apiPatch<ShiftTemplate>(`${SCHEDULES_BASE}/templates/${encodeURIComponent(id)}/active`, { active });
+  }
+
+  async previewTemplateApplication(templateId: string, config: TemplateApplicationConfig): Promise<TemplateApplicationPreview> {
+    return apiPost<TemplateApplicationPreview>(`${SCHEDULES_BASE}/templates/${encodeURIComponent(templateId)}/apply/preview`, config);
+  }
+
+  async applyTemplate(templateId: string, config: TemplateApplicationConfig, decisions: Record<string, OccurrenceDecision>): Promise<ApplyTemplateResult> {
+    return apiPost<ApplyTemplateResult>(`${SCHEDULES_BASE}/templates/${encodeURIComponent(templateId)}/apply`, { ...config, decisions });
   }
 
   async listShiftRotations(): Promise<ShiftRotation[]> {

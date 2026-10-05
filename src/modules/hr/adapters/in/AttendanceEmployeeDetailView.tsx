@@ -4,7 +4,7 @@ import { Link, useParams, useSearchParams } from "react-router-dom";
 import { useHrModule } from "../../hr.module.tsx";
 import { AttendanceIssueResolutionModal } from "./AttendanceIssueResolutionModal.tsx";
 import { formatMinutes, formatMinutesAsWholeHours } from "../../../../lib/format-minutes.ts";
-import { JOB_ROLE_LABELS } from "../../domain/entities/employee.ts";
+import { usePositions } from "./use-positions.ts";
 import type { AttendanceIssueRow, AttendanceOccurrenceKind } from "../../domain/entities/attendance-conference.ts";
 
 const PENDING_PAGE_SIZE = 8;
@@ -44,6 +44,7 @@ function plannedLabel(row: AttendanceIssueRow): string {
  */
 export function AttendanceEmployeeDetailView() {
   const { api } = useHrModule();
+  const { data: positions = [] } = usePositions();
   const { employeeId } = useParams<{ employeeId: string }>();
   const [searchParams, setSearchParams] = useSearchParams();
   const now = new Date();
@@ -131,7 +132,7 @@ export function AttendanceEmployeeDetailView() {
             <h1 className="text-xl font-bold text-stone-900">{data?.employeeName ?? "…"}</h1>
             <p className="mt-0.5 text-sm capitalize text-stone-500">
               {monthLabel}
-              {data && <> · {JOB_ROLE_LABELS[data.jobRole]}</>}
+              {data?.positionId && <> · {positions.find((p) => p.id === data.positionId)?.name ?? ""}</>}
               {primaryLocationName && <> · {primaryLocationName}</>}
             </p>
           </div>

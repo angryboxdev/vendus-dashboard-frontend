@@ -7,6 +7,7 @@ import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
 import { ShiftDrawer } from "./ShiftDrawer.tsx";
 import { BaseScheduleModal } from "./BaseScheduleModal.tsx";
 import { ShiftRotationsPanel } from "./ShiftRotationsPanel.tsx";
+import { ShiftTemplatesPanel } from "./ShiftTemplatesPanel.tsx";
 import { ClearShiftsModal } from "./ClearShiftsModal.tsx";
 import { RepeatScheduleWeekModal } from "./RepeatScheduleWeekModal.tsx";
 import { DaySummaryPanel } from "./DaySummaryPanel.tsx";
@@ -23,7 +24,7 @@ import {
 } from "../../domain/entities/schedule.ts";
 
 type ViewMode = "month" | "week";
-type Tab = "calendar" | "rotations" | "alerts";
+type Tab = "calendar" | "templates" | "alerts";
 type VisualMode = "detailed" | "compact";
 
 const VISUAL_MODE_STORAGE_PREFIX = "hr-schedules-visual-mode-";
@@ -439,7 +440,7 @@ export function SchedulesView() {
         <div className="mt-3 flex border-b border-stone-100">
           {([
             { key: "calendar", label: "Calendário" },
-            { key: "rotations", label: "Turnos rotativos" },
+            { key: "templates", label: "Modelos & Automatizações" },
             { key: "alerts", label: "Alertas e ações" },
           ] as const).map(({ key, label }) => (
             <button
@@ -455,8 +456,12 @@ export function SchedulesView() {
         </div>
       </div>
 
-      {tab === "rotations" ? (
-        <ShiftRotationsPanel employees={employees} />
+      {tab === "templates" ? (
+        // RH 2.0: Modelos de turno (ticket 01); as rotações passam a automatizações no ticket 04.
+        <div className="space-y-4 p-4">
+          <ShiftTemplatesPanel />
+          <ShiftRotationsPanel employees={employees} />
+        </div>
       ) : tab === "alerts" ? (
         <div className="p-4">
           <div className="space-y-2 rounded-xl border border-[#F5C992]/40 bg-white p-3 shadow-sm">

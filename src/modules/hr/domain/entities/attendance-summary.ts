@@ -1,4 +1,3 @@
-import type { JobRole } from "./employee.ts";
 
 /**
  * Evolução "Assiduidade — Conferência, Por Colaborador e Horas & Saldos":
@@ -13,7 +12,8 @@ export interface MonthlyAttendanceSummaryRow {
   employeeId: string;
   employeeName: string;
   /** Redesign do Fecho Mensal — subtítulo do nome na tabela geral. */
-  jobRole: JobRole;
+  /** Cargo do colaborador (o nome resolve-se pela lista de cargos). */
+  positionId: string | null;
   /** Turnos planeados no mês. */
   plannedShiftsCount: number;
   actualShiftsCount: number;

@@ -6,8 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../../../lib/api.ts";
 import type { Position, PositionPayload } from "../../domain/entities/position.ts";
 import type { HrApiPort } from "../../domain/ports/out/hr-api.port.ts";
-import { SetEmployeeKioskPinUseCase } from "../../application/use-cases/set-employee-kiosk-pin.use-case.ts";
 import { HrProvider, type HrModule } from "../../hr.module.tsx";
+import { SetEmployeeKioskPinUseCase } from "../../application/use-cases/set-employee-kiosk-pin.use-case.ts";
 import { PositionsView } from "./PositionsView.tsx";
 
 /** Objeto estável entre renders (ver nota no teste de LocationsAdminView). */
@@ -34,7 +34,6 @@ function fakeApi(seed: Position[]) {
         id: `p${positions.length + 1}`,
         name: payload.name!.trim(),
         description: payload.description ?? null,
-        operationalCategory: payload.operationalCategory!,
         active: true,
         employeeCount: 0,
         updatedAt: "",
@@ -57,6 +56,7 @@ function fakeModule(seed: Position[]): HrModule {
 }
 
 function renderView(seed: Position[]) {
+  // Módulo completo (inclui o use case do PIN do kiosk, acrescentado no `main`).
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
@@ -69,7 +69,7 @@ function renderView(seed: Position[]) {
   );
 }
 
-const PREP: Position = { id: "p1", name: "Preparador de Pizzas", description: null, operationalCategory: "prep", active: true, employeeCount: 3, updatedAt: "" };
+const PREP: Position = { id: "p1", name: "Preparador de Pizzas", description: null, active: true, employeeCount: 3, updatedAt: "" };
 
 describe("PositionsView", () => {
   it("lista os cargos com o nº de colaboradores e as abas de Colaboradores", async () => {
@@ -89,7 +89,6 @@ describe("PositionsView", () => {
     await user.click(await screen.findByRole("button", { name: "Novo cargo" }));
     const dialog = screen.getByRole("dialog", { name: "Novo cargo" });
     await user.type(within(dialog).getByLabelText(/^Nome/), "Gerente de Loja");
-    await user.selectOptions(within(dialog).getByLabelText("Categoria nas Escalas"), "manager");
     await user.click(within(dialog).getByRole("button", { name: "Criar cargo" }));
 
     expect(await screen.findByText("Gerente de Loja")).toBeInTheDocument();

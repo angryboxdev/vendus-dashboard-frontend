@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
+import { ApiError } from "../../../../lib/api.ts";
+import { PAYSLIP_DUPLICATE_MESSAGE } from "../../domain/entities/payslip-import.ts";
+import { defaultPayslipPeriod, formatPeriod } from "../../domain/services/payslip-import.service.ts";
 import type { EmployeeProfile } from "../../domain/entities/employee.ts";
+import { isCategoryApplicable } from "../../domain/services/document-applicability.service.ts";
 import {
   DOCUMENT_CATEGORY_LABELS,
   DOCUMENT_ORIGIN_LABELS,
@@ -33,6 +37,8 @@ interface CategoryOption {
   label: string;
   mandatory: boolean;
   acceptedMimeTypes: string[];
+  /** Categoria periódica (ex: Recibo de vencimento) — pede o período e pode ter vários documentos, um por período. */
+  requiresPeriod: boolean;
 }
 
 function formatDate(d: string | null): string {
@@ -125,6 +131,9 @@ export function EmployeeDocumentsTab({
   const [mandatory, setMandatory] = useState(true);
   const [origin, setOrigin] = useState<DocumentOrigin>("rh");
   const [expiresAt, setExpiresAt] = useState("");
+  const [period, setPeriod] = useState(() => defaultPayslipPeriod(new Date().toISOString().slice(0, 10)));
+  /** Recibo já existente no período (409 do backend): o utilizador cancela ou substitui a versão. */
+  const [periodConflict, setPeriodConflict] = useState<{ documentId: string; file: File } | null>(null);
   const [historyDocId, setHistoryDocId] = useState<string | null>(null);
 
   const documentsQuery = useQuery({
@@ -148,23 +157,22 @@ export function EmployeeDocumentsTab({
 
   // As 3 categorias de identificação continuam fixas (fora da tela de
   // gestão); as restantes são configuráveis por organização e filtradas por
-  // cargo — ver domain/entities/employee-document.ts.
-  const jobRole = profile.employee.jobRole;
-  const dynamicCategories = (categoriesQuery.data ?? []).filter(
-    (c) => c.active && (c.jobRoles.length === 0 || c.jobRoles.includes(jobRole)),
-  );
+  // cargo ("Todos" ou "Cargos selecionados", ticket 09) — mesma regra do backend.
+  const dynamicCategories = (categoriesQuery.data ?? []).filter((c) => isCategoryApplicable(c, profile.employee));
   const categoryOptions: CategoryOption[] = [
     ...IDENTIFICATION_DOCUMENT_CATEGORIES.map((slug) => ({
       slug,
       label: DOCUMENT_CATEGORY_LABELS[slug] ?? slug,
       mandatory: true,
       acceptedMimeTypes: ACCEPTED_TYPES,
+      requiresPeriod: false,
     })),
     ...dynamicCategories.map((c) => ({
       slug: c.slug,
       label: c.label,
       mandatory: c.mandatory,
       acceptedMimeTypes: c.acceptedMimeTypes,
+      requiresPeriod: c.requiresPeriod,
     })),
   ];
   const categoryOptionBySlug = new Map(categoryOptions.map((c) => [c.slug, c]));
@@ -185,8 +193,12 @@ export function EmployeeDocumentsTab({
     MANDATORY_REQUIREMENT_GROUPS.filter((group) => group.some((c) => usedCategories.has(c))).flatMap((group) => group),
   );
   const availableCategories = [...categoryOptions.map((c) => c.slug), "outro"].filter(
-    (c) => c === "outro" || (!usedCategories.has(c) && !hiddenSiblingCategories.has(c)),
+    (c) =>
+      c === "outro" ||
+      categoryOptionBySlug.get(c)?.requiresPeriod ||
+      (!usedCategories.has(c) && !hiddenSiblingCategories.has(c)),
   );
+  const selectedRequiresPeriod = categoryOptionBySlug.get(category)?.requiresPeriod ?? false;
 
   function invalidate() {
     void qc.invalidateQueries({ queryKey: ["hr-people-documents", employeeId] });
@@ -199,9 +211,10 @@ export function EmployeeDocumentsTab({
     mutationFn: (file: File) =>
       api.uploadEmployeeDocument(employeeId, {
         category,
-        mandatory,
+        mandatory: selectedRequiresPeriod ? false : mandatory,
         origin,
         expiresAt: expiresAt || null,
+        ...(selectedRequiresPeriod && { period }),
         file,
       }),
     onSuccess: () => {
@@ -209,13 +222,23 @@ export function EmployeeDocumentsTab({
       setCategory("");
       setExpiresAt("");
     },
-    onError: (e: unknown) => setError(e instanceof Error ? e.message : "Erro ao enviar o documento"),
+    onError: (e: unknown, file: File) => {
+      const data = e instanceof ApiError ? (e.data as { code?: string; existingDocumentId?: string } | undefined) : undefined;
+      if (data?.code === "period_already_exists" && data.existingDocumentId) {
+        setPeriodConflict({ documentId: data.existingDocumentId, file });
+        return;
+      }
+      setError(e instanceof Error ? e.message : "Erro ao enviar o documento");
+    },
   });
 
   const replaceMutation = useMutation({
     mutationFn: ({ documentId, file }: { documentId: string; file: File }) =>
       api.replaceEmployeeDocument(employeeId, documentId, { file }),
-    onSuccess: invalidate,
+    onSuccess: () => {
+      invalidate();
+      setPeriodConflict(null);
+    },
     onError: (e: unknown) => setError(e instanceof Error ? e.message : "Erro ao substituir o documento"),
   });
 
@@ -248,6 +271,11 @@ export function EmployeeDocumentsTab({
       setError("Escolhe uma categoria antes de enviar");
       return;
     }
+    if (selectedRequiresPeriod && !period) {
+      setError("Indica o período (Mês/Ano)");
+      return;
+    }
+    setPeriodConflict(null);
     if (!validateFile(file, category)) return;
     uploadMutation.mutate(file);
   }
@@ -314,10 +342,25 @@ export function EmployeeDocumentsTab({
                 </p>
               )}
             </div>
-            <label className="flex items-center gap-1.5 pb-2 text-sm text-stone-600">
-              <input type="checkbox" checked={mandatory} onChange={(e) => setMandatory(e.target.checked)} />
-              Obrigatório
-            </label>
+            {selectedRequiresPeriod ? (
+              <div>
+                <label htmlFor="document-period" className="mb-1 block text-xs font-medium text-stone-600">
+                  Período
+                </label>
+                <input
+                  id="document-period"
+                  type="month"
+                  value={period}
+                  onChange={(e) => setPeriod(e.target.value)}
+                  className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none focus:border-[#ED5C32]"
+                />
+              </div>
+            ) : (
+              <label className="flex items-center gap-1.5 pb-2 text-sm text-stone-600">
+                <input type="checkbox" checked={mandatory} onChange={(e) => setMandatory(e.target.checked)} />
+                Obrigatório
+              </label>
+            )}
             <div>
               <label className="mb-1 block text-xs font-medium text-stone-600">Validade (opcional)</label>
               <input
@@ -386,6 +429,22 @@ export function EmployeeDocumentsTab({
             )}
           </div>
           {error && <p className="mt-2 text-xs text-red-600">{error}</p>}
+          {periodConflict && (
+            <div className="mt-2 flex flex-wrap items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <span>{PAYSLIP_DUPLICATE_MESSAGE}</span>
+              <button type="button" onClick={() => setPeriodConflict(null)} className="rounded-md border border-amber-200 bg-white px-2 py-0.5 font-medium">
+                Cancelar
+              </button>
+              <button
+                type="button"
+                disabled={replaceMutation.isPending}
+                onClick={() => replaceMutation.mutate(periodConflict)}
+                className="rounded-md bg-[#ED5C32] px-2 py-0.5 font-medium text-white disabled:opacity-50"
+              >
+                Substituir versão
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Table */}
@@ -411,7 +470,10 @@ export function EmployeeDocumentsTab({
                 {documents.map((doc) => (
                   <tr key={doc.id}>
                     <td className="px-3 py-2.5">
-                      <p className="text-stone-700">{categoryOptionBySlug.get(doc.category)?.label ?? DOCUMENT_CATEGORY_LABELS[doc.category] ?? doc.category}</p>
+                      <p className="text-stone-700">
+                        {categoryOptionBySlug.get(doc.category)?.label ?? DOCUMENT_CATEGORY_LABELS[doc.category] ?? doc.category}
+                        {doc.period && <span className="text-stone-500"> · {formatPeriod(doc.period)}</span>}
+                      </p>
                       {doc.mandatory && <span className="text-xs text-stone-400">Obrigatório</span>}
                     </td>
                     <td className="px-3 py-2.5">

@@ -1,7 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { ApiError } from "../../../../lib/api.ts";
 import { useAuth } from "../../../../contexts/AuthContext.tsx";
-import { JOB_ROLE_LABELS, type JobRole } from "../../domain/entities/employee.ts";
 import type { Position } from "../../domain/entities/position.ts";
 import { PeopleTabs } from "./PeopleTabs.tsx";
 import { useManagePositions, usePositions } from "./use-positions.ts";
@@ -27,16 +26,15 @@ function PositionDrawer({
   editing: Position | null;
   saving: boolean;
   error: unknown;
-  onSave: (payload: { name: string; description: string | null; operationalCategory: JobRole }) => void;
+  onSave: (payload: { name: string; description: string | null }) => void;
   onClose: () => void;
 }) {
   const [name, setName] = useState(editing?.name ?? "");
   const [description, setDescription] = useState(editing?.description ?? "");
-  const [operationalCategory, setOperationalCategory] = useState<JobRole>(editing?.operationalCategory ?? "service");
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    onSave({ name, description: description.trim() || null, operationalCategory });
+    onSave({ name, description: description.trim() || null });
   }
 
   return (
@@ -61,26 +59,6 @@ function PositionDrawer({
               Descrição
             </label>
             <textarea id="position-description" rows={3} value={description} onChange={(e) => setDescription(e.target.value)} className={inputCls} />
-          </div>
-          <div>
-            <label htmlFor="position-category" className={labelCls}>
-              Categoria nas Escalas
-            </label>
-            <select
-              id="position-category"
-              value={operationalCategory}
-              onChange={(e) => setOperationalCategory(e.target.value as JobRole)}
-              className={inputCls}
-            >
-              {Object.entries(JOB_ROLE_LABELS).map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-            <p className="mt-1 text-xs text-stone-500">
-              As Escalas (rotações) e as categorias de documentos ainda agrupam por esta categoria. Não dá permissões no Hub.
-            </p>
           </div>
           {errorMessage(error) && <p className="text-sm text-red-600">{errorMessage(error)}</p>}
           <div className="mt-auto flex justify-end gap-2 border-t border-stone-100 pt-4">
@@ -150,7 +128,6 @@ export function PositionsView() {
                 <tr>
                   <th className="px-3 py-2">Cargo</th>
                   <th className="px-3 py-2">Descrição</th>
-                  <th className="px-3 py-2">Categoria nas Escalas</th>
                   <th className="px-3 py-2">Colaboradores</th>
                   <th className="px-3 py-2">Estado</th>
                   {canEdit && <th className="px-3 py-2" />}
@@ -159,7 +136,7 @@ export function PositionsView() {
               <tbody className="divide-y divide-[#F5C992]/30">
                 {positions.length === 0 && (
                   <tr>
-                    <td colSpan={canEdit ? 6 : 5} className="px-3 py-6 text-center text-stone-500">
+                    <td colSpan={canEdit ? 5 : 4} className="px-3 py-6 text-center text-stone-500">
                       Sem cargos.
                     </td>
                   </tr>
@@ -168,7 +145,6 @@ export function PositionsView() {
                   <tr key={p.id} className={p.active ? "" : "text-stone-400"}>
                     <td className="px-3 py-2 font-medium text-stone-800">{p.name}</td>
                     <td className="px-3 py-2 text-stone-500">{p.description ?? "—"}</td>
-                    <td className="px-3 py-2">{JOB_ROLE_LABELS[p.operationalCategory]}</td>
                     <td className="px-3 py-2">{p.employeeCount}</td>
                     <td className="px-3 py-2">
                       <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${p.active ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-500"}`}>
