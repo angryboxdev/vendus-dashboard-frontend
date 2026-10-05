@@ -2,7 +2,12 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
 import { JOB_ROLE_LABELS, type JobRole } from "../../domain/entities/employee.ts";
-import { ACCEPTED_MIME_TYPE_OPTIONS, type DocumentCategoryDefinition } from "../../domain/entities/document-category.ts";
+import {
+  ACCEPTED_MIME_TYPE_OPTIONS,
+  DOCUMENT_CATEGORY_SCOPE_LABELS,
+  type DocumentCategoryDefinition,
+  type DocumentCategoryScope,
+} from "../../domain/entities/document-category.ts";
 
 const ALL_JOB_ROLES = Object.keys(JOB_ROLE_LABELS) as JobRole[];
 const DEFAULT_MIME_TYPES = ACCEPTED_MIME_TYPE_OPTIONS.map((o) => o.value);
@@ -13,10 +18,11 @@ interface FormState {
   allRoles: boolean;
   jobRoles: JobRole[];
   acceptedMimeTypes: string[];
+  scope: DocumentCategoryScope;
 }
 
 function emptyForm(): FormState {
-  return { label: "", mandatory: false, allRoles: true, jobRoles: [], acceptedMimeTypes: [...DEFAULT_MIME_TYPES] };
+  return { label: "", mandatory: false, allRoles: true, jobRoles: [], acceptedMimeTypes: [...DEFAULT_MIME_TYPES], scope: "employee" };
 }
 
 function formFromDefinition(def: DocumentCategoryDefinition): FormState {
@@ -26,6 +32,7 @@ function formFromDefinition(def: DocumentCategoryDefinition): FormState {
     allRoles: def.jobRoles.length === 0,
     jobRoles: def.jobRoles,
     acceptedMimeTypes: def.acceptedMimeTypes,
+    scope: def.scope,
   };
 }
 
@@ -55,6 +62,7 @@ export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
         mandatory: form.mandatory,
         jobRoles: form.allRoles ? [] : form.jobRoles,
         acceptedMimeTypes: form.acceptedMimeTypes,
+        scope: form.scope,
       }),
     onSuccess: () => {
       invalidate();
@@ -70,6 +78,7 @@ export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
         mandatory: form.mandatory,
         jobRoles: form.allRoles ? [] : form.jobRoles,
         acceptedMimeTypes: form.acceptedMimeTypes,
+        scope: form.scope,
       }),
     onSuccess: () => {
       invalidate();
@@ -158,9 +167,31 @@ export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
                 className="w-full rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none focus:border-[#ED5C32]"
               />
             </div>
+            <div>
+              <label htmlFor="category-scope" className="mb-1 block text-xs font-medium text-stone-600">
+                Âmbito
+              </label>
+              <select
+                id="category-scope"
+                value={form.scope}
+                onChange={(e) => {
+                  const scope = e.target.value as DocumentCategoryScope;
+                  // Só da Empresa: nunca é requisito de um colaborador.
+                  setForm((f) => ({ ...f, scope, ...(scope === "company" && { mandatory: false, allRoles: true, jobRoles: [] }) }));
+                }}
+                className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none focus:border-[#ED5C32]"
+              >
+                {Object.entries(DOCUMENT_CATEGORY_SCOPE_LABELS).map(([value, label]) => (
+                  <option key={value} value={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </div>
             <label className="flex items-center gap-1.5 pb-2 text-sm text-stone-600">
               <input
                 type="checkbox"
+                disabled={form.scope === "company"}
                 checked={form.mandatory}
                 onChange={(e) => setForm((f) => ({ ...f, mandatory: e.target.checked }))}
               />
@@ -168,6 +199,8 @@ export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
             </label>
           </div>
 
+          {/* Cargos só se aplicam a documentos de colaborador — escondido para categorias só da Empresa. */}
+          {form.scope !== "company" && (
           <div>
             <label className="mb-1.5 block text-xs font-medium text-stone-600">Cargos</label>
             <div className="flex flex-wrap gap-3">
@@ -192,6 +225,7 @@ export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
                 ))}
             </div>
           </div>
+          )}
 
           <div>
             <label className="mb-1.5 block text-xs font-medium text-stone-600">Tipos de ficheiro aceites</label>
@@ -253,6 +287,9 @@ export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
                     <td className="py-2 pr-2">
                       <p className="font-medium text-stone-700">{c.label}</p>
                       {c.mandatory && <span className="text-xs text-amber-600">Obrigatório</span>}
+                      {c.scope !== "employee" && (
+                        <span className="ml-1 text-xs text-stone-500">· {DOCUMENT_CATEGORY_SCOPE_LABELS[c.scope]}</span>
+                      )}
                     </td>
                     <td className="py-2 pr-2 text-stone-500">
                       {c.jobRoles.length === 0 ? "Todos" : c.jobRoles.map((r) => JOB_ROLE_LABELS[r]).join(", ")}

@@ -72,6 +72,8 @@ import { OrganizationProvider } from "./modules/organization/organization.module
 import { OrganizationProfileView } from "./modules/organization/adapters/in/OrganizationProfileView.tsx";
 import { CompanyStructureLayout } from "./modules/organization/adapters/in/CompanyStructureLayout.tsx";
 import { LocationsAdminView } from "./modules/locations/adapters/in/LocationsAdminView.tsx";
+import { DocumentsProvider } from "./modules/documents/documents.module.tsx";
+import { CompanyDocumentsView } from "./modules/documents/adapters/in/CompanyDocumentsView.tsx";
 import { LocationCredentialsAdminView } from "./modules/location-credentials/adapters/in/LocationCredentialsAdminView.tsx";
 import { SalesSummaryProvider } from "./modules/sales-summary/sales-summary.module.tsx";
 import { SalesSummaryView } from "./modules/sales-summary/adapters/in/SalesSummaryView.tsx";
@@ -417,6 +419,14 @@ export default function App() {
                 >
                   <Route index element={<OrganizationProfileView />} />
                   <Route path="locais" element={<LocationsAdminView />} />
+                  <Route
+                    path="documentos"
+                    element={
+                      <DocumentsProvider>
+                        <CompanyDocumentsView />
+                      </DocumentsProvider>
+                    }
+                  />
                 </Route>
                 <Route path="/admin/users" element={<UsersPage />} />
                 <Route path="/admin/location-tokens" element={<LocationCredentialsAdminView />} />

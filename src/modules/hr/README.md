@@ -575,6 +575,10 @@ simular um botão que não faz nada.
   inativo (`assignableOptions`) — mesma regra do backend. Os nomes
   resolvem-se no cliente (`positionNameOf`/`locationNameOf`) a partir de
   `usePositions` e do `useLocations` global.
+- **Âmbito das categorias** (ticket 03): `DocumentCategoriesModal` tem
+  "Âmbito" (Colaborador / Empresa / Ambos); numa categoria só da Empresa os
+  campos Obrigatório e Cargos não se aplicam. As categorias são as mesmas
+  da aba Empresa & Estrutura → Documentos (módulo `documents`).
 - **Resumo do perfil**: "Dados do perfil: X% completos" (só dados
   cadastrais — documentação conta à parte) e **sem card nem KPI de
   Onboarding** (não existe workflow de onboarding — task §19/§20).
