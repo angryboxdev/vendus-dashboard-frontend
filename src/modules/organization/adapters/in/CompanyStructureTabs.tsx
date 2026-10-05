@@ -1,9 +1,8 @@
 import { NavLink } from "react-router-dom";
 
 /**
- * Abas de "Empresa & Estrutura". Só aparecem as abas já implementadas —
- * Calendário & Eventos entra à medida que cada ticket da Base
- * Organizacional fica pronto (a task proíbe preparar UI sem funcionalidade).
+ * Abas de "Empresa & Estrutura" (task §2): Empresa | Locais | Calendário &
+ * Eventos | Documentos.
  */
 export function CompanyStructureTabs() {
   const linkClass = ({ isActive }: { isActive: boolean }) =>
@@ -18,6 +17,9 @@ export function CompanyStructureTabs() {
       </NavLink>
       <NavLink to="/empresa/locais" className={linkClass}>
         Locais
+      </NavLink>
+      <NavLink to="/empresa/calendario" className={linkClass}>
+        Calendário & Eventos
       </NavLink>
       <NavLink to="/empresa/documentos" className={linkClass}>
         Documentos

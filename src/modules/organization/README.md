@@ -39,7 +39,7 @@ Documentos entram em tickets seguintes da Base Organizacional (
 - `useOrganizationProfile` / `useOrganizationHistory` (react-query sobre
   os use cases).
 - `CompanyStructureLayout` + `CompanyStructureTabs` — moldura de `/empresa/*`
-  (abas Empresa, Locais).
+  (abas Empresa, Locais, Calendário & Eventos, Documentos).
 - `OrganizationProfileView` — conteúdo da aba Empresa: cartão do logotipo,
   formulário por secções, histórico (colapsável).
 ### Saída
@@ -50,7 +50,7 @@ Documentos entram em tickets seguintes da Base Organizacional (
 ## Decisões de design (ADR resumido)
 - **Edição só para `admin`**, como no backend — os restantes roles veem
   os dados desativados; histórico também só `admin`.
-- **Abas só quando existem** — `CompanyStructureTabs` mostra Empresa e Locais;
+- **Abas só quando existem** — `CompanyStructureTabs` mostra as 4 abas da task (Empresa, Locais, Calendário & Eventos, Documentos);
   a task proíbe preparar UI sem funcionalidade.
 - **Formulário reiniciado por `key={profile.updatedAt}`** em vez de
   `setState` dentro de `useEffect` (regra de lint do projeto); por isso as
