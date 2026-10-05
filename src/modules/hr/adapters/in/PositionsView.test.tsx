@@ -6,7 +6,8 @@ import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../../../lib/api.ts";
 import type { Position, PositionPayload } from "../../domain/entities/position.ts";
 import type { HrApiPort } from "../../domain/ports/out/hr-api.port.ts";
-import { HrProvider } from "../../hr.module.tsx";
+import { HrProvider, type HrModule } from "../../hr.module.tsx";
+import { SetEmployeeKioskPinUseCase } from "../../application/use-cases/set-employee-kiosk-pin.use-case.ts";
 import { PositionsView } from "./PositionsView.tsx";
 
 /** Objeto estável entre renders (ver nota no teste de LocationsAdminView). */
@@ -51,11 +52,14 @@ function fakeApi(seed: Position[]) {
 }
 
 function renderView(seed: Position[]) {
+  const api = fakeApi(seed);
+  // Módulo completo (inclui o use case do PIN do kiosk, acrescentado no `main`).
+  const mod: HrModule = { api, setEmployeeKioskPin: new SetEmployeeKioskPinUseCase(api) };
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
       <MemoryRouter>
-        <HrProvider module={{ api: fakeApi(seed) }}>
+        <HrProvider module={mod}>
           <PositionsView />
         </HrProvider>
       </MemoryRouter>
