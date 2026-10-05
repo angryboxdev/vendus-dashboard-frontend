@@ -1,21 +1,18 @@
 import type { DocumentCategoryDefinition } from "../entities/document-category.ts";
-import type { JobRole } from "../entities/employee.ts";
 
 /** O que decide se uma categoria se aplica a um colaborador (mesma regra do backend, `applicableCategoriesFor`). */
 export interface CategoryApplicabilitySubject {
   positionId: string | null;
-  jobRole: JobRole;
 }
 
 /**
  * Ticket 09 — "Todos os colaboradores" ou "Cargos selecionados":
  * ativa, nunca só da Empresa; `positionIds` preenchido → só esses cargos;
- * `jobRoles` (categorias antigas) → pela categoria operacional; vazio → todos.
+ * vazio → todos.
  */
 export function isCategoryApplicable(category: DocumentCategoryDefinition, subject: CategoryApplicabilitySubject): boolean {
   if (!category.active || category.scope === "company") return false;
   if (category.positionIds.length > 0) return subject.positionId !== null && category.positionIds.includes(subject.positionId);
-  if (category.jobRoles.length > 0) return category.jobRoles.includes(subject.jobRole);
   return true;
 }
 

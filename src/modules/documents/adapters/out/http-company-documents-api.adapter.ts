@@ -51,7 +51,7 @@ export class HttpCompanyDocumentsApiAdapter implements CompanyDocumentsApiPort {
   }
 
   createCategory(label: string, scope: Extract<DocumentCategoryScope, "company" | "both">): Promise<CompanyDocumentCategory> {
-    return apiPost<CompanyDocumentCategory>(CATEGORIES, { label, scope, mandatory: false, jobRoles: [] });
+    return apiPost<CompanyDocumentCategory>(CATEGORIES, { label, scope, mandatory: false });
   }
 
   setCategoryActive(id: string, active: boolean): Promise<CompanyDocumentCategory> {

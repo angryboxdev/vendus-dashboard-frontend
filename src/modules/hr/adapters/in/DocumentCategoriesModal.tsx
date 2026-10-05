@@ -62,7 +62,6 @@ export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
       api.createDocumentCategory({
         label: form.label.trim(),
         mandatory: form.mandatory,
-        jobRoles: [],
         positionIds: form.allPositions ? [] : form.positionIds,
         acceptedMimeTypes: form.acceptedMimeTypes,
         scope: form.scope,
@@ -79,7 +78,6 @@ export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
       api.updateDocumentCategory(id, {
         label: form.label.trim(),
         mandatory: form.mandatory,
-        jobRoles: [],
         positionIds: form.allPositions ? [] : form.positionIds,
         acceptedMimeTypes: form.acceptedMimeTypes,
         scope: form.scope,

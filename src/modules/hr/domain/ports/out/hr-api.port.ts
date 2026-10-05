@@ -82,7 +82,7 @@ export interface HrApiPort {
 
   // ── Cargos (Base Organizacional) — `/api/hr/positions`; nunca há delete ──
   listPositions(): Promise<Position[]>;
-  createPosition(payload: Required<Pick<PositionPayload, "name" | "operationalCategory">> & PositionPayload): Promise<Position>;
+  createPosition(payload: Required<Pick<PositionPayload, "name">> & PositionPayload): Promise<Position>;
   updatePosition(id: string, payload: PositionPayload): Promise<Position>;
   setPositionActive(id: string, active: boolean): Promise<Position>;
 

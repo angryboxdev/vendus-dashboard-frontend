@@ -1,6 +1,5 @@
 export type EmployeeStatus = "active" | "inactive";
 export type EmploymentType = "permanent" | "contract" | "extra";
-export type JobRole = "manager" | "prep" | "service";
 export type SalaryType = "fixed" | "hourly";
 export type DocumentSituation = "ok" | "expiring" | "missing";
 
@@ -10,18 +9,6 @@ export const EMPLOYMENT_TYPE_LABELS: Record<EmploymentType, string> = {
   extra: "Extra",
 };
 
-/**
- * Categoria operacional (antiga "Função"). Desde a Base Organizacional o
- * colaborador tem um Cargo (`positionId`); o `jobRole` é sempre a categoria
- * operacional desse cargo e só continua a ser usado pelas Escalas e pelas
- * categorias de documentos (decisão D4 do backend).
- */
-export const JOB_ROLE_LABELS: Record<JobRole, string> = {
-  manager: "Gerente",
-  prep: "Preparador",
-  service: "Serviço",
-};
-
 export interface Employee {
   id: string;
   fullName: string;
@@ -29,7 +16,6 @@ export interface Employee {
   phone: string | null;
   roleOrNotes: string | null;
   employmentType: EmploymentType;
-  jobRole: JobRole;
   /** Cargo (Base Organizacional). */
   positionId: string | null;
   /** Local principal. */
@@ -59,7 +45,6 @@ export interface Employee {
 export interface EmployeeListRow {
   id: string;
   fullName: string;
-  jobRole: JobRole;
   positionId: string | null;
   primaryLocationId: string | null;
   employmentType: EmploymentType;
@@ -140,7 +125,7 @@ export interface CreateEmployeePayload {
   phone?: string | null;
   roleOrNotes?: string | null;
   employmentType?: EmploymentType;
-  /** Cargo — o backend deriva daqui o `jobRole` (já não é enviado). */
+  /** Cargo (substitui a antiga "Função"). */
   positionId?: string | null;
   primaryLocationId?: string | null;
   authorizedLocationIds?: string[];

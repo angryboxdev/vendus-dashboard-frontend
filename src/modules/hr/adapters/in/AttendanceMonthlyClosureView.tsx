@@ -4,7 +4,7 @@ import { Link } from "react-router-dom";
 import { useHrModule } from "../../hr.module.tsx";
 import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
 import { formatMinutes, formatMinutesAsWholeHours } from "../../../../lib/format-minutes.ts";
-import { JOB_ROLE_LABELS } from "../../domain/entities/employee.ts";
+import { usePositions } from "./use-positions.ts";
 import type { MonthlyAttendanceSummaryRow } from "../../domain/entities/attendance-summary.ts";
 
 type ReadinessFilter = "all" | "ready" | "pending";
@@ -61,6 +61,8 @@ export function AttendanceMonthlyClosureView({
   onLocationChange: (locationId: string) => void;
 }) {
   const { api } = useHrModule();
+  const { data: positions = [] } = usePositions();
+  const positionName = (id: string | null) => (id ? (positions.find((p) => p.id === id)?.name ?? "") : "");
   const { locations } = useLocations();
   const qc = useQueryClient();
   const [search, setSearch] = useState("");
@@ -135,7 +137,7 @@ export function AttendanceMonthlyClosureView({
       ["Colaborador", "Cargo", "Conferência (conferidos/planeados)", "Planeado", "Realizado", "Ocorrências", "Saldo", "Estado"],
       ...filteredRows.map((r) => [
         r.employeeName,
-        JOB_ROLE_LABELS[r.jobRole],
+        positionName(r.positionId),
         `${r.plannedShiftsCount - r.pendingCount}/${r.plannedShiftsCount}`,
         formatMinutesAsWholeHours(r.plannedMinutes),
         formatMinutesAsWholeHours(r.actualMinutes),
@@ -328,7 +330,7 @@ export function AttendanceMonthlyClosureView({
                       <p className="truncate font-medium text-stone-800" title={r.employeeName}>
                         {r.employeeName}
                       </p>
-                      <p className="text-xs text-stone-400">{JOB_ROLE_LABELS[r.jobRole]}</p>
+                      <p className="text-xs text-stone-400">{positionName(r.positionId)}</p>
                     </td>
                     <td className="px-4 py-2.5">
                       <p className="whitespace-nowrap text-stone-700">

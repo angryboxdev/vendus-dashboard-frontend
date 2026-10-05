@@ -34,7 +34,6 @@ function fakeApi(seed: Position[]) {
         id: `p${positions.length + 1}`,
         name: payload.name!.trim(),
         description: payload.description ?? null,
-        operationalCategory: payload.operationalCategory!,
         active: true,
         employeeCount: 0,
         updatedAt: "",
@@ -70,7 +69,7 @@ function renderView(seed: Position[]) {
   );
 }
 
-const PREP: Position = { id: "p1", name: "Preparador de Pizzas", description: null, operationalCategory: "prep", active: true, employeeCount: 3, updatedAt: "" };
+const PREP: Position = { id: "p1", name: "Preparador de Pizzas", description: null, active: true, employeeCount: 3, updatedAt: "" };
 
 describe("PositionsView", () => {
   it("lista os cargos com o nº de colaboradores e as abas de Colaboradores", async () => {
@@ -90,7 +89,6 @@ describe("PositionsView", () => {
     await user.click(await screen.findByRole("button", { name: "Novo cargo" }));
     const dialog = screen.getByRole("dialog", { name: "Novo cargo" });
     await user.type(within(dialog).getByLabelText(/^Nome/), "Gerente de Loja");
-    await user.selectOptions(within(dialog).getByLabelText("Categoria nas Escalas"), "manager");
     await user.click(within(dialog).getByRole("button", { name: "Criar cargo" }));
 
     expect(await screen.findByText("Gerente de Loja")).toBeInTheDocument();

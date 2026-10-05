@@ -2,14 +2,14 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
 import { LocationSelect } from "../../../../components/LocationSelect.tsx";
-import { JOB_ROLE_LABELS, type EmployeeListRow, type JobRole } from "../../domain/entities/employee.ts";
+import type { EmployeeListRow } from "../../domain/entities/employee.ts";
 import type { ShiftRotation } from "../../domain/entities/schedule.ts";
-
-const JOB_ROLES: JobRole[] = ["manager", "prep", "service"];
+import { usePositions } from "./use-positions.ts";
 
 function emptyForm() {
   return {
-    jobRole: "service" as JobRole,
+    /** Só filtra a lista de colaboradores a escolher — "" = todos. */
+    positionFilter: "",
     participantA: "",
     participantB: "",
     patternAKind: "direct" as "direct" | "split",
@@ -41,6 +41,7 @@ function nextMonday(): string {
 
 export function ShiftRotationsPanel({ employees }: { employees: EmployeeListRow[] }) {
   const { api } = useHrModule();
+  const { data: positions = [] } = usePositions();
   const qc = useQueryClient();
   const [showCreate, setShowCreate] = useState(false);
   const [form, setForm] = useState(() => ({ ...emptyForm(), anchorDate: nextMonday() }));
@@ -62,7 +63,6 @@ export function ShiftRotationsPanel({ employees }: { employees: EmployeeListRow[
   const createMutation = useMutation({
     mutationFn: () =>
       api.createShiftRotation({
-        jobRole: form.jobRole,
         participantEmployeeIds: [form.participantA, form.participantB],
         patternA: {
           startTime: form.patternAStart,
@@ -99,7 +99,7 @@ export function ShiftRotationsPanel({ employees }: { employees: EmployeeListRow[
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["hr-shift-rotations"] }),
   });
 
-  const eligibleEmployees = employees.filter((e) => e.jobRole === form.jobRole);
+  const eligibleEmployees = form.positionFilter ? employees.filter((e) => e.positionId === form.positionFilter) : employees;
 
   function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -126,7 +126,7 @@ export function ShiftRotationsPanel({ employees }: { employees: EmployeeListRow[
   return (
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between">
-        <p className="text-sm text-stone-500">Alternância automática semanal entre 2 colaboradores da mesma função.</p>
+        <p className="text-sm text-stone-500">Alternância automática semanal entre 2 colaboradores.</p>
         <button
           onClick={() => setShowCreate((v) => !v)}
           className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
@@ -139,17 +139,20 @@ export function ShiftRotationsPanel({ employees }: { employees: EmployeeListRow[
         <form onSubmit={handleCreate} className="space-y-3 rounded-xl border border-[#F5C992]/40 bg-white p-4">
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="mb-1 block text-xs font-medium text-stone-600">Função</label>
+              <label className="mb-1 block text-xs font-medium text-stone-600">Filtrar colaboradores por cargo</label>
               <select
-                value={form.jobRole}
-                onChange={(e) => setForm((f) => ({ ...f, jobRole: e.target.value as JobRole, participantA: "", participantB: "" }))}
+                value={form.positionFilter}
+                onChange={(e) => setForm((f) => ({ ...f, positionFilter: e.target.value, participantA: "", participantB: "" }))}
                 className="w-full rounded-md border border-stone-300 px-2 py-1.5 text-sm"
               >
-                {JOB_ROLES.map((r) => (
-                  <option key={r} value={r}>
-                    {JOB_ROLE_LABELS[r]}
-                  </option>
-                ))}
+                <option value="">Todos os cargos</option>
+                {positions
+                  .filter((p) => p.active)
+                  .map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name}
+                    </option>
+                  ))}
               </select>
             </div>
             <div>
@@ -322,7 +325,7 @@ export function ShiftRotationsPanel({ employees }: { employees: EmployeeListRow[
           <table className="min-w-full text-sm">
             <thead className="border-b border-[#F5C992]/40 bg-stone-50/60">
               <tr>
-                {["Função", "Colaboradores", "Turno A", "Turno B", "Início", "Estado", ""].map((h) => (
+                {["Colaboradores", "Turno A", "Turno B", "Início", "Estado", ""].map((h) => (
                   <th key={h} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                     {h}
                   </th>
@@ -332,7 +335,6 @@ export function ShiftRotationsPanel({ employees }: { employees: EmployeeListRow[
             <tbody className="divide-y divide-[#F5C992]/30">
               {rotations.map((r: ShiftRotation) => (
                 <tr key={r.id}>
-                  <td className="px-3 py-2">{JOB_ROLE_LABELS[r.jobRole]}</td>
                   <td className="px-3 py-2">{r.participantNames.join(" / ")}</td>
                   <td className="px-3 py-2 text-stone-500">{formatPattern(r.patternA)}</td>
                   <td className="px-3 py-2 text-stone-500">{formatPattern(r.patternB)}</td>

@@ -1,4 +1,3 @@
-import type { JobRole } from "./employee.ts";
 
 export type ShiftStatus = "draft" | "published";
 /** `template`/`automation`: gerado por um Modelo de turno / por uma Automatização (RH 2.0). */
@@ -196,7 +195,6 @@ export interface ShiftRotationPattern {
 
 export interface ShiftRotation {
   id: string;
-  jobRole: JobRole;
   participantEmployeeIds: [string, string];
   participantNames: [string, string];
   patternA: ShiftRotationPattern;
@@ -208,7 +206,6 @@ export interface ShiftRotation {
 }
 
 export interface CreateShiftRotationPayload {
-  jobRole: JobRole;
   participantEmployeeIds: [string, string];
   patternA: { startTime: string; endTime: string; secondStartTime?: string | null; secondEndTime?: string | null };
   patternB: { startTime: string; endTime: string; secondStartTime?: string | null; secondEndTime?: string | null };

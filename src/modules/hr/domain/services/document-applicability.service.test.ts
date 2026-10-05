@@ -8,7 +8,6 @@ function category(overrides: Partial<DocumentCategoryDefinition>): DocumentCateg
     slug: "c",
     label: "C",
     mandatory: true,
-    jobRoles: [],
     positionIds: [],
     acceptedMimeTypes: [],
     scope: "employee",
@@ -21,8 +20,8 @@ function category(overrides: Partial<DocumentCategoryDefinition>): DocumentCateg
 }
 
 describe("isCategoryApplicable (ticket 09)", () => {
-  const gerente = { positionId: "pos-gerente", jobRole: "manager" as const };
-  const prep = { positionId: "pos-prep", jobRole: "prep" as const };
+  const gerente = { positionId: "pos-gerente" };
+  const prep = { positionId: "pos-prep" };
 
   it("todos os colaboradores quando não há cargos selecionados", () => {
     expect(isCategoryApplicable(category({}), prep)).toBe(true);

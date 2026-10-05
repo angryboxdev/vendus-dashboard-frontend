@@ -588,10 +588,13 @@ simular um botão que não faz nada.
   `hr_viewer` só lê. Nome duplicado ("preparador" = "Preparador") vem do
   backend como 409. Cargo ≠ permissão.
 - **Função → Cargo no formulário** (`EmployeeDrawer`): o seletor "Função"
-  passou a "Cargo" (obrigatório); o `jobRole` deixa de ser enviado — o
-  backend deriva-o da categoria operacional do cargo (D4). Escalas e
-  Assiduidade continuam a mostrar a categoria (`JOB_ROLE_LABELS`) — não
-  são alteradas nesta fase.
+  passou a "Cargo" (obrigatório).
+- **"Categoria nas Escalas" retirada (2026-10-05, decisão do utilizador).**
+  A antiga "Função" (manager|prep|service, `jobRole`/`JOB_ROLE_LABELS`)
+  saiu de todo o módulo: os Cargos já não têm categoria; a Assiduidade
+  (Fecho Mensal, ficha do colaborador) mostra o nome do **Cargo**; a
+  rotação já não exige a mesma função — o seletor passou a um filtro
+  opcional "Filtrar colaboradores por cargo".
 - **Local principal + outros locais autorizados** no formulário, na Lista
   (coluna + filtro "Local", só quando há mais de um local) e no perfil.
   Só se oferecem cargos/locais ativos, mais o valor atual mesmo que

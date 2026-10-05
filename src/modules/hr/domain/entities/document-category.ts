@@ -1,5 +1,3 @@
-import type { JobRole } from "./employee.ts";
-
 /**
  * Âmbito da categoria (Base Organizacional): Colaborador, Empresa ou Ambos.
  * Uma categoria só da Empresa nunca entra nos requisitos dos colaboradores.
@@ -17,8 +15,6 @@ export interface DocumentCategoryDefinition {
   slug: string;
   label: string;
   mandatory: boolean;
-  /** Legacy (antes dos Cargos) — vazio desde a migração do ticket 09; ver `positionIds`. */
-  jobRoles: JobRole[];
   /** Cargos a que se aplica ("Cargos selecionados"); vazio = todos os colaboradores. */
   positionIds: string[];
   acceptedMimeTypes: string[];
@@ -33,7 +29,6 @@ export interface DocumentCategoryDefinition {
 export interface DocumentCategoryPayload {
   label: string;
   mandatory: boolean;
-  jobRoles: JobRole[];
   positionIds: string[];
   acceptedMimeTypes: string[];
   scope: DocumentCategoryScope;
