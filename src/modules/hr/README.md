@@ -1,7 +1,7 @@
 # Módulo: hr
 
 > Status: ativo
-> Última atualização: 2026-10-06 (Base Organizacional — recibos de vencimento, ticket 10)
+> Última atualização: 2026-10-06 (Base Organizacional — recibos de vencimento e recibos verdes, ticket 10)
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -184,7 +184,7 @@ Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
   documental do que junto de "Novo colaborador"). Ticket 10: coluna e
   filtro **Período** (só recibos) e botão **Importar recibos** (só admin)
   → `ImportPayslipsModal`.
-- `ImportPayslipsModal` (ticket 10) → período (mês anterior por omissão) +
+- `ImportPayslipsModal` (ticket 10) → tipo (Recibo de vencimento / Recibo verde — categorias separadas, mesma mecânica) + período (mês anterior por omissão) +
   vários PDFs → pré-visualização Arquivo | Colaborador | Período | Estado
   (`api.previewPayslipImport`) → confirmar → gravar
   (`api.importPayslips`, os PDFs são reenviados). Regras puras em

@@ -4,8 +4,16 @@
  * (`POST /api/hr/payslips/import/preview` e `/import`).
  */
 
-/** Categoria semeada pelo backend (`recibo_vencimento`). */
-export const PAYSLIP_CATEGORY_SLUG = "recibo_vencimento";
+/**
+ * Categorias que a importação aceita (semeadas pelo backend): recibo de
+ * vencimento (contratados) e recibo verde (prestadores independentes).
+ */
+export type PayslipCategory = "recibo_vencimento" | "recibo_verde";
+
+export const PAYSLIP_CATEGORY_LABELS: Record<PayslipCategory, string> = {
+  recibo_vencimento: "Recibo de vencimento",
+  recibo_verde: "Recibo verde",
+};
 
 export type PayslipPreviewStatus = "identified" | "duplicate" | "review";
 export type PayslipMatchReason = "nif" | "employee_id" | "name" | "file_name";

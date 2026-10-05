@@ -22,12 +22,12 @@ const PREVIEW: PayslipPreviewRow[] = [
 ];
 
 function renderModal() {
-  const calls: { period: string; mapping: PayslipMappingEntry[]; files: string[] }[] = [];
+  const calls: { category: string; period: string; mapping: PayslipMappingEntry[]; files: string[] }[] = [];
   const api = {
     listEmployees: async () => ({ items: EMPLOYEES, total: EMPLOYEES.length, page: 1, pageSize: 100 }),
     previewPayslipImport: vi.fn(async () => PREVIEW),
-    importPayslips: async (period: string, files: File[], mapping: PayslipMappingEntry[]) => {
-      calls.push({ period, mapping, files: files.map((f) => f.name) });
+    importPayslips: async (category: string, period: string, files: File[], mapping: PayslipMappingEntry[]) => {
+      calls.push({ category, period, mapping, files: files.map((f) => f.name) });
       return mapping.map((m) => ({ fileName: m.fileName, employeeId: m.employeeId, outcome: m.action === "replace" ? ("replaced" as const) : ("created" as const), documentId: "x", message: null }));
     },
   } as unknown as HrApiPort;
@@ -51,6 +51,7 @@ describe("ImportPayslipsModal", () => {
     const user = userEvent.setup();
     const dialog = screen.getByRole("dialog", { name: "Importar recibos" });
 
+    await user.selectOptions(within(dialog).getByLabelText("Tipo"), "recibo_verde");
     fireEvent.change(within(dialog).getByLabelText("Período"), { target: { value: "2026-09" } });
     await user.upload(within(dialog).getByLabelText("Recibos (PDF)"), [pdf("carlos.pdf"), pdf("gabriel.pdf"), pdf("doc123.pdf")]);
     await user.click(within(dialog).getByRole("button", { name: "Pré-visualizar" }));
@@ -67,6 +68,7 @@ describe("ImportPayslipsModal", () => {
     expect(await within(dialog).findByText("Versão substituída")).toBeInTheDocument();
     expect(calls).toEqual([
       {
+        category: "recibo_verde",
         period: "2026-09",
         files: ["carlos.pdf", "gabriel.pdf", "doc123.pdf"],
         mapping: [

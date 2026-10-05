@@ -22,7 +22,7 @@ import type {
   ShiftToReview,
 } from "../../entities/overview.ts";
 import type { DocumentCategoryDefinition, DocumentCategoryPayload } from "../../entities/document-category.ts";
-import type { PayslipImportResult, PayslipMappingEntry, PayslipPreviewRow } from "../../entities/payslip-import.ts";
+import type { PayslipCategory, PayslipImportResult, PayslipMappingEntry, PayslipPreviewRow } from "../../entities/payslip-import.ts";
 import type { Position, PositionPayload } from "../../entities/position.ts";
 import type {
   AttendanceIssueDetail,
@@ -98,9 +98,9 @@ export interface HrApiPort {
   /** 1 linha por (colaborador ativo × requisito documental) — fonte única da aba "Pessoas > Documentos". */
   getDocumentOverview(): Promise<DocumentOverviewRow[]>;
   /** Importação de recibos (ticket 10, só admin) — identifica o colaborador de cada PDF; não grava nada. */
-  previewPayslipImport(period: string, files: File[]): Promise<PayslipPreviewRow[]>;
+  previewPayslipImport(category: PayslipCategory, period: string, files: File[]): Promise<PayslipPreviewRow[]>;
   /** Grava os recibos confirmados (os PDFs são reenviados). */
-  importPayslips(period: string, files: File[], mapping: PayslipMappingEntry[]): Promise<PayslipImportResult[]>;
+  importPayslips(category: PayslipCategory, period: string, files: File[], mapping: PayslipMappingEntry[]): Promise<PayslipImportResult[]>;
 
   getOverview(locationId?: string): Promise<HrOverview>;
   listShiftsToReview(params: ListShiftsToReviewParams): Promise<ListShiftsToReviewResult>;

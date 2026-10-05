@@ -2,11 +2,13 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
 import {
+  PAYSLIP_CATEGORY_LABELS,
   PAYSLIP_DUPLICATE_MESSAGE,
   PAYSLIP_MATCH_REASON_LABELS,
   PAYSLIP_OUTCOME_LABELS,
   PAYSLIP_REVIEW_REASON_LABELS,
   PAYSLIP_STATUS_LABELS,
+  type PayslipCategory,
   type PayslipImportResult,
   type PayslipPreviewRow,
 } from "../../domain/entities/payslip-import.ts";
@@ -33,6 +35,7 @@ const inputCls = "rounded-md border border-stone-300 bg-white py-1.5 px-3 text-s
 export function ImportPayslipsModal({ onClose }: { onClose: () => void }) {
   const { api } = useHrModule();
   const qc = useQueryClient();
+  const [category, setCategory] = useState<PayslipCategory>("recibo_vencimento");
   const [period, setPeriod] = useState(() => defaultPayslipPeriod(new Date().toISOString().slice(0, 10)));
   const [files, setFiles] = useState<File[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -54,7 +57,7 @@ export function ImportPayslipsModal({ onClose }: { onClose: () => void }) {
   const employeeName = (id: string) => nameById.get(id) ?? "Colaborador";
 
   const previewMutation = useMutation({
-    mutationFn: () => api.previewPayslipImport(period, files),
+    mutationFn: () => api.previewPayslipImport(category, period, files),
     onSuccess: (data) => {
       setRows(data);
       setDecisions(Object.fromEntries(data.map((r) => [r.fileName, initialPayslipDecision(r)])));
@@ -64,7 +67,7 @@ export function ImportPayslipsModal({ onClose }: { onClose: () => void }) {
   const { mapping, errors } = rows ? buildPayslipMapping(rows, decisions, employeeName) : { mapping: [], errors: [] };
 
   const importMutation = useMutation({
-    mutationFn: () => api.importPayslips(period, files, mapping),
+    mutationFn: () => api.importPayslips(category, period, files, mapping),
     onSuccess: (data) => {
       setResults(data);
       void qc.invalidateQueries({ queryKey: ["hr-document-overview"] });
@@ -98,7 +101,9 @@ export function ImportPayslipsModal({ onClose }: { onClose: () => void }) {
             <h2 id="import-payslips-title" className="text-base font-semibold text-stone-900">
               Importar recibos
             </h2>
-            <p className="text-xs text-stone-500">Recibos de vencimento em PDF — o colaborador é identificado pelo NIF, nome ou nome do ficheiro.</p>
+            <p className="text-xs text-stone-500">
+              {rows === null ? "Recibos em PDF" : `${PAYSLIP_CATEGORY_LABELS[category]} em PDF`} — o colaborador é identificado pelo NIF, nome ou nome do ficheiro.
+            </p>
           </div>
           <button type="button" onClick={onClose} aria-label="Fechar janela" className="rounded-md px-2 py-1 text-stone-400 hover:text-stone-700">
             ✕
@@ -109,6 +114,16 @@ export function ImportPayslipsModal({ onClose }: { onClose: () => void }) {
           {rows === null && (
             <>
               <div className="flex flex-wrap items-end gap-4">
+                <label className="text-xs font-medium text-stone-600">
+                  Tipo
+                  <select aria-label="Tipo" value={category} onChange={(e) => setCategory(e.target.value as PayslipCategory)} className={`mt-1 block ${inputCls}`}>
+                    {Object.entries(PAYSLIP_CATEGORY_LABELS).map(([value, label]) => (
+                      <option key={value} value={value}>
+                        {label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
                 <label className="text-xs font-medium text-stone-600">
                   Período
                   <input type="month" aria-label="Período" value={period} onChange={(e) => setPeriod(e.target.value)} className={`mt-1 block ${inputCls}`} />
