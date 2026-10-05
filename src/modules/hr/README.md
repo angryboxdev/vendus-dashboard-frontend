@@ -604,6 +604,18 @@ simular um botão que não faz nada.
   anterior para o novo a cada refresh); cartões clicáveis com hover/pressão
   discretos; painéis com fade; linhas de "Hoje na operação" com hover;
   drawer de pendências entra e sai da direita.
+- **Visão Geral — KPIs reorganizados (2026-10-06, task "Reorganização dos
+  KPIs + Animação dos Alertas"):** só UI — mesmos 10 indicadores e fontes.
+  Grupos **Equipa** (Funcionários ativos, Admissões) · **Operação hoje**
+  (Escalados, Presentes, Atrasos, Ausentes) · **Pendências** (Dados
+  incompletos, Documentos em falta, Documentos a expirar, Turnos por
+  conferir) numa faixa `24% | 38% | 38%` (`xl`), com título centrado e
+  divisor subtil; em ecrãs menores quebram por grupo. Cartões com a mesma
+  altura/estrutura; cor semântica (`tone`) só quando o valor é > 0.
+  **Alertas prioritários** sobem de baixo em sequência (`motionRiseItem`),
+  recortados dentro da lista; painel com altura máxima e scroll (como
+  "Hoje na operação"); chave estável por alerta — um alerta novo num
+  refresh sobe sozinho, os outros não reanimam.
 - **Colaboradores:** KPIs animados; linhas da lista com stagger só no 1.º
   lote (pesquisa/filtros só fazem fade das linhas novas, sem atraso);
   badges com transição; drawers "Novo/Editar colaborador" e "Cargo" e os

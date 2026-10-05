@@ -1,5 +1,5 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
-import { MOTION_ENTER, MOTION_FADE, prefersReducedMotion, staggerDelay } from "./motion-core.ts";
+import { MOTION_ENTER, MOTION_FADE, MOTION_RISE, RISE_STAGGER_MS, prefersReducedMotion, staggerDelay } from "./motion-core.ts";
 
 const easeOutCubic = (t: number) => 1 - (1 - t) ** 3;
 
@@ -73,6 +73,16 @@ export function useFirstBatch(ids: readonly string[]): ReadonlySet<string> {
 
 export function motionListItem(index: number, inFirstBatch: boolean): { className: string; style?: { animationDelay: string } } {
   return inFirstBatch ? motionItem(index) : { className: MOTION_FADE };
+}
+
+/**
+ * Linha de uma lista que sobe de baixo: as do 1.º lote em sequência (80 ms
+ * entre cada, depois de `baseDelayMs`); uma que apareça depois (ex.: alerta
+ * novo num refresh) sobe sozinha, sem atraso. As que já estavam não reanimam.
+ */
+export function motionRiseItem(index: number, inFirstBatch: boolean, baseDelayMs = 0): { className: string; style?: { animationDelay: string } } {
+  if (!inFirstBatch) return { className: MOTION_RISE };
+  return { className: MOTION_RISE, style: { animationDelay: `${baseDelayMs + parseInt(staggerDelay(index, RISE_STAGGER_MS), 10)}ms` } };
 }
 
 /** Microfeedback de sucesso (task §16): `flash()` mostra "✓ Guardado" durante ~1,8 s. */

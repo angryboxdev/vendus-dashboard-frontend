@@ -18,6 +18,14 @@ export function prefersReducedMotion(): boolean {
 
 /** Entrada de cartões/linhas/blocos: fade + 6 px para cima. */
 export const MOTION_ENTER = "motion-safe:animate-motion-fade-up";
+/**
+ * Linha que "sobe de baixo" (16 px, 250 ms) — listas dentro de um painel
+ * (ex.: Alertas prioritários). O contentor deve recortar (`overflow-hidden`)
+ * para nada aparecer fora do painel durante a animação.
+ */
+export const MOTION_RISE = "motion-safe:animate-motion-rise";
+/** Intervalo entre linhas que sobem (70–90 ms pedidos). */
+export const RISE_STAGGER_MS = 80;
 /** Só fade — conteúdo de tabs (sem deslocamento, nunca layout shift) e trocas de estado. */
 export const MOTION_FADE = "motion-safe:animate-motion-fade";
 

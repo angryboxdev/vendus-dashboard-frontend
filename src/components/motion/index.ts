@@ -3,13 +3,14 @@ export {
   MOTION_ENTER,
   MOTION_FADE,
   MOTION_ROW_HOVER,
+  MOTION_RISE,
   motionDrawer,
   motionModal,
   motionOverlay,
   prefersReducedMotion,
   staggerDelay,
 } from "./motion-core.ts";
-export { motionItem, motionListItem, useFirstBatch, useAnimatedNumber, useAnimatedProgress, useMotionLeaving, useRetained, useSuccessFlash } from "./motion-hooks.ts";
+export { motionItem, motionListItem, motionRiseItem, useFirstBatch, useAnimatedNumber, useAnimatedProgress, useMotionLeaving, useRetained, useSuccessFlash } from "./motion-hooks.ts";
 export { MotionFade } from "./MotionFade.tsx";
 export { MotionStagger } from "./MotionStagger.tsx";
 export { MotionNumber } from "./MotionNumber.tsx";

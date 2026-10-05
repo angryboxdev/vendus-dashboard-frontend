@@ -1,11 +1,11 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { useHrModule } from "../../hr.module.tsx";
 import { SeverityBadge } from "./components/SeverityBadge.tsx";
 import { ShiftReviewModal } from "./ShiftReviewModal.tsx";
 import { PendencyDrawer, type PendencyPanelKind } from "./PendencyDrawer.tsx";
-import type { BlockResult, OverviewOperationRow } from "../../domain/entities/overview.ts";
+import type { BlockResult, OverviewAlert, OverviewOperationRow } from "../../domain/entities/overview.ts";
 import {
   MOTION_CARD_HOVER,
   MOTION_ROW_HOVER,
@@ -13,6 +13,8 @@ import {
   MotionNumber,
   MotionPresence,
   MotionStagger,
+  motionRiseItem,
+  useFirstBatch,
   useRetained,
 } from "../../../../components/motion/index.ts";
 
@@ -91,18 +93,61 @@ function formatDateTime(iso: string): string {
   return `Hoje, ${date} · Atualizado às ${time}`;
 }
 
+/** Chave estável de um alerta — um alerta novo num refresh anima sozinho; os outros não reanimam. */
+const alertKey = (a: OverviewAlert) => `${a.employeeId}:${a.message}`;
+
+type KpiTone = "neutral" | "positive" | "warning" | "danger";
+
+const TONE_CLASS: Record<KpiTone, string> = {
+  neutral: "text-stone-800",
+  positive: "text-emerald-600",
+  warning: "text-amber-600",
+  danger: "text-red-600",
+};
+
+/** Cores com significado (task "Reorganização dos KPIs", §5): com valor 0 o KPI fica neutro. */
+function toneClass(tone: KpiTone, value: number): string {
+  return value > 0 ? TONE_CLASS[tone] : TONE_CLASS.neutral;
+}
+
+/** Grupo de KPIs com título centrado e divisor subtil (sem card extra à volta). */
+function KpiGroup({
+  title,
+  startIndex,
+  gridClassName,
+  className = "",
+  children,
+}: {
+  title: string;
+  startIndex: number;
+  gridClassName: string;
+  className?: string;
+  children: ReactNode;
+}) {
+  return (
+    <section aria-label={title} className={className}>
+      <h2 className="text-center text-xs font-semibold uppercase tracking-wide text-stone-400">{title}</h2>
+      <div className="mb-3 mt-1.5 h-px w-full bg-[#F5C992]/50" aria-hidden="true" />
+      <MotionStagger className={`grid gap-3 ${gridClassName}`} startIndex={startIndex}>
+        {children}
+      </MotionStagger>
+    </section>
+  );
+}
+
 function KpiCard({
   label,
   block,
   format,
-  valueCls = "text-stone-800",
+  tone = "neutral",
   to,
   onClick,
 }: {
   label: string;
   block: BlockResult<number>;
   format?: (n: number) => string;
-  valueCls?: string;
+  /** Cor semântica do valor — só aplicada quando o valor é > 0 (zero sem problema fica neutro). */
+  tone?: KpiTone;
   to?: string;
   /** Abre um drawer sobreposto em vez de navegar (pendências — task "Melhorar Visão Geral e reorganizar Pessoas", secção 6: "abrir primeiro um drawer lateral, sem sair da Visão Geral"). Tem prioridade sobre `to` quando os dois são passados. */
   onClick?: () => void;
@@ -110,11 +155,11 @@ function KpiCard({
   const interactive = block.status === "ok" && (to !== undefined || onClick !== undefined);
   const content = (
     <div
-      className={`h-full rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm hover:bg-[#FDF8F5] ${interactive ? MOTION_CARD_HOVER : "transition-colors"}`}
+      className={`flex h-full min-h-[88px] flex-col justify-between rounded-xl border border-[#F5C992]/40 bg-white px-4 py-3 shadow-sm hover:bg-[#FDF8F5] ${interactive ? MOTION_CARD_HOVER : "transition-colors"}`}
     >
       <p className="text-xs font-medium text-stone-500">{label}</p>
       {block.status === "ok" ? (
-        <p className={`mt-1 text-xl font-bold ${valueCls}`}>
+        <p className={`mt-1 text-2xl font-bold ${toneClass(tone, block.data)}`}>
           <MotionNumber value={block.data} format={format} />
         </p>
       ) : (
@@ -178,6 +223,9 @@ export function OverviewView() {
     navigate(`/hr/schedules?employeeId=${row.employeeId}`);
   }
 
+  // 1.º lote de alertas: sobem em sequência; os que surgirem depois sobem sozinhos (task §10).
+  const firstAlerts = useFirstBatch(overview?.alerts.status === "ok" ? overview.alerts.data.map(alertKey) : []);
+
   if (isLoading || !overview) {
     return (
       <div className="flex min-h-full items-center justify-center bg-[#FAF6F3]">
@@ -201,85 +249,74 @@ export function OverviewView() {
       </div>
 
       <div className="space-y-6 p-6">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-          {/* Equipa */}
-          <div className="space-y-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-400">Equipa</h2>
-            <MotionStagger className="grid grid-cols-2 gap-3">
-              <KpiCard
-                label="Funcionários ativos"
-                block={team.status === "ok" ? { status: "ok", data: team.data.activeEmployees } : team}
-                valueCls="text-emerald-600"
-                to="/hr/people?status=active"
-              />
-              <KpiCard
-                label="Admissões este mês"
-                block={team.status === "ok" ? { status: "ok", data: team.data.admissionsThisMonth } : team}
-                to="/hr/people?status=active"
-              />
-              <KpiCard
-                label="Dados incompletos"
-                block={team.status === "ok" ? { status: "ok", data: team.data.incompleteProfiles } : team}
-                valueCls="text-amber-600"
-                onClick={() => openPanel("missing-fields")}
-              />
-              <KpiCard
-                label="Documentos em falta"
-                block={team.status === "ok" ? { status: "ok", data: team.data.missingDocumentsCount } : team}
-                valueCls="text-red-600"
-                onClick={() => openPanel("missing-documents")}
-              />
-              <KpiCard
-                label="Documentos a expirar"
-                block={team.status === "ok" ? { status: "ok", data: team.data.documentsExpiringSoon } : team}
-                valueCls="text-amber-600"
-                onClick={() => openPanel("expiring-documents")}
-              />
-            </MotionStagger>
-          </div>
+        {/* 3 grupos numa faixa (24% | 38% | 38%); em ecrãs menores quebram, sem perder o agrupamento. */}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 xl:grid-cols-[24fr_38fr_38fr]">
+          <KpiGroup title="Equipa" startIndex={0} gridClassName="grid-cols-2 xl:grid-cols-1">
+            <KpiCard
+              label="Funcionários ativos"
+              block={team.status === "ok" ? { status: "ok", data: team.data.activeEmployees } : team}
+              tone="positive"
+              to="/hr/people?status=active"
+            />
+            <KpiCard
+              label="Admissões este mês"
+              block={team.status === "ok" ? { status: "ok", data: team.data.admissionsThisMonth } : team}
+              to="/hr/people?status=active"
+            />
+          </KpiGroup>
 
-          {/* Operação hoje */}
-          <div className="space-y-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-400">Operação hoje</h2>
-            <MotionStagger className="grid grid-cols-2 gap-3" startIndex={2}>
-              <KpiCard
-                label="Escalados hoje"
-                block={today.status === "ok" ? { status: "ok", data: today.data.scheduledCount } : today}
-                to="/hr/calendar"
-              />
-              <KpiCard
-                label="Presentes agora"
-                block={today.status === "ok" ? { status: "ok", data: today.data.presentCount } : today}
-                valueCls="text-emerald-600"
-                to="/hr/calendar"
-              />
-              <KpiCard
-                label="Atrasos hoje"
-                block={today.status === "ok" ? { status: "ok", data: today.data.lateCount } : today}
-                valueCls="text-amber-600"
-                to="/hr/calendar"
-              />
-              <KpiCard
-                label="Ausentes hoje"
-                block={today.status === "ok" ? { status: "ok", data: today.data.absentCount } : today}
-                valueCls="text-red-600"
-                to="/hr/calendar"
-              />
-            </MotionStagger>
-          </div>
+          <KpiGroup title="Operação hoje" startIndex={1} gridClassName="grid-cols-2">
+            <KpiCard
+              label="Escalados hoje"
+              block={today.status === "ok" ? { status: "ok", data: today.data.scheduledCount } : today}
+              to="/hr/calendar"
+            />
+            <KpiCard
+              label="Presentes agora"
+              block={today.status === "ok" ? { status: "ok", data: today.data.presentCount } : today}
+              tone="positive"
+              to="/hr/calendar"
+            />
+            <KpiCard
+              label="Atrasos hoje"
+              block={today.status === "ok" ? { status: "ok", data: today.data.lateCount } : today}
+              tone="warning"
+              to="/hr/calendar"
+            />
+            <KpiCard
+              label="Ausentes hoje"
+              block={today.status === "ok" ? { status: "ok", data: today.data.absentCount } : today}
+              tone="danger"
+              to="/hr/calendar"
+            />
+          </KpiGroup>
 
-          {/* Pendências */}
-          <div className="space-y-3">
-            <h2 className="text-xs font-semibold uppercase tracking-wide text-stone-400">Pendências</h2>
-            <MotionStagger className="grid grid-cols-2 gap-3" startIndex={4}>
-              <KpiCard
-                label="Turnos por conferir"
-                block={pending.status === "ok" ? { status: "ok", data: pending.data.shiftsToReviewCount } : pending}
-                valueCls="text-violet-600"
-                to="/hr/overview/shifts-to-review"
-              />
-            </MotionStagger>
-          </div>
+          <KpiGroup title="Pendências" startIndex={2} gridClassName="grid-cols-2" className="md:col-span-2 xl:col-span-1">
+            <KpiCard
+              label="Dados incompletos"
+              block={team.status === "ok" ? { status: "ok", data: team.data.incompleteProfiles } : team}
+              tone="warning"
+              onClick={() => openPanel("missing-fields")}
+            />
+            <KpiCard
+              label="Documentos em falta"
+              block={team.status === "ok" ? { status: "ok", data: team.data.missingDocumentsCount } : team}
+              tone="danger"
+              onClick={() => openPanel("missing-documents")}
+            />
+            <KpiCard
+              label="Documentos a expirar"
+              block={team.status === "ok" ? { status: "ok", data: team.data.documentsExpiringSoon } : team}
+              tone="warning"
+              onClick={() => openPanel("expiring-documents")}
+            />
+            <KpiCard
+              label="Turnos por conferir"
+              block={pending.status === "ok" ? { status: "ok", data: pending.data.shiftsToReviewCount } : pending}
+              tone="warning"
+              to="/hr/overview/shifts-to-review"
+            />
+          </KpiGroup>
         </div>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
@@ -294,9 +331,14 @@ export function OverviewView() {
             ) : alerts.data.length === 0 ? (
               <p className="text-sm text-stone-400">Sem alertas no momento.</p>
             ) : (
-              <ul className="space-y-2">
-                {alerts.data.map((a, i) => (
-                  <li key={i} className="flex items-center justify-between gap-3 text-sm">
+              // Altura máxima + scroll (como "Hoje na operação"); a <ul> recorta as linhas enquanto sobem — nada sai do painel.
+              <div className="max-h-80 overflow-y-auto">
+                <ul className="space-y-2 overflow-hidden">
+                  {alerts.data.map((a, i) => {
+                    const key = alertKey(a);
+                    const motion = motionRiseItem(i, firstAlerts.has(key), 200);
+                    return (
+                  <li key={key} className={`flex items-center justify-between gap-3 text-sm ${motion.className}`} style={motion.style}>
                     <div className="flex items-center gap-2">
                       <SeverityBadge severity={a.severity} />
                       <Link to={`/hr/people/${a.employeeId}`} className="font-medium text-stone-700 hover:text-[#ED5C32] hover:underline">
@@ -305,8 +347,10 @@ export function OverviewView() {
                     </div>
                     <span className="shrink-0 text-xs text-stone-400">{a.employeeName}</span>
                   </li>
-                ))}
-              </ul>
+                    );
+                  })}
+                </ul>
+              </div>
             )}
           </MotionFade>
 
