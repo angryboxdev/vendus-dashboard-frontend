@@ -51,15 +51,18 @@ function fakeApi(seed: Position[]) {
   return api as unknown as HrApiPort;
 }
 
-function renderView(seed: Position[]) {
+function fakeModule(seed: Position[]): HrModule {
   const api = fakeApi(seed);
+  return { api, setEmployeeKioskPin: new SetEmployeeKioskPinUseCase(api) };
+}
+
+function renderView(seed: Position[]) {
   // Módulo completo (inclui o use case do PIN do kiosk, acrescentado no `main`).
-  const mod: HrModule = { api, setEmployeeKioskPin: new SetEmployeeKioskPinUseCase(api) };
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
       <MemoryRouter>
-        <HrProvider module={mod}>
+        <HrProvider module={fakeModule(seed)}>
           <PositionsView />
         </HrProvider>
       </MemoryRouter>
