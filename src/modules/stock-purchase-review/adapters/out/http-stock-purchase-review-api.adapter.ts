@@ -9,6 +9,7 @@ import type {
   DecideUnresolvedPayload,
   ConfirmStockPurchaseReviewPayload,
   CancelStockPurchaseReviewPayload,
+  CancelEmptyStockPurchaseReviewsResultDTO,
   StockItemOptionDTO,
   StockCategoryOptionDTO,
 } from "../../domain/entities/stock-purchase-review.ts";
@@ -64,6 +65,10 @@ export class HttpStockPurchaseReviewApiAdapter implements StockPurchaseReviewApi
 
   async cancelReview(reviewId: string, payload: CancelStockPurchaseReviewPayload): Promise<StockPurchaseReviewDTO> {
     return apiPost(`${BASE}/${encodeURIComponent(reviewId)}/cancel`, payload);
+  }
+
+  async cancelEmptyReviews(): Promise<CancelEmptyStockPurchaseReviewsResultDTO> {
+    return apiPost(`${BASE}/cancel-empty`, {});
   }
 
   async listStockItemOptions(): Promise<StockItemOptionDTO[]> {
