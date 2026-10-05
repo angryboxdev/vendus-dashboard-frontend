@@ -612,7 +612,9 @@ simular um botão que não faz nada.
   conferir) numa faixa `24% | 38% | 38%` (`xl`), com título centrado e
   divisor subtil; em ecrãs menores quebram por grupo. Cartões com a mesma
   altura/estrutura; cor semântica (`tone`) só quando o valor é > 0.
-  **Alertas prioritários** sobem de baixo em sequência (`motionRiseItem`),
+  **Alertas prioritários** sobem de baixo em sequência (`motionRiseItem`,
+  18 px, 280 ms, 90 ms entre cada, a partir dos 450 ms — depois de o painel
+  aparecer, senão o fade do painel escondia a subida),
   recortados dentro da lista; painel com altura máxima e scroll (como
   "Hoje na operação"); chave estável por alerta — um alerta novo num
   refresh sobe sozinho, os outros não reanimam.

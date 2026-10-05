@@ -16,7 +16,7 @@ export default {
         "motion-slide-out-right": { from: { opacity: "1", transform: "translateX(0)" }, to: { opacity: "0", transform: "translateX(16px)" } },
         "motion-pop-in": { from: { opacity: "0", transform: "translateY(8px) scale(0.99)" }, to: { opacity: "1", transform: "translateY(0) scale(1)" } },
         "motion-pop-out": { from: { opacity: "1", transform: "translateY(0) scale(1)" }, to: { opacity: "0", transform: "translateY(8px) scale(0.99)" } },
-        "motion-rise": { from: { opacity: "0", transform: "translateY(16px)" }, to: { opacity: "1", transform: "translateY(0)" } },
+        "motion-rise": { from: { opacity: "0", transform: "translateY(18px)" }, to: { opacity: "1", transform: "translateY(0)" } },
       },
       animation: {
         "motion-fade": "motion-fade 200ms ease-out both",
@@ -26,7 +26,7 @@ export default {
         "motion-slide-out-right": "motion-slide-out-right 180ms ease-in both",
         "motion-pop-in": "motion-pop-in 200ms ease-out both",
         "motion-pop-out": "motion-pop-out 160ms ease-in both",
-        "motion-rise": "motion-rise 250ms ease-out both",
+        "motion-rise": "motion-rise 280ms ease-out both",
       },
     },
   },

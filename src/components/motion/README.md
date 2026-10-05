@@ -33,7 +33,7 @@ perfil). Outras áreas ainda não usam (task: "não implementar nesta fase").
 | `MotionFade` | Entrada de um bloco; `variant="fade"` + `key` para conteúdo de tabs e trocas de estado. |
 | `MotionStagger` | Grelha de cartões em sequência (`startIndex` continua a sequência de outro grupo). |
 | `motionItem` / `useFirstBatch` + `motionListItem` | Linhas de tabela: stagger só no 1.º lote; resultados novos de pesquisa/filtros só com fade, sem atraso; as linhas que ficam não reanimam. |
-| `MOTION_RISE` / `motionRiseItem` | Linhas que sobem de baixo (16 px, 250 ms, 80 ms entre cada) dentro de um painel — o contentor recorta (`overflow-hidden`). Ex.: Alertas prioritários. |
+| `MOTION_RISE` / `motionRiseItem` | Linhas que sobem de baixo (18 px, 280 ms, 90 ms entre cada; começar depois de o painel estar visível) dentro de um painel — o contentor recorta (`overflow-hidden`). Ex.: Alertas prioritários. |
 | `MotionNumber` / `useAnimatedNumber` | KPI do valor anterior ao atual, com a formatação de sempre (`format`). |
 | `MotionProgress` | Barra 0 → valor (scaleX), `role="progressbar"` com o valor real. |
 | `MotionCollapse` | Expandir/recolher (grid-rows 0fr ↔ 1fr). |

@@ -86,7 +86,8 @@ describe("OverviewView — KPIs reorganizados e alertas", () => {
     expect(items).toHaveLength(12); // todos renderizados, na ordem do backend
     items.forEach((li, i) => expect(li).toHaveTextContent(`Alerta ${i + 1}`));
     expect(items[0]).toHaveClass("motion-safe:animate-motion-rise");
-    expect(items.slice(0, 3).map((li) => li.style.animationDelay)).toEqual(["200ms", "280ms", "360ms"]);
+    // Sobem depois de o painel estar visível (450 ms), 90 ms entre cada.
+    expect(items.slice(0, 3).map((li) => li.style.animationDelay)).toEqual(["450ms", "540ms", "630ms"]);
 
     const list = items[0]!.parentElement!;
     expect(list).toHaveClass("overflow-hidden"); // nada sai do painel durante a subida

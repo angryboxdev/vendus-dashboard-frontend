@@ -94,6 +94,7 @@ function formatDateTime(iso: string): string {
 }
 
 /** Chave estável de um alerta — um alerta novo num refresh anima sozinho; os outros não reanimam. */
+const ALERTS_RISE_START_MS = 450;
 const alertKey = (a: OverviewAlert) => `${a.employeeId}:${a.message}`;
 
 type KpiTone = "neutral" | "positive" | "warning" | "danger";
@@ -336,7 +337,8 @@ export function OverviewView() {
                 <ul className="space-y-2 overflow-hidden">
                   {alerts.data.map((a, i) => {
                     const key = alertKey(a);
-                    const motion = motionRiseItem(i, firstAlerts.has(key), 200);
+                    // Só começam depois de o painel acabar de aparecer (fade com 200 ms de atraso + ~220 ms), senão a subida não se vê.
+                    const motion = motionRiseItem(i, firstAlerts.has(key), ALERTS_RISE_START_MS);
                     return (
                   <li key={key} className={`flex items-center justify-between gap-3 text-sm ${motion.className}`} style={motion.style}>
                     <div className="flex items-center gap-2">

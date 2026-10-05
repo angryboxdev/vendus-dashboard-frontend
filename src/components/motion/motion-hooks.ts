@@ -76,8 +76,9 @@ export function motionListItem(index: number, inFirstBatch: boolean): { classNam
 }
 
 /**
- * Linha de uma lista que sobe de baixo: as do 1.º lote em sequência (80 ms
- * entre cada, depois de `baseDelayMs`); uma que apareça depois (ex.: alerta
+ * Linha de uma lista que sobe de baixo: as do 1.º lote em sequência (90 ms
+ * entre cada, depois de `baseDelayMs` — use o tempo que o painel demora a
+ * aparecer, senão a subida fica escondida pelo fade do próprio painel); uma que apareça depois (ex.: alerta
  * novo num refresh) sobe sozinha, sem atraso. As que já estavam não reanimam.
  */
 export function motionRiseItem(index: number, inFirstBatch: boolean, baseDelayMs = 0): { className: string; style?: { animationDelay: string } } {
