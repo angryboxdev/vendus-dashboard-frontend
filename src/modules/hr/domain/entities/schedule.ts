@@ -1,7 +1,8 @@
 import type { JobRole } from "./employee.ts";
 
 export type ShiftStatus = "draft" | "published";
-export type ShiftSource = "manual" | "base_schedule" | "rotation";
+/** `template`/`automation`: gerado por um Modelo de turno / por uma Automatização (RH 2.0). */
+export type ShiftSource = "manual" | "base_schedule" | "rotation" | "template" | "automation";
 export type ShiftAttendanceStatusValue = "worked_as_planned" | "late" | "left_early" | "cancelled";
 
 export interface WorkShift {
@@ -24,6 +25,8 @@ export interface WorkShift {
   rotationId: string | null;
   /** Tag partilhada por todos os turnos criados na mesma série recorrente — null = avulso, ou já destacado por edição individual ("Somente este turno"). */
   seriesId: string | null;
+  /** Modelo de turno de origem (RH 2.0) — o horário acima é cópia; alterar o modelo não o muda. */
+  templateId: string | null;
   attendanceStatus: ShiftAttendanceStatusValue | null;
   createdAt: string;
   updatedAt: string;

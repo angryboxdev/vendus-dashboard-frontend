@@ -25,6 +25,7 @@ import type {
   ShiftToReview,
 } from "../../domain/entities/overview.ts";
 import type { DocumentCategoryDefinition, DocumentCategoryPayload } from "../../domain/entities/document-category.ts";
+import type { ShiftTemplate, ShiftTemplatePayload } from "../../domain/entities/shift-template.ts";
 import type { PayslipCategory, PayslipImportResult, PayslipMappingEntry, PayslipPreviewRow } from "../../domain/entities/payslip-import.ts";
 import type {
   AttendanceIssueDetail,
@@ -323,6 +324,22 @@ export class HttpHrApiAdapter implements HrApiPort {
       weekStartDate,
       ...(overrideExceptions !== undefined && { overrideExceptions }),
     });
+  }
+
+  async listShiftTemplates(): Promise<ShiftTemplate[]> {
+    return apiGet<ShiftTemplate[]>(`${SCHEDULES_BASE}/templates`);
+  }
+
+  async createShiftTemplate(payload: ShiftTemplatePayload): Promise<ShiftTemplate> {
+    return apiPost<ShiftTemplate>(`${SCHEDULES_BASE}/templates`, payload);
+  }
+
+  async updateShiftTemplate(id: string, payload: Partial<ShiftTemplatePayload>): Promise<ShiftTemplate> {
+    return apiPatch<ShiftTemplate>(`${SCHEDULES_BASE}/templates/${encodeURIComponent(id)}`, payload);
+  }
+
+  async setShiftTemplateActive(id: string, active: boolean): Promise<ShiftTemplate> {
+    return apiPatch<ShiftTemplate>(`${SCHEDULES_BASE}/templates/${encodeURIComponent(id)}/active`, { active });
   }
 
   async listShiftRotations(): Promise<ShiftRotation[]> {

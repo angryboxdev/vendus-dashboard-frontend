@@ -22,6 +22,7 @@ import type {
   ShiftToReview,
 } from "../../entities/overview.ts";
 import type { DocumentCategoryDefinition, DocumentCategoryPayload } from "../../entities/document-category.ts";
+import type { ShiftTemplate, ShiftTemplatePayload } from "../../entities/shift-template.ts";
 import type { PayslipCategory, PayslipImportResult, PayslipMappingEntry, PayslipPreviewRow } from "../../entities/payslip-import.ts";
 import type { Position, PositionPayload } from "../../entities/position.ts";
 import type {
@@ -125,6 +126,12 @@ export interface HrApiPort {
   getBaseSchedule(employeeId: string): Promise<BaseScheduleCell[]>;
   upsertBaseScheduleCell(employeeId: string, payload: UpsertBaseScheduleCellPayload): Promise<BaseScheduleCell>;
   applyBaseSchedule(employeeId: string, weekStartDate: string, overrideExceptions?: boolean): Promise<ApplyBaseScheduleResult>;
+
+  // ── RH 2.0: Modelos de turno ─────────────────────────────────────────────
+  listShiftTemplates(): Promise<ShiftTemplate[]>;
+  createShiftTemplate(payload: ShiftTemplatePayload): Promise<ShiftTemplate>;
+  updateShiftTemplate(id: string, payload: Partial<ShiftTemplatePayload>): Promise<ShiftTemplate>;
+  setShiftTemplateActive(id: string, active: boolean): Promise<ShiftTemplate>;
 
   listShiftRotations(): Promise<ShiftRotation[]>;
   createShiftRotation(payload: CreateShiftRotationPayload): Promise<ShiftRotation>;

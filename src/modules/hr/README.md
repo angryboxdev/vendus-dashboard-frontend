@@ -1,7 +1,7 @@
 # Módulo: hr
 
 > Status: ativo
-> Última atualização: 2026-10-06 (Base Organizacional — recibos de vencimento e recibos verdes, ticket 10)
+> Última atualização: 2026-10-07 (RH 2.0 — Modelos de turno, ticket 01)
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -184,6 +184,14 @@ Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
   documental do que junto de "Novo colaborador"). Ticket 10: coluna e
   filtro **Período** (só recibos) e botão **Importar recibos** (só admin)
   → `ImportPayslipsModal`.
+- `ShiftTemplatesPanel` (RH 2.0, ticket 01) → Escalas & Turnos, aba
+  **Modelos & Automatizações** (antes "Turnos rotativos"): lista de modelos
+  (Nome, Horário, Tipo, Local padrão, Estado; Editar/Duplicar/Inativar) e
+  modal "Novo modelo de turno" (Direto/Repartido, noturno automático quando
+  o fim é antes do início, pausa, local padrão, cor, pré-visualização). As
+  rotações continuam por baixo até o ticket 04 as passar a automatizações.
+  Hooks `useShiftTemplates`/`useManageShiftTemplates`; regras puras em
+  `shift-template.service.ts` (mesma validação do backend).
 - `ImportPayslipsModal` (ticket 10) → tipo (Recibo de vencimento / Recibo verde — categorias separadas, mesma mecânica) + período (mês anterior por omissão) +
   vários PDFs → pré-visualização Arquivo | Colaborador | Período | Estado
   (`api.previewPayslipImport`) → confirmar → gravar
