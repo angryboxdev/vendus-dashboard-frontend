@@ -12,6 +12,7 @@ function category(overrides: Partial<DocumentCategoryDefinition>): DocumentCateg
     positionIds: [],
     acceptedMimeTypes: [],
     scope: "employee",
+    requiresPeriod: false,
     active: true,
     createdAt: "",
     updatedAt: "",

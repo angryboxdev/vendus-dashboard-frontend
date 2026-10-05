@@ -25,6 +25,7 @@ import type {
   ShiftToReview,
 } from "../../domain/entities/overview.ts";
 import type { DocumentCategoryDefinition, DocumentCategoryPayload } from "../../domain/entities/document-category.ts";
+import type { PayslipImportResult, PayslipMappingEntry, PayslipPreviewRow } from "../../domain/entities/payslip-import.ts";
 import type {
   AttendanceIssueDetail,
   CorrectShiftAttendancePayload,
@@ -159,6 +160,7 @@ export class HttpHrApiAdapter implements HrApiPort {
     formData.append("mandatory", String(payload.mandatory));
     formData.append("origin", payload.origin);
     if (payload.expiresAt) formData.append("expiresAt", payload.expiresAt);
+    if (payload.period) formData.append("period", payload.period);
     return apiPostFormData<EmployeeDocument>(`${BASE}/${encodeURIComponent(employeeId)}/documents`, formData);
   }
 
@@ -197,6 +199,22 @@ export class HttpHrApiAdapter implements HrApiPort {
 
   async getDocumentOverview(): Promise<DocumentOverviewRow[]> {
     return apiGet<DocumentOverviewRow[]>(DOCUMENT_OVERVIEW_BASE);
+  }
+
+  async previewPayslipImport(period: string, files: File[]): Promise<PayslipPreviewRow[]> {
+    const formData = new FormData();
+    formData.append("period", period);
+    for (const f of files) formData.append("files", f);
+    return apiPostFormData<PayslipPreviewRow[]>("/api/hr/payslips/import/preview", formData);
+  }
+
+  async importPayslips(period: string, files: File[], mapping: PayslipMappingEntry[]): Promise<PayslipImportResult[]> {
+    const formData = new FormData();
+    formData.append("period", period);
+    formData.append("mapping", JSON.stringify(mapping));
+    const wanted = new Set(mapping.map((m) => m.fileName));
+    for (const f of files) if (wanted.has(f.name)) formData.append("files", f);
+    return apiPostFormData<PayslipImportResult[]>("/api/hr/payslips/import", formData);
   }
 
   async getOverview(locationId?: string): Promise<HrOverview> {

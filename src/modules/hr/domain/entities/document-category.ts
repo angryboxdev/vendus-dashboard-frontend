@@ -23,6 +23,8 @@ export interface DocumentCategoryDefinition {
   positionIds: string[];
   acceptedMimeTypes: string[];
   scope: DocumentCategoryScope;
+  /** Categoria periódica (ex: Recibo de vencimento): o upload pede o período Mês/Ano; nunca fica "Em falta". Definida pelo backend. */
+  requiresPeriod: boolean;
   active: boolean;
   createdAt: string;
   updatedAt: string;

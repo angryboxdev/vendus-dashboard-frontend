@@ -4,6 +4,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { useHrModule } from "../../hr.module.tsx";
 import { PeopleTabs } from "./PeopleTabs.tsx";
 import { DocumentCategoriesModal } from "./DocumentCategoriesModal.tsx";
+import { ImportPayslipsModal } from "./ImportPayslipsModal.tsx";
+import { useAuth } from "../../../../contexts/AuthContext.tsx";
+import { formatPeriod } from "../../domain/services/payslip-import.service.ts";
 import {
   matchesValidityFilter,
   VALIDITY_FILTER_LABELS,
@@ -39,13 +42,16 @@ export function PeopleDocumentsView() {
   const { api } = useHrModule();
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { user } = useAuth();
   const [categoriesModalOpen, setCategoriesModalOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState(false);
   const [downloadError, setDownloadError] = useState<string | null>(null);
 
   const search = searchParams.get("search") ?? "";
   const status = (searchParams.get("status") as DocumentOverviewRow["status"] | null) ?? "";
   const requirementId = searchParams.get("requirement") ?? "";
   const validity = (searchParams.get("validity") as ValidityFilter | null) ?? "";
+  const period = searchParams.get("period") ?? "";
   const today = new Date().toISOString().slice(0, 10);
 
   const { data: rows, isLoading, isError } = useQuery({
@@ -71,12 +77,15 @@ export function PeopleDocumentsView() {
   };
 
   const requirementOptions = [...new Map(allRows.map((r) => [r.requirementId, r.requirementLabel])).entries()];
+  // Ticket 10: só os recibos (categorias periódicas) têm período.
+  const periodOptions = [...new Set(allRows.map((r) => r.period).filter((p): p is string => p !== null))].sort().reverse();
 
   const filtered = allRows.filter((r) => {
     if (search && !r.employeeName.toLowerCase().includes(search.toLowerCase())) return false;
     if (status && r.status !== status) return false;
     if (requirementId && r.requirementId !== requirementId) return false;
     if (!matchesValidityFilter(r.expiresAt, validity, today)) return false;
+    if (period && r.period !== period) return false;
     return true;
   });
 
@@ -103,13 +112,25 @@ export function PeopleDocumentsView() {
             <h1 className="text-lg font-bold text-stone-900">Colaboradores</h1>
             <p className="text-xs text-stone-500">Gestão de colaboradores e documentação.</p>
           </div>
-          <button
-            type="button"
-            onClick={() => setCategoriesModalOpen(true)}
-            className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
-          >
-            Categorias de documentos
-          </button>
+          <div className="flex gap-2">
+            {/* Recibos têm dados salariais — importação só para admin (ticket 10). */}
+            {user?.role === "admin" && (
+              <button
+                type="button"
+                onClick={() => setImportOpen(true)}
+                className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
+              >
+                Importar recibos
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setCategoriesModalOpen(true)}
+              className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
+            >
+              Categorias de documentos
+            </button>
+          </div>
         </div>
         <PeopleTabs />
       </div>
@@ -204,7 +225,22 @@ export function PeopleDocumentsView() {
               </option>
             ))}
           </select>
-          {(search || status || requirementId || validity) && (
+          {periodOptions.length > 0 && (
+            <select
+              aria-label="Período"
+              value={period}
+              onChange={(e) => updateParams({ period: e.target.value || undefined })}
+              className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
+            >
+              <option value="">Período: Todos</option>
+              {periodOptions.map((p) => (
+                <option key={p} value={p}>
+                  {formatPeriod(p)}
+                </option>
+              ))}
+            </select>
+          )}
+          {(search || status || requirementId || validity || period) && (
             <button
               type="button"
               onClick={() => setSearchParams(new URLSearchParams())}
@@ -236,6 +272,7 @@ export function PeopleDocumentsView() {
                   <tr>
                     <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Colaborador</th>
                     <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Documento</th>
+                    <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Período</th>
                     <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Estado</th>
                     <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Validade</th>
                     <th className="px-3 py-2" />
@@ -243,7 +280,7 @@ export function PeopleDocumentsView() {
                 </thead>
                 <tbody className="divide-y divide-[#F5C992]/30">
                   {filtered.map((row) => (
-                    <tr key={`${row.employeeId}:${row.requirementId}`}>
+                    <tr key={`${row.employeeId}:${row.requirementId}:${row.period ?? ""}`}>
                       <td className="px-3 py-2.5">
                         <button
                           type="button"
@@ -257,6 +294,7 @@ export function PeopleDocumentsView() {
                         <p className="text-stone-700">{row.requirementLabel}</p>
                         {row.mandatory && <span className="text-xs text-stone-400">Obrigatório</span>}
                       </td>
+                      <td className="px-3 py-2.5 text-stone-500">{formatPeriod(row.period)}</td>
                       <td className="px-3 py-2.5">
                         <StatusBadge status={row.status} />
                       </td>
@@ -282,6 +320,7 @@ export function PeopleDocumentsView() {
       </div>
 
       {categoriesModalOpen && <DocumentCategoriesModal onClose={() => setCategoriesModalOpen(false)} />}
+      {importOpen && <ImportPayslipsModal onClose={() => setImportOpen(false)} />}
     </div>
   );
 }

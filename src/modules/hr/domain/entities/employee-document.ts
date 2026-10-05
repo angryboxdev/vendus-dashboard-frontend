@@ -11,6 +11,8 @@ export interface EmployeeDocument {
   fileSizeBytes: number | null;
   origin: DocumentOrigin;
   expiresAt: string | null;
+  /** `YYYY-MM` nas categorias periódicas (ex: Recibo de vencimento); `null` nas restantes. */
+  period: string | null;
   version: number;
   previousVersionId: string | null;
   displayStatus: DocumentDisplayStatus;
@@ -23,6 +25,8 @@ export interface UploadDocumentPayload {
   mandatory: boolean;
   origin: DocumentOrigin;
   expiresAt: string | null;
+  /** Obrigatório (`YYYY-MM`) nas categorias periódicas. */
+  period?: string | null;
   file: File;
 }
 
@@ -96,6 +100,8 @@ export interface DocumentOverviewRow {
   status: "ok" | "expiring" | "expired" | "missing";
   expiresAt: string | null;
   documentId: string | null;
+  /** `YYYY-MM` nas linhas de recibos (uma por período); `null` nas restantes. */
+  period: string | null;
 }
 
 export const DOCUMENT_OVERVIEW_STATUS_LABELS: Record<DocumentOverviewRow["status"], { label: string; cls: string; dot: string }> = {
