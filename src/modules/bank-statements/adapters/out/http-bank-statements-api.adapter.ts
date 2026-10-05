@@ -12,8 +12,11 @@ import type {
   BankStatementDetailDTO,
   BankStatementSummaryDTO,
   ClassifyMovementPayload,
+  ConfirmGroupedSettlementResult,
   CreateRulePayload,
   DaySlotDTO,
+  GetGroupedSettlementSuggestionsResult,
+  GroupedEntityLinkInput,
   ImportStatementResult,
   InvoiceLinkedMovementDTO,
   MatchSuggestionDTO,
@@ -149,5 +152,16 @@ export class HttpBankStatementsApiAdapter implements BankStatementsApiPort {
     if (params.limit) q.set("limit", String(params.limit));
     const qs = q.toString();
     return apiGet<OccurrenceCandidateDTO[]>(`${BASE}/occurrences/candidates${qs ? `?${qs}` : ""}`);
+  }
+
+  async getGroupedSettlementSuggestions(movementId: string): Promise<GetGroupedSettlementSuggestionsResult> {
+    return apiGet(`${BASE}/movements/${encodeURIComponent(movementId)}/grouped-suggestions`);
+  }
+
+  async confirmGroupedSettlement(
+    movementId: string,
+    entityLinks: GroupedEntityLinkInput[],
+  ): Promise<ConfirmGroupedSettlementResult> {
+    return apiPost(`${BASE}/movements/${encodeURIComponent(movementId)}/grouped-settlement`, { entityLinks });
   }
 }

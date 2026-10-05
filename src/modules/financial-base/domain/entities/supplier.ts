@@ -77,6 +77,7 @@ export interface CreateSupplierPayload {
   defaultCostCenterCategoryId?: string | null;
   paymentTermsDays?: number | null;
   notes?: string | null;
+  defaultStockPolicy?: DefaultStockPolicy;
 }
 
 export interface UpdateSupplierPayload {
@@ -90,4 +91,5 @@ export interface UpdateSupplierPayload {
   defaultCostCenterCategoryId?: string | null;
   paymentTermsDays?: number | null;
   notes?: string | null;
+  defaultStockPolicy?: DefaultStockPolicy;
 }

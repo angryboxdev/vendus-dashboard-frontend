@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
+import { ApiError } from "../../../../lib/api.ts";
 import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { createPortal } from "react-dom";
 import { useNavigate, useSearchParams } from "react-router-dom";
@@ -3085,6 +3086,11 @@ export function InvoicesView() {
   );
   const [deleteConfirmInvoice, setDeleteConfirmInvoice] =
     useState<InvoiceDTO | null>(null);
+  // Módulo Stock (Compra por rever, D10) — eliminar uma fatura com uma
+  // revisão de stock ainda não aplicada exige confirmação explícita (409
+  // `requiresConfirmation`, ver shared-stock-review-guard no backend).
+  const [stockReviewDeleteConfirmMessage, setStockReviewDeleteConfirmMessage] =
+    useState<string | null>(null);
 
   // Data
   const { data: invoices = [], isLoading } = useQuery({
@@ -3193,15 +3199,39 @@ export function InvoicesView() {
   }, [searchParams, invoices, navigate]);
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => api.deleteInvoice(id),
-    onSuccess: (_data, id) => {
+    // `confirmRemoveStockReview` chega como variável do `mutate(...)`, nunca
+    // de estado React — mesmo padrão de `ReviewImportedInvoiceDrawer`'s
+    // `editMutation`, evita ler um valor desatualizado por causa do fecho
+    // (closure) do render corrente.
+    mutationFn: ({ id, confirmRemoveStockReview }: { id: string; confirmRemoveStockReview?: boolean }) =>
+      api.deleteInvoice(id, confirmRemoveStockReview),
+    onSuccess: (_data, { id }) => {
       void qc.invalidateQueries({ queryKey: ["invoices"] });
       void qc.invalidateQueries({ queryKey: ["invoice-alerts"] });
       if (detail?.id === id) setDetail(null);
       if (importResult?.invoice.id === id) setImportResult(null);
       setDeleteConfirmInvoice(null);
+      setStockReviewDeleteConfirmMessage(null);
+    },
+    onError: (err) => {
+      if (err instanceof ApiError && err.status === 409 && (err.data as { requiresConfirmation?: boolean } | null)?.requiresConfirmation) {
+        setStockReviewDeleteConfirmMessage(err.message);
+      }
     },
   });
+
+  function confirmStockReviewDeleteAndRetry() {
+    if (!deleteConfirmInvoice) return;
+    setStockReviewDeleteConfirmMessage(null);
+    deleteMutation.mutate({ id: deleteConfirmInvoice.id, confirmRemoveStockReview: true });
+  }
+
+  function cancelStockReviewDeleteConfirm() {
+    setStockReviewDeleteConfirmMessage(null);
+    // Limpa o erro 409 guardado pelo useMutation — sem isto, o modal de
+    // eliminar reapareceria mostrando essa mensagem como erro bloqueante.
+    deleteMutation.reset();
+  }
 
   async function handleMarkPaid(
     id: string,
@@ -4591,16 +4621,40 @@ export function InvoicesView() {
           />
         )}
 
-        {deleteConfirmInvoice && (
+        {deleteConfirmInvoice && !stockReviewDeleteConfirmMessage && (
           <DeleteConfirmModal
             invoice={deleteConfirmInvoice}
-            onConfirm={() => deleteMutation.mutate(deleteConfirmInvoice.id)}
+            onConfirm={() => deleteMutation.mutate({ id: deleteConfirmInvoice.id })}
             onClose={() => setDeleteConfirmInvoice(null)}
             deleting={
               deleteMutation.isPending &&
-              deleteMutation.variables === deleteConfirmInvoice.id
+              deleteMutation.variables?.id === deleteConfirmInvoice.id
             }
           />
+        )}
+
+        {stockReviewDeleteConfirmMessage && (
+          <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 px-4">
+            <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-2xl">
+              <p className="text-sm font-semibold text-stone-800">Revisão de stock associada</p>
+              <p className="mt-2 text-sm text-stone-600">{stockReviewDeleteConfirmMessage}</p>
+              <div className="mt-5 flex justify-end gap-2">
+                <button
+                  onClick={cancelStockReviewDeleteConfirm}
+                  className="rounded-md px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={confirmStockReviewDeleteAndRetry}
+                  disabled={deleteMutation.isPending}
+                  className="rounded-md bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+                >
+                  Confirmar e eliminar
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
 
@@ -4628,7 +4682,7 @@ export function InvoicesView() {
                   }}
                   disabled={
                     deleteMutation.isPending &&
-                    deleteMutation.variables === inv.id
+                    deleteMutation.variables?.id === inv.id
                   }
                   className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-red-50 disabled:opacity-40"
                 >

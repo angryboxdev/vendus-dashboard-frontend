@@ -262,6 +262,8 @@ export interface UpdateInvoicePayload {
   currency?: string;
   stockReviewOverride?: StockReviewOverride;
   stockReviewOverrideReason?: string | null;
+  /** Ver STOCK_REVIEW_REMOVAL_CONFIRMATION_REQUIRED — confirma que o utilizador aceita remover uma revisão de stock ainda não aplicada para prosseguir com esta alteração. */
+  confirmRemoveStockReview?: boolean;
 }
 
 export interface NewSupplierPayload {

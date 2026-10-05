@@ -1,7 +1,8 @@
 import { useState, type FormEvent } from "react";
 import { NumericInput } from "../../../../components/NumericInput.tsx";
 import type { CostCenterGroup, CostCenterCategory } from "../../domain/entities/cost-center.ts";
-import type { Supplier, CreateSupplierPayload, UpdateSupplierPayload } from "../../domain/entities/supplier.ts";
+import type { Supplier, CreateSupplierPayload, UpdateSupplierPayload, DefaultStockPolicy } from "../../domain/entities/supplier.ts";
+import { DEFAULT_STOCK_POLICY_LABELS } from "../../domain/entities/supplier.ts";
 
 const inputCls =
   "w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30";
@@ -31,6 +32,7 @@ export function SupplierDrawer({ open, editing, groups, categories, onClose, onS
     editing?.paymentTermsDays != null ? String(editing.paymentTermsDays) : "",
   );
   const [notes, setNotes] = useState(editing?.notes ?? "");
+  const [defaultStockPolicy, setDefaultStockPolicy] = useState<DefaultStockPolicy>(editing?.defaultStockPolicy ?? "inherit");
 
   const filteredCategories = categories.filter(
     (c) => c.isActive && (!defaultGroupId || c.groupId === defaultGroupId),
@@ -54,6 +56,7 @@ export function SupplierDrawer({ open, editing, groups, categories, onClose, onS
       defaultCostCenterCategoryId: defaultCategoryId || null,
       paymentTermsDays: paymentTermsDays ? Number(paymentTermsDays) : null,
       notes: notes || null,
+      defaultStockPolicy,
     };
     onSave(payload, isEdit ? editing!.id : undefined);
   }
@@ -150,6 +153,22 @@ export function SupplierDrawer({ open, editing, groups, categories, onClose, onS
               placeholder="30"
               className={inputCls}
             />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-stone-700">Impacto no stock (por defeito)</label>
+            <select
+              value={defaultStockPolicy}
+              onChange={(e) => setDefaultStockPolicy(e.target.value as DefaultStockPolicy)}
+              className={inputCls}
+            >
+              {(Object.entries(DEFAULT_STOCK_POLICY_LABELS) as [DefaultStockPolicy, string][]).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-stone-400">
+              Aplica-se apenas como sugestão ao criar novas faturas deste fornecedor — pode ser alterado em cada fatura.
+            </p>
           </div>
 
           <div>
