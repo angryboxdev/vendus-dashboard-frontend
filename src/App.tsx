@@ -76,6 +76,8 @@ import { DocumentsProvider } from "./modules/documents/documents.module.tsx";
 import { CalendarProvider } from "./modules/calendar/calendar.module.tsx";
 import { CalendarView } from "./modules/calendar/adapters/in/CalendarView.tsx";
 import { CompanyDocumentsView } from "./modules/documents/adapters/in/CompanyDocumentsView.tsx";
+import { SalesDeclarationProvider } from "./modules/sales-declaration/sales-declaration.module.tsx";
+import { SalesDeclarationView } from "./modules/sales-declaration/adapters/in/SalesDeclarationView.tsx";
 import { LocationCredentialsAdminView } from "./modules/location-credentials/adapters/in/LocationCredentialsAdminView.tsx";
 import { StockPurchaseReviewProvider } from "./modules/stock-purchase-review/stock-purchase-review.module.tsx";
 import { StockPurchaseReviewsListView } from "./modules/stock-purchase-review/adapters/in/StockPurchaseReviewsListView.tsx";
@@ -366,6 +368,14 @@ export default function App() {
                                     <Route path="suppliers/:id" element={<SupplierDetailView />} />
                                     <Route path="invoices" element={<InvoicesView />} />
                                     <Route path="accounting" element={<AccountingView />} />
+                                    <Route
+                                      path="sales-declaration"
+                                      element={
+                                        <SalesDeclarationProvider>
+                                          <SalesDeclarationView />
+                                        </SalesDeclarationProvider>
+                                      }
+                                    />
                                     <Route path="payable-entries" element={<PayableEntriesView />} />
                                     <Route path="recurrences" element={<RecurrencesView />} />
                                     <Route path="recurrences/monthly/:year/:month" element={<RecurrencesMonthlyView />} />
