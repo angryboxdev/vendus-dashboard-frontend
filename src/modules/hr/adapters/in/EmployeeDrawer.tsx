@@ -11,6 +11,7 @@ import {
 import { assignableOptions, normalizeAuthorizedLocations } from "../../domain/services/employee-assignment.service.ts";
 import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
 import { usePositions } from "./use-positions.ts";
+import { MotionLayer, MotionPresence } from "../../../../components/motion/index.ts";
 
 const inputCls =
   "w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30";
@@ -83,12 +84,10 @@ export function EmployeeDrawer({ open, editing, onClose, onSave, saving }: Emplo
     onSave(payload, isEdit ? editing!.id : undefined);
   }
 
-  if (!open) return null;
-
   return (
-    <>
-      <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
-      <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col bg-white shadow-xl">
+    <MotionPresence show={open}>
+      <MotionLayer kind="overlay" className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm" onClick={onClose} aria-hidden="true" />
+      <MotionLayer as="aside" kind="drawer" className="fixed inset-y-0 right-0 z-50 flex w-full max-w-xl flex-col bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-[#F5C992]/40 px-6 py-4">
           <h2 className="text-base font-semibold text-stone-800">
             {isEdit ? "Editar colaborador" : "Novo colaborador"}
@@ -309,7 +308,7 @@ export function EmployeeDrawer({ open, editing, onClose, onSave, saving }: Emplo
             </button>
           </div>
         </form>
-      </aside>
-    </>
+      </MotionLayer>
+    </MotionPresence>
   );
 }

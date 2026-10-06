@@ -23,6 +23,12 @@ import type {
 } from "../../entities/overview.ts";
 import type { DocumentCategoryDefinition, DocumentCategoryPayload } from "../../entities/document-category.ts";
 import type {
+  AutomationGenerationResult,
+  ShiftAutomation,
+  ShiftAutomationPayload,
+  ShiftAutomationStatus,
+} from "../../entities/shift-automation.ts";
+import type {
   ApplyTemplateResult,
   OccurrenceDecision,
   ShiftTemplate,
@@ -50,6 +56,7 @@ import type {
   BaseScheduleCell,
   ClearShiftsScope,
   ClearWorkShiftsResult,
+  ClearWorkShiftsPreview,
   CreateShiftRotationPayload,
   CreateWorkShiftPayload,
   CreateWorkShiftSeriesPayload,
@@ -144,11 +151,23 @@ export interface HrApiPort {
   /** Aplicar modelo — confirma; o backend revalida tudo e só aplica o que continua igual. */
   applyTemplate(templateId: string, config: TemplateApplicationConfig, decisions: Record<string, OccurrenceDecision>): Promise<ApplyTemplateResult>;
 
+  // ── RH 2.0: Automatizações ──────────────────────────────────────────────
+  listShiftAutomations(): Promise<ShiftAutomation[]>;
+  /** `generateNow`: gera já as primeiras semanas ("Guardar como automatização" no Aplicar modelo). */
+  createShiftAutomation(payload: ShiftAutomationPayload, generateNow: boolean): Promise<{ automation: ShiftAutomation; generation: AutomationGenerationResult | null }>;
+  updateShiftAutomation(id: string, payload: Partial<ShiftAutomationPayload>): Promise<ShiftAutomation>;
+  setShiftAutomationStatus(id: string, status: ShiftAutomationStatus): Promise<ShiftAutomation>;
+  /** "Gerar próximas X semanas". */
+  generateShiftAutomation(id: string, weeks?: number): Promise<AutomationGenerationResult>;
+  dismissAutomationIssue(id: string): Promise<void>;
+
   listShiftRotations(): Promise<ShiftRotation[]>;
   createShiftRotation(payload: CreateShiftRotationPayload): Promise<ShiftRotation>;
   previewShiftRotation(id: string, weeks?: number): Promise<RotationWeekPreview[]>;
   applyShiftRotation(id: string, fromWeekStartDate?: string, weeks?: number): Promise<ApplyBaseScheduleResult>;
   setShiftRotationActive(id: string, active: boolean): Promise<ShiftRotation>;
+  /** Apaga a rotação; os turnos já criados por ela ficam na escala. */
+  deleteShiftRotation(id: string): Promise<void>;
 
   getScheduleAlerts(from: string, to: string, locationId?: string): Promise<ScheduleAlerts>;
 
@@ -159,6 +178,7 @@ export interface HrApiPort {
   updateWorkShiftSeriesScope(id: string, payload: UpdateWorkShiftSeriesScopePayload): Promise<WorkShift[]>;
   /** "Limpar turnos" — âmbito explícito, nunca um "limpar tudo" implícito. */
   clearWorkShifts(scope: ClearShiftsScope): Promise<ClearWorkShiftsResult>;
+  previewClearWorkShifts(scope: ClearShiftsScope): Promise<ClearWorkShiftsPreview>;
 
   /** "Repetir escala pelo calendário" — copia os turnos reais de uma semana já montada para as semanas seguintes. Preview usa exatamente o mesmo cálculo da criação. */
   previewRepeatCalendarWeek(payload: PreviewRepeatCalendarWeekPayload): Promise<PreviewRepeatCalendarWeekResult>;

@@ -201,6 +201,21 @@ Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
   desativado se o turno existente tiver presença) → 3. Confirmar. O
   backend revalida na confirmação; o que mudou entretanto aparece em "Não
   aplicados". Regras puras em `template-application.service.ts`.
+- `ShiftRotationsPanel` → **Rotações antigas (A/B)** (2026-10-06): as rotações
+  deixaram de ser usadas (substituídas pelas Automatizações). Já não se
+  criam novas; as existentes podem ser pré-visualizadas, aplicadas,
+  pausadas ou **apagadas** (confirmação; os turnos já criados ficam). Sem
+  rotações, o painel não aparece.
+- `ShiftAutomationsPanel` (RH 2.0, ticket 03) → "Automatizações de turnos"
+  na aba Modelos & Automatizações: Nome (gerada até · por resolver),
+  Modelo, Aplicar a, Local, Quando, Recorrência (Semanal/Diária/Período
+  fixo), Estado; ações Gerar ("Gerar próximas X semanas"), Editar (nome,
+  dias, fim, horizonte, local — modelo/público não mudam: cria-se outra) e
+  Pausar/Ativar. "Nova automatização" abre o `ApplyTemplateModal` em
+  "Guardar como automatização" (Tipo de utilização, como no mockup): a
+  pré-visualização mostra só a 1.ª geração e os conflitos não se resolvem
+  ali — vão para "Alertas e ações", onde cada ocorrência tem "Resolver na
+  escala" e "Dispensar". Regras puras em `shift-automation.service.ts`.
 - `ImportPayslipsModal` (ticket 10) → tipo (Recibo de vencimento / Recibo verde — categorias separadas, mesma mecânica) + período (mês anterior por omissão) +
   vários PDFs → pré-visualização Arquivo | Colaborador | Período | Estado
   (`api.previewPayslipImport`) → confirmar → gravar
@@ -513,6 +528,15 @@ Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
   checkbox opcional "Criar também os N em conflito" ativa `force: true` —
   nunca ultrapassa férias/ausência/feriado, essas continuam sempre
   ignoradas.
+- `ClearShiftsModal` — âmbito **Período** (2026-10-06, apagar em massa —
+  p.ex. 12 semanas criadas por engano): De/Até (máx. 1 ano), todos ou
+  vários colaboradores, filtros opcionais "Só rascunhos", automatização e
+  modelo (o local filtrado na escala também se aplica). Exige
+  **pré-visualização** (`previewClearWorkShifts` →
+  `POST /hr/schedules/work-shifts/clear/preview`) com contagem por
+  colaborador e turnos preservados (com presença); qualquer alteração aos
+  critérios obriga a pré-visualizar de novo, e o que se apaga é
+  exatamente o âmbito pré-visualizado.
 - `ClearShiftsModal` — "Limpar turnos" em lote (âmbito Dia ou Semana para
   o colaborador do filtro ativo; para limpar uma série inteira, o ponto de
   entrada é "Limpar toda a série" dentro do `ShiftDrawer`, ao editar um
@@ -585,6 +609,37 @@ explicitamente não ser âmbito desta mudança.
 O Mockup 02 mostra estes dois botões no cabeçalho do perfil — omitidos
 nesta fase por não terem endpoint correspondente no backend. Preferível a
 simular um botão que não faz nada.
+
+### UI Motion MVP — Visão Geral e Colaboradores (2026-10-05)
+
+- Microanimações só via a camada partilhada `src/components/motion` (ver o
+  README de lá) — nunca animações avulsas nos componentes.
+- **Visão Geral:** KPIs entram em sequência e contam até ao valor (do
+  anterior para o novo a cada refresh); cartões clicáveis com hover/pressão
+  discretos; painéis com fade; linhas de "Hoje na operação" com hover;
+  drawer de pendências entra e sai da direita.
+- **Visão Geral — KPIs reorganizados (2026-10-06, task "Reorganização dos
+  KPIs + Animação dos Alertas"):** só UI — mesmos 10 indicadores e fontes.
+  Grupos **Equipa** (Funcionários ativos, Admissões) · **Operação hoje**
+  (Escalados, Presentes, Atrasos, Ausentes) · **Pendências** (Dados
+  incompletos, Documentos em falta, Documentos a expirar, Turnos por
+  conferir) numa faixa `24% | 38% | 38%` (`xl`), com título centrado e
+  divisor subtil; em ecrãs menores quebram por grupo. Cartões com a mesma
+  altura/estrutura; cor semântica (`tone`) só quando o valor é > 0.
+  **Alertas prioritários** sobem de baixo em sequência (`motionRiseItem`,
+  18 px, 280 ms, 90 ms entre cada, a partir dos 450 ms — depois de o painel
+  aparecer, senão o fade do painel escondia a subida),
+  recortados dentro da lista; painel com altura máxima e scroll (como
+  "Hoje na operação"); chave estável por alerta — um alerta novo num
+  refresh sobe sozinho, os outros não reanimam.
+- **Colaboradores:** KPIs animados; linhas da lista com stagger só no 1.º
+  lote (pesquisa/filtros só fazem fade das linhas novas, sem atraso);
+  badges com transição; drawers "Novo/Editar colaborador" e "Cargo" e os
+  modais "Categorias de documentos", "Importar recibos" e "Histórico de
+  versões" com entrada/saída.
+- **Perfil:** troca de tab com fade (sem deslocamento); cartões do Resumo
+  em sequência; "Dados do perfil" com `MotionProgress`; "✓ …" discreto ao
+  guardar perfil, estado, fotografia, PIN e documentos.
 
 ### Base Organizacional — Colaboradores, Cargos e Local principal
 

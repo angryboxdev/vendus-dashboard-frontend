@@ -8,6 +8,7 @@ import {
   type DocumentCategoryDefinition,
   type DocumentCategoryScope,
 } from "../../domain/entities/document-category.ts";
+import { MotionLayer } from "../../../../components/motion/index.ts";
 
 const DEFAULT_MIME_TYPES = ACCEPTED_MIME_TYPE_OPTIONS.map((o) => o.value);
 
@@ -141,8 +142,8 @@ export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
   const saving = createMutation.isPending || updateMutation.isPending;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-xl border border-stone-200 bg-white shadow-xl">
+    <MotionLayer kind="overlay" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+      <MotionLayer kind="modal" className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-xl border border-stone-200 bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
           <div>
             <h2 className="text-base font-semibold text-stone-900">Categorias de documentos</h2>
@@ -320,7 +321,7 @@ export function DocumentCategoriesModal({ onClose }: { onClose: () => void }) {
             </table>
           )}
         </div>
-      </div>
-    </div>
+      </MotionLayer>
+    </MotionLayer>
   );
 }

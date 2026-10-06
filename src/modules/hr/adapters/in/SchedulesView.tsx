@@ -8,6 +8,9 @@ import { ShiftDrawer } from "./ShiftDrawer.tsx";
 import { BaseScheduleModal } from "./BaseScheduleModal.tsx";
 import { ShiftRotationsPanel } from "./ShiftRotationsPanel.tsx";
 import { ShiftTemplatesPanel } from "./ShiftTemplatesPanel.tsx";
+import { ShiftAutomationsPanel } from "./ShiftAutomationsPanel.tsx";
+import { useManageShiftAutomations } from "./use-shift-automations.ts";
+import { OCCURRENCE_STATUS_LABELS } from "../../domain/entities/shift-template.ts";
 import { ClearShiftsModal } from "./ClearShiftsModal.tsx";
 import { RepeatScheduleWeekModal } from "./RepeatScheduleWeekModal.tsx";
 import { DaySummaryPanel } from "./DaySummaryPanel.tsx";
@@ -301,6 +304,7 @@ export function SchedulesView() {
     },
     onError: (e: unknown) => setFormError(e instanceof Error ? e.message : "Erro ao apagar turno"),
   });
+  const { dismissMutation } = useManageShiftAutomations();
   const publishAllMutation = useMutation({
     mutationFn: (ids: string[]) => api.publishWorkShifts(ids),
     onSuccess: invalidate,
@@ -460,14 +464,18 @@ export function SchedulesView() {
         // RH 2.0: Modelos de turno (ticket 01); as rotações passam a automatizações no ticket 04.
         <div className="space-y-4 p-4">
           <ShiftTemplatesPanel />
-          <ShiftRotationsPanel employees={employees} />
+          <ShiftAutomationsPanel />
+          <ShiftRotationsPanel />
         </div>
       ) : tab === "alerts" ? (
         <div className="p-4">
           <div className="space-y-2 rounded-xl border border-[#F5C992]/40 bg-white p-3 shadow-sm">
             <h2 className="text-sm font-semibold text-stone-800">Alertas e ações</h2>
             {!alerts ||
-            (alerts.coverageGaps.length === 0 && alerts.overlaps.length === 0 && alerts.pendingPublishCount === 0) ? (
+            (alerts.coverageGaps.length === 0 &&
+              alerts.overlaps.length === 0 &&
+              alerts.pendingPublishCount === 0 &&
+              (alerts.automationIssues ?? []).length === 0) ? (
               <p className="text-sm text-stone-400">Sem alertas no período visível.</p>
             ) : (
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -492,6 +500,35 @@ export function SchedulesView() {
                     <p className="font-semibold text-amber-700">Conflito de sobreposição</p>
                     <p className="text-stone-600">{o.employeeName}</p>
                     <p className="text-stone-400">{o.workDate}</p>
+                  </div>
+                ))}
+                {(alerts.automationIssues ?? []).map((issue) => (
+                  <div key={issue.id} className="rounded-lg border border-violet-100 bg-violet-50/40 p-2 text-xs">
+                    <p className="font-semibold text-violet-700">Automatização não criou o turno</p>
+                    <p className="text-stone-600">
+                      {issue.employeeName} · {issue.workDate}
+                    </p>
+                    <p className="text-stone-500">
+                      {issue.automationName} — {issue.status === "inactive_template" ? "Modelo inativo" : OCCURRENCE_STATUS_LABELS[issue.status].label}
+                    </p>
+                    <div className="mt-1 flex gap-3">
+                      <button
+                        onClick={() => {
+                          setTab("calendar");
+                          openNewShift(issue.workDate);
+                        }}
+                        className="font-medium text-[#ED5C32] hover:underline"
+                      >
+                        Resolver na escala →
+                      </button>
+                      <button
+                        onClick={() => dismissMutation.mutate(issue.id)}
+                        disabled={dismissMutation.isPending}
+                        className="text-stone-500 hover:underline disabled:opacity-50"
+                      >
+                        Dispensar
+                      </button>
+                    </div>
                   </div>
                 ))}
                 {alerts.pendingPublishCount > 0 && (
@@ -875,6 +912,7 @@ export function SchedulesView() {
         <ClearShiftsModal
           employeeId={employeeFilter || null}
           employeeName={employees.find((e) => e.id === employeeFilter)?.fullName ?? ""}
+          employees={employees}
           defaultWeekStartDate={toYmd(mondayOf(anchorDate))}
           locationId={locationFilter || undefined}
           onClose={() => setShowClearShifts(false)}

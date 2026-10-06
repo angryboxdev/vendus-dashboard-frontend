@@ -5,6 +5,15 @@ import { useHrModule } from "../../hr.module.tsx";
 import { Avatar } from "./components/Avatar.tsx";
 import { EmployeeDrawer } from "./EmployeeDrawer.tsx";
 import { PeopleTabs } from "./PeopleTabs.tsx";
+import {
+  MOTION_CARD_HOVER,
+  MOTION_FADE,
+  MOTION_ROW_HOVER,
+  MotionNumber,
+  MotionStagger,
+  motionListItem,
+  useFirstBatch,
+} from "../../../../components/motion/index.ts";
 import { usePositions } from "./use-positions.ts";
 import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
 import { locationNameOf, positionNameOf } from "../../domain/services/employee-assignment.service.ts";
@@ -25,7 +34,7 @@ function formatDate(d: string): string {
 function ProfileStateBadge({ complete }: { complete: boolean }) {
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
+      className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${MOTION_FADE} ${
         complete ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"
       }`}
     >
@@ -44,7 +53,7 @@ const DOCUMENT_SITUATION_BADGE: Record<DocumentSituation, { label: string; cls: 
 function DocumentSituationBadge({ situation }: { situation: DocumentSituation }) {
   const info = DOCUMENT_SITUATION_BADGE[situation];
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${info.cls}`}>
+    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${MOTION_FADE} ${info.cls}`}>
       <span className={`h-1.5 w-1.5 rounded-full ${info.dot}`} />
       {info.label}
     </span>
@@ -114,6 +123,7 @@ export function PeopleListView() {
   });
 
   const items = result?.items ?? [];
+  const firstBatch = useFirstBatch(items.map((row) => row.id));
   const total = result?.total ?? 0;
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
@@ -147,28 +157,28 @@ export function PeopleListView() {
 
       <div className="flex-1 space-y-4 p-4">
         {/* KPI Cards — clicáveis, funcionam como filtros locais (task "Melhorar Visão Geral e reorganizar Pessoas", secção 3/11) */}
-        <div className="grid grid-cols-1 gap-3 md:grid-cols-3">
+        <MotionStagger className="grid grid-cols-1 gap-3 md:grid-cols-3">
           <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 shadow-sm">
             <p className="text-xs font-medium text-stone-500">Funcionários ativos</p>
-            <p className="mt-0.5 text-lg font-bold text-emerald-600">{kpis?.activeEmployees ?? "—"}</p>
+            <p className="mt-0.5 text-lg font-bold text-emerald-600">{kpis ? <MotionNumber value={kpis.activeEmployees} /> : "—"}</p>
           </div>
           <button
             type="button"
             onClick={() => updateParams({ profileComplete: "incomplete", page: undefined })}
-            className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 text-left shadow-sm transition-colors hover:bg-[#FDF8F5]"
+            className={`rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 text-left shadow-sm hover:bg-[#FDF8F5] ${MOTION_CARD_HOVER}`}
           >
             <p className="text-xs font-medium text-stone-500">Dados incompletos</p>
-            <p className="mt-0.5 text-lg font-bold text-amber-600">{kpis?.incompleteProfiles ?? "—"}</p>
+            <p className="mt-0.5 text-lg font-bold text-amber-600">{kpis ? <MotionNumber value={kpis.incompleteProfiles} /> : "—"}</p>
           </button>
           <button
             type="button"
             onClick={() => navigate("/hr/people/documentos?status=expiring")}
-            className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 text-left shadow-sm transition-colors hover:bg-[#FDF8F5]"
+            className={`rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 text-left shadow-sm hover:bg-[#FDF8F5] ${MOTION_CARD_HOVER}`}
           >
             <p className="text-xs font-medium text-stone-500">Documentos a expirar</p>
-            <p className="mt-0.5 text-lg font-bold text-red-600">{kpis?.documentsExpiringSoon ?? "—"}</p>
+            <p className="mt-0.5 text-lg font-bold text-red-600">{kpis ? <MotionNumber value={kpis.documentsExpiringSoon} /> : "—"}</p>
           </button>
-        </div>
+        </MotionStagger>
 
         <div className="space-y-4">
           {/* Filters */}
@@ -291,8 +301,10 @@ export function PeopleListView() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[#F5C992]/30">
-                      {items.map((row) => (
-                        <tr key={row.id} className="transition-colors hover:bg-[#FDF8F5]">
+                      {items.map((row, i) => {
+                        const motion = motionListItem(i, firstBatch.has(row.id));
+                        return (
+                        <tr key={row.id} className={`${MOTION_ROW_HOVER} ${motion.className}`} style={motion.style}>
                           <td className="px-3 py-2">
                             <div className="flex items-center gap-2.5">
                               <Avatar name={row.fullName} photoUrl={row.photoUrl} size="sm" />
@@ -324,7 +336,8 @@ export function PeopleListView() {
                           </td>
                           <td className="px-3 py-2 text-stone-500">{formatDate(row.updatedAt)}</td>
                         </tr>
-                      ))}
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

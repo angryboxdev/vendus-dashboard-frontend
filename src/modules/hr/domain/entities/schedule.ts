@@ -1,3 +1,4 @@
+import type { AutomationIssue } from "./shift-automation.ts";
 
 export type ShiftStatus = "draft" | "published";
 /** `template`/`automation`: gerado por um Modelo de turno / por uma Automatização (RH 2.0). */
@@ -26,6 +27,8 @@ export interface WorkShift {
   seriesId: string | null;
   /** Modelo de turno de origem (RH 2.0) — o horário acima é cópia; alterar o modelo não o muda. */
   templateId: string | null;
+  /** Automatização de origem (RH 2.0). */
+  automationId: string | null;
   attendanceStatus: ShiftAttendanceStatusValue | null;
   createdAt: string;
   updatedAt: string;
@@ -135,11 +138,29 @@ export type ClearShiftsScope =
   | { kind: "weeks"; employeeId: string; weekStartDates: string[] }
   | { kind: "series"; seriesId: string }
   /** Limpa a semana toda para TODOS os colaboradores — nunca implícito, só quando pedido sem filtro de colaborador. */
-  | { kind: "week_all"; weekStartDate: string; locationId?: string };
+  | { kind: "week_all"; weekStartDate: string; locationId?: string }
+  /** Apagar em massa por período (máx. 366 dias) — um, vários ou todos (`employeeIds` omitido) os colaboradores. */
+  | {
+      kind: "range";
+      from: string;
+      to: string;
+      employeeIds?: string[];
+      locationId?: string;
+      onlyDrafts?: boolean;
+      automationId?: string;
+      templateId?: string;
+    };
 
 export interface ClearWorkShiftsResult {
   deletedCount: number;
   skipped: Array<{ id: string; workDate: string; reason: "has_attendance" }>;
+}
+
+/** O que "Limpar turnos" vai apagar, sem apagar nada. `protectedCount` = com presença registada (nunca apagados). */
+export interface ClearWorkShiftsPreview {
+  deletableCount: number;
+  protectedCount: number;
+  byEmployee: Array<{ employeeId: string; deletableCount: number; protectedCount: number; firstDate: string; lastDate: string }>;
 }
 
 // ── Escala base ──────────────────────────────────────────────────────────────
@@ -290,6 +311,8 @@ export interface RepeatCalendarWeekResult {
 export interface ScheduleAlerts {
   coverageGaps: Array<{ employeeId: string; employeeName: string; workDate: string; locationId: string | null }>;
   overlaps: Array<{ employeeId: string; employeeName: string; workDate: string; shiftIds: string[] }>;
+  /** RH 2.0: ocorrências que as automatizações não criaram (conflito, ausência, sem local…). */
+  automationIssues: AutomationIssue[];
   pendingPublishCount: number;
   pendingPublishRange: { from: string; to: string } | null;
 }
