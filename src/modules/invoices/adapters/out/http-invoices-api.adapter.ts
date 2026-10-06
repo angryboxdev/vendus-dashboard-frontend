@@ -20,6 +20,8 @@ import type {
   ConfirmImportedInvoicePayload,
   SuggestClassificationResult,
   LineDetailMode,
+  InvoiceDocumentType,
+  SetLineDeductibilityOverridePayload,
 } from "../../domain/entities/invoice.ts";
 
 const BASE = "/api/invoices";
@@ -33,6 +35,7 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     if (params?.reconciliationStatus) q.set("reconciliationStatus", params.reconciliationStatus);
     if (params?.from) q.set("from", params.from);
     if (params?.to) q.set("to", params.to);
+    if (params?.documentType) q.set("documentType", params.documentType);
     if (params?.search) q.set("search", params.search);
     const qs = q.toString();
     return apiGet(`${BASE}${qs ? `?${qs}` : ""}`);
@@ -75,12 +78,15 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     return apiPatch(`${BASE}/${encodeURIComponent(id)}/status`, { status });
   }
 
-  async setLineDetailMode(id: string, mode: LineDetailMode): Promise<InvoiceDTO> {
-    return apiPatch(`${BASE}/${encodeURIComponent(id)}/line-detail-mode`, { mode });
+  async setLineDetailMode(id: string, mode: LineDetailMode, confirmRemoveStockReview?: boolean): Promise<InvoiceDTO> {
+    const body: Record<string, unknown> = { mode };
+    if (confirmRemoveStockReview !== undefined) body.confirmRemoveStockReview = confirmRemoveStockReview;
+    return apiPatch(`${BASE}/${encodeURIComponent(id)}/line-detail-mode`, body);
   }
 
-  async deleteInvoice(id: string): Promise<void> {
-    return apiDeleteNoContent(`${BASE}/${encodeURIComponent(id)}`);
+  async deleteInvoice(id: string, confirmRemoveStockReview?: boolean): Promise<void> {
+    const qs = confirmRemoveStockReview ? "?confirmRemoveStockReview=true" : "";
+    return apiDeleteNoContent(`${BASE}/${encodeURIComponent(id)}${qs}`);
   }
 
   async deleteLine(invoiceId: string, lineId: string): Promise<void> {
@@ -94,9 +100,21 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     );
   }
 
-  async importInvoice(file: File): Promise<InvoiceImportResultDTO> {
+  async setLineDeductibilityOverride(
+    invoiceId: string,
+    lineId: string,
+    payload: SetLineDeductibilityOverridePayload,
+  ): Promise<InvoiceLineDTO> {
+    return apiPatch(
+      `${BASE}/${encodeURIComponent(invoiceId)}/lines/${encodeURIComponent(lineId)}/deductibility`,
+      payload,
+    );
+  }
+
+  async importInvoice(file: File, documentType?: InvoiceDocumentType): Promise<InvoiceImportResultDTO> {
     const formData = new FormData();
     formData.append("file", file);
+    if (documentType) formData.append("documentType", documentType);
     return apiPostFormData(`${BASE}/import`, formData);
   }
 

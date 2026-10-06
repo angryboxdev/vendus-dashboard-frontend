@@ -81,6 +81,8 @@ export interface CostCenterCategory {
   affectsProfitability: boolean;
   requiresChannel: boolean;
   requiresAllocation: boolean;
+  /** Módulo Contabilidade — decisão manual do gestor, nunca uma regra fiscal automática. Default `true`. */
+  vatDeductible: boolean;
   isActive: boolean;
   description: string | null;
   createdAt: string;
@@ -97,6 +99,7 @@ export interface CreateCostCenterCategoryPayload {
   affectsProfitability: boolean;
   requiresChannel?: boolean;
   requiresAllocation?: boolean;
+  vatDeductible?: boolean;
   description?: string | null;
 }
 
@@ -108,6 +111,7 @@ export interface UpdateCostCenterCategoryPayload {
   affectsProfitability?: boolean;
   requiresChannel?: boolean;
   requiresAllocation?: boolean;
+  vatDeductible?: boolean;
   description?: string | null;
 }
 

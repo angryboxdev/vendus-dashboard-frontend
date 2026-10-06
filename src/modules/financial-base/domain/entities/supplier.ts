@@ -1,5 +1,14 @@
 export type SupplierStatus = "active" | "inactive";
 
+/** Módulo Stock (Compra por rever) — só preferência complementar; nunca ignora uma classificação financeira explícita da categoria. */
+export type DefaultStockPolicy = "inherit" | "usually_creates_review" | "usually_skips_review";
+
+export const DEFAULT_STOCK_POLICY_LABELS: Record<DefaultStockPolicy, string> = {
+  inherit: "Seguir preferência da categoria",
+  usually_creates_review: "Normalmente gera revisão de stock",
+  usually_skips_review: "Normalmente não afeta stock",
+};
+
 export interface Supplier {
   id: string;
   name: string;
@@ -13,6 +22,7 @@ export interface Supplier {
   paymentTermsDays: number | null;
   notes: string | null;
   status: SupplierStatus;
+  defaultStockPolicy: DefaultStockPolicy;
   createdAt: string;
   updatedAt: string;
 }
@@ -38,6 +48,7 @@ export interface SupplierInvoiceRow {
   totalWithoutVat: number;
   vatAmount: number;
   totalWithVat: number;
+  documentType: string;
   status: string;
   paidAt: string | null;
   attachmentUrl: string | null;
@@ -66,6 +77,7 @@ export interface CreateSupplierPayload {
   defaultCostCenterCategoryId?: string | null;
   paymentTermsDays?: number | null;
   notes?: string | null;
+  defaultStockPolicy?: DefaultStockPolicy;
 }
 
 export interface UpdateSupplierPayload {
@@ -79,4 +91,5 @@ export interface UpdateSupplierPayload {
   defaultCostCenterCategoryId?: string | null;
   paymentTermsDays?: number | null;
   notes?: string | null;
+  defaultStockPolicy?: DefaultStockPolicy;
 }

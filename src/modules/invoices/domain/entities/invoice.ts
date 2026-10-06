@@ -21,10 +21,21 @@ export type InvoiceLineType =
   | "other";
 
 export type InvoiceSource = "manual" | "pdf_import" | "image_import";
+/** Fatura = aumenta o valor devido ao fornecedor. Nota de crédito = reduz (totais sempre negativos). */
+export type InvoiceDocumentType = "invoice" | "credit_note";
 export type AiExtractionStatus = "processing" | "done" | "failed";
 export type ReconciliationStatus = "none" | "pending_reconciliation" | "partially_reconciled" | "reconciled";
 export type LineDetailMode = "simple" | "detailed";
 export type PaymentMethod = "bank_transfer" | "direct_debit" | "mbway" | "card" | "cash" | "cheque" | "other";
+
+/** Módulo "Compra por rever" (stock-purchase-review) — decide se a fatura força/ignora a geração de revisão de stock, ou deixa a decisão automática (categoria/fornecedor). */
+export type StockReviewOverride = "auto" | "force_create" | "force_skip";
+
+export const STOCK_REVIEW_OVERRIDE_LABELS: Record<StockReviewOverride, string> = {
+  auto: "Automático (categoria/fornecedor)",
+  force_create: "Forçar criação de revisão",
+  force_skip: "Não criar revisão",
+};
 
 export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   bank_transfer: "Transferência bancária",
@@ -34,6 +45,11 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
   cash: "Numerário",
   cheque: "Cheque",
   other: "Outro",
+};
+
+export const DOCUMENT_TYPE_LABELS: Record<InvoiceDocumentType, string> = {
+  invoice: "Fatura",
+  credit_note: "Nota de crédito",
 };
 
 export const INVOICE_STATUS_LABELS: Record<InvoiceStatus, string> = {
@@ -85,6 +101,10 @@ export interface InvoiceLineDTO {
   requiresAllocation: boolean;
   dreValue: number;
   cashflowValue: number;
+  /** Módulo Contabilidade — `null` = usa a sugestão da subcategoria (`vatDeductible` boolean → 100% ou 0%). */
+  deductiblePercentage: number | null;
+  /** Obrigatório sempre que `deductiblePercentage` não é `null` (validado no backend). */
+  deductibilityOverrideReason: string | null;
   createdAt: string;
 }
 
@@ -102,6 +122,7 @@ export interface InvoiceDTO {
   subtotalWithoutVat: number;
   totalVat: number;
   totalWithVat: number;
+  documentType: InvoiceDocumentType;
   status: InvoiceStatus;
   notes: string | null;
   attachmentUrl: string | null;
@@ -124,6 +145,9 @@ export interface InvoiceDTO {
   paymentMethod: string | null;
   paymentNotes: string | null;
   competenceDate: string | null;
+  /** Default `"auto"` — deixa o backend decidir (categoria/fornecedor, nunca Centro de Custo) se gera revisão de impacto em stock. */
+  stockReviewOverride: StockReviewOverride;
+  stockReviewOverrideReason: string | null;
   createdAt: string;
   updatedAt: string;
   lines?: InvoiceLineDTO[];
@@ -210,6 +234,8 @@ export interface CreateInvoicePayload {
   totalVat: number;
   totalWithVat: number;
   notes?: string | null;
+  stockReviewOverride?: StockReviewOverride;
+  stockReviewOverrideReason?: string | null;
   lines?: CreateInvoiceLinePayload[];
 }
 
@@ -225,6 +251,7 @@ export interface UpdateInvoicePayload {
   subtotalWithoutVat?: number;
   totalVat?: number;
   totalWithVat?: number;
+  documentType?: InvoiceDocumentType;
   notes?: string | null;
   costCenterGroupId?: string | null;
   costCenterCategoryId?: string | null;
@@ -233,6 +260,10 @@ export interface UpdateInvoicePayload {
   affectsCashflow?: boolean;
   affectsProfitability?: boolean;
   currency?: string;
+  stockReviewOverride?: StockReviewOverride;
+  stockReviewOverrideReason?: string | null;
+  /** Ver STOCK_REVIEW_REMOVAL_CONFIRMATION_REQUIRED — confirma que o utilizador aceita remover uma revisão de stock ainda não aplicada para prosseguir com esta alteração. */
+  confirmRemoveStockReview?: boolean;
 }
 
 export interface NewSupplierPayload {
@@ -260,6 +291,7 @@ export interface ConfirmImportedInvoicePayload {
   subtotalWithoutVat?: number;
   totalVat?: number;
   totalWithVat?: number;
+  documentType?: InvoiceDocumentType;
   notes?: string | null;
   costCenterGroupId?: string | null;
   costCenterCategoryId?: string | null;
@@ -268,6 +300,8 @@ export interface ConfirmImportedInvoicePayload {
   affectsCashflow?: boolean;
   affectsProfitability?: boolean;
   currency?: string;
+  stockReviewOverride?: StockReviewOverride;
+  stockReviewOverrideReason?: string | null;
   saveAsPayable?: boolean;
   markAsPaid?: boolean;
   paidAt?: string; // YYYY-MM-DD — used when markAsPaid is true
@@ -284,6 +318,12 @@ export interface UpdateInvoiceLinePayload {
   totalWithVat?: number;
   /** Optional (D4): omitted means "organization-wide, no store". Never defaulted. */
   locationId?: string | null;
+}
+
+/** Módulo Contabilidade — override de dedutibilidade de IVA por linha de fatura. `deductiblePercentage: null` repõe a sugestão da subcategoria. */
+export interface SetLineDeductibilityOverridePayload {
+  deductiblePercentage: number | null;
+  deductibilityOverrideReason: string | null;
 }
 
 export interface ClassifyLinePayload {
@@ -310,6 +350,7 @@ export interface ListInvoicesParams {
   from?: string;
   to?: string;
   isDirectDebit?: boolean;
+  documentType?: InvoiceDocumentType;
   search?: string;
 }
 
@@ -320,4 +361,5 @@ export const VALIDATION_ISSUE_LABELS: Record<string, string> = {
   value_discrepancy: "Divergência entre subtotal + IVA e total",
   duplicate_invoice: "Fatura duplicada (mesmo número e fornecedor)",
   supplier_is_own_company: "IA identificou a própria empresa como fornecedor — corrige manualmente",
+  credit_note_detected: "Identificado como Nota de Crédito — confirma o tipo de documento",
 };

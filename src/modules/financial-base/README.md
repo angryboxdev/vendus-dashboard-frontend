@@ -1,7 +1,7 @@
 # Módulo: financial-base
 
 > Status: ativo
-> Última atualização: 2026-08-12
+> Última atualização: 2026-09-30
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -104,6 +104,11 @@ do fornecedor mostra as suas faturas, mas só lê — não gere o ciclo de vida 
   `categoriesSkipped` (retornado por `seedDefaultCostCenters()`).
 - **ChannelDTO** — canal de venda/distribuição com `id`, `code`, `name`, `isActive`.
   Usado na classificação de linhas de fatura que requerem canal (ex: Uber Eats, Glovo, SALON).
+- **SupplierDeliveryScheduleDTO** (módulo Stock — Planeamento, D10) — calendário de
+  entrega deste fornecedor numa loja: `weekdays` (ISO 1=segunda…7=domingo, `null`/`[]`
+  = sem calendário), `cutoffTime`, `active`. Puramente informativo — nunca um
+  compromisso contratual, só alimenta a projeção de "próxima janela de entrega" do
+  módulo `stock-planning`. Uma linha por par fornecedor×loja.
 
 ## Ports
 
@@ -142,6 +147,12 @@ do fornecedor mostra as suas faturas, mas só lê — não gere o ciclo de vida 
 **Canais**
 - `listChannels()` — lista todos os canais (SALON, TAKEAWAY, UBER_EATS, GLOVO, etc.)
 
+**Calendário de entrega (D10)**
+- `listSupplierDeliverySchedules(supplierId)` — calendário deste fornecedor em todas
+  as lojas; chama `GET /api/financial-base/suppliers/:id/delivery-schedule`
+- `upsertSupplierDeliverySchedule(supplierId, payload)` — cria/actualiza o calendário
+  de um par fornecedor×loja; chama `PUT /api/financial-base/suppliers/:id/delivery-schedule`
+
 ## Adapters
 
 ### Entrada (UI)
@@ -151,7 +162,10 @@ do fornecedor mostra as suas faturas, mas só lê — não gere o ciclo de vida 
     `sortOrder` e toggle de estado. Drawer lateral para criar/editar.
   - *Tab 2 — Subcategorias*: tabela de `CostCenterCategory` com filtro por grupo,
     badge de `financialType`, flags DRE/cashflow/rentabilidade e toggle de estado.
-    Drawer lateral para criar/editar.
+    Drawer lateral para criar/editar — ganhou o flag "IVA dedutível"
+    (módulo `accounting`, default ligado) no mesmo `FLAGS` array dos
+    outros flags de impacto; decisão sempre manual do gestor, nunca
+    inferida automaticamente.
   - *Tab 3 — Análise*: tabela de analytics por subcategoria cruzando linhas de fatura
     classificadas com `costCenterCategoryId`. Dados vindos do módulo `invoices` via
     `useInvoicesModule()`. Rows expandíveis mostram o detalhe das linhas individuais.
@@ -173,16 +187,31 @@ do fornecedor mostra as suas faturas, mas só lê — não gere o ciclo de vida 
 
 - **`SupplierDetailView`** — página `/financial/suppliers/:id`:
   - Breadcrumb "← Fornecedores" com link para a listagem.
-  - Header com avatar de iniciais, nome, badge de estado, NIF, CC padrão, prazo.
-    Botões Exportar (abre `ExportStatementModal`), Editar e Inativar/Reativar.
-  - Bloco de contactos (email, telefone, morada, IBAN) — visível apenas se preenchidos.
-  - 4 KPI cards: Total faturado, Total pago, Total pendente (laranja se > 0), Faturas.
-  - Tabs: Resumo | Faturas (N) | Pagamentos | Regras.
-    - *Resumo*: últimas 5 faturas + sidebar direita (Classificação e definições +
-      Observações).
-    - *Faturas*: tabela completa com badges de estado (Paga, Pendente, Vencida,
-      Parcial, Anulada, Rascunho IA, Em revisão) e link para anexo.
-    - *Pagamentos* e *Regras*: placeholder "em breve".
+  - Header (fora das tabs, sempre visível) com avatar de iniciais, nome, badge de
+    estado. Botões Exportar (abre `ExportStatementModal`), Editar e Inativar/Reativar.
+  - Tab switcher local (botão + render condicional — não existe um componente de
+    Tabs partilhado no repo, ver Decisões de design) com 5 tabs:
+    - **Dados gerais** — conteúdo histórico da página, inalterado: 4 KPI cards
+      (Total faturado, Total pago, Total pendente, Faturas) + tabela de faturas à
+      esquerda + sidebar à direita (Contacto, Classificação e definições, Observações).
+    - **Planeamento de stock** (NOVO, módulo Stock — Planeamento D10) —
+      `SupplierPlanningTab`: calendário de entrega por loja (checkboxes de dia da
+      semana + hora limite + "próximas oportunidades de fornecimento" calculadas
+      client-side) com botão próprio "Guardar alterações"; sidebar com resumo dos
+      stats já carregados, evolução do valor faturado por mês (gráfico `recharts`)
+      e faturas recentes. Ver gaps documentados abaixo.
+    - **Histórico de compras** (NOVO) — reaproveita o mesmo componente de tabela de
+      faturas da tab "Dados gerais" (`SupplierInvoicesSection`, extraído para não
+      duplicar markup).
+    - **Itens associados** (NOVO) — `SupplierAssociatedItemsTab`: cruza com o
+      módulo `stock-planning` (`listItems({ supplierId })`) para mostrar os itens de
+      stock cujo fornecedor de referência é este. Instancia o seu próprio
+      `StockPlanningProvider` local (ver Decisões de design).
+    - **Contactos e notas** (NOVO) — reaproveita os blocos "Contacto" e
+      "Observações" da tab "Dados gerais" (`SupplierContactAndNotes`).
+  - *Nota*: os blocos "Faturas"/"Contacto"/"Observações" aparecem tanto em "Dados
+    gerais" (como sempre estiveram) como nas suas tabs dedicadas — nunca foram
+    removidos de "Dados gerais", só ficaram também acessíveis diretamente.
 
 ### Saída
 
@@ -191,6 +220,7 @@ do fornecedor mostra as suas faturas, mas só lê — não gere o ciclo de vida 
   - `listSuppliersWithStats` → `GET /api/financial-base/suppliers?includeStats=true`
   - `getSupplierDetail` → `GET /api/financial-base/suppliers/:id/detail`
   - `downloadSupplierStatement` → `GET /api/financial-base/suppliers/:id/statement-pdf`; recebe blob e dispara download do browser
+  - `listSupplierDeliverySchedules` / `upsertSupplierDeliverySchedule` → `GET`/`PUT /api/financial-base/suppliers/:id/delivery-schedule` (usa `apiPut`, novo import neste adaptador)
 
 ## Rotas
 
@@ -241,6 +271,23 @@ porque expressam semântica de negócio (o que é CMV, CAPEX, etc.). Componentes
 directamente — evita props drilling e mantém a consistência visual em todos os sítios onde
 um `financialType` é exibido.
 
+**`SupplierAssociatedItemsTab` instancia o seu próprio `StockPlanningProvider`.**
+A árvore de rotas `/financial/*` não monta o módulo `stock-planning` (só
+`/stock/planeamento/*` o faz). Em vez de acoplar `App.tsx` a mais um provider só
+para uma tab, a tab instancia localmente `<StockPlanningProvider>` em volta do seu
+próprio conteúdo — acoplamento explícito e contido a um único ficheiro
+(`SupplierAssociatedItemsTab.tsx`), sem alterar a composição global de rotas.
+
+**"Evolução do valor faturado" em vez de "Evolução de preços"/"Categorias mais
+compradas" (tab Planeamento de stock).** O mockup de referência mostra um
+gráfico de evolução de preço unitário e uma repartição por categoria mais
+comprada. `SupplierInvoiceRow` (retornado por `getSupplierDetail`) só tem
+totais ao nível do documento — sem preço por linha/produto nem categoria por
+linha de fatura. Inventar essas séries seria fabricar dados. A tab mostra por
+isso a evolução real e honesta que os dados suportam — valor total faturado por
+mês, agregando `supplier.invoices` já carregado — e omite "Categorias mais
+compradas" com uma nota explícita em vez de um gráfico vazio ou inventado.
+
 ## Como testar
 
 - Domínio: não há lógica de domínio no frontend — entidades são interfaces TypeScript.
@@ -260,3 +307,9 @@ um `financialType` é exibido.
   filtros de data se o volume crescer.
 - **Testes de UI não implementados** — `SuppliersView` e `SupplierDetailView` sem cobertura
   de testes.
+- **Tab "Planeamento de stock" — "Categorias mais compradas" não implementada.**
+  Sem dado de categoria por linha de fatura nesta API; ver Decisões de design.
+- **Tab "Itens associados" só lista pelo `supplierId` de referência do item.**
+  Não é um histórico de "o que já foi comprado a este fornecedor" — é "que itens de
+  stock têm este fornecedor configurado como sugestão de compra" no módulo
+  `stock-planning`. Requer seleção de loja (o endpoint de itens é sempre por loja).

@@ -4,8 +4,11 @@ import type {
   BankStatementDetailDTO,
   BankStatementSummaryDTO,
   ClassifyMovementPayload,
+  ConfirmGroupedSettlementResult,
   CreateRulePayload,
   DaySlotDTO,
+  GetGroupedSettlementSuggestionsResult,
+  GroupedEntityLinkInput,
   ImportStatementResult,
   InvoiceLinkedMovementDTO,
   MatchSuggestionDTO,
@@ -98,5 +101,22 @@ export interface BankStatementsApiPort {
    * Searches recurrence occurrences without an invoice, for use in the
    * "contrato_recorrencia" justify flow.
    */
-  searchOccurrenceCandidates(params: { q?: string; dateFrom?: string; dateTo?: string; limit?: number }): Promise<OccurrenceCandidateDTO[]>;
+  searchOccurrenceCandidates(params: { q?: string; dateFrom?: string; dateTo?: string; referenceDate?: string; limit?: number }): Promise<OccurrenceCandidateDTO[]>;
+
+  /**
+   * "Liquidação agrupada": suggests combinations of invoices/credit notes of
+   * the same supplier that exactly sum to the movement amount, plus the full
+   * eligible-document pool for manual multi-select.
+   */
+  getGroupedSettlementSuggestions(movementId: string): Promise<GetGroupedSettlementSuggestionsResult>;
+
+  /**
+   * Confirms a grouped settlement (one or more invoices/credit notes at
+   * once). Rejects with a 409 `ApiError` (body: `{ error, entityIds }`) when
+   * any document's `expectedOpenBalanceCents` is stale.
+   */
+  confirmGroupedSettlement(
+    movementId: string,
+    entityLinks: GroupedEntityLinkInput[],
+  ): Promise<ConfirmGroupedSettlementResult>;
 }

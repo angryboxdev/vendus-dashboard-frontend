@@ -1,5 +1,6 @@
 import { useRef, useState } from "react";
-import type { InvoiceImportResultDTO } from "../../domain/entities/invoice.ts";
+import type { InvoiceImportResultDTO, InvoiceDocumentType } from "../../domain/entities/invoice.ts";
+import { DOCUMENT_TYPE_LABELS } from "../../domain/entities/invoice.ts";
 import { useInvoicesModule } from "../../invoices.module.tsx";
 
 const ACCEPTED_TYPES = ["application/pdf", "image/jpeg", "image/png"];
@@ -28,6 +29,7 @@ export function ImportInvoiceModal({ onClose, onImported }: Props) {
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [docType, setDocType] = useState<InvoiceDocumentType>("invoice");
   const inputRef = useRef<HTMLInputElement>(null);
 
   async function handleFile(file: File) {
@@ -42,7 +44,11 @@ export function ImportInvoiceModal({ onClose, onImported }: Props) {
     setError(null);
     setUploading(true);
     try {
-      const result = await api.importInvoice(file);
+      // Só forçamos quando o utilizador marca explicitamente "Nota de
+      // crédito" — deixar o valor "Fatura" (o padrão do toggle) por enviar
+      // permite que a deteção automática da IA continue a funcionar mesmo
+      // que o utilizador nunca mexa neste botão.
+      const result = await api.importInvoice(file, docType === "credit_note" ? docType : undefined);
       onImported(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao processar fatura.");
@@ -93,6 +99,27 @@ export function ImportInvoiceModal({ onClose, onImported }: Props) {
         <div className="flex gap-6 p-6">
           {/* Drop zone */}
           <div className="flex flex-1 flex-col gap-4">
+            {/* Tipo de documento */}
+            <div>
+              <p className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-stone-400">Tipo de documento</p>
+              <div className="flex gap-2">
+                {(Object.entries(DOCUMENT_TYPE_LABELS) as [InvoiceDocumentType, string][]).map(([type, label]) => (
+                  <button
+                    key={type}
+                    type="button"
+                    disabled={uploading}
+                    onClick={() => setDocType(type)}
+                    className={`flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50 ${docType === type ? "border-[#ED5C32] bg-[#FDF8F5] text-[#ED5C32]" : "border-stone-200 text-stone-500 hover:border-stone-300"}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-[10px] text-stone-400">
+                Deixa em "Fatura" para deteção automática — a IA sugere Nota de crédito quando encontra os termos no documento.
+              </p>
+            </div>
+
             <div
               onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
               onDragLeave={() => setDragging(false)}

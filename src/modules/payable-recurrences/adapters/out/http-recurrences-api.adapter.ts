@@ -12,8 +12,11 @@ import type {
   OccurrenceDTO,
   OccurrenceWithRecurrenceDTO,
   RecurrenceSummaryDTO,
+  RecurrenceMonthlySummaryDTO,
+  BatchGenerationResultDTO,
   CreateRecurrencePayload,
   UpdateRecurrencePayload,
+  CloseRecurrencePayload,
   MarkOccurrenceAsPaidPayload,
   ListRecurrencesParams,
   ListOccurrencesParams,
@@ -24,6 +27,18 @@ const BASE = "/api/payable-recurrences";
 export class HttpRecurrencesApiAdapter implements RecurrencesApiPort {
   async getSummary(): Promise<RecurrenceSummaryDTO> {
     return apiGet(`${BASE}/summary`);
+  }
+
+  async getMonthlySummary(period: string): Promise<RecurrenceMonthlySummaryDTO> {
+    return apiGet(`${BASE}/summary/monthly?period=${encodeURIComponent(period)}`);
+  }
+
+  async listOccurrencesForPeriod(period: string): Promise<OccurrenceDTO[]> {
+    return apiGet(`${BASE}/occurrences?period=${encodeURIComponent(period)}`);
+  }
+
+  async generateBatch(year: number, month: number): Promise<BatchGenerationResultDTO> {
+    return apiPost(`${BASE}/batch/generate`, { year, month });
   }
 
   async listRecurrences(params?: ListRecurrencesParams): Promise<RecurrenceDTO[]> {
@@ -55,8 +70,8 @@ export class HttpRecurrencesApiAdapter implements RecurrencesApiPort {
     return apiPatch(`${BASE}/${encodeURIComponent(id)}/resume`, {});
   }
 
-  async closeRecurrence(id: string): Promise<RecurrenceDTO> {
-    return apiPatch(`${BASE}/${encodeURIComponent(id)}/close`, {});
+  async closeRecurrence(id: string, payload: CloseRecurrencePayload): Promise<RecurrenceDTO> {
+    return apiPatch(`${BASE}/${encodeURIComponent(id)}/close`, payload);
   }
 
   async uploadRecurrenceDocument(id: string, file: File): Promise<RecurrenceDTO> {

@@ -14,11 +14,19 @@ import { Sidebar } from "./modules/sidebar/adapters/in/SidebarView.tsx";
 import { SidebarProvider } from "./modules/sidebar/sidebar.module.tsx";
 import { HrCalendarPage } from "./pages/hr/HrCalendarPage";
 import { HrEmployeeDetailPage } from "./pages/hr/HrEmployeeDetailPage";
-import { HrEmployeesPage } from "./pages/hr/HrEmployeesPage";
 import { HrLayout } from "./pages/hr/HrLayout";
 import { HrAuditLogPage } from "./pages/hr/HrAuditLogPage";
 import { HrLeavePage } from "./pages/hr/HrLeavePage";
-import { HrReportPage } from "./pages/hr/HrReportPage";
+import { AttendanceView } from "./modules/hr/adapters/in/AttendanceView.tsx";
+import { AttendanceEmployeeDetailView } from "./modules/hr/adapters/in/AttendanceEmployeeDetailView.tsx";
+import { HrProvider } from "./modules/hr/hr.module.tsx";
+import { PeopleListView } from "./modules/hr/adapters/in/PeopleListView.tsx";
+import { PeopleDocumentsView } from "./modules/hr/adapters/in/PeopleDocumentsView.tsx";
+import { PositionsView } from "./modules/hr/adapters/in/PositionsView.tsx";
+import { EmployeeProfileView } from "./modules/hr/adapters/in/EmployeeProfileView.tsx";
+import { OverviewView } from "./modules/hr/adapters/in/OverviewView.tsx";
+import { ShiftsToReviewView } from "./modules/hr/adapters/in/ShiftsToReviewView.tsx";
+import { SchedulesView } from "./modules/hr/adapters/in/SchedulesView.tsx";
 import { KioskDisplayPage } from "./pages/kiosk/KioskDisplayPage";
 import { KioskCheckinPage } from "./pages/kiosk/KioskCheckinPage";
 import { CashClosingPage } from "./pages/cashClosing/CashClosingPage";
@@ -41,6 +49,8 @@ import { SuppliersView } from "./modules/financial-base/adapters/in/SuppliersVie
 import { SupplierDetailView } from "./modules/financial-base/adapters/in/SupplierDetailView.tsx";
 import { InvoicesProvider } from "./modules/invoices/invoices.module.tsx";
 import { InvoicesView } from "./modules/invoices/adapters/in/InvoicesView.tsx";
+import { AccountingProvider } from "./modules/accounting/accounting.module.tsx";
+import { AccountingView } from "./modules/accounting/adapters/in/AccountingView.tsx";
 import { PayableEntriesProvider } from "./modules/payable-entries/payable-entries.module.tsx";
 import { PayableEntriesView } from "./modules/payable-entries/adapters/in/PayableEntriesView.tsx";
 import { BankStatementsProvider } from "./modules/bank-statements/bank-statements.module.tsx";
@@ -52,12 +62,32 @@ import { BankAccountsView } from "./modules/bank-accounts/adapters/in/BankAccoun
 import { PayableRecurrencesProvider } from "./modules/payable-recurrences/payable-recurrences.module.tsx";
 import { RecurrenceDetailView } from "./modules/payable-recurrences/adapters/in/RecurrenceDetailView.tsx";
 import { RecurrencesView } from "./modules/payable-recurrences/adapters/in/RecurrencesView.tsx";
+import { RecurrencesMonthlyView } from "./modules/payable-recurrences/adapters/in/RecurrencesMonthlyView.tsx";
 import { AirMenuProvider } from "./modules/air-menu/air-menu.module.tsx";
 import { AirMenuView } from "./modules/air-menu/adapters/in/AirMenuView.tsx";
 import { VendusProvider } from "./modules/vendus/vendus.module.tsx";
 import { VendusView } from "./modules/vendus/adapters/in/VendusView.tsx";
 import { DevicePairingGate } from "./modules/location-credentials/adapters/in/DevicePairingGate.tsx";
+import { OrganizationProvider } from "./modules/organization/organization.module.tsx";
+import { OrganizationProfileView } from "./modules/organization/adapters/in/OrganizationProfileView.tsx";
+import { CompanyStructureLayout } from "./modules/organization/adapters/in/CompanyStructureLayout.tsx";
+import { LocationsAdminView } from "./modules/locations/adapters/in/LocationsAdminView.tsx";
+import { DocumentsProvider } from "./modules/documents/documents.module.tsx";
+import { CalendarProvider } from "./modules/calendar/calendar.module.tsx";
+import { CalendarView } from "./modules/calendar/adapters/in/CalendarView.tsx";
+import { CompanyDocumentsView } from "./modules/documents/adapters/in/CompanyDocumentsView.tsx";
 import { LocationCredentialsAdminView } from "./modules/location-credentials/adapters/in/LocationCredentialsAdminView.tsx";
+import { StockPurchaseReviewProvider } from "./modules/stock-purchase-review/stock-purchase-review.module.tsx";
+import { StockPurchaseReviewsListView } from "./modules/stock-purchase-review/adapters/in/StockPurchaseReviewsListView.tsx";
+import { StockPurchaseReviewDetailView } from "./modules/stock-purchase-review/adapters/in/StockPurchaseReviewDetailView.tsx";
+import { StockCountProvider } from "./modules/stock-count/stock-count.module.tsx";
+import { StockCountSessionsListView } from "./modules/stock-count/adapters/in/StockCountSessionsListView.tsx";
+import { StockCountSessionDetailView } from "./modules/stock-count/adapters/in/StockCountSessionDetailView.tsx";
+import { StockPlanningProvider } from "./modules/stock-planning/stock-planning.module.tsx";
+import { PlanningMainView } from "./modules/stock-planning/adapters/in/PlanningMainView.tsx";
+import { PlanningAlertsView } from "./modules/stock-planning/adapters/in/PlanningAlertsView.tsx";
+import { SuggestedPurchaseListView } from "./modules/stock-planning/adapters/in/SuggestedPurchaseListView.tsx";
+import { ForecastHistoryView } from "./modules/stock-planning/adapters/in/ForecastHistoryView.tsx";
 
 export default function App() {
   return (
@@ -145,16 +175,158 @@ export default function App() {
                   />
                   <Route path="/stock/stock" element={<StockPage />} />
                   <Route path="/stock/pizzas" element={<PizzasPage />} />
+                  <Route
+                    path="/stock/compras-por-rever"
+                    element={
+                      <FinancialBaseProvider>
+                        <StockPurchaseReviewProvider>
+                          <StockPurchaseReviewsListView />
+                        </StockPurchaseReviewProvider>
+                      </FinancialBaseProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/compras-por-rever/:id"
+                    element={
+                      <FinancialBaseProvider>
+                        <StockPurchaseReviewProvider>
+                          <StockPurchaseReviewDetailView />
+                        </StockPurchaseReviewProvider>
+                      </FinancialBaseProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/contagens"
+                    element={
+                      <StockCountProvider>
+                        <StockCountSessionsListView />
+                      </StockCountProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/contagens/:id"
+                    element={
+                      <StockCountProvider>
+                        <StockCountSessionDetailView />
+                      </StockCountProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/planeamento"
+                    element={
+                      <FinancialBaseProvider>
+                        <StockPlanningProvider>
+                          <PlanningMainView />
+                        </StockPlanningProvider>
+                      </FinancialBaseProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/planeamento/alertas"
+                    element={
+                      <StockPlanningProvider>
+                        <PlanningAlertsView />
+                      </StockPlanningProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/planeamento/lista-compras"
+                    element={
+                      <StockPlanningProvider>
+                        <SuggestedPurchaseListView />
+                      </StockPlanningProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/planeamento/historico"
+                    element={
+                      <StockPlanningProvider>
+                        <ForecastHistoryView />
+                      </StockPlanningProvider>
+                    }
+                  />
                 </Route>
                 <Route
                   path="/angrybox/hr"
                   element={<Navigate to="/hr" replace />}
                 />
                 <Route element={<HrLayout />}>
-                  <Route path="/hr" element={<HrEmployeesPage />} />
+                  <Route path="/hr" element={<Navigate to="/hr/overview" replace />} />
+                  <Route
+                    path="/hr/overview"
+                    element={
+                      <HrProvider>
+                        <OverviewView />
+                      </HrProvider>
+                    }
+                  />
+                  <Route
+                    path="/hr/overview/shifts-to-review"
+                    element={
+                      <HrProvider>
+                        <ShiftsToReviewView />
+                      </HrProvider>
+                    }
+                  />
+                  <Route
+                    path="/hr/people"
+                    element={
+                      <HrProvider>
+                        <PeopleListView />
+                      </HrProvider>
+                    }
+                  />
+                  <Route
+                    path="/hr/people/cargos"
+                    element={
+                      <HrProvider>
+                        <PositionsView />
+                      </HrProvider>
+                    }
+                  />
+                  <Route
+                    path="/hr/people/documentos"
+                    element={
+                      <HrProvider>
+                        <PeopleDocumentsView />
+                      </HrProvider>
+                    }
+                  />
+                  <Route
+                    path="/hr/people/:id"
+                    element={
+                      <HrProvider>
+                        <EmployeeProfileView />
+                      </HrProvider>
+                    }
+                  />
+                  <Route
+                    path="/hr/schedules"
+                    element={
+                      <HrProvider>
+                        <SchedulesView />
+                      </HrProvider>
+                    }
+                  />
                   <Route path="/hr/calendar" element={<HrCalendarPage />} />
                   <Route path="/hr/ferias" element={<HrLeavePage />} />
-                  <Route path="/hr/relatorio" element={<HrReportPage />} />
+                  <Route path="/hr/relatorio" element={<Navigate to="/hr/assiduidade" replace />} />
+                  <Route
+                    path="/hr/assiduidade"
+                    element={
+                      <HrProvider>
+                        <AttendanceView />
+                      </HrProvider>
+                    }
+                  />
+                  <Route
+                    path="/hr/assiduidade/colaborador/:employeeId"
+                    element={
+                      <HrProvider>
+                        <AttendanceEmployeeDetailView />
+                      </HrProvider>
+                    }
+                  />
                   <Route path="/hr/historico" element={<HrAuditLogPage />} />
                   <Route
                     path="/hr/employees/:id"
@@ -183,8 +355,9 @@ export default function App() {
                   element={
                     <FinancialBaseProvider>
                       <InvoicesProvider>
-                        <PayableEntriesProvider>
-                          <PayableRecurrencesProvider>
+                        <AccountingProvider>
+                          <PayableEntriesProvider>
+                            <PayableRecurrencesProvider>
                               <BankStatementsProvider>
                                 <BankAccountsProvider>
                                   <Routes>
@@ -192,8 +365,10 @@ export default function App() {
                                     <Route path="suppliers" element={<SuppliersView />} />
                                     <Route path="suppliers/:id" element={<SupplierDetailView />} />
                                     <Route path="invoices" element={<InvoicesView />} />
+                                    <Route path="accounting" element={<AccountingView />} />
                                     <Route path="payable-entries" element={<PayableEntriesView />} />
                                     <Route path="recurrences" element={<RecurrencesView />} />
+                                    <Route path="recurrences/monthly/:year/:month" element={<RecurrencesMonthlyView />} />
                                     <Route path="recurrences/:id" element={<RecurrenceDetailView />} />
                                     <Route path="bank-statements" element={<BanksView />} />
                                     <Route path="bank-statements/banks/:bankId" element={<BankAccountsView />} />
@@ -202,8 +377,9 @@ export default function App() {
                                   </Routes>
                                 </BankAccountsProvider>
                               </BankStatementsProvider>
-                          </PayableRecurrencesProvider>
-                        </PayableEntriesProvider>
+                            </PayableRecurrencesProvider>
+                          </PayableEntriesProvider>
+                        </AccountingProvider>
                       </InvoicesProvider>
                     </FinancialBaseProvider>
                   }
@@ -224,6 +400,33 @@ export default function App() {
                     </VendusProvider>
                   }
                 />
+                <Route
+                  path="/empresa"
+                  element={
+                    <OrganizationProvider>
+                      <CompanyStructureLayout />
+                    </OrganizationProvider>
+                  }
+                >
+                  <Route index element={<OrganizationProfileView />} />
+                  <Route path="locais" element={<LocationsAdminView />} />
+                  <Route
+                    path="calendario"
+                    element={
+                      <CalendarProvider>
+                        <CalendarView />
+                      </CalendarProvider>
+                    }
+                  />
+                  <Route
+                    path="documentos"
+                    element={
+                      <DocumentsProvider>
+                        <CompanyDocumentsView />
+                      </DocumentsProvider>
+                    }
+                  />
+                </Route>
                 <Route path="/admin/users" element={<UsersPage />} />
                 <Route path="/admin/location-tokens" element={<LocationCredentialsAdminView />} />
               </Routes>

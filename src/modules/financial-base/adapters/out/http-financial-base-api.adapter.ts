@@ -1,4 +1,4 @@
-import { apiGet, apiGetBlob, apiPost, apiPatch } from "../../../../lib/api.ts";
+import { apiGet, apiGetBlob, apiPost, apiPatch, apiPut } from "../../../../lib/api.ts";
 import type {
   FinancialBaseApiPort,
   ListCostCenterGroupsParams,
@@ -22,6 +22,10 @@ import type {
   CreateSupplierPayload,
   UpdateSupplierPayload,
 } from "../../domain/entities/supplier.ts";
+import type {
+  SupplierDeliveryScheduleDTO,
+  UpsertSupplierDeliverySchedulePayload,
+} from "../../domain/entities/supplier-delivery-schedule.ts";
 
 const BASE = "/api/financial-base";
 
@@ -119,10 +123,15 @@ export class HttpFinancialBaseApiAdapter implements FinancialBaseApiPort {
     return apiPatch(`${BASE}/suppliers/${encodeURIComponent(id)}/status`, { status });
   }
 
-  async downloadSupplierStatement(id: string, params?: { startDate?: string; endDate?: string }): Promise<void> {
+  async downloadSupplierStatement(
+    id: string,
+    params?: { startDate?: string; endDate?: string; openingBalance?: string; informedFinalBalance?: string },
+  ): Promise<void> {
     const q = new URLSearchParams();
     if (params?.startDate) q.set("startDate", params.startDate);
     if (params?.endDate) q.set("endDate", params.endDate);
+    if (params?.openingBalance) q.set("openingBalance", params.openingBalance);
+    if (params?.informedFinalBalance) q.set("informedFinalBalance", params.informedFinalBalance);
     const qs = q.toString();
     const blob = await apiGetBlob(`${BASE}/suppliers/${encodeURIComponent(id)}/statement-pdf${qs ? `?${qs}` : ""}`);
     const url = URL.createObjectURL(blob);
@@ -139,5 +148,18 @@ export class HttpFinancialBaseApiAdapter implements FinancialBaseApiPort {
 
   async listChannels(): Promise<ChannelDTO[]> {
     return apiGet(`${BASE}/channels`);
+  }
+
+  // ── Delivery schedule (módulo Stock — Planeamento, D10) ──────────────────────
+
+  async listSupplierDeliverySchedules(supplierId: string): Promise<SupplierDeliveryScheduleDTO[]> {
+    return apiGet(`${BASE}/suppliers/${encodeURIComponent(supplierId)}/delivery-schedule`);
+  }
+
+  async upsertSupplierDeliverySchedule(
+    supplierId: string,
+    payload: UpsertSupplierDeliverySchedulePayload,
+  ): Promise<SupplierDeliveryScheduleDTO> {
+    return apiPut(`${BASE}/suppliers/${encodeURIComponent(supplierId)}/delivery-schedule`, payload);
   }
 }

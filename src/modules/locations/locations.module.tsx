@@ -10,21 +10,44 @@ import {
 import { useAuth } from "../../contexts/AuthContext.tsx";
 import { HttpLocationsApiAdapter } from "./adapters/out/http-locations-api.adapter.ts";
 import { ListLocationsUseCase } from "./application/use-cases/list-locations.use-case.ts";
+import {
+  CreateLocationUseCase,
+  ListLocationHistoryUseCase,
+  SetLocationActiveUseCase,
+  UpdateLocationUseCase,
+} from "./application/use-cases/manage-locations.use-cases.ts";
 import type { LocationDTO } from "./domain/entities/location.ts";
 import type { ListLocationsPort } from "./domain/ports/in/list-locations.port.ts";
+import type {
+  CreateLocationPort,
+  ListLocationHistoryPort,
+  SetLocationActivePort,
+  UpdateLocationPort,
+} from "./domain/ports/in/manage-locations.port.ts";
 
 export interface LocationsModule {
   listLocations: ListLocationsPort;
+  /** Gestão (Empresa & Estrutura → Locais, só admin) — Base Organizacional, ticket 02. */
+  createLocation: CreateLocationPort;
+  updateLocation: UpdateLocationPort;
+  setLocationActive: SetLocationActivePort;
+  listLocationHistory: ListLocationHistoryPort;
 }
 
 /**
- * Composition root: wires the concrete adapter into the use case.
+ * Composition root: wires the concrete adapter into the use cases.
  * To swap providers (e.g. a fake for tests), replace HttpLocationsApiAdapter —
  * that is the ONLY change needed.
  */
 function buildModule(): LocationsModule {
   const api = new HttpLocationsApiAdapter();
-  return { listLocations: new ListLocationsUseCase(api) };
+  return {
+    listLocations: new ListLocationsUseCase(api),
+    createLocation: new CreateLocationUseCase(api),
+    updateLocation: new UpdateLocationUseCase(api),
+    setLocationActive: new SetLocationActiveUseCase(api),
+    listLocationHistory: new ListLocationHistoryUseCase(api),
+  };
 }
 
 const LocationsContext = createContext<LocationsModule | null>(null);

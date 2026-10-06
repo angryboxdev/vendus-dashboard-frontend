@@ -6,7 +6,7 @@ import {
 } from "./nav-state.service.ts";
 
 describe("buildTree", () => {
-  it("returns 9 entries for a non-admin user", () => {
+  it("returns 9 entries for a non-admin user (includes Empresa & Estrutura)", () => {
     const tree = buildTree({ email: "a@b.com", role: "manager" });
     expect(tree).toHaveLength(9);
   });

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { ApiError } from "../../../../lib/api.ts";
 import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { LocationSelect } from "../../../../components/LocationSelect.tsx";
 import { useInvoicesModule } from "../../invoices.module.tsx";
@@ -14,8 +15,10 @@ import type {
   NewSupplierPayload,
   LineDetailMode,
   InvoiceLineType,
+  InvoiceDocumentType,
+  StockReviewOverride,
 } from "../../domain/entities/invoice.ts";
-import { VALIDATION_ISSUE_LABELS, INVOICE_LINE_TYPE_LABELS } from "../../domain/entities/invoice.ts";
+import { VALIDATION_ISSUE_LABELS, INVOICE_LINE_TYPE_LABELS, DOCUMENT_TYPE_LABELS, STOCK_REVIEW_OVERRIDE_LABELS } from "../../domain/entities/invoice.ts";
 import type { CostCenterGroup, CostCenterCategory } from "../../../financial-base/domain/entities/cost-center.ts";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
@@ -846,19 +849,46 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   const [invoiceNumber, setInvoiceNumber] = useState(inv.invoiceNumber);
   const [invoiceDate, setInvoiceDate] = useState(inv.invoiceDate ?? todayStr());
   const [dueDate, setDueDate] = useState(inv.dueDate ?? "");
-  const [subtotalStr, setSubtotalStr] = useState((inv.subtotalWithoutVat / 100).toFixed(2));
-  const [vatStr, setVatStr] = useState((inv.totalVat / 100).toFixed(2));
-  const [totalStr, setTotalStr] = useState((inv.totalWithVat / 100).toFixed(2));
+  // Math.abs: os totais vêm sempre com o sinal já aplicado (negativo para
+  // notas de crédito) — o formulário mostra sempre a magnitude tal como
+  // aparece no documento; o sinal é reaplicado pelo backend a partir de
+  // documentType (Invoice.normalizeAmountSign), nunca escrito pelo utilizador.
+  const [subtotalStr, setSubtotalStr] = useState((Math.abs(inv.subtotalWithoutVat) / 100).toFixed(2));
+  const [vatStr, setVatStr] = useState((Math.abs(inv.totalVat) / 100).toFixed(2));
+  const [totalStr, setTotalStr] = useState((Math.abs(inv.totalWithVat) / 100).toFixed(2));
+  const [docType, setDocType] = useState<InvoiceDocumentType>(inv.documentType ?? "invoice");
   const [notes, setNotes] = useState(inv.notes ?? "");
+  const [stockReviewOverride, setStockReviewOverride] = useState<StockReviewOverride>(inv.stockReviewOverride ?? "auto");
+  const [stockReviewOverrideReason, setStockReviewOverrideReason] = useState(inv.stockReviewOverrideReason ?? "");
   const [costCenterGroupId, setCostCenterGroupId] = useState<string | null>(inv.costCenterGroupId ?? null);
   const [costCenterCategoryId, setCostCenterCategoryId] = useState<string | null>(inv.costCenterCategoryId ?? null);
   const [alreadyPaid, setAlreadyPaid] = useState(false);
   const [paidAt, setPaidAt] = useState(inv.invoiceDate ?? todayStr());
   const [isDirectDebit, setIsDirectDebit] = useState(false);
   const [directDebitDate, setDirectDebitDate] = useState(inv.dueDate ?? "");
-  const [detailMode, setDetailMode] = useState<LineDetailMode>(
-    importResult.extractedLines.length > 0 ? "detailed" : "simple"
+  // Em edição, mantém o heurístico antigo (reflete o estado real já
+  // gravado — `importResult.extractedLines` é sintetizado a partir das
+  // linhas atuais da fatura nesse modo). Numa importação nova, enquanto o
+  // utilizador não escolher manualmente (`manualDetailMode`), o modo é
+  // derivado da preferência do fornecedor: "normalmente gera revisão de
+  // stock" → "Detalhar por linha" (sem linhas, o Stock nunca consegue
+  // resolver a revisão — ver RecordInvoiceFinalizedForStockUseCase);
+  // qualquer outra preferência (ou nenhuma) → "Classificação única" (o
+  // default do `main`; a preferência do fornecedor só o muda para quem
+  // normalmente gera revisão de stock).
+  const [manualDetailMode, setManualDetailMode] = useState<LineDetailMode | null>(
+    isEdit ? (importResult.extractedLines.length > 0 ? "detailed" : "simple") : null
   );
+  const supplierDefaultStockPolicy = suppliers.find((s) => s.id === supplierId)?.defaultStockPolicy;
+  const detailMode: LineDetailMode =
+    manualDetailMode ?? (supplierDefaultStockPolicy === "usually_creates_review" ? "detailed" : "simple");
+  // Módulo Stock (Compra por rever) — mudar "Impacto no stock" ou descartar
+  // linhas detalhadas pode tornar órfã uma revisão de stock já criada para
+  // esta fatura ainda não aplicada. O backend responde 409 com
+  // `requiresConfirmation: true` nesse caso (ver shared-stock-review-guard
+  // no backend); mostramos um diálogo de confirmação e, se aceite,
+  // reenviamos o mesmo pedido com `confirmRemoveStockReview: true`.
+  const [stockReviewConfirmMessage, setStockReviewConfirmMessage] = useState<string | null>(null);
 
   const [lines, setLines] = useState<DraftLine[]>(() =>
     importResult.extractedLines.map((l, i) => {
@@ -926,7 +956,11 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   // freshly imported" framing: type/category/unit/location reset to blank,
   // same as a fresh import's extracted lines, for the user to reclassify.
   const editMutation = useMutation({
-    mutationFn: async () => {
+    // `confirmRemove` chega como variável do `mutate(confirmRemove)`, nunca
+    // de estado React — evita o problema clássico de `setState` + `mutate()`
+    // no mesmo handler lerem o valor antigo por causa do fecho (closure) do
+    // render corrente.
+    mutationFn: async (confirmRemove: boolean) => {
       let resolvedSupplierId = supplierId;
       if (newSupplierData) {
         const created = await fbModule.api.createSupplier(newSupplierData);
@@ -946,9 +980,12 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
         notes: notes.trim() || null,
         costCenterGroupId: detailMode === "simple" ? (costCenterGroupId || null) : null,
         costCenterCategoryId: detailMode === "simple" ? (costCenterCategoryId || null) : null,
+        stockReviewOverride,
+        stockReviewOverrideReason: stockReviewOverride === "force_skip" ? (stockReviewOverrideReason.trim() || null) : null,
+        confirmRemoveStockReview: confirmRemove || undefined,
       });
 
-      await api.setLineDetailMode(inv.id, detailMode);
+      await api.setLineDetailMode(inv.id, detailMode, confirmRemove || undefined);
       if (detailMode === "detailed") {
         for (const lineId of existingLineIds) {
           await api.deleteLine(inv.id, lineId);
@@ -965,7 +1002,25 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
       void qc.invalidateQueries({ queryKey: ["invoice-alerts"] });
       onConfirmed(updated);
     },
+    onError: (err) => {
+      if (err instanceof ApiError && err.status === 409 && (err.data as { requiresConfirmation?: boolean } | null)?.requiresConfirmation) {
+        setStockReviewConfirmMessage(err.message);
+      }
+    },
   });
+
+  function confirmStockReviewRemovalAndRetry() {
+    setStockReviewConfirmMessage(null);
+    editMutation.mutate(true);
+  }
+
+  function cancelStockReviewConfirm() {
+    setStockReviewConfirmMessage(null);
+    // Limpa o erro 409 guardado pelo useMutation — sem isto, o banner de
+    // erro normal (`confirmError` abaixo) reapareceria com a mesma
+    // mensagem de pedido-de-confirmação, como se fosse um erro bloqueante.
+    editMutation.reset();
+  }
 
   function buildPayload(saveAsPayable: boolean): ConfirmImportedInvoicePayload {
     const payload: ConfirmImportedInvoicePayload = {
@@ -979,8 +1034,11 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
       subtotalWithoutVat: toCents(subtotalStr),
       totalVat: toCents(vatStr),
       totalWithVat: toCents(totalStr),
+      documentType: docType,
       notes: notes.trim() || null,
-      saveAsPayable: (alreadyPaid || isDirectDebit) ? false : saveAsPayable,
+      stockReviewOverride,
+      stockReviewOverrideReason: stockReviewOverride === "force_skip" ? (stockReviewOverrideReason.trim() || null) : null,
+      saveAsPayable: (alreadyPaid || isDirectDebit || docType === "credit_note") ? false : saveAsPayable,
       markAsPaid: alreadyPaid,
       paidAt: alreadyPaid ? paidAt : undefined,
     };
@@ -1006,7 +1064,9 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
 
   const saving = isEdit ? editMutation.isPending : confirmMutation.isPending;
   const activeError = isEdit ? editMutation.error : confirmMutation.error;
-  const confirmError = activeError instanceof Error ? activeError.message : null;
+  // Enquanto o diálogo de confirmação de remoção da revisão de stock está
+  // visível, não duplicamos a mesma mensagem no banner de erro normal.
+  const confirmError = stockReviewConfirmMessage ? null : activeError instanceof Error ? activeError.message : null;
 
   const labelCls = "block text-xs font-medium text-stone-500 mb-1";
   const inputCls =
@@ -1106,6 +1166,26 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
                 onNewSupplier={handleNewSupplier}
               />
             </div>
+          </div>
+
+          {/* Tipo de documento */}
+          <div className="space-y-2">
+            <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Tipo de documento</p>
+            <div className="flex gap-2">
+              {(Object.entries(DOCUMENT_TYPE_LABELS) as [InvoiceDocumentType, string][]).map(([type, label]) => (
+                <button
+                  key={type}
+                  type="button"
+                  onClick={() => setDocType(type)}
+                  className={`flex-1 rounded-md border px-3 py-1.5 text-sm font-medium transition-colors ${docType === type ? "border-[#ED5C32] bg-[#FDF8F5] text-[#ED5C32]" : "border-stone-200 text-stone-500 hover:border-stone-300"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            {!isEdit && importResult.validationIssues.includes("credit_note_detected") && (
+              <p className="text-xs text-amber-600">Identificámos termos de nota de crédito no documento — confirma antes de guardar.</p>
+            )}
           </div>
 
           {/* Dados da fatura — largura total */}
@@ -1234,13 +1314,36 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
             />
           </div>
 
+          {/* Impacto no stock — largura total */}
+          <div>
+            <label className={labelCls}>Impacto no stock</label>
+            <select
+              value={stockReviewOverride}
+              onChange={(e) => setStockReviewOverride(e.target.value as StockReviewOverride)}
+              className={inputCls}
+            >
+              {(Object.entries(STOCK_REVIEW_OVERRIDE_LABELS) as [StockReviewOverride, string][]).map(([value, label]) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            {stockReviewOverride === "force_skip" && (
+              <input
+                type="text"
+                value={stockReviewOverrideReason}
+                onChange={(e) => setStockReviewOverrideReason(e.target.value)}
+                className={`${inputCls} mt-2`}
+                placeholder="Motivo (opcional)"
+              />
+            )}
+          </div>
+
           {/* Modo de classificação — largura total */}
           <div className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Modo de classificação</p>
             <div className="flex rounded-lg border border-stone-200 p-0.5 bg-stone-50">
               <button
                 type="button"
-                onClick={() => setDetailMode("simple")}
+                onClick={() => setManualDetailMode("simple")}
                 className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   detailMode === "simple"
                     ? "bg-white text-stone-800 shadow-sm"
@@ -1251,7 +1354,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
               </button>
               <button
                 type="button"
-                onClick={() => setDetailMode("detailed")}
+                onClick={() => setManualDetailMode("detailed")}
                 className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
                   detailMode === "detailed"
                     ? "bg-white text-stone-800 shadow-sm"
@@ -1314,7 +1417,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
             <div className="flex flex-col gap-2 sm:flex-row">
               {isEdit ? (
                 <button
-                  onClick={() => editMutation.mutate()}
+                  onClick={() => editMutation.mutate(false)}
                   disabled={saving}
                   className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
                 >
@@ -1349,14 +1452,16 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
                       >
                         {saving ? "A guardar…" : "Salvar como pendente"}
                       </button>
-                      <button
-                        onClick={() => confirmMutation.mutate(buildPayload(true))}
-                        disabled={saving || !dueDate}
-                        className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
-                        title={!dueDate ? "Defina a data de vencimento para gerar conta a pagar" : undefined}
-                      >
-                        {saving ? "A guardar…" : "Salvar e gerar conta a pagar"}
-                      </button>
+                      {docType !== "credit_note" && (
+                        <button
+                          onClick={() => confirmMutation.mutate(buildPayload(true))}
+                          disabled={saving || !dueDate}
+                          className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
+                          title={!dueDate ? "Defina a data de vencimento para gerar conta a pagar" : undefined}
+                        >
+                          {saving ? "A guardar…" : "Salvar e gerar conta a pagar"}
+                        </button>
+                      )}
                     </>
                   )}
                 </>
@@ -1388,6 +1493,31 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
           </div>
         )}
       </div>
+
+      {/* Confirmação — remover revisão de stock ainda não aplicada (409 requiresConfirmation) */}
+      {stockReviewConfirmMessage && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 px-4">
+          <div className="w-full max-w-sm rounded-xl bg-white p-5 shadow-2xl">
+            <p className="text-sm font-semibold text-stone-800">Revisão de stock associada</p>
+            <p className="mt-2 text-sm text-stone-600">{stockReviewConfirmMessage}</p>
+            <div className="mt-5 flex justify-end gap-2">
+              <button
+                onClick={cancelStockReviewConfirm}
+                className="rounded-md px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-100"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmStockReviewRemovalAndRetry}
+                disabled={editMutation.isPending}
+                className="rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              >
+                Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>,
     document.body
   );

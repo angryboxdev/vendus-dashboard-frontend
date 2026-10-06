@@ -12,6 +12,8 @@ import type {
   ConfirmImportedInvoicePayload,
   SuggestClassificationResult,
   LineDetailMode,
+  InvoiceDocumentType,
+  SetLineDeductibilityOverridePayload,
 } from "../../entities/invoice.ts";
 
 export interface AddInvoiceLinePayload {
@@ -38,11 +40,12 @@ export interface InvoicesApiPort {
   updateInvoice(id: string, payload: UpdateInvoicePayload): Promise<InvoiceDTO>;
   markInvoicePaid(id: string, paidAt?: string, bankAccountId?: string | null, paymentMethod?: string | null, paymentNotes?: string | null): Promise<InvoiceDTO>;
   setInvoiceStatus(id: string, status: InvoiceStatus): Promise<InvoiceDTO>;
-  setLineDetailMode(id: string, mode: LineDetailMode): Promise<InvoiceDTO>;
-  deleteInvoice(id: string): Promise<void>;
+  setLineDetailMode(id: string, mode: LineDetailMode, confirmRemoveStockReview?: boolean): Promise<InvoiceDTO>;
+  deleteInvoice(id: string, confirmRemoveStockReview?: boolean): Promise<void>;
   deleteLine(invoiceId: string, lineId: string): Promise<void>;
   classifyLine(invoiceId: string, lineId: string, payload: ClassifyLinePayload): Promise<InvoiceLineDTO>;
-  importInvoice(file: File): Promise<InvoiceImportResultDTO>;
+  setLineDeductibilityOverride(invoiceId: string, lineId: string, payload: SetLineDeductibilityOverridePayload): Promise<InvoiceLineDTO>;
+  importInvoice(file: File, documentType?: InvoiceDocumentType): Promise<InvoiceImportResultDTO>;
   confirmImportedInvoice(id: string, payload: ConfirmImportedInvoicePayload): Promise<InvoiceDTO>;
   getInvoiceAlerts(): Promise<InvoiceAlertsDTO>;
   suggestLineClassification(supplierId: string, description?: string): Promise<SuggestClassificationResult | null>;

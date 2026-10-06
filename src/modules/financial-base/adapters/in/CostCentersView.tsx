@@ -316,6 +316,7 @@ function CategoryDrawer({
   const [affectsProfitability, setAffectsProfitability] = useState(editing?.affectsProfitability ?? false);
   const [requiresChannel,      setRequiresChannel]      = useState(editing?.requiresChannel ?? false);
   const [requiresAllocation,   setRequiresAllocation]   = useState(editing?.requiresAllocation ?? false);
+  const [vatDeductible,        setVatDeductible]        = useState(editing?.vatDeductible ?? true);
   const [description,          setDescription]          = useState(editing?.description ?? "");
 
   function handleSubmit(e: React.FormEvent) {
@@ -330,6 +331,7 @@ function CategoryDrawer({
           affectsProfitability,
           requiresChannel,
           requiresAllocation,
+          vatDeductible,
           description: description || null,
         },
         editing.id,
@@ -345,6 +347,7 @@ function CategoryDrawer({
         affectsProfitability,
         requiresChannel,
         requiresAllocation,
+        vatDeductible,
         description: description || null,
       });
     }
@@ -358,6 +361,7 @@ function CategoryDrawer({
     { label: "Afeta Rentabilidade",  checked: affectsProfitability,  setter: setAffectsProfitability },
     { label: "Exige Canal",          checked: requiresChannel,       setter: setRequiresChannel },
     { label: "Exige Rateio",         checked: requiresAllocation,    setter: setRequiresAllocation },
+    { label: "IVA dedutível",        checked: vatDeductible,         setter: setVatDeductible },
   ] as const;
 
   return (

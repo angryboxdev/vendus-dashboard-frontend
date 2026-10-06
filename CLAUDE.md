@@ -11,8 +11,7 @@ hexagonal**. As regras deste arquivo valem para este repositório (frontend).
 
 - **Frontend** — este repositório, onde você está sendo executado.
 - **Backend** — repositório separado. Caminho local (setup da minha máquina):
-  `<CAMINHO_DO_BACKEND>`
-  <!-- preencha com o caminho local do repo de backend -->
+  `C:\Users\Bruno Fontes\vendus-dashboard-backend`
 
 Ao mexer no contrato com o backend (endpoints, formatos de request/response,
 tipos compartilhados), ajuste o outro lado na mesma tarefa e me avise se algo
@@ -46,6 +45,19 @@ padrão novo, abra o `README.md` dele e veja o campo `Status`; sem README ou com
 - `vendus` (agosto 2026)
 - `locations` (agosto 2026)
 - `sales-summary` (setembro 2026)
+- `hr` (setembro 2026) — só a área "Pessoas & Documentos" (lista, perfil 360º,
+  dossiê documental, foto); turnos/pagamentos/férias/kiosk/auditoria
+  continuam em `src/pages/hr/*` (legacy)
+- `stock-purchase-review` (setembro 2026) — "Compras por rever" (Fase 1:
+  lista + formulário simples, sem wizard)
+- `stock-count` (setembro 2026) — "Contagens de stock" (Fase 1: funcional
+  simples, sem wizard, sem unidades alternativas nem UI de zonas)
+- `organization` (outubro 2026) — "Empresa & Estrutura" (moldura + aba
+  Empresa; Base Organizacional 1.0)
+- `documents` (outubro 2026) — Empresa & Estrutura → Documentos (documentos
+  da Empresa sobre o motor único de documentos)
+- `calendar` (outubro 2026) — Empresa & Estrutura → Calendário & Eventos
+  (feriados, eventos empresariais e prazos de documentos)
 
 ## Stack
 

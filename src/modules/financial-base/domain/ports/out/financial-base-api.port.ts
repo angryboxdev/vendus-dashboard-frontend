@@ -15,6 +15,10 @@ import type {
   CreateSupplierPayload,
   UpdateSupplierPayload,
 } from "../../entities/supplier.ts";
+import type {
+  SupplierDeliveryScheduleDTO,
+  UpsertSupplierDeliverySchedulePayload,
+} from "../../entities/supplier-delivery-schedule.ts";
 
 export interface ListCostCenterGroupsParams {
   isActive?: boolean;
@@ -54,8 +58,15 @@ export interface FinancialBaseApiPort {
   createSupplier(payload: CreateSupplierPayload): Promise<Supplier>;
   updateSupplier(id: string, payload: UpdateSupplierPayload): Promise<Supplier>;
   setSupplierStatus(id: string, status: "active" | "inactive"): Promise<Supplier>;
-  downloadSupplierStatement(id: string, params?: { startDate?: string; endDate?: string }): Promise<void>;
+  downloadSupplierStatement(
+    id: string,
+    params?: { startDate?: string; endDate?: string; openingBalance?: string; informedFinalBalance?: string },
+  ): Promise<void>;
 
   // Channels
   listChannels(): Promise<ChannelDTO[]>;
+
+  // Delivery schedule (módulo Stock — Planeamento, D10)
+  listSupplierDeliverySchedules(supplierId: string): Promise<SupplierDeliveryScheduleDTO[]>;
+  upsertSupplierDeliverySchedule(supplierId: string, payload: UpsertSupplierDeliverySchedulePayload): Promise<SupplierDeliveryScheduleDTO>;
 }

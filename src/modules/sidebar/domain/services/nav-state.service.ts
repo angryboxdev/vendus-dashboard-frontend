@@ -17,13 +17,16 @@ const STOCK_ITEMS: NavItem[] = [
   },
   { kind: "item", path: "/stock/stock", label: "Itens de stock" },
   { kind: "item", path: "/stock/pizzas", label: "Fichas Técnicas" },
+  { kind: "item", path: "/stock/contagens", label: "Contagens de stock" },
+  { kind: "item", path: "/stock/planeamento", label: "Planeamento" },
 ];
 
 const HR_ITEMS: NavItem[] = [
-  { kind: "item", path: "/hr", label: "Funcionários", end: true },
-  { kind: "item", path: "/hr/calendar", label: "Calendário de turnos" },
+  { kind: "item", path: "/hr/overview", label: "Visão Geral", end: true },
+  { kind: "item", path: "/hr/people", label: "Colaboradores" },
+  { kind: "item", path: "/hr/schedules", label: "Escalas & Turnos" },
   { kind: "item", path: "/hr/ferias", label: "Férias & Ausências" },
-  { kind: "item", path: "/hr/relatorio", label: "Relatório de assiduidade" },
+  { kind: "item", path: "/hr/assiduidade", label: "Assiduidade" },
   { kind: "item", path: "/hr/historico", label: "Histórico de alterações" },
 ];
 
@@ -39,6 +42,7 @@ const FINANCIAL_ITEMS: NavItem[] = [
   { kind: "item", path: "/financial/invoices", label: "Faturas" },
   { kind: "item", path: "/financial/recurrences", label: "Recorrências" },
   { kind: "item", path: "/financial/bank-statements", label: "Conciliação Bancária" },
+  { kind: "item", path: "/financial/accounting", label: "Contabilidade" },
 ];
 
 export function buildTree(user: SidebarUser): SidebarNavEntry[] {
@@ -81,6 +85,8 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
     { kind: "item", path: "/cash-closings", label: "Fechos de Caixa" },
     { kind: "item", path: "/air-menu", label: "Air Menu" },
     { kind: "item", path: "/vendus", label: "Vendus" },
+    // Base Organizacional — fora de RH; abas internas (Empresa | …) na própria página.
+    { kind: "item", path: "/empresa", label: "Empresa & Estrutura" },
   ];
 
   if (user.role === "admin") {

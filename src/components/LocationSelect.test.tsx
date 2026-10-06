@@ -3,7 +3,13 @@ import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
 import { describe, expect, it, vi } from "vitest";
-import { InMemoryLocationsApiAdapter } from "../modules/locations/adapters/out/in-memory-locations-api.adapter.ts";
+import { InMemoryLocationsApiAdapter, locationFixture } from "../modules/locations/adapters/out/in-memory-locations-api.adapter.ts";
+import {
+  CreateLocationUseCase,
+  ListLocationHistoryUseCase,
+  SetLocationActiveUseCase,
+  UpdateLocationUseCase,
+} from "../modules/locations/application/use-cases/manage-locations.use-cases.ts";
 import { ListLocationsUseCase } from "../modules/locations/application/use-cases/list-locations.use-case.ts";
 import type { LocationDTO } from "../modules/locations/domain/entities/location.ts";
 import type { LocationsModule } from "../modules/locations/locations.module.tsx";
@@ -37,7 +43,14 @@ function sessionWithOrg(): Session {
 }
 
 function buildTestModule(seed: LocationDTO[]): LocationsModule {
-  return { listLocations: new ListLocationsUseCase(InMemoryLocationsApiAdapter.withSeed(seed)) };
+  const api = InMemoryLocationsApiAdapter.withSeed(seed);
+  return {
+    listLocations: new ListLocationsUseCase(api),
+    createLocation: new CreateLocationUseCase(api),
+    updateLocation: new UpdateLocationUseCase(api),
+    setLocationActive: new SetLocationActiveUseCase(api),
+    listLocationHistory: new ListLocationHistoryUseCase(api),
+  };
 }
 
 function Probe() {
@@ -56,8 +69,8 @@ async function renderWithLocations(locations: LocationDTO[]) {
   );
 }
 
-const LOC_A: LocationDTO = { id: "loc-a", name: "Loja Centro", code: "CTR", timezone: "Europe/Lisbon", isActive: true };
-const LOC_B: LocationDTO = { id: "loc-b", name: "Loja Norte", code: "NRT", timezone: "Europe/Lisbon", isActive: true };
+const LOC_A: LocationDTO = locationFixture({ id: "loc-a", name: "Loja Centro", code: "CTR" });
+const LOC_B: LocationDTO = locationFixture({ id: "loc-b", name: "Loja Norte", code: "NRT" });
 
 describe("LocationSelect", () => {
   it("renders nothing when the organization has a single location", async () => {
@@ -75,6 +88,11 @@ describe("LocationSelect", () => {
     await waitFor(() => expect(screen.getByRole("combobox")).toBeInTheDocument());
     expect(screen.getByRole("option", { name: "Loja Centro" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "Loja Norte" })).toBeInTheDocument();
+  });
+
+  it("renders nothing when only one location is active (the other was deactivated)", async () => {
+    await renderWithLocations([LOC_A, { ...LOC_B, isActive: false }]);
+    await waitFor(() => expect(screen.queryByRole("combobox")).not.toBeInTheDocument());
   });
 
   it("lets the user choose a location when there are several", async () => {

@@ -13,8 +13,8 @@ import {
 import {
   type RecurrenceDTO,
   type OccurrenceDTO,
-  type OccurrenceStatus,
   type UpdateRecurrencePayload,
+  type CloseRecurrencePayload,
   RECURRENCE_TYPE_LABELS,
   RECURRENCE_FREQUENCY_LABELS,
   RECURRENCE_STATUS_LABELS,
@@ -25,6 +25,8 @@ import {
   formatPeriod,
 } from "../../domain/entities/recurrence.ts";
 import { RecurrenceDrawer } from "./RecurrenceDrawer.tsx";
+import { KpiCard } from "./KpiCard.tsx";
+import { OccurrenceStateBadge } from "./OccurrenceStateBadge.tsx";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
@@ -79,56 +81,6 @@ function upcomingDueDates(r: RecurrenceDTO, count: number): Date[] {
   return results;
 }
 
-// ── Status badges ─────────────────────────────────────────────────────────────
-
-const OCC_STATUS_COLORS: Record<OccurrenceStatus, string> = {
-  forecast: "bg-blue-50 text-blue-700",
-  awaiting_invoice: "bg-amber-50 text-amber-700",
-  invoice_linked: "bg-purple-50 text-purple-700",
-  paid: "bg-emerald-50 text-emerald-700",
-  cancelled: "bg-stone-100 text-stone-500",
-};
-
-const OCC_STATUS_DOT: Record<OccurrenceStatus, string> = {
-  forecast: "bg-blue-400",
-  awaiting_invoice: "bg-amber-500",
-  invoice_linked: "bg-purple-500",
-  paid: "bg-emerald-500",
-  cancelled: "bg-stone-400",
-};
-
-function OccurrenceStatusBadge({ status }: { status: OccurrenceStatus }) {
-  return (
-    <span
-      className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium whitespace-nowrap ${OCC_STATUS_COLORS[status]}`}
-    >
-      <span className={`h-1.5 w-1.5 rounded-full ${OCC_STATUS_DOT[status]}`} />
-      {OCCURRENCE_STATUS_LABELS[status]}
-    </span>
-  );
-}
-
-// ── KPI card ──────────────────────────────────────────────────────────────────
-
-function KpiCard({
-  label,
-  value,
-  sub,
-  accentClass = "text-stone-800",
-}: {
-  label: string;
-  value: string | number;
-  sub?: string;
-  accentClass?: string;
-}) {
-  return (
-    <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-      <p className="text-xs font-medium text-stone-500">{label}</p>
-      <p className={`mt-1 text-xl font-bold ${accentClass}`}>{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-stone-400">{sub}</p>}
-    </div>
-  );
-}
 
 // ── Link Invoice Modal ────────────────────────────────────────────────────────
 
@@ -161,7 +113,7 @@ function LinkInvoiceModal({
 
   const { data: results = [], isFetching } = useQuery({
     queryKey: ["invoices-link-search", debouncedSearch],
-    queryFn: () => invApi.listInvoices({ search: debouncedSearch }),
+    queryFn: () => invApi.listInvoices({ search: debouncedSearch, documentType: "invoice" }),
     enabled: debouncedSearch.length >= 2,
   });
 
@@ -565,7 +517,7 @@ function OccurrenceRow({
         {formatPeriod(occ.period)}
       </td>
       <td className="px-3 py-2.5">
-        <OccurrenceStatusBadge status={occ.status} />
+        <OccurrenceStateBadge state={occ.displayState} />
       </td>
       <td className="px-3 py-2.5 text-sm text-stone-700 whitespace-nowrap">{fromCents(occ.estimatedAmountCents)}</td>
       <td className="px-3 py-2.5">
@@ -584,18 +536,34 @@ function OccurrenceRow({
         )}
       </td>
       <td className="px-3 py-2.5">
-        {occ.linkedBankMovement ? (
+        {occ.linkedBankMovements.length > 0 ? (
           <span
-            title={`${occ.linkedBankMovement.description} · ${occ.linkedBankMovement.bookingDate}`}
+            title={occ.linkedBankMovements
+              .map((m) => `${m.description} · ${formatDate(m.bookingDate)}`)
+              .join("\n")}
             className="inline-flex items-center gap-1.5 rounded-full bg-sky-50 px-2.5 py-0.5 text-[11px] text-sky-700 font-medium whitespace-nowrap"
           >
             <span className="h-1.5 w-1.5 rounded-full bg-sky-400 shrink-0" />
-            {fromCents(occ.linkedBankMovement.amountCents)}
-            <span className="text-sky-300">·</span>
-            Justificado
+            {fromCents(occ.linkedBankMovements.reduce((sum, m) => sum + m.amountCents, 0))}
+            {occ.linkedBankMovements.length > 1 && (
+              <span className="text-sky-400">×{occ.linkedBankMovements.length}</span>
+            )}
           </span>
         ) : (
           <span className="text-stone-300 text-sm">—</span>
+        )}
+      </td>
+      <td className="px-3 py-2.5 text-sm font-medium text-stone-700 whitespace-nowrap">
+        {occ.paidAmountCents > 0 ? fromCents(occ.paidAmountCents) : <span className="text-stone-300">—</span>}
+      </td>
+      <td className="px-3 py-2.5 text-sm font-medium whitespace-nowrap">
+        {occ.status === "cancelled" || occ.paidAmountCents === 0 ? (
+          <span className="text-stone-300">—</span>
+        ) : (
+          <span className={occ.differenceCents >= 0 ? "text-emerald-600" : "text-red-600"}>
+            {occ.differenceCents > 0 ? "+" : ""}
+            {fromCents(occ.differenceCents)}
+          </span>
         )}
       </td>
       <td className="px-3 py-2.5 text-xs text-stone-600 whitespace-nowrap">
@@ -689,6 +657,60 @@ function OccurrenceRow({
   );
 }
 
+// ── Close Recurrence Modal ────────────────────────────────────────────────────
+
+function CloseRecurrenceModal({
+  onConfirm,
+  onClose,
+  saving,
+}: {
+  onConfirm: (closedAt: string) => void;
+  onClose: () => void;
+  saving: boolean;
+}) {
+  const [closedAt, setClosedAt] = useState(new Date().toISOString().slice(0, 10));
+
+  return createPortal(
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" aria-modal="true">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-sm rounded-xl bg-white shadow-2xl">
+        <div className="px-6 pt-5 pb-4">
+          <h3 className="text-base font-bold text-stone-900">Fechar recorrência</h3>
+          <p className="mt-1 text-xs text-stone-500">
+            Esta ação não pode ser desfeita. Indique a data de finalização.
+          </p>
+        </div>
+        <div className="px-6 pb-2">
+          <label className="block text-xs font-medium text-stone-500 mb-1">Data de finalização *</label>
+          <input
+            required
+            type="date"
+            value={closedAt}
+            onChange={(e) => setClosedAt(e.target.value)}
+            className="w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30"
+          />
+        </div>
+        <div className="px-6 pt-3 pb-5 mt-2 flex gap-3">
+          <button
+            onClick={onClose}
+            className="flex-1 rounded-md border border-stone-300 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
+          >
+            Cancelar
+          </button>
+          <button
+            disabled={!closedAt || saving}
+            onClick={() => onConfirm(closedAt)}
+            className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] py-2 text-sm font-medium text-white disabled:opacity-50"
+          >
+            {saving ? "A fechar…" : "Confirmar encerramento"}
+          </button>
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 // ── Main Detail View ──────────────────────────────────────────────────────────
 
 export function RecurrenceDetailView() {
@@ -698,6 +720,7 @@ export function RecurrenceDetailView() {
   const qc = useQueryClient();
 
   const [showEdit, setShowEdit] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
   const [linkInvoiceOccId, setLinkInvoiceOccId] = useState<string | null>(null);
   const [markPaidOccId, setMarkPaidOccId] = useState<string | null>(null);
   const [viewInvoiceId, setViewInvoiceId] = useState<string | null>(null);
@@ -744,8 +767,11 @@ export function RecurrenceDetailView() {
   });
 
   const closeMutation = useMutation({
-    mutationFn: () => api.closeRecurrence(id!),
-    onSuccess: invalidate,
+    mutationFn: (payload: CloseRecurrencePayload) => api.closeRecurrence(id!, payload),
+    onSuccess: () => {
+      invalidate();
+      setShowCloseModal(false);
+    },
   });
 
   const uploadDocMutation = useMutation({
@@ -925,11 +951,7 @@ export function RecurrenceDetailView() {
             )}
             {recurrence.status !== "closed" && (
               <button
-                onClick={() => {
-                  if (confirm("Fechar esta recorrência? Esta ação não pode ser desfeita.")) {
-                    closeMutation.mutate();
-                  }
-                }}
+                onClick={() => setShowCloseModal(true)}
                 disabled={closeMutation.isPending}
                 className="rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50"
               >
@@ -994,6 +1016,11 @@ export function RecurrenceDetailView() {
                 />
                 {RECURRENCE_STATUS_LABELS[recurrence.status]}
               </span>
+              {recurrence.closedAt && (
+                <p className="mt-1.5 text-[11px] text-stone-400">
+                  Encerrada em {formatDate(recurrence.closedAt)}
+                </p>
+              )}
             </div>
           </div>
           <KpiCard
@@ -1059,7 +1086,7 @@ export function RecurrenceDetailView() {
                   <table className="min-w-full text-sm">
                     <thead className="bg-stone-50/60">
                       <tr>
-                        {["Mês", "Estado", "Previsto", "Fatura", "Banco", "Pagamento", "Ações"].map((h) => (
+                        {["Mês", "Estado", "Previsto", "Fatura", "Banco", "Pago", "Diferença", "Pagamento", "Ações"].map((h) => (
                           <th key={h} className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-stone-400 whitespace-nowrap">
                             {h}
                           </th>
@@ -1189,6 +1216,15 @@ export function RecurrenceDetailView() {
         onCreate={() => {}}
         onUpdate={(_, payload) => updateMutation.mutate(payload)}
       />
+
+      {/* Close recurrence modal */}
+      {showCloseModal && (
+        <CloseRecurrenceModal
+          saving={closeMutation.isPending}
+          onClose={() => setShowCloseModal(false)}
+          onConfirm={(closedAt) => closeMutation.mutate({ closedAt })}
+        />
+      )}
 
       {/* Link invoice modal */}
       {linkInvoiceOccId && (

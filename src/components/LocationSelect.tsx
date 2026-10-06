@@ -34,13 +34,13 @@ export function LocationSelect({
   className,
   disabled,
 }: LocationSelectProps) {
-  const { locations, hasMultipleLocations } = useLocations();
+  const { activeLocations, hasMultipleLocations } = useLocations();
 
   useEffect(() => {
-    if (!hasMultipleLocations && locations.length === 1 && value !== locations[0]!.id) {
-      onChange(locations[0]!.id);
+    if (!hasMultipleLocations && activeLocations.length === 1 && value !== activeLocations[0]!.id) {
+      onChange(activeLocations[0]!.id);
     }
-  }, [hasMultipleLocations, locations, value, onChange]);
+  }, [hasMultipleLocations, activeLocations, value, onChange]);
 
   if (!hasMultipleLocations) return null;
 
@@ -64,13 +64,11 @@ export function LocationSelect({
             Selecione uma loja
           </option>
         )}
-        {locations
-          .filter((l) => l.isActive)
-          .map((l) => (
-            <option key={l.id} value={l.id}>
-              {l.name}
-            </option>
-          ))}
+        {activeLocations.map((l) => (
+          <option key={l.id} value={l.id}>
+            {l.name}
+          </option>
+        ))}
       </select>
     </div>
   );
