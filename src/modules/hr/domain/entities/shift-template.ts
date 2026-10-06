@@ -5,9 +5,27 @@
  */
 export type ShiftTemplateKind = "direct" | "split";
 
+/**
+ * Grupo do modelo (Modelos de Turno 2.0) — só organiza e filtra a
+ * biblioteca; independente do Tipo (Direto/Repartido).
+ */
+export type ShiftTemplateGroup = "OPENING" | "INTERMEDIATE" | "CLOSING" | "FULL_TIME" | "OTHER";
+
+/** Ordem de apresentação dos grupos (biblioteca e seletor). */
+export const SHIFT_TEMPLATE_GROUP_ORDER: readonly ShiftTemplateGroup[] = ["OPENING", "INTERMEDIATE", "CLOSING", "FULL_TIME", "OTHER"];
+
+export const SHIFT_TEMPLATE_GROUP_LABELS: Record<ShiftTemplateGroup, string> = {
+  OPENING: "Abertura",
+  INTERMEDIATE: "Intermédio",
+  CLOSING: "Fecho",
+  FULL_TIME: "Full time",
+  OTHER: "Outro",
+};
+
 export interface ShiftTemplate {
   id: string;
   name: string;
+  group: ShiftTemplateGroup;
   description: string | null;
   color: string | null;
   kind: ShiftTemplateKind;
@@ -28,6 +46,7 @@ export interface ShiftTemplate {
 
 export interface ShiftTemplatePayload {
   name: string;
+  group: ShiftTemplateGroup;
   description: string | null;
   color: string | null;
   startTime: string;
