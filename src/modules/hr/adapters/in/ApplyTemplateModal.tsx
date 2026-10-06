@@ -78,10 +78,13 @@ export function ApplyTemplateModal({
   templates,
   initialTemplateId,
   onClose,
+  onReviewDrafts,
 }: {
   templates: ShiftTemplate[];
   initialTemplateId: string | null;
   onClose: () => void;
+  /** Depois de criar, abre a revisão dos rascunhos desse período (os turnos ficam em rascunho até serem publicados). */
+  onReviewDrafts?: (range: { from: string; to: string }) => void;
 }) {
   const { api } = useHrModule();
   const qc = useQueryClient();
@@ -235,6 +238,33 @@ export function ApplyTemplateModal({
   const toCreate = isAutomation ? occurrences.filter((o) => o.status === "valid").length : countToCreate(occurrences, choices);
   const mutationError = (previewMutation.error ?? applyMutation.error ?? createMutation.error) as Error | null;
   const finished = result !== null || automationResult !== null;
+
+  /** Período dos turnos acabados de criar (para "Rever e publicar agora"). */
+  function appliedRange(): { from: string; to: string } | null {
+    if (automationResult) return automationResult.window;
+    const config = buildConfig();
+    if (typeof config === "string") return null;
+    if (config.days.kind === "range") return { from: config.days.from, to: config.days.to };
+    const dates = [...config.days.dates].sort();
+    return dates.length > 0 ? { from: dates[0]!, to: dates[dates.length - 1]! } : null;
+  }
+
+  function draftsCreatedNotice(count: number) {
+    const range = appliedRange();
+    if (count === 0) return null;
+    return (
+      <div role="status" className="rounded-lg border border-sky-200 bg-sky-50 p-3 text-sky-900">
+        <p>
+          Ficaram <strong>em rascunho</strong> — os colaboradores ainda não os veem.
+        </p>
+        {onReviewDrafts && range && (
+          <button type="button" onClick={() => onReviewDrafts(range)} className="mt-1 font-medium text-[#ED5C32] hover:underline">
+            Rever e publicar agora
+          </button>
+        )}
+      </div>
+    );
+  }
   const whenOptions: Partial<Record<WhenKind, string>> = isAutomation
     ? { weekdays: WHEN_LABELS.weekdays, weekend: WHEN_LABELS.weekend, custom: WHEN_LABELS.custom }
     : WHEN_LABELS;
@@ -609,7 +639,10 @@ export function ApplyTemplateModal({
                     : `A automatização "${automationName.trim()}" é guardada; os turnos são gerados quando o período entrar no horizonte de ${horizonWeeks} semana(s).`}
                 </p>
               ) : (
-                <p className="font-semibold text-emerald-700">Automatização guardada. {generationSummary(automationResult)}</p>
+                <>
+                  <p className="font-semibold text-emerald-700">Automatização guardada. {generationSummary(automationResult)}</p>
+                  {draftsCreatedNotice(automationResult.created)}
+                </>
               )}
             </div>
           )}
@@ -625,6 +658,7 @@ export function ApplyTemplateModal({
                   <p className="font-semibold text-emerald-700">
                     {result.created} turno(s) criado(s){result.replaced > 0 ? `, ${result.replaced} substituído(s)` : ""}.
                   </p>
+                  {draftsCreatedNotice(result.created + result.replaced)}
                   {result.changed.length > 0 && (
                     <div className="rounded-lg bg-amber-50 p-3 text-amber-800">
                       <p className="font-medium">Não aplicados — mudaram desde a pré-visualização:</p>

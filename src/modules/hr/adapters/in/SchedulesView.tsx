@@ -13,6 +13,7 @@ import { useManageShiftAutomations } from "./use-shift-automations.ts";
 import { OCCURRENCE_STATUS_LABELS } from "../../domain/entities/shift-template.ts";
 import { ClearShiftsModal } from "./ClearShiftsModal.tsx";
 import { PublishReviewModal } from "./PublishReviewModal.tsx";
+import { draftSummary } from "../../domain/services/publish-review.service.ts";
 import { RepeatScheduleWeekModal } from "./RepeatScheduleWeekModal.tsx";
 import { DaySummaryPanel } from "./DaySummaryPanel.tsx";
 import { exportGeneralSchedulePdf } from "../../../../utils/schedulePdf.ts";
@@ -197,9 +198,22 @@ export function SchedulesView() {
   const [newShiftDate, setNewShiftDate] = useState<string | null>(null);
   const [showBaseSchedule, setShowBaseSchedule] = useState(false);
   const [showClearShifts, setShowClearShifts] = useState(false);
-  /** "Rever e publicar": revisão dos rascunhos antes de publicar (nunca publica direto). */
-  const [publishReviewOpen, setPublishReviewOpen] = useState(false);
+  /** "Rever e publicar": revisão dos rascunhos antes de publicar (nunca publica direto). null = fechado. */
+  const [review, setReview] = useState<{ from: string; to: string } | null>(null);
   const [publishedCount, setPublishedCount] = useState<number | null>(null);
+  /** Aviso logo a seguir a criar turnos em rascunho (ainda não visíveis para os colaboradores). */
+  const [draftNotice, setDraftNotice] = useState<{ count: number; range: { from: string; to: string } } | null>(null);
+  function noticeDrafts(created: Pick<WorkShift, "status" | "workDate">[]) {
+    const summary = draftSummary(created);
+    if (summary) {
+      setPublishedCount(null);
+      setDraftNotice(summary);
+    }
+  }
+  function openReview(range: { from: string; to: string }) {
+    setPublishedCount(null);
+    setReview(range);
+  }
   const [showWeekActionsMenu, setShowWeekActionsMenu] = useState(false);
   const [repeatModalWeeks, setRepeatModalWeeks] = useState<number | null>(null);
   const [repeatModalRotate, setRepeatModalRotate] = useState(false);
@@ -276,7 +290,8 @@ export function SchedulesView() {
 
   const createMutation = useMutation({
     mutationFn: (payload: CreateWorkShiftPayload) => api.createWorkShift(payload),
-    onSuccess: () => {
+    onSuccess: (created) => {
+      noticeDrafts(created);
       invalidate();
       setDrawerOpen(false);
       setFormError(null);
@@ -294,7 +309,8 @@ export function SchedulesView() {
   });
   const duplicateMutation = useMutation({
     mutationFn: ({ id, targetDate }: { id: string; targetDate: string }) => api.duplicateWorkShift(id, targetDate),
-    onSuccess: () => {
+    onSuccess: (duplicated) => {
+      noticeDrafts([duplicated]);
       invalidate();
       setDrawerOpen(false);
     },
@@ -459,10 +475,43 @@ export function SchedulesView() {
         </div>
       </div>
 
+      {(draftNotice || publishedCount !== null || (alerts?.pendingPublishCount ?? 0) > 0) && (
+        <div className="space-y-2 px-4 pt-4">
+          {draftNotice && (
+            <div role="status" className="flex flex-wrap items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm text-sky-900">
+              <span>
+                ✓ {draftNotice.count} turno(s) criado(s) <strong>em rascunho</strong> — ainda não visíveis para os colaboradores.
+              </span>
+              <button type="button" onClick={() => openReview(draftNotice.range)} className="font-medium text-[#ED5C32] hover:underline">
+                Rever e publicar agora
+              </button>
+              <button type="button" onClick={() => setDraftNotice(null)} aria-label="Fechar aviso" className="ml-auto text-sky-700 hover:text-sky-900">
+                ✕
+              </button>
+            </div>
+          )}
+          {publishedCount !== null && (
+            <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
+              ✓ {publishedCount} turno(s) publicado(s) — já visíveis para os colaboradores.
+            </p>
+          )}
+          {alerts && alerts.pendingPublishCount > 0 && alerts.pendingPublishRange && (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900" aria-label="Turnos em rascunho">
+              <span>
+                ⚠ <strong>{alerts.pendingPublishCount} turno(s) em rascunho</strong> neste período — os colaboradores ainda não os veem.
+              </span>
+              <button type="button" onClick={() => openReview(alerts.pendingPublishRange!)} className="font-medium text-[#ED5C32] hover:underline">
+                Rever e publicar
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
       {tab === "templates" ? (
         // RH 2.0: Modelos de turno (ticket 01); as rotações passam a automatizações no ticket 04.
         <div className="space-y-4 p-4">
-          <ShiftTemplatesPanel />
+          <ShiftTemplatesPanel onReviewDrafts={(range) => openReview(range)} />
           <ShiftAutomationsPanel />
           <ShiftRotationsPanel />
         </div>
@@ -530,20 +579,12 @@ export function SchedulesView() {
                     </div>
                   </div>
                 ))}
-                {publishedCount !== null && (
-                  <p role="status" className="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-800">
-                    {publishedCount} turno(s) publicado(s) — já visíveis para os colaboradores.
-                  </p>
-                )}
                 {alerts.pendingPublishCount > 0 && (
                   <div className="rounded-lg border border-stone-200 bg-stone-50 p-2 text-xs">
                     <p className="font-semibold text-stone-700">Turnos por publicar</p>
                     <p className="text-stone-500">{alerts.pendingPublishCount} turno(s) restante(s)</p>
                     <button
-                      onClick={() => {
-                        setPublishedCount(null);
-                        setPublishReviewOpen(true);
-                      }}
+                      onClick={() => alerts.pendingPublishRange && openReview(alerts.pendingPublishRange)}
                       disabled={!alerts.pendingPublishRange}
                       className="mt-1 font-medium text-[#ED5C32] hover:underline disabled:opacity-50"
                     >
@@ -915,15 +956,16 @@ export function SchedulesView() {
         />
       )}
 
-      {publishReviewOpen && alerts?.pendingPublishRange && (
+      {review && (
         <PublishReviewModal
-          range={alerts.pendingPublishRange}
+          range={review}
           locationId={locationFilter || undefined}
           locationName={(id) => locationNameById.get(id) ?? "—"}
-          onClose={() => setPublishReviewOpen(false)}
+          onClose={() => setReview(null)}
           onPublished={(count) => {
             invalidate();
-            setPublishReviewOpen(false);
+            setReview(null);
+            setDraftNotice(null);
             setPublishedCount(count);
           }}
         />
@@ -952,7 +994,8 @@ export function SchedulesView() {
           defaultWeeks={repeatModalWeeks}
           defaultRotate={repeatModalRotate}
           onClose={() => setRepeatModalWeeks(null)}
-          onCompleted={() => {
+          onCompleted={(result) => {
+            noticeDrafts(result.employees.flatMap((e) => e.created));
             invalidate();
             setRepeatModalWeeks(null);
           }}

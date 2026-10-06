@@ -346,7 +346,7 @@ function RowMenu({ template, onEdit, onDuplicate, onToggle }: { template: ShiftT
  * principal "Aplicar" (pré-seleciona o modelo); o resto no "⋮". Nunca
  * apagar — só inativar.
  */
-export function ShiftTemplatesPanel() {
+export function ShiftTemplatesPanel({ onReviewDrafts }: { onReviewDrafts?: (range: { from: string; to: string }) => void } = {}) {
   const { user } = useAuth();
   // Editar exige Escalas & Turnos: Gerir (Utilizadores & Perfis 2.0); sem acesso carregado, regra antiga por papel.
   const canEdit = user?.access ? user.access.isAdmin || user.access.permissions["hr.schedules"] === "MANAGE" : user?.role === "admin" || user?.role === "manager";
@@ -544,7 +544,19 @@ export function ShiftTemplatesPanel() {
         </div>
       )}
 
-      {applying !== undefined && <ApplyTemplateModal templates={templates} initialTemplateId={applying} onClose={() => setApplying(undefined)} />}
+      {applying !== undefined && (
+        <ApplyTemplateModal
+          templates={templates}
+          initialTemplateId={applying}
+          onClose={() => setApplying(undefined)}
+          {...(onReviewDrafts && {
+            onReviewDrafts: (range: { from: string; to: string }) => {
+              setApplying(undefined);
+              onReviewDrafts(range);
+            },
+          })}
+        />
+      )}
 
       {modal.open && (
         <ShiftTemplateModal
