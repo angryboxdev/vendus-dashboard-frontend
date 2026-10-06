@@ -76,3 +76,24 @@ describe("isItemActive", () => {
     expect(isItemActive("/results", "/results/sub", true)).toBe(false);
   });
 });
+
+describe("buildTree com acesso efetivo (Utilizadores & Perfis 2.0)", () => {
+  it("mostra só o que o perfil pode abrir; grupos vazios desaparecem; Utilizadores só para Admin", () => {
+    const tree = buildTree({
+      email: "rh@example.com",
+      role: "manager",
+      access: { isAdmin: false, portalOnly: false, permissions: { "hr.employees": "MANAGE", "hr.schedules": "READ" } },
+    });
+    const paths = tree.flatMap((e) => (e.kind === "item" ? [e.path] : e.items.map((i) => i.path)));
+    expect(paths).toContain("/hr/people");
+    expect(paths).toContain("/hr/schedules");
+    expect(paths).not.toContain("/hr/ferias");
+    expect(paths).not.toContain("/financial/invoices");
+    expect(paths).not.toContain("/admin/users");
+    expect(tree.some((e) => e.kind === "group" && e.id === "financial")).toBe(false);
+    expect(paths).toContain("/empresa");
+
+    const admin = buildTree({ email: "a@example.com", role: "admin", access: { isAdmin: true, portalOnly: false, permissions: {} } });
+    expect(admin.some((e) => e.kind === "item" && e.path === "/admin/users")).toBe(true);
+  });
+});

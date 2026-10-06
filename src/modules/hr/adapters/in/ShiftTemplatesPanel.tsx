@@ -1,13 +1,24 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { ApiError } from "../../../../lib/api.ts";
 import { useAuth } from "../../../../contexts/AuthContext.tsx";
 import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
-import { SHIFT_TEMPLATE_COLORS, SHIFT_TEMPLATE_KIND_LABELS, type ShiftTemplate, type ShiftTemplatePayload } from "../../domain/entities/shift-template.ts";
+import {
+  SHIFT_TEMPLATE_COLORS,
+  SHIFT_TEMPLATE_GROUP_LABELS,
+  SHIFT_TEMPLATE_GROUP_ORDER,
+  SHIFT_TEMPLATE_KIND_LABELS,
+  type ShiftTemplate,
+  type ShiftTemplateGroup,
+  type ShiftTemplateKind,
+  type ShiftTemplatePayload,
+} from "../../domain/entities/shift-template.ts";
 import {
   emptyShiftTemplateForm,
+  filterTemplates,
   formatMinutes,
   formFromTemplate,
   formWorkMinutes,
+  groupTemplates,
   templateDurationLabel,
   templateTimeLabel,
   toShiftTemplatePayload,
@@ -109,6 +120,19 @@ function ShiftTemplateModal({
               Nome do modelo <span className="text-red-500">*</span>
             </label>
             <input id="template-name" value={form.name} onChange={(e) => set({ name: e.target.value })} placeholder="Ex.: Manhã 1" className={inputCls} />
+          </div>
+          <div>
+            <label htmlFor="template-group" className={labelCls}>
+              Grupo
+            </label>
+            <select id="template-group" value={form.group} onChange={(e) => set({ group: e.target.value as ShiftTemplateGroup })} className={inputCls}>
+              {SHIFT_TEMPLATE_GROUP_ORDER.map((g) => (
+                <option key={g} value={g}>
+                  {SHIFT_TEMPLATE_GROUP_LABELS[g]}
+                </option>
+              ))}
+            </select>
+            <p className="mt-1 text-xs text-stone-500">Só organiza a biblioteca — não altera horários nem a geração de turnos.</p>
           </div>
           <div>
             <label htmlFor="template-description" className={labelCls}>
@@ -260,28 +284,105 @@ function ShiftTemplateModal({
 
 type ModalState = { open: false } | { open: true; title: string; editingId: string | null; initial: ShiftTemplateForm };
 
+const KIND_FILTERS: Array<[ShiftTemplateKind | null, string]> = [
+  [null, "Todos"],
+  ["direct", "Direto"],
+  ["split", "Repartido"],
+];
+
+/** "⋮" com as ações secundárias da linha (Editar, Duplicar, Inativar/Ativar). */
+function RowMenu({ template, onEdit, onDuplicate, onToggle }: { template: ShiftTemplate; onEdit: () => void; onDuplicate: () => void; onToggle: () => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    if (!open) return;
+    const close = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, [open]);
+  const item = (label: string, action: () => void, tone = "text-stone-700") => (
+    <button
+      type="button"
+      role="menuitem"
+      onClick={() => {
+        setOpen(false);
+        action();
+      }}
+      className={`block w-full px-3 py-2 text-left text-sm hover:bg-stone-50 ${tone}`}
+    >
+      {label}
+    </button>
+  );
+  return (
+    <div ref={ref} className="relative inline-block">
+      <button
+        type="button"
+        aria-label={`Mais ações de ${template.name}`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((o) => !o)}
+        className="rounded-md px-2 py-1 text-stone-500 hover:bg-stone-100 hover:text-stone-800"
+      >
+        ⋮
+      </button>
+      {open && (
+        <div role="menu" className="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-lg border border-stone-200 bg-white py-1 shadow-lg">
+          {item("Editar", onEdit)}
+          {item("Duplicar", onDuplicate)}
+          {item(template.active ? "Inativar" : "Ativar", onToggle, template.active ? "text-red-600" : "text-emerald-700")}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /**
- * Escalas & Turnos → Modelos & Automatizações → **Modelos de turno** (RH
- * 2.0, ticket 01). Editar/Duplicar/Inativar; nunca apagar. `hr_viewer` só lê.
+ * Escalas & Turnos → Modelos & Automatizações → **Modelos de turno**
+ * (RH 2.0 ticket 01; Modelos de Turno 2.0): biblioteca compacta com
+ * pesquisa, filtros por Grupo/Tipo/Estado (no cliente — uma só carga) e,
+ * em "Todos", secções por Grupo recolhíveis (estado só local). Ação
+ * principal "Aplicar" (pré-seleciona o modelo); o resto no "⋮". Nunca
+ * apagar — só inativar.
  */
 export function ShiftTemplatesPanel() {
   const { user } = useAuth();
-  const canEdit = user?.role === "admin" || user?.role === "manager";
+  // Editar exige Escalas & Turnos: Gerir (Utilizadores & Perfis 2.0); sem acesso carregado, regra antiga por papel.
+  const canEdit = user?.access ? user.access.isAdmin || user.access.permissions["hr.schedules"] === "MANAGE" : user?.role === "admin" || user?.role === "manager";
   const { locations } = useLocations();
   const { data: templates = [], isLoading, isError } = useShiftTemplates();
   const { saveMutation, setActiveMutation } = useManageShiftTemplates();
   const [search, setSearch] = useState("");
+  const [group, setGroup] = useState<ShiftTemplateGroup | null>(null);
+  const [kind, setKind] = useState<ShiftTemplateKind | null>(null);
+  const [status, setStatus] = useState<"active" | "inactive" | "all">("active");
+  const [collapsed, setCollapsed] = useState<Set<ShiftTemplateGroup>>(new Set());
   const [modal, setModal] = useState<ModalState>({ open: false });
   /** Modelo pré-selecionado no "Aplicar modelo"; `undefined` = fechado. */
   const [applying, setApplying] = useState<string | null | undefined>(undefined);
   const locationName = new Map(locations.map((l) => [l.id, l.name]));
 
-  const visible = templates.filter((t) => t.name.toLowerCase().includes(search.trim().toLowerCase()));
+  const visible = filterTemplates(templates, { group, kind, status, search });
+  const sections = group === null ? groupTemplates(visible) : [{ group, label: SHIFT_TEMPLATE_GROUP_LABELS[group], templates: groupTemplates(visible)[0]?.templates ?? [] }];
+  const columns = 7;
 
   function open(title: string, editingId: string | null, initial: ShiftTemplateForm) {
     saveMutation.reset();
     setModal({ open: true, title, editingId, initial });
   }
+
+  function toggleSection(g: ShiftTemplateGroup) {
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(g)) next.delete(g);
+      else next.add(g);
+      return next;
+    });
+  }
+
+  const chip = (active: boolean) =>
+    `rounded-full px-3 py-1 text-xs font-medium transition-colors ${active ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"}`;
 
   return (
     <section className="rounded-xl border border-[#F5C992]/40 bg-white shadow-sm">
@@ -291,13 +392,6 @@ export function ShiftTemplatesPanel() {
           <p className="text-xs text-stone-500">Horários reutilizáveis, aplicados manualmente ou por automatizações.</p>
         </div>
         <div className="flex gap-2">
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Pesquisar modelos…"
-            aria-label="Pesquisar modelos"
-            className="w-56 rounded-lg border border-stone-200 px-3 py-2 text-sm outline-none focus:border-[#ED5C32]"
-          />
           {canEdit && templates.some((t) => t.active) && (
             <button
               type="button"
@@ -310,12 +404,47 @@ export function ShiftTemplatesPanel() {
           {canEdit && (
             <button
               type="button"
-              onClick={() => open("Novo modelo de turno", null, emptyShiftTemplateForm())}
+              onClick={() => open("Novo modelo de turno", null, emptyShiftTemplateForm(group ?? "OTHER"))}
               className="rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90"
             >
               Novo modelo
             </button>
           )}
+        </div>
+      </div>
+
+      <div className="space-y-2 border-b border-stone-100 px-4 py-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Pesquisar modelos…"
+            aria-label="Pesquisar modelos"
+            className="w-64 rounded-lg border border-stone-200 px-3 py-1.5 text-sm outline-none focus:border-[#ED5C32]"
+          />
+          <select aria-label="Tipo" value={kind ?? ""} onChange={(e) => setKind((e.target.value || null) as ShiftTemplateKind | null)} className="rounded-lg border border-stone-200 px-2 py-1.5 text-sm">
+            {KIND_FILTERS.map(([v, l]) => (
+              <option key={l} value={v ?? ""}>
+                Tipo: {l}
+              </option>
+            ))}
+          </select>
+          <select aria-label="Estado" value={status} onChange={(e) => setStatus(e.target.value as "active" | "inactive" | "all")} className="rounded-lg border border-stone-200 px-2 py-1.5 text-sm">
+            <option value="active">Estado: Ativos</option>
+            <option value="inactive">Estado: Inativos</option>
+            <option value="all">Estado: Todos</option>
+          </select>
+        </div>
+        <div className="flex flex-wrap gap-1.5" role="group" aria-label="Grupo">
+          <button type="button" aria-pressed={group === null} onClick={() => setGroup(null)} className={chip(group === null)}>
+            Todos
+          </button>
+          {SHIFT_TEMPLATE_GROUP_ORDER.map((g) => (
+            <button key={g} type="button" aria-pressed={group === g} onClick={() => setGroup(g)} className={chip(group === g)}>
+              {SHIFT_TEMPLATE_GROUP_LABELS[g]}
+            </button>
+          ))}
         </div>
       </div>
 
@@ -328,74 +457,89 @@ export function ShiftTemplatesPanel() {
           <table className="w-full text-sm">
             <thead className="bg-[#FDF8F5] text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
               <tr>
-                <th className="px-4 py-2">Nome</th>
+                <th className="px-4 py-2">Modelo</th>
                 <th className="px-4 py-2">Horário</th>
+                <th className="px-4 py-2">Duração</th>
                 <th className="px-4 py-2">Tipo</th>
-                <th className="px-4 py-2">Local padrão</th>
+                <th className="px-4 py-2">Local</th>
                 <th className="px-4 py-2">Estado</th>
-                {canEdit && <th className="px-4 py-2" />}
+                <th className="px-4 py-2 text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F5C992]/30">
-              {visible.length === 0 && (
+            {visible.length === 0 && (
+              <tbody>
                 <tr>
-                  <td colSpan={canEdit ? 6 : 5} className="px-4 py-6 text-center text-stone-500">
-                    {templates.length === 0 ? "Ainda não há modelos de turno." : "Nenhum modelo corresponde à pesquisa."}
+                  <td colSpan={columns} className="px-4 py-6 text-center text-stone-500">
+                    {templates.length === 0 ? "Ainda não há modelos de turno." : "Nenhum modelo corresponde aos filtros."}
                   </td>
                 </tr>
-              )}
-              {visible.map((t: ShiftTemplate) => (
-                <tr key={t.id} className={t.active ? "" : "text-stone-400"}>
-                  <td className="px-4 py-2.5">
-                    <div className="flex items-center gap-2">
-                      <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: t.color ?? "#94A3B8" }} />
-                      <div>
-                        <p className="font-medium text-stone-800">{t.name}</p>
-                        {t.description && <p className="text-xs text-stone-500">{t.description}</p>}
-                      </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <p>{templateTimeLabel(t)}</p>
-                    <p className="text-xs text-stone-500">{templateDurationLabel(t)}</p>
-                  </td>
-                  <td className="px-4 py-2.5">
-                    <span className={`rounded-md px-2 py-0.5 text-xs font-medium ${t.kind === "split" ? "bg-violet-50 text-violet-700" : "bg-sky-50 text-sky-700"}`}>
-                      {SHIFT_TEMPLATE_KIND_LABELS[t.kind]}
-                    </span>
-                  </td>
-                  <td className="px-4 py-2.5 text-stone-600">{t.locationId ? (locationName.get(t.locationId) ?? "—") : "Sem local padrão"}</td>
-                  <td className="px-4 py-2.5">
-                    <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${t.active ? "bg-emerald-50 text-emerald-700" : "bg-stone-100 text-stone-500"}`}>
-                      {t.active ? "Ativo" : "Inativo"}
-                    </span>
-                  </td>
-                  {canEdit && (
-                    <td className="space-x-3 whitespace-nowrap px-4 py-2.5 text-right">
-                      {t.active && (
-                        <button type="button" onClick={() => setApplying(t.id)} className="text-sm font-medium text-stone-800 hover:underline" aria-label={`Aplicar ${t.name}`}>
-                          Aplicar
+              </tbody>
+            )}
+            {sections.map((section) => {
+              const isCollapsed = group === null && collapsed.has(section.group);
+              return (
+                <tbody key={section.group} className="divide-y divide-[#F5C992]/30">
+                  {group === null && (
+                    <tr className="bg-stone-50/60">
+                      <td colSpan={columns} className="px-4 py-1.5">
+                        <button
+                          type="button"
+                          onClick={() => toggleSection(section.group)}
+                          aria-expanded={!isCollapsed}
+                          className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-stone-600"
+                        >
+                          <span aria-hidden="true">{isCollapsed ? "▸" : "▾"}</span>
+                          {section.label} · {section.templates.length}
                         </button>
-                      )}
-                      <button type="button" onClick={() => open("Editar modelo de turno", t.id, formFromTemplate(t))} className="text-sm font-medium text-[#ED5C32] hover:underline">
-                        Editar
-                      </button>
-                      <button type="button" onClick={() => open("Duplicar modelo de turno", null, formFromTemplate(t, true))} className="text-sm text-stone-600 hover:underline">
-                        Duplicar
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setActiveMutation.mutate({ id: t.id, active: !t.active })}
-                        disabled={setActiveMutation.isPending}
-                        className={`text-sm hover:underline ${t.active ? "text-red-600" : "text-emerald-700"}`}
-                      >
-                        {t.active ? "Inativar" : "Ativar"}
-                      </button>
-                    </td>
+                      </td>
+                    </tr>
                   )}
-                </tr>
-              ))}
-            </tbody>
+                  {!isCollapsed &&
+                    section.templates.map((t: ShiftTemplate) => (
+                      <tr key={t.id} className={t.active ? "" : "text-stone-400"}>
+                        <td className="px-4 py-2">
+                          <div className="flex items-center gap-2">
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: t.color ?? "#94A3B8" }} />
+                            <div>
+                              <p className="font-medium text-stone-800">{t.name}</p>
+                              {t.description && <p className="text-xs text-stone-500">{t.description}</p>}
+                            </div>
+                          </div>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-2">{templateTimeLabel(t)}</td>
+                        <td className="whitespace-nowrap px-4 py-2 text-stone-600">{templateDurationLabel(t)}</td>
+                        <td className="px-4 py-2 text-stone-600">{SHIFT_TEMPLATE_KIND_LABELS[t.kind]}</td>
+                        <td className="px-4 py-2 text-stone-600">{t.locationId ? (locationName.get(t.locationId) ?? "—") : "—"}</td>
+                        <td className="px-4 py-2">
+                          <span className={`text-xs font-medium ${t.active ? "text-emerald-700" : "text-stone-500"}`}>{t.active ? "Ativo" : "Inativo"}</span>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-2 text-right">
+                          {canEdit && (
+                            <div className="flex items-center justify-end gap-1">
+                              {t.active && (
+                                <button
+                                  type="button"
+                                  onClick={() => setApplying(t.id)}
+                                  aria-label={`Aplicar ${t.name}`}
+                                  className="rounded-md border border-[#ED5C32]/40 px-3 py-1 text-xs font-medium text-[#ED5C32] hover:bg-[#FEF3EC]"
+                                >
+                                  Aplicar
+                                </button>
+                              )}
+                              <RowMenu
+                                template={t}
+                                onEdit={() => open("Editar modelo de turno", t.id, formFromTemplate(t))}
+                                onDuplicate={() => open("Duplicar modelo de turno", null, formFromTemplate(t, true))}
+                                onToggle={() => setActiveMutation.mutate({ id: t.id, active: !t.active })}
+                              />
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
+              );
+            })}
           </table>
         </div>
       )}

@@ -25,6 +25,7 @@ import {
   type OccurrenceChoice,
 } from "../../domain/services/template-application.service.ts";
 import { usePositions } from "./use-positions.ts";
+import { TemplatePicker } from "./TemplatePicker.tsx";
 import { useManageShiftAutomations } from "./use-shift-automations.ts";
 import { HORIZON_OPTIONS, type AutomationGenerationResult } from "../../domain/entities/shift-automation.ts";
 import { firstGenerationWindow, generationSummary } from "../../domain/services/shift-automation.service.ts";
@@ -279,13 +280,7 @@ export function ApplyTemplateModal({
                   <label htmlFor="apply-template" className={labelCls}>
                     Modelo <span className="text-red-500">*</span>
                   </label>
-                  <select id="apply-template" value={templateId} onChange={(e) => setTemplateId(e.target.value)} className={inputCls}>
-                    {activeTemplates.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name} — {templateTimeLabel(t)}
-                      </option>
-                    ))}
-                  </select>
+                  <TemplatePicker templates={activeTemplates} value={templateId} onChange={setTemplateId} />
                 </div>
 
                 <div className="space-y-2">

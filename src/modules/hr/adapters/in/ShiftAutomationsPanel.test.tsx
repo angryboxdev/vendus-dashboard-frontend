@@ -22,6 +22,7 @@ const TODAY = new Date().toISOString().slice(0, 10);
 const TEMPLATE: ShiftTemplate = {
   id: "tpl-1",
   name: "Manhã 1",
+  group: "OPENING",
   description: null,
   color: null,
   kind: "direct",

@@ -14,14 +14,18 @@ import {
   CreateLocationUseCase,
   ListLocationHistoryUseCase,
   SetLocationActiveUseCase,
+  SetLocationGeofenceUseCase,
   UpdateLocationUseCase,
 } from "./application/use-cases/manage-locations.use-cases.ts";
+import { BrowserCurrentPositionAdapter } from "./adapters/out/browser-current-position.adapter.ts";
 import type { LocationDTO } from "./domain/entities/location.ts";
 import type { ListLocationsPort } from "./domain/ports/in/list-locations.port.ts";
 import type {
   CreateLocationPort,
   ListLocationHistoryPort,
+  ReadCurrentPositionPort,
   SetLocationActivePort,
+  SetLocationGeofencePort,
   UpdateLocationPort,
 } from "./domain/ports/in/manage-locations.port.ts";
 
@@ -32,6 +36,9 @@ export interface LocationsModule {
   updateLocation: UpdateLocationPort;
   setLocationActive: SetLocationActivePort;
   listLocationHistory: ListLocationHistoryPort;
+  /** Portal do Colaborador — zona de picagem do Local. */
+  setLocationGeofence: SetLocationGeofencePort;
+  readCurrentPosition: ReadCurrentPositionPort;
 }
 
 /**
@@ -47,6 +54,8 @@ function buildModule(): LocationsModule {
     updateLocation: new UpdateLocationUseCase(api),
     setLocationActive: new SetLocationActiveUseCase(api),
     listLocationHistory: new ListLocationHistoryUseCase(api),
+    setLocationGeofence: new SetLocationGeofenceUseCase(api),
+    readCurrentPosition: new BrowserCurrentPositionAdapter(),
   };
 }
 
@@ -105,7 +114,8 @@ export function LocationsProvider({
 
   useEffect(() => {
     // Nothing to fetch yet: GET /api/locations requires an authenticated caller.
-    if (authLoading || !user) return;
+    // O papel `employee` (Portal do Colaborador) não tem acesso a /api/locations.
+    if (authLoading || !user || user.role === "employee") return;
     void load();
   }, [authLoading, user, load]);
 

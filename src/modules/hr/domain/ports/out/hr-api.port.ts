@@ -1,3 +1,4 @@
+import type { GrantPortalAccessResult, PortalAccess } from "../../entities/portal-access.ts";
 import type {
   CreateEmployeePayload,
   Employee,
@@ -88,6 +89,10 @@ export interface HrApiPort {
   setEmployeeStatus(id: string, status: "active" | "inactive"): Promise<Employee>;
   uploadEmployeePhoto(id: string, file: File): Promise<{ photoUrl: string }>;
   setEmployeeKioskPin(id: string, pin: string): Promise<void>;
+  /** Portal do Colaborador — acesso ligado à ficha (manager+). */
+  getPortalAccess(employeeId: string): Promise<PortalAccess>;
+  grantPortalAccess(employeeId: string): Promise<GrantPortalAccessResult>;
+  revokePortalAccess(employeeId: string): Promise<void>;
   getEmployeeHistory(
     id: string,
     page: number,

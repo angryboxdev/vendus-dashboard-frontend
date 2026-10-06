@@ -596,6 +596,14 @@ Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
 
 ## Decisões de design
 
+- **Modelos de Turno 2.0 (2026-10-06)** — `group` no Modelo (Abertura/Intermédio/Fecho/Full time/Outro), só organização; Tipo (Direto/Repartido) continua independente. Biblioteca compacta (`ShiftTemplatesPanel`): pesquisa por nome/horário/Grupo, filtros Grupo/Tipo/Estado (Ativos por omissão) feitos no cliente sobre a mesma coleção (`filterTemplates`, `groupTemplates`), secções por Grupo recolhíveis em Todos (estado local), "Aplicar" como ação principal e Editar/Duplicar/Inativar no ⋮. Novo modelo herda o Grupo filtrado (Todos → Outro); Duplicar copia tudo. `TemplatePicker` substitui o dropdown do Aplicar modelo (pesquisa, Grupo, Tipo, só ativos, lista com scroll interno, fecha ao escolher). Fluxo Configuração → Pré-visualização → Confirmar intacto. Editar exige Escalas & Turnos: Gerir.
+
+- **Acesso ao Portal do Colaborador (2026-10-06)** — `PortalAccessCard` na
+  ficha (manager+): "Dar acesso ao Portal" liga a conta existente com o
+  mesmo email ou cria conta só do Portal com palavra-passe temporária,
+  mostrada uma vez; "Retirar acesso" (confirmação). Rotas
+  `/api/hr/people/:id/portal-access`. O Portal em si é o módulo `employee-portal`.
+
 ### Coexistência com o legacy `src/pages/hr/*`
 
 As tabs "Turnos" e "Pagamentos" saem do novo perfil — o Resumo mostra só

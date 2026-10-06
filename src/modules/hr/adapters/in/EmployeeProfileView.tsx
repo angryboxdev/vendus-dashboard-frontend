@@ -19,6 +19,7 @@ import {
 } from "../../../../components/motion/index.ts";
 import { EmployeeDocumentsTab } from "./EmployeeDocumentsTab.tsx";
 import { EmployeeHistoryTab } from "./EmployeeHistoryTab.tsx";
+import { PortalAccessCard } from "./PortalAccessCard.tsx";
 import { usePositions } from "./use-positions.ts";
 import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
 import { locationNameOf, positionNameOf } from "../../domain/services/employee-assignment.service.ts";
@@ -398,6 +399,7 @@ export function EmployeeProfileView() {
                 </div>
               </div>
             )}
+            {(user?.access ? user.access.isAdmin || user.access.permissions["hr.employees"] === "MANAGE" : user?.role === "admin" || user?.role === "manager") && id && <PortalAccessCard employeeId={id} employeeName={e.fullName} />}
           </div>
         )}
 

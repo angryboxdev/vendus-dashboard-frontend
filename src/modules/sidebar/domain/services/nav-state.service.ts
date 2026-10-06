@@ -1,5 +1,6 @@
 import type { NavItem, SidebarNavEntry } from "../entities/nav-item.ts";
 import type { SidebarUser } from "../entities/sidebar-user.ts";
+import { canOpenPath } from "../../../access/domain/services/access-ui.service.ts";
 
 const DRE_ITEMS: NavItem[] = [
   { kind: "item", path: "/dre/demonstrativo", label: "Mapa" },
@@ -90,12 +91,19 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
     { kind: "item", path: "/empresa", label: "Empresa & Estrutura" },
   ];
 
-  if (user.role === "admin") {
-    entries.push({ kind: "item", path: "/admin/users", label: "Utilizadores" });
-    entries.push({ kind: "item", path: "/admin/location-tokens", label: "Tokens de dispositivo" });
-  }
+  entries.push({ kind: "item", path: "/admin/users", label: "Utilizadores" });
+  entries.push({ kind: "item", path: "/admin/location-tokens", label: "Tokens de dispositivo" });
 
-  return entries;
+  const access = user.access;
+  // Sem acesso efetivo carregado: comportamento antigo (itens de administração só para admin).
+  const allowed = (path: string) =>
+    access ? canOpenPath({ isAdmin: access.isAdmin, portalOnly: access.portalOnly, permissions: { ...access.permissions } }, path) : !path.startsWith("/admin") || user.role === "admin";
+
+  return entries.flatMap((entry): SidebarNavEntry[] => {
+    if (entry.kind === "item") return allowed(entry.path) ? [entry] : [];
+    const items = entry.items.filter((i) => allowed(i.path));
+    return items.length > 0 ? [{ ...entry, items }] : [];
+  });
 }
 
 export function resolveActiveGroup(

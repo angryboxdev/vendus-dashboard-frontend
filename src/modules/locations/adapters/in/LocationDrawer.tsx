@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { GeofenceSection } from "./GeofenceSection.tsx";
 import {
   LOCATION_COUNTRY_OPTIONS,
   LOCATION_FIELD_LABELS,
@@ -144,6 +145,8 @@ export function LocationDrawer({ editing, saving, error, onSubmit, onClose }: Lo
               {saving ? "A guardar…" : editing ? "Guardar alterações" : "Criar local"}
             </button>
           </div>
+
+          {editing && <GeofenceSection location={editing} />}
 
           {editing && <History locationId={editing.id} />}
         </form>

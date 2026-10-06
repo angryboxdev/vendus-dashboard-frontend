@@ -1,4 +1,5 @@
-import { apiGet, apiPatch, apiPost, apiPostFormData, apiDeleteNoContent, apiPut, ApiError } from "../../../../lib/api.ts";
+import type { GrantPortalAccessResult, PortalAccess } from "../../domain/entities/portal-access.ts";
+import { apiGet, apiPatch, apiPost, apiPostFormData, apiDeleteNoContent, apiDeleteJson, apiPut, ApiError } from "../../../../lib/api.ts";
 import type { HrApiPort } from "../../domain/ports/out/hr-api.port.ts";
 import type { Position, PositionPayload } from "../../domain/entities/position.ts";
 import type {
@@ -141,6 +142,18 @@ export class HttpHrApiAdapter implements HrApiPort {
 
   async setEmployeeStatus(id: string, status: "active" | "inactive"): Promise<Employee> {
     return apiPatch<Employee>(`${BASE}/${encodeURIComponent(id)}/status`, { status });
+  }
+
+  async getPortalAccess(employeeId: string): Promise<PortalAccess> {
+    return apiGet<PortalAccess>(`/api/hr/people/${encodeURIComponent(employeeId)}/portal-access`);
+  }
+
+  async grantPortalAccess(employeeId: string): Promise<GrantPortalAccessResult> {
+    return apiPost<GrantPortalAccessResult>(`/api/hr/people/${encodeURIComponent(employeeId)}/portal-access`, {});
+  }
+
+  async revokePortalAccess(employeeId: string): Promise<void> {
+    await apiDeleteJson<{ revoked: true }>(`/api/hr/people/${encodeURIComponent(employeeId)}/portal-access`);
   }
 
   async setEmployeeKioskPin(id: string, pin: string): Promise<void> {

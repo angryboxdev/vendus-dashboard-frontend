@@ -35,7 +35,11 @@ import { CashClosingsHubView } from "./modules/cash-closings/adapters/in/CashClo
 import { TerminalPage } from "./pages/terminal/TerminalPage";
 import { KdsPage } from "./pages/kds/KdsPage";
 import { LoginPage } from "./pages/LoginPage";
-import { UsersPage } from "./pages/admin/UsersPage";
+import { AccessProvider } from "./modules/access/access.module.tsx";
+import { UsersView } from "./modules/access/adapters/in/UsersView.tsx";
+import { UserEditorView } from "./modules/access/adapters/in/UserEditorView.tsx";
+import { ProfilesView } from "./modules/access/adapters/in/ProfilesView.tsx";
+import { HomeRedirect } from "./modules/access/adapters/in/HomeRedirect.tsx";
 import { PrintOrdersPage } from "./pages/orders/PrintOrdersPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { CrmLayout } from "./pages/crm/CrmLayout";
@@ -90,6 +94,10 @@ import { PlanningMainView } from "./modules/stock-planning/adapters/in/PlanningM
 import { PlanningAlertsView } from "./modules/stock-planning/adapters/in/PlanningAlertsView.tsx";
 import { SuggestedPurchaseListView } from "./modules/stock-planning/adapters/in/SuggestedPurchaseListView.tsx";
 import { ForecastHistoryView } from "./modules/stock-planning/adapters/in/ForecastHistoryView.tsx";
+import { EmployeePortalProvider } from "./modules/employee-portal/employee-portal.module.tsx";
+import { PortalComingSoonView, PortalLayout } from "./modules/employee-portal/adapters/in/PortalLayout.tsx";
+import { PortalHomeView } from "./modules/employee-portal/adapters/in/PortalHomeView.tsx";
+import { PortalProfileView } from "./modules/employee-portal/adapters/in/PortalProfileView.tsx";
 
 export default function App() {
   return (
@@ -141,6 +149,25 @@ export default function App() {
         }
       />
 
+      {/* Portal do Colaborador — mobile, sem a barra lateral de gestão */}
+      <Route
+        path="/portal"
+        element={
+          <ProtectedRoute allowEmployee>
+            <EmployeePortalProvider>
+              <PortalLayout />
+            </EmployeePortalProvider>
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<PortalHomeView />} />
+        <Route path="escala" element={<PortalComingSoonView title="A minha escala" />} />
+        <Route path="documentos" element={<PortalComingSoonView title="Documentos e recibos" />} />
+        <Route path="ausencias" element={<PortalComingSoonView title="Férias e ausências" />} />
+        <Route path="perfil" element={<PortalProfileView />} />
+        <Route path="*" element={<Navigate to="/portal" replace />} />
+      </Route>
+
       {/* Layout principal com sidebar */}
       <Route
         path="*"
@@ -151,7 +178,7 @@ export default function App() {
               <Sidebar />
               <main className="min-w-0 flex-1 overflow-auto pt-12 md:pt-0">
                 <Routes>
-                <Route path="/" element={<Navigate to="/vendus" replace />} />
+                <Route path="/" element={<HomeRedirect />} />
                 <Route
                   path="/dre"
                   element={<Navigate to="/dre/demonstrativo" replace />}
@@ -437,7 +464,9 @@ export default function App() {
                     }
                   />
                 </Route>
-                <Route path="/admin/users" element={<UsersPage />} />
+                <Route path="/admin/users" element={<AccessProvider><UsersView /></AccessProvider>} />
+                <Route path="/admin/users/:userId" element={<AccessProvider><UserEditorView /></AccessProvider>} />
+                <Route path="/admin/access-profiles" element={<AccessProvider><ProfilesView /></AccessProvider>} />
                 <Route path="/admin/location-tokens" element={<LocationCredentialsAdminView />} />
               </Routes>
             </main>

@@ -14,6 +14,7 @@ import { InMemoryLocationsApiAdapter, locationFixture } from "../../../locations
 import {
   CreateLocationUseCase,
   ListLocationHistoryUseCase,
+  SetLocationGeofenceUseCase,
   SetLocationActiveUseCase,
   UpdateLocationUseCase,
 } from "../../../locations/application/use-cases/manage-locations.use-cases.ts";
@@ -58,6 +59,8 @@ function buildLocationsModule(locations: LocationDTO[]): LocationsModule {
     updateLocation: new UpdateLocationUseCase(api),
     setLocationActive: new SetLocationActiveUseCase(api),
     listLocationHistory: new ListLocationHistoryUseCase(api),
+    setLocationGeofence: new SetLocationGeofenceUseCase(api),
+    readCurrentPosition: { execute: async () => ({ latitude: 41.1, longitude: -8.6, accuracyM: 5 }) },
   };
 }
 

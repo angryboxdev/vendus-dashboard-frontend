@@ -1,4 +1,11 @@
-import type { ShiftTemplate, ShiftTemplatePayload } from "../entities/shift-template.ts";
+import {
+  SHIFT_TEMPLATE_GROUP_LABELS,
+  SHIFT_TEMPLATE_GROUP_ORDER,
+  type ShiftTemplate,
+  type ShiftTemplateGroup,
+  type ShiftTemplateKind,
+  type ShiftTemplatePayload,
+} from "../entities/shift-template.ts";
 
 function toMinutes(hhmm: string): number {
   const [h, m] = hhmm.split(":").map(Number);
@@ -31,6 +38,7 @@ export function endsNextDayFor(startTime: string, endTime: string): boolean {
 
 export interface ShiftTemplateForm {
   name: string;
+  group: ShiftTemplateGroup;
   description: string;
   color: string;
   kind: "direct" | "split";
@@ -59,6 +67,7 @@ export function toShiftTemplatePayload(form: ShiftTemplateForm): { payload: Shif
   return {
     payload: {
       name: form.name.trim(),
+      group: form.group,
       description: form.description.trim() || null,
       color: form.color || null,
       startTime: form.startTime,
@@ -82,9 +91,11 @@ export function formWorkMinutes(form: ShiftTemplateForm): number | null {
   return Math.max(0, first + second - p.breakMinutes);
 }
 
-export function emptyShiftTemplateForm(): ShiftTemplateForm {
+/** Novo modelo: Grupo pré-preenchido com o filtro ativo ("Todos" → Outro). */
+export function emptyShiftTemplateForm(group: ShiftTemplateGroup = "OTHER"): ShiftTemplateForm {
   return {
     name: "",
+    group,
     description: "",
     color: "#3B82F6",
     kind: "direct",
@@ -101,6 +112,7 @@ export function emptyShiftTemplateForm(): ShiftTemplateForm {
 export function formFromTemplate(t: ShiftTemplate, copy = false): ShiftTemplateForm {
   return {
     name: copy ? `${t.name} (cópia)` : t.name,
+    group: t.group,
     description: t.description ?? "",
     color: t.color ?? "",
     kind: t.kind,
@@ -111,4 +123,46 @@ export function formFromTemplate(t: ShiftTemplate, copy = false): ShiftTemplateF
     breakMinutes: t.breakMinutes,
     locationId: t.locationId ?? "",
   };
+}
+
+// ── Biblioteca e seletor (Modelos de Turno 2.0) ──────────────────────────
+
+export interface TemplateFilters {
+  /** null = Todos. */
+  group: ShiftTemplateGroup | null;
+  /** null = Todos. */
+  kind: ShiftTemplateKind | null;
+  status: "active" | "inactive" | "all";
+  search: string;
+}
+
+const strip = (s: string) => s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/** Pesquisa simples por nome, horário (ex.: "20:00") ou Grupo (ex.: "fecho"). */
+export function templateMatchesSearch(t: ShiftTemplate, search: string): boolean {
+  const q = strip(search.trim());
+  if (!q) return true;
+  const times = [t.startTime, t.endTime, t.secondStartTime, t.secondEndTime].filter(Boolean).join(" ");
+  return strip(t.name).includes(q) || times.includes(q) || strip(templateTimeLabel(t)).includes(q) || strip(SHIFT_TEMPLATE_GROUP_LABELS[t.group]).includes(q);
+}
+
+export function filterTemplates(templates: ShiftTemplate[], f: TemplateFilters): ShiftTemplate[] {
+  return templates.filter(
+    (t) =>
+      (f.group === null || t.group === f.group) &&
+      (f.kind === null || t.kind === f.kind) &&
+      (f.status === "all" || (f.status === "active") === t.active) &&
+      templateMatchesSearch(t, f.search),
+  );
+}
+
+/** Secções por Grupo (na ordem fixa), só as que têm modelos; dentro de cada uma, por hora de início e nome. */
+export function groupTemplates(templates: ShiftTemplate[]): Array<{ group: ShiftTemplateGroup; label: string; templates: ShiftTemplate[] }> {
+  return SHIFT_TEMPLATE_GROUP_ORDER.map((group) => ({
+    group,
+    label: SHIFT_TEMPLATE_GROUP_LABELS[group],
+    templates: templates
+      .filter((t) => t.group === group)
+      .sort((a, b) => a.startTime.localeCompare(b.startTime) || a.name.localeCompare(b.name, "pt")),
+  })).filter((s) => s.templates.length > 0);
 }

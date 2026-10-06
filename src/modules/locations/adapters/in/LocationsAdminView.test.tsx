@@ -7,6 +7,7 @@ import { ListLocationsUseCase } from "../../application/use-cases/list-locations
 import {
   CreateLocationUseCase,
   ListLocationHistoryUseCase,
+  SetLocationGeofenceUseCase,
   SetLocationActiveUseCase,
   UpdateLocationUseCase,
 } from "../../application/use-cases/manage-locations.use-cases.ts";
@@ -41,6 +42,8 @@ function renderView(seed = [locationFixture({ id: "loc-mbs", name: "Mercado", co
     updateLocation: new UpdateLocationUseCase(api),
     setLocationActive: new SetLocationActiveUseCase(api),
     listLocationHistory: new ListLocationHistoryUseCase(api),
+    setLocationGeofence: new SetLocationGeofenceUseCase(api),
+    readCurrentPosition: { execute: async () => ({ latitude: 41.1, longitude: -8.6, accuracyM: 5 }) },
   };
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(

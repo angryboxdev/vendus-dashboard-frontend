@@ -1,5 +1,5 @@
 import { useMutation, useQuery } from "@tanstack/react-query";
-import type { LocationDTO, LocationFormValues } from "../../domain/entities/location.ts";
+import type { LocationDTO, LocationFormValues, LocationGeofence } from "../../domain/entities/location.ts";
 import { useLocationsModule, useLocationsState } from "../../locations.module.tsx";
 
 /**
@@ -26,7 +26,13 @@ export function useManageLocations() {
     onSuccess: () => reload(),
   });
 
-  return { createMutation, updateMutation, setActiveMutation };
+  const { setLocationGeofence } = useLocationsModule();
+  const geofenceMutation = useMutation({
+    mutationFn: ({ id, geofence }: { id: string; geofence: LocationGeofence }) => setLocationGeofence.execute(id, geofence),
+    onSuccess: () => reload(),
+  });
+
+  return { createMutation, updateMutation, setActiveMutation, geofenceMutation };
 }
 
 export function useLocationHistory(locationId: string | null) {

@@ -20,6 +20,7 @@ vi.mock("../../../locations/adapters/in/use-locations.ts", () => ({ useLocations
 const TEMPLATE: ShiftTemplate = {
   id: "tpl-1",
   name: "Manhã 1",
+  group: "OPENING",
   description: null,
   color: null,
   kind: "direct",

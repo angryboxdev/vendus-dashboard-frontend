@@ -1,4 +1,4 @@
-import type { LocationDTO, LocationHistoryEntry, LocationPayload } from "../../entities/location.ts";
+import type { LocationDTO, LocationGeofence, LocationHistoryEntry, LocationPayload } from "../../entities/location.ts";
 
 /**
  * Contrato com `/api/locations`. As escritas lançam `LocationValidationError`
@@ -11,4 +11,6 @@ export interface LocationsApiPort {
   updateLocation(id: string, payload: LocationPayload): Promise<LocationDTO>;
   setLocationActive(id: string, active: boolean): Promise<LocationDTO>;
   listLocationHistory(id: string): Promise<LocationHistoryEntry[]>;
+  /** PATCH /api/locations/:id/geofence (admin). */
+  setLocationGeofence(id: string, geofence: LocationGeofence): Promise<LocationDTO>;
 }
