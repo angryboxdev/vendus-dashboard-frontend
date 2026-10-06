@@ -77,8 +77,6 @@ import { CalendarProvider } from "./modules/calendar/calendar.module.tsx";
 import { CalendarView } from "./modules/calendar/adapters/in/CalendarView.tsx";
 import { CompanyDocumentsView } from "./modules/documents/adapters/in/CompanyDocumentsView.tsx";
 import { LocationCredentialsAdminView } from "./modules/location-credentials/adapters/in/LocationCredentialsAdminView.tsx";
-import { SalesSummaryProvider } from "./modules/sales-summary/sales-summary.module.tsx";
-import { SalesSummaryView } from "./modules/sales-summary/adapters/in/SalesSummaryView.tsx";
 import { StockPurchaseReviewProvider } from "./modules/stock-purchase-review/stock-purchase-review.module.tsx";
 import { StockPurchaseReviewsListView } from "./modules/stock-purchase-review/adapters/in/StockPurchaseReviewsListView.tsx";
 import { StockPurchaseReviewDetailView } from "./modules/stock-purchase-review/adapters/in/StockPurchaseReviewDetailView.tsx";
@@ -152,15 +150,6 @@ export default function App() {
               <main className="min-w-0 flex-1 overflow-auto pt-12 md:pt-0">
                 <Routes>
                 <Route path="/" element={<Navigate to="/vendus" replace />} />
-                <Route path="/analytics" element={<Navigate to="/results" replace />} />
-                <Route
-                  path="/results"
-                  element={
-                    <SalesSummaryProvider>
-                      <SalesSummaryView />
-                    </SalesSummaryProvider>
-                  }
-                />
                 <Route
                   path="/dre"
                   element={<Navigate to="/dre/demonstrativo" replace />}
