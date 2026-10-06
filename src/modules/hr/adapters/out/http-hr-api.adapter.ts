@@ -58,6 +58,7 @@ import type {
   BaseScheduleCell,
   ClearShiftsScope,
   ClearWorkShiftsResult,
+  ClearWorkShiftsPreview,
   CreateShiftRotationPayload,
   CreateWorkShiftPayload,
   CreateWorkShiftSeriesPayload,
@@ -435,6 +436,10 @@ export class HttpHrApiAdapter implements HrApiPort {
 
   async clearWorkShifts(scope: ClearShiftsScope): Promise<ClearWorkShiftsResult> {
     return apiPost<ClearWorkShiftsResult>(`${SCHEDULES_BASE}/work-shifts/clear`, { scope });
+  }
+
+  async previewClearWorkShifts(scope: ClearShiftsScope): Promise<ClearWorkShiftsPreview> {
+    return apiPost<ClearWorkShiftsPreview>(`${SCHEDULES_BASE}/work-shifts/clear/preview`, { scope });
   }
 
   async previewRepeatCalendarWeek(payload: PreviewRepeatCalendarWeekPayload): Promise<PreviewRepeatCalendarWeekResult> {

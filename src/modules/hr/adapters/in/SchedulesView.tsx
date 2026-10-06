@@ -912,6 +912,7 @@ export function SchedulesView() {
         <ClearShiftsModal
           employeeId={employeeFilter || null}
           employeeName={employees.find((e) => e.id === employeeFilter)?.fullName ?? ""}
+          employees={employees}
           defaultWeekStartDate={toYmd(mondayOf(anchorDate))}
           locationId={locationFilter || undefined}
           onClose={() => setShowClearShifts(false)}

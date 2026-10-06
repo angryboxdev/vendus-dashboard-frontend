@@ -528,6 +528,15 @@ Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
   checkbox opcional "Criar também os N em conflito" ativa `force: true` —
   nunca ultrapassa férias/ausência/feriado, essas continuam sempre
   ignoradas.
+- `ClearShiftsModal` — âmbito **Período** (2026-10-06, apagar em massa —
+  p.ex. 12 semanas criadas por engano): De/Até (máx. 1 ano), todos ou
+  vários colaboradores, filtros opcionais "Só rascunhos", automatização e
+  modelo (o local filtrado na escala também se aplica). Exige
+  **pré-visualização** (`previewClearWorkShifts` →
+  `POST /hr/schedules/work-shifts/clear/preview`) com contagem por
+  colaborador e turnos preservados (com presença); qualquer alteração aos
+  critérios obriga a pré-visualizar de novo, e o que se apaga é
+  exatamente o âmbito pré-visualizado.
 - `ClearShiftsModal` — "Limpar turnos" em lote (âmbito Dia ou Semana para
   o colaborador do filtro ativo; para limpar uma série inteira, o ponto de
   entrada é "Limpar toda a série" dentro do `ShiftDrawer`, ao editar um

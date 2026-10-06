@@ -138,11 +138,29 @@ export type ClearShiftsScope =
   | { kind: "weeks"; employeeId: string; weekStartDates: string[] }
   | { kind: "series"; seriesId: string }
   /** Limpa a semana toda para TODOS os colaboradores — nunca implícito, só quando pedido sem filtro de colaborador. */
-  | { kind: "week_all"; weekStartDate: string; locationId?: string };
+  | { kind: "week_all"; weekStartDate: string; locationId?: string }
+  /** Apagar em massa por período (máx. 366 dias) — um, vários ou todos (`employeeIds` omitido) os colaboradores. */
+  | {
+      kind: "range";
+      from: string;
+      to: string;
+      employeeIds?: string[];
+      locationId?: string;
+      onlyDrafts?: boolean;
+      automationId?: string;
+      templateId?: string;
+    };
 
 export interface ClearWorkShiftsResult {
   deletedCount: number;
   skipped: Array<{ id: string; workDate: string; reason: "has_attendance" }>;
+}
+
+/** O que "Limpar turnos" vai apagar, sem apagar nada. `protectedCount` = com presença registada (nunca apagados). */
+export interface ClearWorkShiftsPreview {
+  deletableCount: number;
+  protectedCount: number;
+  byEmployee: Array<{ employeeId: string; deletableCount: number; protectedCount: number; firstDate: string; lastDate: string }>;
 }
 
 // ── Escala base ──────────────────────────────────────────────────────────────

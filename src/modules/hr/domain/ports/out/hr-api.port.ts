@@ -56,6 +56,7 @@ import type {
   BaseScheduleCell,
   ClearShiftsScope,
   ClearWorkShiftsResult,
+  ClearWorkShiftsPreview,
   CreateShiftRotationPayload,
   CreateWorkShiftPayload,
   CreateWorkShiftSeriesPayload,
@@ -177,6 +178,7 @@ export interface HrApiPort {
   updateWorkShiftSeriesScope(id: string, payload: UpdateWorkShiftSeriesScopePayload): Promise<WorkShift[]>;
   /** "Limpar turnos" — âmbito explícito, nunca um "limpar tudo" implícito. */
   clearWorkShifts(scope: ClearShiftsScope): Promise<ClearWorkShiftsResult>;
+  previewClearWorkShifts(scope: ClearShiftsScope): Promise<ClearWorkShiftsPreview>;
 
   /** "Repetir escala pelo calendário" — copia os turnos reais de uma semana já montada para as semanas seguintes. Preview usa exatamente o mesmo cálculo da criação. */
   previewRepeatCalendarWeek(payload: PreviewRepeatCalendarWeekPayload): Promise<PreviewRepeatCalendarWeekResult>;
