@@ -80,9 +80,9 @@ import { DocumentsProvider } from "./modules/documents/documents.module.tsx";
 import { CalendarProvider } from "./modules/calendar/calendar.module.tsx";
 import { CalendarView } from "./modules/calendar/adapters/in/CalendarView.tsx";
 import { CompanyDocumentsView } from "./modules/documents/adapters/in/CompanyDocumentsView.tsx";
+import { SalesDeclarationProvider } from "./modules/sales-declaration/sales-declaration.module.tsx";
+import { SalesDeclarationView } from "./modules/sales-declaration/adapters/in/SalesDeclarationView.tsx";
 import { LocationCredentialsAdminView } from "./modules/location-credentials/adapters/in/LocationCredentialsAdminView.tsx";
-import { SalesSummaryProvider } from "./modules/sales-summary/sales-summary.module.tsx";
-import { SalesSummaryView } from "./modules/sales-summary/adapters/in/SalesSummaryView.tsx";
 import { StockPurchaseReviewProvider } from "./modules/stock-purchase-review/stock-purchase-review.module.tsx";
 import { StockPurchaseReviewsListView } from "./modules/stock-purchase-review/adapters/in/StockPurchaseReviewsListView.tsx";
 import { StockPurchaseReviewDetailView } from "./modules/stock-purchase-review/adapters/in/StockPurchaseReviewDetailView.tsx";
@@ -179,15 +179,6 @@ export default function App() {
               <main className="min-w-0 flex-1 overflow-auto pt-12 md:pt-0">
                 <Routes>
                 <Route path="/" element={<HomeRedirect />} />
-                <Route path="/analytics" element={<Navigate to="/results" replace />} />
-                <Route
-                  path="/results"
-                  element={
-                    <SalesSummaryProvider>
-                      <SalesSummaryView />
-                    </SalesSummaryProvider>
-                  }
-                />
                 <Route
                   path="/dre"
                   element={<Navigate to="/dre/demonstrativo" replace />}
@@ -404,6 +395,14 @@ export default function App() {
                                     <Route path="suppliers/:id" element={<SupplierDetailView />} />
                                     <Route path="invoices" element={<InvoicesView />} />
                                     <Route path="accounting" element={<AccountingView />} />
+                                    <Route
+                                      path="sales-declaration"
+                                      element={
+                                        <SalesDeclarationProvider>
+                                          <SalesDeclarationView />
+                                        </SalesDeclarationProvider>
+                                      }
+                                    />
                                     <Route path="payable-entries" element={<PayableEntriesView />} />
                                     <Route path="recurrences" element={<RecurrencesView />} />
                                     <Route path="recurrences/monthly/:year/:month" element={<RecurrencesMonthlyView />} />

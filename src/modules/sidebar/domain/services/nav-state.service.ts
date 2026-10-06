@@ -44,11 +44,11 @@ const FINANCIAL_ITEMS: NavItem[] = [
   { kind: "item", path: "/financial/recurrences", label: "Recorrências" },
   { kind: "item", path: "/financial/bank-statements", label: "Conciliação Bancária" },
   { kind: "item", path: "/financial/accounting", label: "Contabilidade" },
+  { kind: "item", path: "/financial/sales-declaration", label: "Declaração de Vendas" },
 ];
 
 export function buildTree(user: SidebarUser): SidebarNavEntry[] {
   const entries: SidebarNavEntry[] = [
-    { kind: "item", path: "/results", label: "Resultados", end: true },
     {
       kind: "group",
       id: "dre",

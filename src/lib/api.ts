@@ -129,3 +129,22 @@ export async function apiPostFormData<T>(
   }
   return res.json() as Promise<T>;
 }
+
+/**
+ * POST multipart cuja resposta é um ficheiro. Devolve o conteúdo e o nome sugerido
+ * pelo backend (Content-Disposition), ou `null` se o cabeçalho não for legível.
+ */
+export async function apiPostFormDataFile(
+  path: string,
+  formData: FormData,
+): Promise<{ blob: Blob; fileName: string | null }> {
+  const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(url, { method: "POST", headers: authHeaders, body: formData });
+  if (!res.ok) {
+    const { message, data } = await readErrorBody(res);
+    throw new ApiError(message, res.status, data);
+  }
+  const fileName = res.headers.get("Content-Disposition")?.match(/filename="?([^";]+)"?/)?.[1] ?? null;
+  return { blob: await res.blob(), fileName };
+}

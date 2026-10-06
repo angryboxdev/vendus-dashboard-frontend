@@ -110,7 +110,6 @@ export function formatLastAccess(iso: string | null, now: Date = new Date()): st
 const PATH_PERMISSIONS: Array<[RegExp, string | "admin" | null]> = [
   [/^\/admin\/(users|access-profiles)/, "admin"],
   [/^\/admin\/location-tokens/, "company.devices"],
-  [/^\/results/, "sales.results"],
   [/^\/(vendus|analytics)/, "sales.dashboard"],
   [/^\/cash-closings/, "sales.cash_closings"],
   [/^\/air-menu/, "sales.air_menu"],
@@ -131,6 +130,8 @@ const PATH_PERMISSIONS: Array<[RegExp, string | "admin" | null]> = [
   [/^\/hr\/historico/, "hr.history"],
   [/^\/crm\/parameters/, "crm.settings"],
   [/^\/crm/, "crm.customers"],
+  // Declaração de Vendas (Excel do MBS a partir de SAF-T) — o backend classifica-a em Vendas (Ver).
+  [/^\/financial\/sales-declaration/, "sales.dashboard"],
   [/^\/financial\/cost-centers/, "finance.cost_centers"],
   [/^\/financial\/suppliers/, "finance.suppliers"],
   [/^\/financial\/invoices/, "finance.invoices"],

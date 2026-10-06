@@ -13,6 +13,7 @@ import type {
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import type { AirMenuEnterprise } from "../../domain/entities/air-menu-enterprise.ts";
+import { AirMenuRateLimitNotice } from "../../../../components/AirMenuRateLimitNotice.tsx";
 import { OrderRow } from "./air-menu-shared.tsx";
 import { useAirMenuModule } from "../../air-menu.module.tsx";
 import { useAirMenuSummary } from "./use-air-menu-summary.ts";
@@ -661,6 +662,8 @@ export function AirMenuView() {
           {loading ? "A carregar…" : "Atualizar"}
         </button>
       </div>
+
+      <AirMenuRateLimitNotice className="mb-4" />
 
       {loadingEnterprises ? (
         <div className="flex items-center justify-center py-16 text-gray-400">

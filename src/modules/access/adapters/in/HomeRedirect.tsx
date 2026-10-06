@@ -3,7 +3,7 @@ import { useAuth } from "../../../../contexts/AuthContext.tsx";
 import { canOpenPath } from "../../domain/services/access-ui.service.ts";
 
 /** Ordem de preferência da página inicial — a primeira a que o perfil tem acesso. */
-const HOME_CANDIDATES = ["/vendus", "/results", "/hr/overview", "/hr/schedules", "/stock/movimentacoes", "/crm", "/financial/invoices", "/dre/demonstrativo", "/empresa"];
+const HOME_CANDIDATES = ["/vendus", "/hr/overview", "/hr/schedules", "/stock/movimentacoes", "/crm", "/financial/invoices", "/dre/demonstrativo", "/empresa"];
 
 /** `/` → primeira área permitida (antes era sempre `/vendus`, que um perfil RH, por exemplo, não vê). */
 export function HomeRedirect() {

@@ -56,6 +56,8 @@ padrão novo, abra o `README.md` dele e veja o campo `Status`; sem README ou com
   Empresa; Base Organizacional 1.0)
 - `documents` (outubro 2026) — Empresa & Estrutura → Documentos (documentos
   da Empresa sobre o motor único de documentos)
+- `sales-declaration` (outubro 2026) — Financeiro → Declaração de Vendas
+  (Excel para o Mercado Bom Sucesso a partir dos SAF-T enviados)
 - `calendar` (outubro 2026) — Empresa & Estrutura → Calendário & Eventos
   (feriados, eventos empresariais e prazos de documentos)
 - `access` (outubro 2026) — Utilizadores & Perfis de Acesso 2.0 (ecrãs de
