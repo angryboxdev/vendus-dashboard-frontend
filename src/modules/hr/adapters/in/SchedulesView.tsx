@@ -12,6 +12,7 @@ import { ShiftAutomationsPanel } from "./ShiftAutomationsPanel.tsx";
 import { useManageShiftAutomations } from "./use-shift-automations.ts";
 import { OCCURRENCE_STATUS_LABELS } from "../../domain/entities/shift-template.ts";
 import { ClearShiftsModal } from "./ClearShiftsModal.tsx";
+import { PublishReviewModal } from "./PublishReviewModal.tsx";
 import { RepeatScheduleWeekModal } from "./RepeatScheduleWeekModal.tsx";
 import { DaySummaryPanel } from "./DaySummaryPanel.tsx";
 import { exportGeneralSchedulePdf } from "../../../../utils/schedulePdf.ts";
@@ -196,6 +197,9 @@ export function SchedulesView() {
   const [newShiftDate, setNewShiftDate] = useState<string | null>(null);
   const [showBaseSchedule, setShowBaseSchedule] = useState(false);
   const [showClearShifts, setShowClearShifts] = useState(false);
+  /** "Rever e publicar": revisão dos rascunhos antes de publicar (nunca publica direto). */
+  const [publishReviewOpen, setPublishReviewOpen] = useState(false);
+  const [publishedCount, setPublishedCount] = useState<number | null>(null);
   const [showWeekActionsMenu, setShowWeekActionsMenu] = useState(false);
   const [repeatModalWeeks, setRepeatModalWeeks] = useState<number | null>(null);
   const [repeatModalRotate, setRepeatModalRotate] = useState(false);
@@ -305,10 +309,6 @@ export function SchedulesView() {
     onError: (e: unknown) => setFormError(e instanceof Error ? e.message : "Erro ao apagar turno"),
   });
   const { dismissMutation } = useManageShiftAutomations();
-  const publishAllMutation = useMutation({
-    mutationFn: (ids: string[]) => api.publishWorkShifts(ids),
-    onSuccess: invalidate,
-  });
   const updateSeriesScopeMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: UpdateWorkShiftSeriesScopePayload }) =>
       api.updateWorkShiftSeriesScope(id, payload),
@@ -424,7 +424,6 @@ export function SchedulesView() {
       ? anchorDate.toLocaleDateString("pt-PT", { month: "long", year: "numeric" })
       : `Semana ${formatDayHeader(days[0]!)}–${formatDayHeader(days[6]!)}`;
 
-  const pendingPublishIds = shifts.filter((s) => s.status === "draft").map((s) => s.id);
 
   return (
     <div className="min-h-screen bg-[#FAF6F3]">
@@ -531,13 +530,21 @@ export function SchedulesView() {
                     </div>
                   </div>
                 ))}
+                {publishedCount !== null && (
+                  <p role="status" className="rounded-lg bg-emerald-50 p-2 text-xs text-emerald-800">
+                    {publishedCount} turno(s) publicado(s) — já visíveis para os colaboradores.
+                  </p>
+                )}
                 {alerts.pendingPublishCount > 0 && (
                   <div className="rounded-lg border border-stone-200 bg-stone-50 p-2 text-xs">
                     <p className="font-semibold text-stone-700">Turnos por publicar</p>
                     <p className="text-stone-500">{alerts.pendingPublishCount} turno(s) restante(s)</p>
                     <button
-                      onClick={() => publishAllMutation.mutate(pendingPublishIds)}
-                      disabled={publishAllMutation.isPending}
+                      onClick={() => {
+                        setPublishedCount(null);
+                        setPublishReviewOpen(true);
+                      }}
+                      disabled={!alerts.pendingPublishRange}
                       className="mt-1 font-medium text-[#ED5C32] hover:underline disabled:opacity-50"
                     >
                       Rever e publicar →
@@ -905,6 +912,20 @@ export function SchedulesView() {
           weekStartDate={toYmd(mondayOf(anchorDate))}
           onClose={() => setShowBaseSchedule(false)}
           onApplied={invalidate}
+        />
+      )}
+
+      {publishReviewOpen && alerts?.pendingPublishRange && (
+        <PublishReviewModal
+          range={alerts.pendingPublishRange}
+          locationId={locationFilter || undefined}
+          locationName={(id) => locationNameById.get(id) ?? "—"}
+          onClose={() => setPublishReviewOpen(false)}
+          onPublished={(count) => {
+            invalidate();
+            setPublishReviewOpen(false);
+            setPublishedCount(count);
+          }}
         />
       )}
 
