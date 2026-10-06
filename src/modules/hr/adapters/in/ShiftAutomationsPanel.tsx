@@ -195,6 +195,9 @@ export function ShiftAutomationsPanel() {
   };
   const visible = automations.filter((a) => a.name.toLowerCase().includes(search.trim().toLowerCase()));
 
+  // Sem automatizações não há nada a gerir — o painel some (criam-se em Aplicar modelo → "Guardar como automatização").
+  if (!isLoading && !isError && automations.length === 0) return null;
+
   return (
     <section className="rounded-xl border border-[#F5C992]/40 bg-white shadow-sm">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-100 px-4 py-3">

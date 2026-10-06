@@ -122,9 +122,14 @@ describe("ShiftAutomationsPanel", () => {
     expect(api.generateShiftAutomation).toHaveBeenCalledWith("a1", 2);
   });
 
-  it("já não há botão Nova automatização (redundante com Aplicar modelo)", async () => {
+  it("sem automatizações o painel não aparece; com automatizações não há botão Nova automatização", async () => {
     renderPanel([]);
-    expect(await screen.findByText(/Ainda não há automatizações/)).toBeInTheDocument();
+    await vi.waitFor(() => expect(screen.queryByText("Automatizações de turnos")).not.toBeInTheDocument());
+  });
+
+  it("com automatizações não há botão Nova automatização (redundante com Aplicar modelo)", async () => {
+    renderPanel();
+    expect(await screen.findByText("Automatizações de turnos")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Nova automatização" })).not.toBeInTheDocument();
   });
 

@@ -29,7 +29,7 @@ import {
 } from "../../domain/entities/schedule.ts";
 
 type ViewMode = "month" | "week";
-type Tab = "calendar" | "templates" | "alerts";
+type Tab = "calendar" | "templates";
 type VisualMode = "detailed" | "compact";
 
 const VISUAL_MODE_STORAGE_PREFIX = "hr-schedules-visual-mode-";
@@ -201,6 +201,8 @@ export function SchedulesView() {
   /** "Rever e publicar": revisão dos rascunhos antes de publicar (nunca publica direto). null = fechado. */
   const [review, setReview] = useState<{ from: string; to: string } | null>(null);
   const [publishedCount, setPublishedCount] = useState<number | null>(null);
+  /** Faixa "Alertas da escala" (faltas, sobreposições, automatizações) — recolhida por omissão. */
+  const [alertsOpen, setAlertsOpen] = useState(false);
   /** Aviso logo a seguir a criar turnos em rascunho (ainda não visíveis para os colaboradores). */
   const [draftNotice, setDraftNotice] = useState<{ count: number; range: { from: string; to: string } } | null>(null);
   function noticeDrafts(created: Pick<WorkShift, "status" | "workDate">[]) {
@@ -281,6 +283,7 @@ export function SchedulesView() {
     queryKey: ["hr-schedule-alerts", from, to, locationFilter],
     queryFn: () => api.getScheduleAlerts(from, to, locationFilter || undefined),
   });
+  const otherAlertsCount = alerts ? alerts.coverageGaps.length + alerts.overlaps.length + (alerts.automationIssues ?? []).length : 0;
 
   function invalidate() {
     void qc.invalidateQueries({ queryKey: ["hr-work-shifts"] });
@@ -460,7 +463,6 @@ export function SchedulesView() {
           {([
             { key: "calendar", label: "Calendário" },
             { key: "templates", label: "Modelos & Automatizações" },
-            { key: "alerts", label: "Alertas e ações" },
           ] as const).map(({ key, label }) => (
             <button
               key={key}
@@ -475,7 +477,7 @@ export function SchedulesView() {
         </div>
       </div>
 
-      {(draftNotice || publishedCount !== null || (alerts?.pendingPublishCount ?? 0) > 0) && (
+      {(draftNotice || publishedCount !== null || (alerts?.pendingPublishCount ?? 0) > 0 || otherAlertsCount > 0) && (
         <div className="space-y-2 px-4 pt-4">
           {draftNotice && (
             <div role="status" className="flex flex-wrap items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm text-sky-900">
@@ -505,6 +507,88 @@ export function SchedulesView() {
               </button>
             </div>
           )}
+          {alerts && otherAlertsCount > 0 && (
+            <div className="rounded-xl border border-stone-200 bg-white" aria-label="Alertas da escala">
+              <button
+                type="button"
+                onClick={() => setAlertsOpen((o) => !o)}
+                aria-expanded={alertsOpen}
+                className="flex w-full flex-wrap items-center gap-2 px-4 py-2.5 text-left text-sm text-stone-800"
+              >
+                <span aria-hidden="true" className="text-stone-400">
+                  {alertsOpen ? "▾" : "▸"}
+                </span>
+                <strong>
+                  {otherAlertsCount} {otherAlertsCount === 1 ? "alerta" : "alertas"} na escala
+                </strong>
+                <span className="text-stone-500">
+                  {[
+                    alerts.coverageGaps.length > 0 && `${alerts.coverageGaps.length} sem cobertura`,
+                    alerts.overlaps.length > 0 && `${alerts.overlaps.length} ${alerts.overlaps.length === 1 ? "sobreposição" : "sobreposições"}`,
+                    (alerts.automationIssues ?? []).length > 0 && `${(alerts.automationIssues ?? []).length} das automatizações`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+                <span className="ml-auto text-xs font-medium text-[#ED5C32]">{alertsOpen ? "Esconder" : "Ver"}</span>
+              </button>
+              {alertsOpen && (
+                <div className="grid grid-cols-1 gap-2 border-t border-stone-100 p-3 sm:grid-cols-2 lg:grid-cols-3">
+              {alerts.coverageGaps.map((g, i) => (
+                <div key={`gap-${i}`} className="rounded-lg border border-red-100 bg-red-50/40 p-2 text-xs">
+                  <p className="font-semibold text-red-700">Falta cobertura</p>
+                  <p className="text-stone-600">{g.employeeName}</p>
+                  <p className="text-stone-400">{g.workDate}</p>
+                  <button
+                    onClick={() => {
+                      setTab("calendar");
+                      openNewShift(g.workDate);
+                    }}
+                    className="mt-1 font-medium text-[#ED5C32] hover:underline"
+                  >
+                    Atribuir turno →
+                  </button>
+                </div>
+              ))}
+              {alerts.overlaps.map((o, i) => (
+                <div key={`overlap-${i}`} className="rounded-lg border border-amber-100 bg-amber-50/40 p-2 text-xs">
+                  <p className="font-semibold text-amber-700">Conflito de sobreposição</p>
+                  <p className="text-stone-600">{o.employeeName}</p>
+                  <p className="text-stone-400">{o.workDate}</p>
+                </div>
+              ))}
+              {(alerts.automationIssues ?? []).map((issue) => (
+                <div key={issue.id} className="rounded-lg border border-violet-100 bg-violet-50/40 p-2 text-xs">
+                  <p className="font-semibold text-violet-700">Automatização não criou o turno</p>
+                  <p className="text-stone-600">
+                    {issue.employeeName} · {issue.workDate}
+                  </p>
+                  <p className="text-stone-500">
+                    {issue.automationName} — {issue.status === "inactive_template" ? "Modelo inativo" : OCCURRENCE_STATUS_LABELS[issue.status].label}
+                  </p>
+                  <div className="mt-1 flex gap-3">
+                    <button
+                      onClick={() => {
+                        openNewShift(issue.workDate);
+                      }}
+                      className="font-medium text-[#ED5C32] hover:underline"
+                    >
+                      Resolver na escala →
+                    </button>
+                    <button
+                      onClick={() => dismissMutation.mutate(issue.id)}
+                      disabled={dismissMutation.isPending}
+                      className="text-stone-500 hover:underline disabled:opacity-50"
+                    >
+                      Dispensar
+                    </button>
+                  </div>
+                </div>
+              ))}
+                </div>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -514,87 +598,6 @@ export function SchedulesView() {
           <ShiftTemplatesPanel onReviewDrafts={(range) => openReview(range)} />
           <ShiftAutomationsPanel />
           <ShiftRotationsPanel />
-        </div>
-      ) : tab === "alerts" ? (
-        <div className="p-4">
-          <div className="space-y-2 rounded-xl border border-[#F5C992]/40 bg-white p-3 shadow-sm">
-            <h2 className="text-sm font-semibold text-stone-800">Alertas e ações</h2>
-            {!alerts ||
-            (alerts.coverageGaps.length === 0 &&
-              alerts.overlaps.length === 0 &&
-              alerts.pendingPublishCount === 0 &&
-              (alerts.automationIssues ?? []).length === 0) ? (
-              <p className="text-sm text-stone-400">Sem alertas no período visível.</p>
-            ) : (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {alerts.coverageGaps.map((g, i) => (
-                  <div key={`gap-${i}`} className="rounded-lg border border-red-100 bg-red-50/40 p-2 text-xs">
-                    <p className="font-semibold text-red-700">Falta cobertura</p>
-                    <p className="text-stone-600">{g.employeeName}</p>
-                    <p className="text-stone-400">{g.workDate}</p>
-                    <button
-                      onClick={() => {
-                        setTab("calendar");
-                        openNewShift(g.workDate);
-                      }}
-                      className="mt-1 font-medium text-[#ED5C32] hover:underline"
-                    >
-                      Atribuir turno →
-                    </button>
-                  </div>
-                ))}
-                {alerts.overlaps.map((o, i) => (
-                  <div key={`overlap-${i}`} className="rounded-lg border border-amber-100 bg-amber-50/40 p-2 text-xs">
-                    <p className="font-semibold text-amber-700">Conflito de sobreposição</p>
-                    <p className="text-stone-600">{o.employeeName}</p>
-                    <p className="text-stone-400">{o.workDate}</p>
-                  </div>
-                ))}
-                {(alerts.automationIssues ?? []).map((issue) => (
-                  <div key={issue.id} className="rounded-lg border border-violet-100 bg-violet-50/40 p-2 text-xs">
-                    <p className="font-semibold text-violet-700">Automatização não criou o turno</p>
-                    <p className="text-stone-600">
-                      {issue.employeeName} · {issue.workDate}
-                    </p>
-                    <p className="text-stone-500">
-                      {issue.automationName} — {issue.status === "inactive_template" ? "Modelo inativo" : OCCURRENCE_STATUS_LABELS[issue.status].label}
-                    </p>
-                    <div className="mt-1 flex gap-3">
-                      <button
-                        onClick={() => {
-                          setTab("calendar");
-                          openNewShift(issue.workDate);
-                        }}
-                        className="font-medium text-[#ED5C32] hover:underline"
-                      >
-                        Resolver na escala →
-                      </button>
-                      <button
-                        onClick={() => dismissMutation.mutate(issue.id)}
-                        disabled={dismissMutation.isPending}
-                        className="text-stone-500 hover:underline disabled:opacity-50"
-                      >
-                        Dispensar
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {alerts.pendingPublishCount > 0 && (
-                  <div className="rounded-lg border border-stone-200 bg-stone-50 p-2 text-xs">
-                    <p className="font-semibold text-stone-700">Turnos por publicar</p>
-                    <p className="text-stone-500">{alerts.pendingPublishCount} turno(s) restante(s)</p>
-                    <button
-                      onClick={() => alerts.pendingPublishRange && openReview(alerts.pendingPublishRange)}
-                      disabled={!alerts.pendingPublishRange}
-                      className="mt-1 font-medium text-[#ED5C32] hover:underline disabled:opacity-50"
-                    >
-                      Rever e publicar →
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         </div>
       ) : (
         <div className="p-4">

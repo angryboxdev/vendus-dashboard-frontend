@@ -596,6 +596,8 @@ Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
 
 ## Decisões de design
 
+- **Sem aba "Alertas e ações" (2026-10-07)** — tudo vive em faixas no topo das Escalas: rascunhos (Rever e publicar) e "N alertas na escala" (recolhível: faltas de cobertura → Atribuir turno, sobreposições, ocorrências das automatizações → Resolver/Dispensar). O painel Automatizações só aparece quando existe alguma (vazio, some).
+
 - **Sem "Nova automatização" (2026-10-07)** — era o mesmo "Aplicar modelo" já em modo automatização (redundante). Criar uma automatização: Modelos de turno → Aplicar modelo → "Guardar como automatização". O painel Automatizações fica só para gerir as existentes (editar, pausar/retomar, gerar).
 
 - **Rascunhos visíveis e Rever e publicar (2026-10-07)** — (1) logo a seguir a criar turnos em rascunho (Novo turno sem publicar, Duplicar, Repetir semana, Aplicar modelo, automatização) aparece o aviso "N turno(s) criado(s) em rascunho — ainda não visíveis para os colaboradores · Rever e publicar agora" (`draftSummary`); (2) faixa no topo das Escalas sempre que há rascunhos no período (`pendingPublishCount` do backend). `PublishReviewModal`: rascunhos do período/local agrupados por dia (recolhíveis; com alertas abrem expandidos; > 7 dias recolhe os sem alertas), seleção global/dia (indeterminada)/turno, nome curto, local comum só no cabeçalho, repartido identificado, alertas reutilizados (sobreposições do `GET /alerts`, ausências, feriados — sem motor novo), filtro Todos/Com alertas, cabeçalho e rodapé fixos com a contagem real; publica só os selecionados (um pedido de cada vez; publicar é idempotente). Nunca publica direto.
