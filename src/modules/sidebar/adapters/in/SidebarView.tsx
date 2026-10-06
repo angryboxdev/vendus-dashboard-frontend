@@ -5,11 +5,14 @@ import type { UseSidebarResult } from "./use-sidebar.ts";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
+/** Barra lateral escura (teste de 2026-10-06, inspirado no mockup de Utilizadores) — destaques no laranja da marca. */
+const SIDEBAR_BG = "bg-[#141B2D]";
+
 function navLinkClass({ isActive }: { isActive: boolean }) {
   return `block rounded-lg px-3 py-2 text-sm transition-colors ${
     isActive
-      ? "bg-[#FEF3EC] font-semibold text-[#9B2B1F]"
-      : "font-medium text-stone-600 hover:bg-stone-50 hover:text-stone-800"
+      ? "bg-white/10 font-semibold text-white shadow-[inset_3px_0_0_#ED5C32]"
+      : "font-medium text-slate-300 hover:bg-white/5 hover:text-white"
   }`;
 }
 
@@ -19,7 +22,7 @@ function ChevronIcon({ open, active }: { open: boolean; active: boolean }) {
   return (
     <svg
       className={`h-4 w-4 transition-all duration-200 ${open ? "rotate-180" : ""} ${
-        active ? "text-[#ED5C32]" : "text-stone-400"
+        active ? "text-[#ED5C32]" : "text-slate-500"
       }`}
       viewBox="0 0 20 20"
       fill="currentColor"
@@ -37,7 +40,7 @@ function ChevronIcon({ open, active }: { open: boolean; active: boolean }) {
 function HamburgerIcon() {
   return (
     <svg
-      className="h-5 w-5 text-stone-600"
+      className="h-5 w-5 text-slate-200"
       viewBox="0 0 20 20"
       fill="currentColor"
       aria-hidden="true"
@@ -83,15 +86,15 @@ function NavGroupSection({
         onClick={onToggle}
         className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
           active
-            ? "bg-[#FEF3EC] font-semibold text-[#9B2B1F]"
-            : "font-medium text-stone-600 hover:bg-stone-50 hover:text-stone-800"
+            ? "font-semibold text-white"
+            : "font-medium text-slate-300 hover:bg-white/5 hover:text-white"
         }`}
       >
         <span>{group.label}</span>
         <ChevronIcon open={expanded} active={active} />
       </button>
       {expanded && (
-        <div className="mt-0.5 flex flex-col gap-0.5 pl-1">
+        <div className="mb-1 ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-white/10 pl-2">
           {group.items.map((item) => (
             <NavItemLink key={item.path} item={item} onClick={onNavClick} />
           ))}
@@ -128,7 +131,7 @@ function SidebarBody({
       <div className="px-4 pb-3 pt-4">
         <div className="flex items-center gap-2.5">
           <div className="h-2 w-2 flex-shrink-0 rounded-full bg-gradient-to-br from-[#ED5C32] to-[#EF8935]" />
-          <h1 className="text-base font-bold tracking-tight text-stone-900">
+          <h1 className="text-base font-bold tracking-tight text-white">
             Angry Box Hub
           </h1>
         </div>
@@ -156,15 +159,19 @@ function SidebarBody({
       </nav>
 
       {/* Footer */}
-      <div className="border-t border-[#F5C992]/40 px-3 py-3">
-        <p className="truncate px-3 text-xs text-stone-400">{userEmail}</p>
+      <div className="border-t border-white/10 px-3 py-3">
+        <p className="truncate px-3 text-xs text-slate-400">{userEmail}</p>
         <button
           type="button"
           onClick={onSignOut}
-          className="mt-1 w-full rounded-lg px-3 py-1.5 text-left text-sm font-medium text-stone-600 transition-colors hover:bg-[#FAF6F3] hover:text-stone-800"
+          className="mt-1 w-full rounded-lg px-3 py-1.5 text-left text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
         >
           Sair
         </button>
+        <p className="mt-3 px-3 text-[11px] text-slate-500" aria-label="Desenvolvido por Mezza ERP">
+          by <span className="font-bold text-white">Mezza</span>{" "}
+          <span className="text-[9px] font-semibold tracking-[0.2em] text-[#4F8EF7]">ERP</span>
+        </p>
       </div>
     </>
   );
@@ -198,23 +205,23 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className="hidden w-56 flex-shrink-0 flex-col border-r border-[#F5C992]/40 bg-white md:flex">
+      <aside className={`hidden w-56 flex-shrink-0 flex-col ${SIDEBAR_BG} md:flex`}>
         <SidebarBody {...bodyProps} onNavClick={() => {}} />
       </aside>
 
       {/* Mobile top bar */}
-      <div className="fixed inset-x-0 top-0 z-30 flex h-12 items-center gap-3 border-b border-[#F5C992]/40 bg-white px-4 md:hidden">
+      <div className={`fixed inset-x-0 top-0 z-30 flex h-12 items-center gap-3 ${SIDEBAR_BG} px-4 md:hidden`}>
         <button
           type="button"
           onClick={openMobile}
-          className="rounded-lg p-1 transition-colors hover:bg-stone-100"
+          className="rounded-lg p-1 transition-colors hover:bg-white/10"
           aria-label="Abrir menu"
         >
           <HamburgerIcon />
         </button>
         <div className="flex items-center gap-2">
           <div className="h-1.5 w-1.5 rounded-full bg-gradient-to-br from-[#ED5C32] to-[#EF8935]" />
-          <span className="text-sm font-bold tracking-tight text-stone-900">
+          <span className="text-sm font-bold tracking-tight text-white">
             Angry Box Hub
           </span>
         </div>
@@ -231,7 +238,7 @@ export function Sidebar() {
 
       {/* Mobile drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-56 flex-col border-r border-[#F5C992]/40 bg-white shadow-xl transition-transform duration-200 md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-56 flex-col ${SIDEBAR_BG} shadow-xl transition-transform duration-200 md:hidden ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >
