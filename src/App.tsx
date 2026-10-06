@@ -35,7 +35,11 @@ import { CashClosingsHubView } from "./modules/cash-closings/adapters/in/CashClo
 import { TerminalPage } from "./pages/terminal/TerminalPage";
 import { KdsPage } from "./pages/kds/KdsPage";
 import { LoginPage } from "./pages/LoginPage";
-import { UsersPage } from "./pages/admin/UsersPage";
+import { AccessProvider } from "./modules/access/access.module.tsx";
+import { UsersView } from "./modules/access/adapters/in/UsersView.tsx";
+import { UserEditorView } from "./modules/access/adapters/in/UserEditorView.tsx";
+import { ProfilesView } from "./modules/access/adapters/in/ProfilesView.tsx";
+import { HomeRedirect } from "./modules/access/adapters/in/HomeRedirect.tsx";
 import { PrintOrdersPage } from "./pages/orders/PrintOrdersPage";
 import { ProtectedRoute } from "./components/ProtectedRoute";
 import { CrmLayout } from "./pages/crm/CrmLayout";
@@ -174,7 +178,7 @@ export default function App() {
               <Sidebar />
               <main className="min-w-0 flex-1 overflow-auto pt-12 md:pt-0">
                 <Routes>
-                <Route path="/" element={<Navigate to="/vendus" replace />} />
+                <Route path="/" element={<HomeRedirect />} />
                 <Route path="/analytics" element={<Navigate to="/results" replace />} />
                 <Route
                   path="/results"
@@ -461,7 +465,9 @@ export default function App() {
                     }
                   />
                 </Route>
-                <Route path="/admin/users" element={<UsersPage />} />
+                <Route path="/admin/users" element={<AccessProvider><UsersView /></AccessProvider>} />
+                <Route path="/admin/users/:userId" element={<AccessProvider><UserEditorView /></AccessProvider>} />
+                <Route path="/admin/access-profiles" element={<AccessProvider><ProfilesView /></AccessProvider>} />
                 <Route path="/admin/location-tokens" element={<LocationCredentialsAdminView />} />
               </Routes>
             </main>

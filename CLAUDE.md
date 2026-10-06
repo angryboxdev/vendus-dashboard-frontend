@@ -58,6 +58,8 @@ padrão novo, abra o `README.md` dele e veja o campo `Status`; sem README ou com
   da Empresa sobre o motor único de documentos)
 - `calendar` (outubro 2026) — Empresa & Estrutura → Calendário & Eventos
   (feriados, eventos empresariais e prazos de documentos)
+- `access` (outubro 2026) — Utilizadores & Perfis de Acesso 2.0 (ecrãs de
+  Utilizadores/Perfis e acesso efetivo para menu e rotas)
 - `employee-portal` (outubro 2026) — Portal do Colaborador (`/portal`, PWA,
   picagem com geolocalização)
 

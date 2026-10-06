@@ -3,10 +3,12 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useMemo,
   useState,
 } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
+import { apiGet } from "../lib/api";
 
 /** `employee` = conta só do Portal do Colaborador (sem acesso à área de gestão). */
 export type OrgRole = "admin" | "manager" | "hr_viewer" | "employee";
@@ -19,6 +21,18 @@ export interface AuthUser {
   organizationId: string | null;
   /** Conta criada com palavra-passe temporária (Portal do Colaborador) — tem de a mudar antes de continuar. */
   mustChangePassword: boolean;
+  /**
+   * Acesso efetivo (Utilizadores & Perfis 2.0, `GET /api/me/access`) — só
+   * adapta menus e ecrãs; o backend decide cada pedido. null enquanto não
+   * carregou (ou se falhou): a UI comporta-se como antes.
+   */
+  access: UserAccess | null;
+}
+
+export interface UserAccess {
+  isAdmin: boolean;
+  portalOnly: boolean;
+  permissions: Record<string, "NONE" | "READ" | "MANAGE">;
 }
 
 interface AuthContextValue {
@@ -71,12 +85,33 @@ function sessionToUser(session: Session | null): AuthUser | null {
     role,
     organizationId: decodeClaims(session)?.org_id ?? null,
     mustChangePassword: session.user.user_metadata?.must_change_password === true,
+    access: null,
   };
 }
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
+  // Guardado com o dono, para nunca mostrar o acesso de uma sessão anterior.
+  const [accessState, setAccessState] = useState<{ userId: string; access: UserAccess } | null>(null);
+  const userId = user?.id ?? null;
+
+  // Acesso efetivo: carrega com a sessão e volta a carregar quando a app volta a ter foco (revogações).
+  useEffect(() => {
+    if (!userId) return;
+    let cancelled = false;
+    const load = () =>
+      apiGet<UserAccess>("/api/me/access")
+        .then((a) => !cancelled && setAccessState({ userId, access: { isAdmin: a.isAdmin, portalOnly: a.portalOnly, permissions: a.permissions } }))
+        .catch(() => undefined);
+    void load();
+    const onVisible = () => document.visibilityState === "visible" && void load();
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      cancelled = true;
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [userId]);
 
   useEffect(() => {
     // Resolve initial session synchronously if cached, then listen for changes
@@ -91,6 +126,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => listener.subscription.unsubscribe();
   }, []);
+
+  // Mesmo objeto entre renders enquanto nada muda (há providers que recarregam quando `user` muda de identidade).
+  const userWithAccess = useMemo(
+    () => (user ? { ...user, access: accessState?.userId === user.id ? accessState.access : null } : null),
+    [user, accessState],
+  );
 
   const signIn = useCallback(async (email: string, password: string) => {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -107,7 +148,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut, changePassword }}>
+    <AuthContext.Provider value={{ user: userWithAccess, loading, signIn, signOut, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

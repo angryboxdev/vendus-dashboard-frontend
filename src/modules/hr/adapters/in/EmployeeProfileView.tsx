@@ -399,7 +399,7 @@ export function EmployeeProfileView() {
                 </div>
               </div>
             )}
-            {(user?.role === "admin" || user?.role === "manager") && id && <PortalAccessCard employeeId={id} employeeName={e.fullName} />}
+            {(user?.access ? user.access.isAdmin || user.access.permissions["hr.employees"] === "MANAGE" : user?.role === "admin" || user?.role === "manager") && id && <PortalAccessCard employeeId={id} employeeName={e.fullName} />}
           </div>
         )}
 
