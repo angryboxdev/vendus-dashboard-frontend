@@ -43,7 +43,6 @@ const FINANCIAL_ITEMS: NavItem[] = [
 
 export function buildTree(user: SidebarUser): SidebarNavEntry[] {
   const entries: SidebarNavEntry[] = [
-    { kind: "item", path: "/results", label: "Resultados", end: true },
     {
       kind: "group",
       id: "dre",
