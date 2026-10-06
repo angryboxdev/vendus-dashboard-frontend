@@ -49,7 +49,7 @@ grupos inactivos manualmente; esse estado local é gerido no hook `useSidebar`.
 
 ## Decisões de design (ADR resumido)
 
-- **Tema escuro (teste, 2026-10-06)** — fundo azul-noite `#141B2D` (constante `SIDEBAR_BG`), texto claro, item ativo com barra laranja da marca; rodapé "by Mezza ERP". Só a barra lateral muda — as páginas mantêm o tema claro e o laranja.
+- **Tema escuro (teste, 2026-10-06)** — fundo azul-noite `#141B2D` (constante `SIDEBAR_BG`), texto claro, item ativo com barra laranja da marca; rodapé "by" + logótipo Mezza ERP (`public/mezza-erp.png`, 320 px) alinhado à direita, discreto (opacidade 80%). Só a barra lateral muda — as páginas mantêm o tema claro e o laranja.
 
 **Ref pattern no composition root:** o `SidebarProvider` cria o `ReactAuthAdapter`
 uma única vez (via `useMemo`) mas passa closures que leem `authRef.current`. Isto

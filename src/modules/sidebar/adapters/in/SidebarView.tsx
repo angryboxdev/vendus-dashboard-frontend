@@ -168,9 +168,9 @@ function SidebarBody({
         >
           Sair
         </button>
-        <p className="mt-3 px-3 text-[11px] text-slate-500" aria-label="Desenvolvido por Mezza ERP">
-          by <span className="font-bold text-white">Mezza</span>{" "}
-          <span className="text-[9px] font-semibold tracking-[0.2em] text-[#4F8EF7]">ERP</span>
+        <p className="mt-3 flex items-end justify-end gap-1.5 px-3 text-[11px] text-slate-400 opacity-80" aria-label="Desenvolvido por Mezza ERP">
+          <span className="leading-none">by</span>
+          <img src="/mezza-erp.png" alt="Mezza ERP" className="h-[18px] w-auto" />
         </p>
       </div>
     </>
