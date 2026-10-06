@@ -357,7 +357,8 @@ export function ShiftTemplatesPanel({ onReviewDrafts }: { onReviewDrafts?: (rang
   const [group, setGroup] = useState<ShiftTemplateGroup | null>(null);
   const [kind, setKind] = useState<ShiftTemplateKind | null>(null);
   const [status, setStatus] = useState<"active" | "inactive" | "all">("active");
-  const [collapsed, setCollapsed] = useState<Set<ShiftTemplateGroup>>(new Set());
+  // Em "Todos" os grupos abrem recolhidos (vê-se logo o resumo por Grupo); abre-se o que for preciso.
+  const [collapsed, setCollapsed] = useState<Set<ShiftTemplateGroup>>(() => new Set(SHIFT_TEMPLATE_GROUP_ORDER));
   const [modal, setModal] = useState<ModalState>({ open: false });
   /** Modelo pré-selecionado no "Aplicar modelo"; `undefined` = fechado. */
   const [applying, setApplying] = useState<string | null | undefined>(undefined);
@@ -476,7 +477,8 @@ export function ShiftTemplatesPanel({ onReviewDrafts }: { onReviewDrafts?: (rang
               </tbody>
             )}
             {sections.map((section) => {
-              const isCollapsed = group === null && collapsed.has(section.group);
+              // Com pesquisa, os resultados aparecem sempre (não ficam escondidos em grupos recolhidos).
+              const isCollapsed = group === null && search.trim() === "" && collapsed.has(section.group);
               return (
                 <tbody key={section.group} className="divide-y divide-[#F5C992]/30">
                   {group === null && (
