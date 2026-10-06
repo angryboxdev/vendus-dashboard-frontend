@@ -1,4 +1,5 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { AirMenuRateLimitNotice } from "../../components/AirMenuRateLimitNotice.tsx";
 import { NumericInput } from "../../components/NumericInput.tsx";
 import {
   verifyPin,
@@ -222,6 +223,7 @@ export function CashClosingPage() {
   const [sessions, setSessions] = useState<RegisterSessionDto[]>([]);
   const [selectedSession, setSelectedSession] = useState<RegisterSessionDto | null>(null);
   const [airMenuTotals, setAirMenuTotals] = useState<AirMenuTotals | null>(null);
+  const [loadingAirMenuTotals, setLoadingAirMenuTotals] = useState(false);
 
   // Denomination state — for end-of-day drawer count (cashDrawerTotal)
   const [denomQty, setDenomQty] = useState<Record<string, number>>({});
@@ -325,9 +327,14 @@ export function CashClosingPage() {
   // ---- Drawer → review ----
   async function goToReview() {
     setField("vendusTotal", selectedSession?.total ?? null);
-    const totals = await getAirMenuTotals(form.closingDate).catch(() => null);
-    setAirMenuTotals(totals);
-    setStep("review");
+    setLoadingAirMenuTotals(true);
+    try {
+      const totals = await getAirMenuTotals(form.closingDate).catch(() => null);
+      setAirMenuTotals(totals);
+      setStep("review");
+    } finally {
+      setLoadingAirMenuTotals(false);
+    }
   }
 
   // ---- Submit ----
@@ -579,10 +586,12 @@ export function CashClosingPage() {
               </div>
             </div>
           </div>
+          <AirMenuRateLimitNotice className="mt-4" />
           <StepActions
             onBack={() => setStep("cash")}
             onNext={goToReview}
-            nextLabel="Rever"
+            nextLabel={loadingAirMenuTotals ? "A obter totais AirMenu…" : "Rever"}
+            nextDisabled={loadingAirMenuTotals}
           />
         </div>
       </StepShell>
