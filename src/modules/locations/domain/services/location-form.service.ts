@@ -55,6 +55,7 @@ const ACTION_LABELS: Record<string, string> = {
   update: "Dados alterados",
   activate: "Local ativado",
   deactivate: "Local inativado",
+  geofence: "Zona de picagem alterada",
 };
 
 export function locationHistoryLabel(entry: LocationHistoryEntry): string {

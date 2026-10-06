@@ -77,6 +77,13 @@ filtrar leituras (dashboards/relatórios) por loja.
 
 ## Decisões de design (ADR resumido)
 
+- **Zona de picagem (Portal do Colaborador, 2026-10-06)** — `GeofenceSection`
+  no painel do Local (admin): coordenadas ("Usar a minha localização atual"
+  via `ReadCurrentPositionPort` → `BrowserCurrentPositionAdapter`), raio e
+  política Desativada / Registar e avisar / Bloquear fora da zona
+  (`PATCH /api/locations/:id/geofence`). Uma política ativa exige
+  coordenadas. `LocationDTO.geofence` é opcional no tipo (fixtures antigas).
+
 ### Estado partilhado no `LocationsProvider`, não em cada `useLocations()`
 
 O fetch acontece uma única vez dentro do `LocationsProvider` (gated por

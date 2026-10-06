@@ -596,6 +596,12 @@ Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
 
 ## Decisões de design
 
+- **Acesso ao Portal do Colaborador (2026-10-06)** — `PortalAccessCard` na
+  ficha (manager+): "Dar acesso ao Portal" liga a conta existente com o
+  mesmo email ou cria conta só do Portal com palavra-passe temporária,
+  mostrada uma vez; "Retirar acesso" (confirmação). Rotas
+  `/api/hr/people/:id/portal-access`. O Portal em si é o módulo `employee-portal`.
+
 ### Coexistência com o legacy `src/pages/hr/*`
 
 As tabs "Turnos" e "Pagamentos" saem do novo perfil — o Resumo mostra só

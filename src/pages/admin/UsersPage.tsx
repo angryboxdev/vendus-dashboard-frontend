@@ -15,6 +15,7 @@ const ROLE_LABELS: Record<OrgRole, string> = {
   admin: "Admin",
   manager: "Manager",
   hr_viewer: "Visualizador RH",
+  employee: "Colaborador (Portal)",
 };
 
 const ROLES: OrgRole[] = ["admin", "manager", "hr_viewer"];

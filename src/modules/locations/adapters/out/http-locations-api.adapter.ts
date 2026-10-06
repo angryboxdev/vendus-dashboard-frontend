@@ -3,6 +3,7 @@ import {
   LocationValidationError,
   type LocationDTO,
   type LocationFieldError,
+  type LocationGeofence,
   type LocationHistoryEntry,
   type LocationPayload,
 } from "../../domain/entities/location.ts";
@@ -35,6 +36,10 @@ export class HttpLocationsApiAdapter implements LocationsApiPort {
 
   updateLocation(id: string, payload: LocationPayload): Promise<LocationDTO> {
     return withFieldErrors(() => apiPatch<LocationDTO>(`${BASE_URL}/${id}`, payload));
+  }
+
+  setLocationGeofence(id: string, geofence: LocationGeofence): Promise<LocationDTO> {
+    return withFieldErrors(() => apiPatch<LocationDTO>(`${BASE_URL}/${id}/geofence`, geofence));
   }
 
   setLocationActive(id: string, active: boolean): Promise<LocationDTO> {

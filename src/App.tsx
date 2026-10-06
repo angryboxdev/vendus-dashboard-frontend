@@ -90,6 +90,10 @@ import { PlanningMainView } from "./modules/stock-planning/adapters/in/PlanningM
 import { PlanningAlertsView } from "./modules/stock-planning/adapters/in/PlanningAlertsView.tsx";
 import { SuggestedPurchaseListView } from "./modules/stock-planning/adapters/in/SuggestedPurchaseListView.tsx";
 import { ForecastHistoryView } from "./modules/stock-planning/adapters/in/ForecastHistoryView.tsx";
+import { EmployeePortalProvider } from "./modules/employee-portal/employee-portal.module.tsx";
+import { PortalComingSoonView, PortalLayout } from "./modules/employee-portal/adapters/in/PortalLayout.tsx";
+import { PortalHomeView } from "./modules/employee-portal/adapters/in/PortalHomeView.tsx";
+import { PortalProfileView } from "./modules/employee-portal/adapters/in/PortalProfileView.tsx";
 
 export default function App() {
   return (
@@ -140,6 +144,25 @@ export default function App() {
           </DevicePairingGate>
         }
       />
+
+      {/* Portal do Colaborador — mobile, sem a barra lateral de gestão */}
+      <Route
+        path="/portal"
+        element={
+          <ProtectedRoute allowEmployee>
+            <EmployeePortalProvider>
+              <PortalLayout />
+            </EmployeePortalProvider>
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<PortalHomeView />} />
+        <Route path="escala" element={<PortalComingSoonView title="A minha escala" />} />
+        <Route path="documentos" element={<PortalComingSoonView title="Documentos e recibos" />} />
+        <Route path="ausencias" element={<PortalComingSoonView title="Férias e ausências" />} />
+        <Route path="perfil" element={<PortalProfileView />} />
+        <Route path="*" element={<Navigate to="/portal" replace />} />
+      </Route>
 
       {/* Layout principal com sidebar */}
       <Route

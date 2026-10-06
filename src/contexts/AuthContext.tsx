@@ -8,7 +8,8 @@ import {
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabase";
 
-export type OrgRole = "admin" | "manager" | "hr_viewer";
+/** `employee` = conta só do Portal do Colaborador (sem acesso à área de gestão). */
+export type OrgRole = "admin" | "manager" | "hr_viewer" | "employee";
 
 export interface AuthUser {
   id: string;
@@ -16,6 +17,8 @@ export interface AuthUser {
   role: OrgRole;
   /** The user's organization, from the `org_id` claim. Null until the token hook migration ships. */
   organizationId: string | null;
+  /** Conta criada com palavra-passe temporária (Portal do Colaborador) — tem de a mudar antes de continuar. */
+  mustChangePassword: boolean;
 }
 
 interface AuthContextValue {
@@ -24,6 +27,8 @@ interface AuthContextValue {
   loading: boolean;
   signIn: (email: string, password: string) => Promise<void>;
   signOut: () => Promise<void>;
+  /** Muda a palavra-passe da conta autenticada e limpa o aviso de palavra-passe temporária. */
+  changePassword: (newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -65,6 +70,7 @@ function sessionToUser(session: Session | null): AuthUser | null {
     email: session.user.email ?? "",
     role,
     organizationId: decodeClaims(session)?.org_id ?? null,
+    mustChangePassword: session.user.user_metadata?.must_change_password === true,
   };
 }
 
@@ -95,8 +101,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await supabase.auth.signOut();
   }, []);
 
+  const changePassword = useCallback(async (newPassword: string) => {
+    const { error } = await supabase.auth.updateUser({ password: newPassword, data: { must_change_password: false } });
+    if (error) throw new Error(error.message);
+  }, []);
+
   return (
-    <AuthContext.Provider value={{ user, loading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, loading, signIn, signOut, changePassword }}>
       {children}
     </AuthContext.Provider>
   );

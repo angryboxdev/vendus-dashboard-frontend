@@ -1,8 +1,9 @@
-import type { LocationDTO, LocationFormValues, LocationHistoryEntry } from "../../domain/entities/location.ts";
+import type { LocationDTO, LocationFormValues, LocationGeofence, LocationHistoryEntry } from "../../domain/entities/location.ts";
 import type {
   CreateLocationPort,
   ListLocationHistoryPort,
   SetLocationActivePort,
+  SetLocationGeofencePort,
   UpdateLocationPort,
 } from "../../domain/ports/in/manage-locations.port.ts";
 import type { LocationsApiPort } from "../../domain/ports/out/locations-api.port.ts";
@@ -43,6 +44,18 @@ export class SetLocationActiveUseCase implements SetLocationActivePort {
 
   execute(id: string, active: boolean): Promise<LocationDTO> {
     return this.api.setLocationActive(id, active);
+  }
+}
+
+export class SetLocationGeofenceUseCase implements SetLocationGeofencePort {
+  private readonly api: LocationsApiPort;
+
+  constructor(api: LocationsApiPort) {
+    this.api = api;
+  }
+
+  execute(id: string, geofence: LocationGeofence): Promise<LocationDTO> {
+    return this.api.setLocationGeofence(id, geofence);
   }
 }
 

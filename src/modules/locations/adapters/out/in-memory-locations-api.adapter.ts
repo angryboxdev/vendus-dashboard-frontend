@@ -1,4 +1,4 @@
-import { LocationValidationError, type LocationDTO, type LocationHistoryEntry, type LocationPayload } from "../../domain/entities/location.ts";
+import { LocationValidationError, type LocationDTO, type LocationGeofence, type LocationHistoryEntry, type LocationPayload } from "../../domain/entities/location.ts";
 import type { LocationsApiPort } from "../../domain/ports/out/locations-api.port.ts";
 
 /** Local fictício completo para testes — só `id`/`name` costumam importar. */
@@ -76,6 +76,14 @@ export class InMemoryLocationsApiAdapter implements LocationsApiPort {
     const updated = { ...current, isActive: active };
     this.locations = this.locations.map((l) => (l.id === id ? updated : l));
     this.log(id, active ? "activate" : "deactivate", { isActive: current.isActive }, { isActive: active });
+    return updated;
+  }
+
+  async setLocationGeofence(id: string, geofence: LocationGeofence): Promise<LocationDTO> {
+    const current = this.locations.find((l) => l.id === id)!;
+    const updated = { ...current, geofence };
+    this.locations = this.locations.map((l) => (l.id === id ? updated : l));
+    this.log(id, "geofence", current.geofence ?? null, geofence);
     return updated;
   }
 

@@ -19,7 +19,28 @@ export interface LocationDTO {
   /** ISO 3166-1 alpha-2. */
   country: string;
   phone: string | null;
+  /** Zona de picagem do Portal do Colaborador (ausente em dados antigos/fixtures = desativada). */
+  geofence?: LocationGeofence;
 }
+
+/** Política de geolocalização na picagem pelo Portal do Colaborador. */
+export type GeofencePolicy = "off" | "warn" | "block";
+
+export interface LocationGeofence {
+  latitude: number | null;
+  longitude: number | null;
+  /** Metros (10–5000). */
+  radiusM: number;
+  policy: GeofencePolicy;
+}
+
+export const DEFAULT_GEOFENCE: LocationGeofence = { latitude: null, longitude: null, radiusM: 100, policy: "off" };
+
+export const GEOFENCE_POLICY_LABELS: Record<GeofencePolicy, { label: string; hint: string }> = {
+  off: { label: "Desativada", hint: "Picagem sem validação de localização (a localização nem é pedida)." },
+  warn: { label: "Registar e avisar", hint: "Aceita sempre; fora da zona ou sem localização fica assinalado para o gestor." },
+  block: { label: "Bloquear fora da zona", hint: "Recusa fora da zona. GPS impreciso ou negado é aceite, mas assinalado." },
+};
 
 export type LocationField = "name" | "code" | "address" | "postalCode" | "city" | "municipality" | "country" | "timezone" | "phone";
 
