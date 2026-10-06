@@ -596,6 +596,8 @@ Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
 
 ## Decisões de design
 
+- **Sem "Nova automatização" (2026-10-07)** — era o mesmo "Aplicar modelo" já em modo automatização (redundante). Criar uma automatização: Modelos de turno → Aplicar modelo → "Guardar como automatização". O painel Automatizações fica só para gerir as existentes (editar, pausar/retomar, gerar).
+
 - **Rever e publicar (2026-10-07)** — o alerta "Turnos por publicar" abre `PublishReviewModal`: lista os rascunhos do período e do local do alerta (os mesmos que são contados), por dia, todos selecionados; o gestor desmarca e confirma "Publicar N turno(s)". Nunca publica direto (antes publicava logo, e só os rascunhos visíveis no calendário — a contagem e o que se publicava não batiam certo).
 
 - **Modelos de Turno 2.0 (2026-10-06)** — `group` no Modelo (Abertura/Intermédio/Fecho/Full time/Outro), só organização; Tipo (Direto/Repartido) continua independente. Biblioteca compacta (`ShiftTemplatesPanel`): pesquisa por nome/horário/Grupo, filtros Grupo/Tipo/Estado (Ativos por omissão) feitos no cliente sobre a mesma coleção (`filterTemplates`, `groupTemplates`), secções por Grupo recolhíveis em Todos (estado local), "Aplicar" como ação principal e Editar/Duplicar/Inativar no ⋮. Novo modelo herda o Grupo filtrado (Todos → Outro); Duplicar copia tudo. `TemplatePicker` substitui o dropdown do Aplicar modelo (pesquisa, Grupo, Tipo, só ativos, lista com scroll interno, fecha ao escolher). Fluxo Configuração → Pré-visualização → Confirmar intacto. Editar exige Escalas & Turnos: Gerir.

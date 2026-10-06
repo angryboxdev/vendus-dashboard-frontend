@@ -77,13 +77,10 @@ function occurrenceTime(o: Pick<TemplateOccurrence, "startTime" | "endTime" | "s
 export function ApplyTemplateModal({
   templates,
   initialTemplateId,
-  initialUsage = "once",
   onClose,
 }: {
   templates: ShiftTemplate[];
   initialTemplateId: string | null;
-  /** "automation": abre já em "Guardar como automatização" (botão "Nova automatização"). */
-  initialUsage?: Usage;
   onClose: () => void;
 }) {
   const { api } = useHrModule();
@@ -114,7 +111,7 @@ export function ApplyTemplateModal({
   const [statusFilter, setStatusFilter] = useState("");
   const [result, setResult] = useState<ApplyTemplateResult | null>(null);
   // RH 2.0 ticket 03 — "Tipo de utilização": aplicar uma vez ou guardar como automatização.
-  const [usage, setUsage] = useState<Usage>(initialUsage);
+  const [usage, setUsage] = useState<Usage>("once");
   const [automationName, setAutomationName] = useState("");
   const [horizonWeeks, setHorizonWeeks] = useState(4);
   const [automationResult, setAutomationResult] = useState<AutomationGenerationResult | null>(null);

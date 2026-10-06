@@ -8,6 +8,7 @@ import type { HrApiPort } from "../../domain/ports/out/hr-api.port.ts";
 import { HrProvider, type HrModule } from "../../hr.module.tsx";
 import { SetEmployeeKioskPinUseCase } from "../../application/use-cases/set-employee-kiosk-pin.use-case.ts";
 import { ShiftAutomationsPanel } from "./ShiftAutomationsPanel.tsx";
+import { ApplyTemplateModal } from "./ApplyTemplateModal.tsx";
 
 /** Objetos estáveis entre renders (ver nota no teste de LocationsAdminView). */
 const auth = vi.hoisted(() => ({
@@ -59,7 +60,7 @@ const WEEKENDS: ShiftAutomation = {
   updatedAt: "",
 };
 
-function renderPanel(seed: ShiftAutomation[] = [WEEKENDS]) {
+function renderPanel(seed: ShiftAutomation[] = [WEEKENDS], view: "panel" | "apply" = "panel") {
   let automations = [...seed];
   const created: { payload: ShiftAutomationPayload; generateNow: boolean }[] = [];
   const api = {
@@ -86,7 +87,7 @@ function renderPanel(seed: ShiftAutomation[] = [WEEKENDS]) {
   render(
     <QueryClientProvider client={qc}>
       <HrProvider module={mod}>
-        <ShiftAutomationsPanel />
+        {view === "panel" ? <ShiftAutomationsPanel /> : <ApplyTemplateModal templates={[TEMPLATE]} initialTemplateId={null} onClose={() => {}} />}
       </HrProvider>
     </QueryClientProvider>,
   );
@@ -121,12 +122,17 @@ describe("ShiftAutomationsPanel", () => {
     expect(api.generateShiftAutomation).toHaveBeenCalledWith("a1", 2);
   });
 
-  it("Nova automatização usa o Aplicar modelo em modo automatização e grava a regra", async () => {
-    const { created } = renderPanel([]);
-    const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Nova automatização" }));
-    const dialog = screen.getByRole("dialog", { name: "Aplicar modelo de turno" });
+  it("já não há botão Nova automatização (redundante com Aplicar modelo)", async () => {
+    renderPanel([]);
+    expect(await screen.findByText(/Ainda não há automatizações/)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Nova automatização" })).not.toBeInTheDocument();
+  });
 
+  it("Aplicar modelo → Guardar como automatização grava a regra", async () => {
+    const { created } = renderPanel([], "apply");
+    const user = userEvent.setup();
+    const dialog = await screen.findByRole("dialog", { name: "Aplicar modelo de turno" });
+    await user.click(within(dialog).getByLabelText("Guardar como automatização"));
     expect(within(dialog).getByLabelText("Guardar como automatização")).toBeChecked();
     expect(within(dialog).queryByLabelText("Datas específicas")).not.toBeInTheDocument();
     await user.click(within(dialog).getByLabelText("Por cargo"));
@@ -159,10 +165,10 @@ describe("ShiftAutomationsPanel", () => {
   });
 
   it("automatização que começa depois do horizonte é guardada sem pré-visualização (o cron gera depois)", async () => {
-    renderPanel([]);
+    renderPanel([], "apply");
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Nova automatização" }));
-    const dialog = screen.getByRole("dialog", { name: "Aplicar modelo de turno" });
+    const dialog = await screen.findByRole("dialog", { name: "Aplicar modelo de turno" });
+    await user.click(within(dialog).getByLabelText("Guardar como automatização"));
     await user.click(within(dialog).getByLabelText("Todos"));
     fireEvent.change(within(dialog).getByLabelText("De"), { target: { value: "2099-01-01" } });
     await user.type(within(dialog).getByLabelText(/Nome da automatização/), "Futuro");
