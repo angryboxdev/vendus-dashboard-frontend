@@ -306,6 +306,9 @@ export function AttendanceMonthlyClosureView({
               <th className="px-4 py-2.5">Conferência</th>
               <th className="px-4 py-2.5">Planeado</th>
               <th className="px-4 py-2.5">Realizado</th>
+              <th className="px-4 py-2.5" title="Dias trabalhados e turnos equivalentes (1 / 1,5 / dupla), pelas horas realizadas">
+                Jornadas
+              </th>
               <th className="px-4 py-2.5">Ocorrências</th>
               <th className="px-4 py-2.5">Saldo</th>
               <th className="px-4 py-2.5">Estado</th>
@@ -315,7 +318,7 @@ export function AttendanceMonthlyClosureView({
           <tbody>
             {filteredRows.length === 0 ? (
               <tr>
-                <td colSpan={8} className="px-4 py-8 text-center text-stone-400">
+                <td colSpan={9} className="px-4 py-8 text-center text-stone-400">
                   Sem colaboradores para este filtro.
                 </td>
               </tr>
@@ -343,6 +346,28 @@ export function AttendanceMonthlyClosureView({
                     </td>
                     <td className="whitespace-nowrap px-4 py-2.5 text-stone-600">{formatMinutesAsWholeHours(r.plannedMinutes)}</td>
                     <td className="whitespace-nowrap px-4 py-2.5 text-stone-600">{formatMinutesAsWholeHours(r.actualMinutes)}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-stone-600">
+                      {r.workedDaysCount == null ? (
+                        "—"
+                      ) : (
+                        <>
+                          <p>
+                            {r.workedDaysCount} {r.workedDaysCount === 1 ? "dia" : "dias"} ·{" "}
+                            {String(r.shiftEquivalents ?? 0).replace(".", ",")} turnos
+                          </p>
+                          {((r.doubleDaysCount ?? 0) > 0 || (r.oneAndHalfDaysCount ?? 0) > 0) && (
+                            <p className="text-xs text-stone-400">
+                              {[
+                                (r.doubleDaysCount ?? 0) > 0 && `${r.doubleDaysCount} ${r.doubleDaysCount === 1 ? "dupla" : "duplas"}`,
+                                (r.oneAndHalfDaysCount ?? 0) > 0 && `${r.oneAndHalfDaysCount} de 1,5`,
+                              ]
+                                .filter(Boolean)
+                                .join(" · ")}
+                            </p>
+                          )}
+                        </>
+                      )}
+                    </td>
                     <td className="whitespace-nowrap px-4 py-2.5 text-stone-600">{occurrencesText(r)}</td>
                     <td className="whitespace-nowrap px-4 py-2.5">
                       {ready ? (

@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
 import type { AttendanceToleranceField, UpdateAttendanceRulesPayload } from "../../domain/entities/attendance-rules.ts";
+import { workdayRulesError, workdayRulesSummary } from "../../domain/services/workday.service.ts";
 
 type Tab = "gerais" | "aplicacao" | "historico";
 
@@ -11,6 +12,13 @@ const FIELDS: { key: AttendanceToleranceField; label: string; help: string }[] =
   { key: "absenceThresholdMinutes", label: "Limite para considerar ausência", help: "Tempo após o início do turno sem entrada para ser marcado como ausência." },
   { key: "preShiftWindowMinutes", label: "Janela de marcação antes do turno", help: "Permitir marcação de entrada até X minutos antes do turno." },
   { key: "postShiftWindowMinutes", label: "Janela de marcação após o turno", help: "Permitir marcação de saída até X minutos após o fim do turno." },
+];
+
+/** Jornada (1 turno / 1,5 / dupla) — o utilizador escreve horas; guarda-se em minutos. */
+const WORKDAY_FIELDS: { key: AttendanceToleranceField; label: string; help: string; unit: "horas" | "minutos" }[] = [
+  { key: "standardShiftMinutes", label: "Duração de 1 turno", help: "Horas de um turno normal.", unit: "horas" },
+  { key: "closingToleranceMinutes", label: "Tolerância de fecho", help: "Tempo a mais (ex.: limpeza depois da meia-noite) que ainda conta como 1 turno.", unit: "minutos" },
+  { key: "doubleShiftFromMinutes", label: "Dupla a partir de", help: "Total de horas no dia a partir do qual conta como 2 turnos. Entre o turno + tolerância e este valor conta 1,5.", unit: "horas" },
 ];
 
 /** "12:00" + 35min → "12:35"; negativo desloca para trás. Só para o exemplo prático (ilustrativo, nunca fonte de verdade — task, secção 16). */
@@ -52,6 +60,9 @@ export function AttendanceRulesModal({ onClose }: { onClose: () => void }) {
           absenceThresholdMinutes: rules.absenceThresholdMinutes,
           preShiftWindowMinutes: rules.preShiftWindowMinutes,
           postShiftWindowMinutes: rules.postShiftWindowMinutes,
+          standardShiftMinutes: rules.standardShiftMinutes,
+          closingToleranceMinutes: rules.closingToleranceMinutes,
+          doubleShiftFromMinutes: rules.doubleShiftFromMinutes,
           controlStartDate: rules.controlStartDate,
         }
       : null);
@@ -130,6 +141,40 @@ export function AttendanceRulesModal({ onClose }: { onClose: () => void }) {
                   ))}
                 </div>
 
+                <section className="rounded-lg border border-stone-200 p-3" aria-label="Jornada e dupla">
+                  <p className="text-sm font-semibold text-stone-800">Jornada — 1 turno, 1,5 ou dupla</p>
+                  <p className="mb-3 text-xs text-stone-500">
+                    Conta o total do dia de cada colaborador, pelo dia em que o turno começa — passar da meia-noite nunca conta como outro dia.
+                  </p>
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    {WORKDAY_FIELDS.map((f) => (
+                      <div key={f.key}>
+                        <label htmlFor={`wd-${f.key}`} className="mb-1 block text-sm font-medium text-stone-700">
+                          {f.label}
+                        </label>
+                        <div className="flex items-center gap-2">
+                          <input
+                            id={`wd-${f.key}`}
+                            type="number"
+                            min={0}
+                            step={f.unit === "horas" ? 0.5 : 5}
+                            value={f.unit === "horas" ? formValue[f.key] / 60 : formValue[f.key]}
+                            onChange={(e) => setForm({ ...formValue, [f.key]: Math.round(Number(e.target.value) * (f.unit === "horas" ? 60 : 1)) })}
+                            className="w-20 rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none focus:border-[#ED5C32]"
+                          />
+                          <span className="text-sm text-stone-500">{f.unit}</span>
+                        </div>
+                        <p className="mt-1 text-xs text-stone-400">{f.help}</p>
+                      </div>
+                    ))}
+                  </div>
+                  {workdayRulesError(formValue) ? (
+                    <p className="mt-2 text-xs text-red-600">{workdayRulesError(formValue)}</p>
+                  ) : (
+                    <p className="mt-2 text-xs font-medium text-stone-700">{workdayRulesSummary(formValue)}</p>
+                  )}
+                </section>
+
                 <div>
                   <label className="mb-1 flex items-center gap-1 text-sm font-medium text-stone-700">Início do controlo de assiduidade</label>
                   <input
@@ -178,7 +223,7 @@ export function AttendanceRulesModal({ onClose }: { onClose: () => void }) {
                 {history.map((h) => (
                   <li key={h.id} className="rounded-lg border border-stone-100 p-2.5 text-xs">
                     <p className="font-medium text-stone-700">
-                      {FIELDS.find((f) => f.key === h.field)?.label ?? h.field}: {h.previousValue} → {h.newValue} min
+                      {[...FIELDS, ...WORKDAY_FIELDS].find((f) => f.key === h.field)?.label ?? h.field}: {h.previousValue} → {h.newValue} min
                     </p>
                     <p className="text-stone-400">
                       Vigente desde {new Date(`${h.effectiveFrom}T00:00:00`).toLocaleDateString("pt-PT")} · {h.changedBy} ·{" "}
@@ -197,7 +242,7 @@ export function AttendanceRulesModal({ onClose }: { onClose: () => void }) {
             </button>
             <button
               type="button"
-              disabled={!formValue || saveMutation.isPending}
+              disabled={!formValue || saveMutation.isPending || workdayRulesError(formValue) !== null}
               onClick={() => formValue && saveMutation.mutate(formValue)}
               className="rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-50"
             >

@@ -16,6 +16,12 @@ export interface AttendanceRulesConfig {
   preShiftWindowMinutes: number;
   /** Minutos após o fim do turno em que uma marcação de saída ainda é aceite. */
   postShiftWindowMinutes: number;
+  /** Jornada: duração de referência de 1 turno (min). */
+  standardShiftMinutes: number;
+  /** Jornada: prolongamento de fecho/limpeza que ainda conta como 1 turno (min). */
+  closingToleranceMinutes: number;
+  /** Jornada: a partir deste total (min) conta 2 turnos (dupla); entre turno+tolerância e isto, 1,5. */
+  doubleShiftFromMinutes: number;
   /**
    * "Início do controlo de assiduidade" (evolução "Assiduidade —
    * Conferência, Por Colaborador e Horas & Saldos", secção 11) — turnos
@@ -35,8 +41,14 @@ export interface UpdateAttendanceRulesPayload {
   absenceThresholdMinutes: number;
   preShiftWindowMinutes: number;
   postShiftWindowMinutes: number;
+  standardShiftMinutes: number;
+  closingToleranceMinutes: number;
+  doubleShiftFromMinutes: number;
   controlStartDate: string | null;
 }
+
+/** Limites da jornada (1 turno / 1,5 / dupla). */
+export type WorkdayRules = Pick<AttendanceRulesConfig, "standardShiftMinutes" | "closingToleranceMinutes" | "doubleShiftFromMinutes">;
 
 /** Só os 5 campos numéricos — o histórico por campo não cobre `controlStartDate` (não é numérico, ver README). */
 export type AttendanceToleranceField = Exclude<keyof UpdateAttendanceRulesPayload, "controlStartDate">;

@@ -130,7 +130,9 @@ export function ShiftSeriesForm({
   }
 
   function updateRule(id: string, patch: Partial<RuleForm>) {
-    setRules((prev) => prev.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    // Fim antes do início = passa da meia-noite — "termina no dia seguinte" é automático.
+    const withNextDay = (r: RuleForm): RuleForm => ({ ...r, endsNextDay: r.kind === "direct" && r.seg1End < r.seg1Start });
+    setRules((prev) => prev.map((r) => (r.id === id ? withNextDay({ ...r, ...patch }) : r)));
     markDirty();
   }
 
@@ -285,15 +287,7 @@ export function ShiftSeriesForm({
                       Turno repartido
                     </button>
                   </div>
-                  <label className="flex items-center gap-1 text-xs text-stone-600">
-                    <input
-                      type="checkbox"
-                      checked={r.endsNextDay}
-                      disabled={r.kind === "split"}
-                      onChange={(e) => updateRule(r.id, { endsNextDay: e.target.checked })}
-                    />
-                    Termina no dia seguinte
-                  </label>
+                  {r.endsNextDay && <span className="text-xs text-stone-500">Termina no dia seguinte (+1 dia)</span>}
                 </div>
 
                 <div className="mt-2 grid grid-cols-2 gap-2">
