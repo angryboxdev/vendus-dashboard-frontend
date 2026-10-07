@@ -1,4 +1,5 @@
 import type { GrantPortalAccessResult, PortalAccess } from "../../domain/entities/portal-access.ts";
+import type { InboxRequest, RequestsInbox } from "../../domain/entities/portal-requests.ts";
 import { apiGet, apiPatch, apiPost, apiPostFormData, apiDeleteNoContent, apiDeleteJson, apiPut, ApiError } from "../../../../lib/api.ts";
 import type { HrApiPort } from "../../domain/ports/out/hr-api.port.ts";
 import type { Position, PositionPayload } from "../../domain/entities/position.ts";
@@ -318,6 +319,22 @@ export class HttpHrApiAdapter implements HrApiPort {
 
   async duplicateWorkShift(id: string, targetDate: string): Promise<WorkShift> {
     return apiPost<WorkShift>(`${SCHEDULES_BASE}/work-shifts/${encodeURIComponent(id)}/duplicate`, { targetDate });
+  }
+
+  async reviewEmployeeDocument(employeeId: string, documentId: string, payload: { decision: "approve" | "reject"; note?: string; expiresAt?: string | null }): Promise<void> {
+    await apiPost(`/api/hr/people/${encodeURIComponent(employeeId)}/documents/${encodeURIComponent(documentId)}/review`, payload);
+  }
+
+  async getRequestsInbox(): Promise<RequestsInbox> {
+    return apiGet<RequestsInbox>("/api/hr/requests");
+  }
+
+  async decidePortalRequest(id: string, decision: "approve" | "reject", note: string | null): Promise<InboxRequest> {
+    return apiPost<InboxRequest>(`/api/hr/requests/${encodeURIComponent(id)}/decide`, { decision, note });
+  }
+
+  async getRequestAttachmentUrl(id: string): Promise<string> {
+    return (await apiGet<{ url: string }>(`/api/hr/requests/${encodeURIComponent(id)}/attachment-url`)).url;
   }
 
   async deleteWorkShift(id: string): Promise<{ undoToken: string }> {

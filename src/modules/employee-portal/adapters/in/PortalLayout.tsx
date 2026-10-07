@@ -7,7 +7,7 @@ const TABS = [
   { to: "/portal", label: "Início", end: true },
   { to: "/portal/escala", label: "Escala", end: false },
   { to: "/portal/documentos", label: "Documentos", end: false },
-  { to: "/portal/ausencias", label: "Ausências", end: false },
+  { to: "/portal/ausencias", label: "Pedidos", end: false },
   { to: "/portal/perfil", label: "Perfil", end: false },
 ];
 

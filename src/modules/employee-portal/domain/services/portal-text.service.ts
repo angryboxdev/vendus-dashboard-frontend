@@ -105,4 +105,7 @@ export const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
   justified: "Falta justificada",
   unjustified: "Falta injustificada",
   compensatory: "Folga compensatória",
+  authorized_absence: "Ausência autorizada",
+  license: "Licença",
+  other: "Outra ausência",
 };

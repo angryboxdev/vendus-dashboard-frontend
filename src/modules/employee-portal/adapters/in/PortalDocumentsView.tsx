@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, type FormEvent } from "react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type { MyDocument } from "../../domain/entities/portal.ts";
 import { dateLabel, expiryState, periodLabel, splitDocuments } from "../../domain/services/portal-text.service.ts";
 import { useEmployeePortalModule } from "../../employee-portal.module.tsx";
@@ -22,19 +22,94 @@ async function openSigned(getUrl: () => Promise<string>): Promise<void> {
   }
 }
 
+/** Substituir um documento vencido / a vencer: PDF ou foto (no telemóvel abre a câmara ou os ficheiros). */
+function ReplaceForm({ doc, onDone, onCancel }: { doc: MyDocument; onDone: () => void; onCancel: () => void }) {
+  const { selfService } = useEmployeePortalModule();
+  const qc = useQueryClient();
+  const [file, setFile] = useState<File | null>(null);
+  const [expiresAt, setExpiresAt] = useState("");
+  const send = useMutation({
+    mutationFn: () => selfService.replaceDocument(doc.id, file!, expiresAt || null),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["portal-documents"] });
+      onDone();
+    },
+  });
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (file) send.mutate();
+  };
+  return (
+    <form onSubmit={submit} className="space-y-2 border-t border-stone-100 bg-stone-50/60 px-4 py-3">
+      <label className="block text-xs font-medium text-stone-700" htmlFor={`file-${doc.id}`}>
+        Novo ficheiro (PDF ou foto)
+      </label>
+      <input id={`file-${doc.id}`} type="file" accept="application/pdf,image/jpeg,image/png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="block w-full text-xs" />
+      <label className="block text-xs font-medium text-stone-700" htmlFor={`exp-${doc.id}`}>
+        Nova data de validade (se souber)
+      </label>
+      <input id={`exp-${doc.id}`} type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} className="rounded-md border border-stone-300 px-2 py-1 text-sm" />
+      {send.isError && (
+        <p role="alert" className="text-xs text-red-700">
+          {send.error instanceof Error ? send.error.message : "Não foi possível enviar."}
+        </p>
+      )}
+      <div className="flex gap-2">
+        <button type="submit" disabled={!file || send.isPending} className="rounded-lg bg-[#ED5C32] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+          {send.isPending ? "A enviar…" : "Enviar"}
+        </button>
+        <button type="button" onClick={onCancel} className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs text-stone-600">
+          Cancelar
+        </button>
+      </div>
+      <p className="text-xs text-stone-500">Depois de enviado, fica a aguardar validação do RH e não pode ser removido.</p>
+    </form>
+  );
+}
+
 function DocumentRow({ doc, title, today, onOpen, busy }: { doc: MyDocument; title: string; today: string; onOpen: () => void; busy: boolean }) {
   const expiry = expiryState(doc, today);
+  const [replacing, setReplacing] = useState(false);
+  const [sent, setSent] = useState(false);
+  const pending = doc.status === "pending_validation";
   return (
-    <li className="flex items-center justify-between gap-3 px-4 py-3">
-      <div className="min-w-0">
-        <p className="truncate text-sm font-medium text-stone-900">{title}</p>
-        {expiry === "expired" && <p className="text-xs font-medium text-red-700">Vencido a {dateLabel(doc.expiresAt!)}</p>}
-        {expiry === "expiring" && <p className="text-xs font-medium text-amber-700">Vence a {dateLabel(doc.expiresAt!)}</p>}
-        {expiry === "ok" && doc.expiresAt && <p className="text-xs text-stone-500">Válido até {dateLabel(doc.expiresAt)}</p>}
+    <li>
+      <div className="flex items-center justify-between gap-3 px-4 py-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-stone-900">{title}</p>
+          {pending ? (
+            <p className="text-xs font-medium text-sky-700">Em validação pelo RH</p>
+          ) : (
+            <>
+              {expiry === "expired" && <p className="text-xs font-medium text-red-700">Vencido a {dateLabel(doc.expiresAt!)}</p>}
+              {expiry === "expiring" && <p className="text-xs font-medium text-amber-700">Vence a {dateLabel(doc.expiresAt!)}</p>}
+              {expiry === "ok" && doc.expiresAt && <p className="text-xs text-stone-500">Válido até {dateLabel(doc.expiresAt)}</p>}
+            </>
+          )}
+          {doc.lastRejection && !pending && <p className="text-xs text-red-700">Envio rejeitado: {doc.lastRejection.note}</p>}
+          {sent && <p className="text-xs text-emerald-700">Enviado ✓ — aguarda validação.</p>}
+        </div>
+        <div className="flex shrink-0 gap-2">
+          {doc.canReplace && !replacing && (
+            <button type="button" onClick={() => setReplacing(true)} className="rounded-lg bg-[#ED5C32] px-3 py-1.5 text-xs font-medium text-white">
+              Substituir
+            </button>
+          )}
+          <button type="button" onClick={onOpen} disabled={busy} className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-700 disabled:opacity-50">
+            {busy ? "A abrir…" : "Abrir"}
+          </button>
+        </div>
       </div>
-      <button type="button" onClick={onOpen} disabled={busy} className="shrink-0 rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-700 disabled:opacity-50">
-        {busy ? "A abrir…" : "Abrir"}
-      </button>
+      {replacing && (
+        <ReplaceForm
+          doc={doc}
+          onCancel={() => setReplacing(false)}
+          onDone={() => {
+            setReplacing(false);
+            setSent(true);
+          }}
+        />
+      )}
     </li>
   );
 }

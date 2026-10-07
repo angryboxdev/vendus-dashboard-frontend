@@ -28,6 +28,7 @@ const HR_ITEMS: NavItem[] = [
   { kind: "item", path: "/hr/schedules", label: "Escalas & Turnos" },
   { kind: "item", path: "/hr/ferias", label: "Férias & Ausências" },
   { kind: "item", path: "/hr/assiduidade", label: "Assiduidade" },
+  { kind: "item", path: "/hr/pedidos", label: "Caixa de pedidos", badgeKey: "hr-requests" },
   { kind: "item", path: "/hr/historico", label: "Histórico de alterações" },
 ];
 

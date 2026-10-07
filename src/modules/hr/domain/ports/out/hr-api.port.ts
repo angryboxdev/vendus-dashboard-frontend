@@ -1,4 +1,5 @@
 import type { GrantPortalAccessResult, PortalAccess } from "../../entities/portal-access.ts";
+import type { InboxRequest, RequestsInbox } from "../../entities/portal-requests.ts";
 import type {
   CreateEmployeePayload,
   Employee,
@@ -114,6 +115,12 @@ export interface HrApiPort {
   ): Promise<EmployeeDocument>;
   removeEmployeeDocument(employeeId: string, documentId: string): Promise<void>;
   getEmployeeDocumentDownloadUrl(employeeId: string, documentId: string): Promise<string>;
+  /** Validar/rejeitar um documento enviado pelo colaborador no Portal. */
+  reviewEmployeeDocument(employeeId: string, documentId: string, payload: { decision: "approve" | "reject"; note?: string; expiresAt?: string | null }): Promise<void>;
+  /** Caixa de pedidos: pedidos e documentos por decidir, no âmbito das permissões de quem pede. */
+  getRequestsInbox(): Promise<RequestsInbox>;
+  decidePortalRequest(id: string, decision: "approve" | "reject", note: string | null): Promise<InboxRequest>;
+  getRequestAttachmentUrl(id: string): Promise<string>;
   getEmployeeDocumentHistory(employeeId: string, documentId: string): Promise<EmployeeDocument[]>;
   /** 1 linha por (colaborador ativo × requisito documental) — fonte única da aba "Pessoas > Documentos". */
   getDocumentOverview(): Promise<DocumentOverviewRow[]>;

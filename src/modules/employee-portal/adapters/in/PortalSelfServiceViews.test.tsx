@@ -59,8 +59,8 @@ describe("PortalScheduleView", () => {
 
 describe("PortalDocumentsView", () => {
   const docs: MyDocument[] = [
-    { id: "r1", categoryLabel: "Recibo de vencimento", fileName: "r.pdf", period: "2026-09", isPayslip: true, issuedAt: null, expiresAt: null, uploadedAt: "" },
-    { id: "d1", categoryLabel: "Atestado de saúde", fileName: "a.pdf", period: null, isPayslip: false, issuedAt: null, expiresAt: "2020-01-31", uploadedAt: "" },
+    { id: "r1", categoryLabel: "Recibo de vencimento", fileName: "r.pdf", status: "valid", canReplace: false, lastRejection: null, period: "2026-09", isPayslip: true, issuedAt: null, expiresAt: null, uploadedAt: "" },
+    { id: "d1", categoryLabel: "Atestado de saúde", fileName: "a.pdf", status: "valid", canReplace: true, lastRejection: null, period: null, isPayslip: false, issuedAt: null, expiresAt: "2020-01-31", uploadedAt: "" },
   ];
 
   it("separa recibos, assinala vencido e abre a janela no toque (iOS)", async () => {

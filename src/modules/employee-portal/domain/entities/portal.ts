@@ -97,6 +97,12 @@ export interface MyDocument {
   id: string;
   categoryLabel: string;
   fileName: string;
+  /** "valid" ou "pending_validation" (enviado no Portal, aguarda o RH). */
+  status: string;
+  /** Vencido / a vencer em 30 dias e sem envio pendente. */
+  canReplace: boolean;
+  /** Último envio rejeitado pelo RH (motivo). */
+  lastRejection: { note: string; at: string } | null;
   /** `YYYY-MM` nos recibos. */
   period: string | null;
   isPayslip: boolean;
@@ -105,7 +111,7 @@ export interface MyDocument {
   uploadedAt: string;
 }
 
-export type LeaveType = "vacation" | "sick_leave" | "justified" | "unjustified" | "compensatory";
+export type LeaveType = "vacation" | "sick_leave" | "justified" | "unjustified" | "compensatory" | "authorized_absence" | "license" | "other";
 
 export interface MyLeaveEntry {
   id: string;
@@ -125,5 +131,55 @@ export class PortalNotFoundError extends Error {
   constructor() {
     super("Não encontrado.");
     this.name = "PortalNotFoundError";
+  }
+}
+
+// ── Pedidos (ticket 12) ──────────────────────────────────────────────────
+
+export type RequestKind = "justify_absence" | "day_off";
+export type RequestStatus = "pending" | "approved" | "rejected" | "cancelled";
+
+export interface MyRequest {
+  id: string;
+  kind: RequestKind;
+  status: RequestStatus;
+  workShiftId: string | null;
+  startDate: string;
+  endDate: string;
+  reasonLabel: string;
+  reasonText: string | null;
+  attachmentName: string | null;
+  decisionNote: string | null;
+  decidedAt: string | null;
+  createdAt: string;
+}
+
+export type NewRequest =
+  | { kind: "justify_absence"; workShiftId: string; reasonCode: string; reasonText: string | null; attachment: File | null }
+  | { kind: "day_off"; startDate: string; endDate: string; reasonCode: string; reasonText: string | null };
+
+/** Mesmos motivos do backend (`REQUEST_REASONS`). */
+export const REQUEST_REASONS: Record<RequestKind, Array<{ code: string; label: string }>> = {
+  justify_absence: [
+    { code: "medical", label: "Consulta ou atestado médico" },
+    { code: "sick", label: "Doença" },
+    { code: "family", label: "Assunto familiar" },
+    { code: "transport", label: "Problema de transporte" },
+    { code: "other", label: "Outro motivo" },
+  ],
+  day_off: [
+    { code: "personal", label: "Assunto pessoal" },
+    { code: "family", label: "Assunto familiar" },
+    { code: "medical", label: "Consulta médica" },
+    { code: "study", label: "Estudos / exame" },
+    { code: "other", label: "Outro motivo" },
+  ],
+};
+
+/** Recusa vinda do servidor (400/409) — a mensagem já vem em PT-PT. */
+export class PortalRequestError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PortalRequestError";
   }
 }

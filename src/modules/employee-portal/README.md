@@ -54,8 +54,8 @@ Spec e tickets: backend `.scratch/portal-colaborador/`.
   comigo" por turno (nome curto + cargo + horário, carregado ao abrir).
 - `PortalDocumentsView` — Recibos (por período, "OUT 2026") e Documentos com
   aviso de vencido / a vencer em 30 dias; "Abrir" pede o URL assinado.
-- `PortalLeaveView` — ausências do ano (só consulta; sem saldo de férias nem
-  feriados — decisão de 2026-10-07).
+- `PortalLeaveView` (separador **Pedidos**) — `PortalRequestsSection` (Justificar falta → RH, com comprovativo opcional; Pedir folga → gerente; lista com estado, motivo da decisão e cancelar enquanto pendente) + ausências do ano (só consulta; sem saldo nem feriados).
+- `DocumentsAlert` (Início) — aviso de documentos vencidos/a vencer que pode substituir.
 - `PortalProfileView`, `SetPasswordView`.
 ### Saída
 - `HttpPortalApiAdapter` — `lib/api`; traduz 409/403/404/rede para os erros do domínio.
@@ -63,6 +63,8 @@ Spec e tickets: backend `.scratch/portal-colaborador/`.
   (alta precisão, `maximumAge: 0`, timeout 12 s). Nunca `watchPosition`.
 
 ## Decisões de design (ADR resumido)
+- **Substituir documento** (ticket 11): só quando o servidor diz `canReplace` (vencido / a vencer em 30 dias, sem envio pendente). PDF ou foto; depois de enviado fica "Em validação pelo RH" e não há remover; uma rejeição mostra o motivo.
+- **Pedidos** (ticket 12): a aprovação de uma folga não mexe na escala — o gerente ajusta à mão (decisão 2026-10-07).
 - **Download no iPhone**: "Abrir" abre a janela no próprio toque e só depois
   lhe dá o URL assinado — o Safari iOS bloqueia `window.open` feito depois de
   um `await`.

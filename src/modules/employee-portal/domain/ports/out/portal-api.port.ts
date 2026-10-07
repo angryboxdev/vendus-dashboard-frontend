@@ -1,4 +1,4 @@
-import type { ClientLocation, Coworker, MyDocument, MyLeave, MyShift, PortalHome, PunchKind, PunchResult } from "../../entities/portal.ts";
+import type { ClientLocation, Coworker, MyDocument, MyLeave, MyRequest, MyShift, NewRequest, PortalHome, PunchKind, PunchResult } from "../../entities/portal.ts";
 
 export interface PortalApiPort {
   getHome(): Promise<PortalHome>;
@@ -11,4 +11,9 @@ export interface PortalApiPort {
   /** URL assinada de curta duração. Lança `PortalNotFoundError` se o documento não for do próprio. */
   getDocumentUrl(documentId: string): Promise<string>;
   getMyLeave(year: number): Promise<MyLeave>;
+  /** Envia PDF/foto para substituir um documento vencido / a vencer. Lança `PortalRequestError` com a recusa. */
+  replaceDocument(documentId: string, file: File, expiresAt: string | null): Promise<MyDocument>;
+  listMyRequests(): Promise<MyRequest[]>;
+  createRequest(request: NewRequest): Promise<MyRequest>;
+  cancelRequest(requestId: string): Promise<MyRequest>;
 }
