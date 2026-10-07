@@ -1,6 +1,6 @@
 import type { GrantPortalAccessResult, PortalAccess } from "../../domain/entities/portal-access.ts";
 import type { InboxRequest, RequestsInbox } from "../../domain/entities/portal-requests.ts";
-import type { AbsenceBoard, AbsenceImpact, LeaveBalanceRow, RegisterAbsencePayload } from "../../domain/entities/absences.ts";
+import type { AbsenceBoard, AbsenceImpact, ConfirmAbsencePayload, ConfirmAbsencePreview, ConfirmAbsenceResult, LeaveBalanceRow, OccurrenceRef, RegisterAbsencePayload } from "../../domain/entities/absences.ts";
 import { apiGet, apiPatch, apiPost, apiPostFormData, apiDeleteNoContent, apiDeleteJson, apiPut, ApiError } from "../../../../lib/api.ts";
 import type { HrApiPort } from "../../domain/ports/out/hr-api.port.ts";
 import type { Position, PositionPayload } from "../../domain/entities/position.ts";
@@ -360,6 +360,14 @@ export class HttpHrApiAdapter implements HrApiPort {
 
   async setLeaveBalance(employeeId: string, year: number, daysEntitled: number, daysCarriedOver: number): Promise<void> {
     await apiPut(`/api/hr/leave/balances/${encodeURIComponent(employeeId)}/${year}`, { daysEntitled, daysCarriedOver });
+  }
+
+  async previewConfirmAbsence(ref: OccurrenceRef): Promise<ConfirmAbsencePreview> {
+    return apiPost<ConfirmAbsencePreview>("/api/hr/attendance/confirm-absence/preview", ref);
+  }
+
+  async confirmAbsence(payload: ConfirmAbsencePayload): Promise<ConfirmAbsenceResult> {
+    return apiPost<ConfirmAbsenceResult>("/api/hr/attendance/confirm-absence", payload);
   }
 
   async deleteWorkShift(id: string): Promise<{ undoToken: string }> {

@@ -97,3 +97,43 @@ export interface LeaveBalanceRow {
   scheduled: number;
   available: number;
 }
+
+// ── Assiduidade → "Confirmar ausência" ───────────────────────────────────
+
+export interface OccurrenceRef {
+  workShiftId: string | null;
+  attendanceId: string | null;
+  employeeId: string;
+  workDate: string;
+  locationId: string;
+}
+
+export interface AbsenceCandidate {
+  id: string;
+  type: AbsenceType;
+  startDate: string;
+  endDate: string;
+  startTime: string | null;
+  endTime: string | null;
+  duration: string;
+}
+
+export interface ConfirmAbsencePreview {
+  match: "single" | "multiple" | "pending_request" | "none";
+  candidates: AbsenceCandidate[];
+  pendingRequest: { id: string; kind: "justify_absence" | "day_off"; startDate: string; endDate: string; reasonLabel: string; reasonText: string | null } | null;
+  shiftStart: string | null;
+  shiftEnd: string | null;
+  endsNextDay: boolean;
+}
+
+export interface ConfirmAbsencePayload extends OccurrenceRef {
+  absenceId?: string;
+  newAbsence?: { type: AbsenceType; startTime?: string | null; endTime?: string | null; notes?: string | null };
+}
+
+export interface ConfirmAbsenceResult {
+  outcome: "linked" | "created";
+  fullDay: boolean;
+  absence: AbsenceCandidate;
+}

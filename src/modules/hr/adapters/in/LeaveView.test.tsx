@@ -114,7 +114,7 @@ describe("LeaveView — Saldos", () => {
   });
 });
 
-describe("Resolver ocorrência", () => {
+describe("Resolver ocorrência — Confirmar ausência", () => {
   const ISSUE = {
     shiftId: "s1",
     attendanceId: null,
@@ -130,27 +130,68 @@ describe("Resolver ocorrência", () => {
     diffMinutes: 0,
     corrections: [],
   } as unknown as AttendanceIssueDetail;
+  const base = { shiftStart: "10:00", shiftEnd: "23:00", endsNextDay: false, pendingRequest: null };
+  const CAND = { id: "a1", type: "sick_leave" as const, startDate: "2026-10-06", endDate: "2026-10-06", startTime: null, endTime: null, duration: "1 dia útil" };
 
-  it("registar ausência (falta justificada) cria o registo e fecha a ocorrência justificada", async () => {
-    const registerAbsence = vi.fn(async () => ({ id: "abs" }));
-    const correctShiftAttendance = vi.fn(async () => null);
+  it("ausência já registada → vincula e mostra a mensagem", async () => {
+    const confirmAbsence = vi.fn(async () => ({ outcome: "linked" as const, fullDay: true, absence: CAND }));
     const onCorrected = vi.fn();
-    renderWith(<AttendanceIssueResolutionModal issue={ISSUE} onClose={vi.fn()} onCorrected={onCorrected} />, { registerAbsence, correctShiftAttendance });
-    await userEvent.setup().click(screen.getByRole("button", { name: "Resolver ocorrência" }));
-    await vi.waitFor(() => expect(onCorrected).toHaveBeenCalled());
-    expect(registerAbsence).toHaveBeenCalledWith(expect.objectContaining({ employeeId: "e1", type: "justified", duration: "day", startDate: "2026-10-06" }));
-    expect(correctShiftAttendance).toHaveBeenCalledWith(expect.objectContaining({ correctionType: "justify_no_impact", workShiftId: "s1" }));
+    renderWith(<AttendanceIssueResolutionModal issue={ISSUE} onClose={vi.fn()} onCorrected={onCorrected} />, {
+      previewConfirmAbsence: vi.fn(async () => ({ ...base, match: "single" as const, candidates: [CAND] })),
+      confirmAbsence,
+    });
+    const user = userEvent.setup();
+    expect(await screen.findByText(/Ao confirmar, a ocorrência fica vinculada/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Resolver ocorrência" }));
+    expect(await screen.findByText("Existe uma ausência para este dia. A ocorrência foi vinculada automaticamente.")).toBeInTheDocument();
+    expect(confirmAbsence).toHaveBeenCalledWith(expect.not.objectContaining({ newAbsence: expect.anything() }));
+    await user.click(screen.getByRole("button", { name: "Concluir" }));
+    expect(onCorrected).toHaveBeenCalled();
   });
 
-  it("falta injustificada fecha como 'marcar ausência'; corrigir picagem exige motivo", async () => {
-    const correctShiftAttendance = vi.fn(async () => null);
-    renderWith(<AttendanceIssueResolutionModal issue={ISSUE} onClose={vi.fn()} onCorrected={vi.fn()} />, { registerAbsence: vi.fn(async () => ({ id: "x" })), correctShiftAttendance });
+  it("sem ausência → pede os dados e cria (falta justificada, dia inteiro)", async () => {
+    const confirmAbsence = vi.fn(async () => ({ outcome: "created" as const, fullDay: true, absence: { ...CAND, type: "justified" as const } }));
+    renderWith(<AttendanceIssueResolutionModal issue={ISSUE} onClose={vi.fn()} onCorrected={vi.fn()} />, {
+      previewConfirmAbsence: vi.fn(async () => ({ ...base, match: "none" as const, candidates: [] })),
+      confirmAbsence,
+    });
     const user = userEvent.setup();
-    await user.selectOptions(screen.getByLabelText("Classificação"), "i");
+    expect(await screen.findByLabelText("Classificação")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Resolver ocorrência" }));
-    await vi.waitFor(() => expect(correctShiftAttendance).toHaveBeenCalledWith(expect.objectContaining({ correctionType: "mark_absence" })));
+    expect(await screen.findByText("Foi criado um registo em Férias & Ausências e vinculado a esta ocorrência.")).toBeInTheDocument();
+    expect(confirmAbsence).toHaveBeenCalledWith(expect.objectContaining({ employeeId: "e1", newAbsence: expect.objectContaining({ type: "justified", startTime: "10:00", endTime: "23:00" }) }));
+  });
 
-    await user.click(screen.getByLabelText(/Corrigir picagem/));
+  it("várias → o gestor escolhe; pedido pendente → não resolve, oferece Rever pedido", async () => {
+    const B = { ...CAND, id: "a2", type: "justified" as const, startTime: "14:00", endTime: "16:00", duration: "2 horas" };
+    renderWith(<AttendanceIssueResolutionModal issue={ISSUE} onClose={vi.fn()} onCorrected={vi.fn()} />, {
+      previewConfirmAbsence: vi.fn(async () => ({ ...base, match: "multiple" as const, candidates: [CAND, B] })),
+      confirmAbsence: vi.fn(),
+    });
+    const user = userEvent.setup();
+    const submit = await screen.findByRole("button", { name: "Resolver ocorrência" });
+    await screen.findByText(/qual corresponde/);
+    expect(submit).toBeDisabled();
+    await user.click(screen.getAllByRole("radio", { name: /Falta justificada/ })[0]!);
+    expect(submit).toBeEnabled();
+  });
+
+  it("pedido pendente: Rever pedido → Aprovar", async () => {
+    const decidePortalRequest = vi.fn(async () => ({}));
+    renderWith(<AttendanceIssueResolutionModal issue={ISSUE} onClose={vi.fn()} onCorrected={vi.fn()} />, {
+      previewConfirmAbsence: vi.fn(async () => ({
+        ...base,
+        match: "pending_request" as const,
+        candidates: [],
+        pendingRequest: { id: "r1", kind: "justify_absence" as const, startDate: "2026-10-06", endDate: "2026-10-06", reasonLabel: "Doença", reasonText: null },
+      })),
+      decidePortalRequest,
+    });
+    const user = userEvent.setup();
+    expect(await screen.findByText("Existe um pedido pendente para este período.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Resolver ocorrência" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Rever pedido" }));
+    await user.click(screen.getByRole("button", { name: "Aprovar" }));
+    expect(decidePortalRequest).toHaveBeenCalledWith("r1", "approve", null);
   });
 });
