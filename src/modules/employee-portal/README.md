@@ -63,6 +63,7 @@ Spec e tickets: backend `.scratch/portal-colaborador/`.
   (alta precisão, `maximumAge: 0`, timeout 12 s). Nunca `watchPosition`.
 
 ## Decisões de design (ADR resumido)
+- **Novo pedido + calendário de período** (2026-10-08, mockup): um só cartão "Novo pedido" com Tipo (Folga / Justificar falta). O Período da folga abre `PeriodSheet` (folha de baixo, calendário de intervalo: 1.º toque início, 2.º fim; sem dias passados; máx. 7 dias — `period-picker.service`) em vez de dois campos de data, que no iPhone deixavam o "Até" ficar antes do "De". Lista em "Pedidos recentes".
 - **Substituir documento** (ticket 11): só quando o servidor diz `canReplace` (vencido / a vencer em 30 dias, sem envio pendente). PDF ou foto; depois de enviado fica "Em validação pelo RH" e não há remover; uma rejeição mostra o motivo.
 - **Pedidos** (ticket 12): a aprovação de uma folga não mexe na escala — o gerente ajusta à mão (decisão 2026-10-07).
 - **Download no iPhone**: "Abrir" abre a janela no próprio toque e só depois

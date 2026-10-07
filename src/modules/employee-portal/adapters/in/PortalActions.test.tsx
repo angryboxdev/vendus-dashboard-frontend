@@ -61,6 +61,14 @@ describe("Portal — substituir documento", () => {
 });
 
 describe("Portal — pedidos", () => {
+  it("calendário: dias passados desativados", async () => {
+    renderWith(<PortalRequestsSection />, { listRequests: vi.fn(async () => []) });
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "+ Novo pedido" }));
+    await user.click(screen.getByRole("button", { name: /Escolher dias/ }));
+    expect(screen.getByRole("button", { name: "Mês anterior" })).toBeDisabled();
+  });
+
   const PENDING: MyRequest = {
     id: "r1",
     kind: "day_off",
@@ -86,11 +94,24 @@ describe("Portal — pedidos", () => {
     await user.click(screen.getByRole("button", { name: "Cancelar pedido" }));
     expect(cancelRequest).toHaveBeenCalledWith("r1");
 
-    await user.click(screen.getByRole("button", { name: "Pedir folga" }));
-    await user.type(screen.getByLabelText("De"), "2030-01-10");
+    // Mês seguinte, dias 10 a 12 — o calendário abre no mês atual.
+    const now = new Date();
+    const next = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1));
+    const ym = next.toISOString().slice(0, 7);
+    const label = (d: string) => `${d}/${ym.slice(5, 7)}/${ym.slice(0, 4)}`;
+
+    await user.click(screen.getByRole("button", { name: "+ Novo pedido" }));
+    expect(screen.getByLabelText("Tipo")).toHaveValue("day_off");
+    await user.click(screen.getByRole("button", { name: /Escolher dias/ }));
+    const sheet = screen.getByRole("dialog", { name: "Selecione o período" });
+    await user.click(screen.getByRole("button", { name: "Mês seguinte" }));
+    await user.click(screen.getByRole("button", { name: label("10") }));
+    await user.click(screen.getByRole("button", { name: label("12") }));
+    expect(sheet).toHaveTextContent("3 dias");
+    await user.click(screen.getByRole("button", { name: "Confirmar período" }));
     await user.selectOptions(screen.getByLabelText("Motivo"), "personal");
-    await user.click(screen.getByRole("button", { name: "Enviar ao gerente" }));
-    expect(createRequest).toHaveBeenCalledWith({ kind: "day_off", startDate: "2030-01-10", endDate: "2030-01-10", reasonCode: "personal", reasonText: null });
+    await user.click(screen.getByRole("button", { name: "Enviar pedido" }));
+    expect(createRequest).toHaveBeenCalledWith({ kind: "day_off", startDate: `${ym}-10`, endDate: `${ym}-12`, reasonCode: "personal", reasonText: null });
   });
 
   it("rejeitado mostra o motivo do gerente", async () => {
