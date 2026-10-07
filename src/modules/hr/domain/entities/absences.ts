@@ -28,6 +28,8 @@ export interface AbsenceRecord {
 
 export interface AbsenceBoard {
   records: AbsenceRecord[];
+  /** Feriados no intervalo. */
+  holidays: Array<{ date: string; name: string }>;
   attention: { pendingRequests: number; pendingDocuments: number; shiftConflicts: number };
 }
 
@@ -80,3 +82,18 @@ export const ABSENCE_STATUS_STYLE: Record<AbsenceRecordStatus, { label: string; 
   rejected: { label: "Rejeitado", cls: "bg-red-100 text-red-800" },
   cancelled: { label: "Cancelado", cls: "bg-stone-200 text-stone-700" },
 };
+
+/** Separador "Saldos". */
+export interface LeaveBalanceRow {
+  employeeId: string;
+  employeeName: string;
+  positionName: string | null;
+  /** false = ainda não definido (valores sugeridos). */
+  defined: boolean;
+  daysEntitled: number;
+  daysCarriedOver: number;
+  suggested: number;
+  taken: number;
+  scheduled: number;
+  available: number;
+}

@@ -15,6 +15,7 @@ import { AttendanceIssueResolutionModal } from "./AttendanceIssueResolutionModal
 // Dados fictícios (RGPD).
 const today = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Lisbon" }).format(new Date());
 const BOARD: AbsenceBoard = {
+  holidays: [{ date: today, name: "Feriado Teste" }],
   attention: { pendingRequests: 1, pendingDocuments: 0, shiftConflicts: 1 },
   records: [
     {
@@ -90,6 +91,26 @@ describe("LeaveView — Férias & Ausências 2.0", () => {
     expect(screen.getByText("1 outro colaborador ausente")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Registar ausência" }));
     expect(registerAbsence).toHaveBeenCalledWith(expect.objectContaining({ employeeId: "e1", type: "vacation", duration: "day", startDate: "2026-10-12", endDate: "2026-10-16" }));
+  });
+});
+
+describe("LeaveView — Saldos", () => {
+  it("lista saldos, marca o sugerido e guarda a alteração", async () => {
+    const setLeaveBalance = vi.fn(async () => undefined);
+    const listLeaveBalances = vi.fn(async () => [
+      { employeeId: "e1", employeeName: "CARLA DEMO", positionName: null, defined: false, daysEntitled: 22, daysCarriedOver: 0, suggested: 22, taken: 5, scheduled: 2, available: 15 },
+    ]);
+    renderWith(<LeaveView />, { listLeaveBalances, setLeaveBalance });
+    const user = userEvent.setup();
+    expect(await screen.findByText("Feriado Teste")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Saldos" }));
+    expect(await screen.findByText("sugerido")).toBeInTheDocument();
+    const input = screen.getByLabelText("Dias transitados de CARLA DEMO");
+    await user.clear(input);
+    await user.type(input, "3");
+    expect(screen.getByText("18")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Confirmar" }));
+    expect(setLeaveBalance).toHaveBeenCalledWith("e1", new Date().getFullYear(), 22, 3);
   });
 });
 

@@ -1,6 +1,6 @@
 import type { GrantPortalAccessResult, PortalAccess } from "../../domain/entities/portal-access.ts";
 import type { InboxRequest, RequestsInbox } from "../../domain/entities/portal-requests.ts";
-import type { AbsenceBoard, AbsenceImpact, RegisterAbsencePayload } from "../../domain/entities/absences.ts";
+import type { AbsenceBoard, AbsenceImpact, LeaveBalanceRow, RegisterAbsencePayload } from "../../domain/entities/absences.ts";
 import { apiGet, apiPatch, apiPost, apiPostFormData, apiDeleteNoContent, apiDeleteJson, apiPut, ApiError } from "../../../../lib/api.ts";
 import type { HrApiPort } from "../../domain/ports/out/hr-api.port.ts";
 import type { Position, PositionPayload } from "../../domain/entities/position.ts";
@@ -352,6 +352,14 @@ export class HttpHrApiAdapter implements HrApiPort {
 
   async cancelAbsence(id: string, reason: string): Promise<void> {
     await apiPost(`/api/hr/leave/absences/${encodeURIComponent(id)}/cancel`, { reason });
+  }
+
+  async listLeaveBalances(year: number): Promise<LeaveBalanceRow[]> {
+    return apiGet<LeaveBalanceRow[]>(`/api/hr/leave/balances?year=${year}`);
+  }
+
+  async setLeaveBalance(employeeId: string, year: number, daysEntitled: number, daysCarriedOver: number): Promise<void> {
+    await apiPut(`/api/hr/leave/balances/${encodeURIComponent(employeeId)}/${year}`, { daysEntitled, daysCarriedOver });
   }
 
   async deleteWorkShift(id: string): Promise<{ undoToken: string }> {

@@ -16,7 +16,6 @@ import { HrCalendarPage } from "./pages/hr/HrCalendarPage";
 import { HrEmployeeDetailPage } from "./pages/hr/HrEmployeeDetailPage";
 import { HrLayout } from "./pages/hr/HrLayout";
 import { HrAuditLogPage } from "./pages/hr/HrAuditLogPage";
-import { HrLeavePage } from "./pages/hr/HrLeavePage";
 import { AttendanceView } from "./modules/hr/adapters/in/AttendanceView.tsx";
 import { AttendanceEmployeeDetailView } from "./modules/hr/adapters/in/AttendanceEmployeeDetailView.tsx";
 import { HrProvider } from "./modules/hr/hr.module.tsx";
@@ -351,8 +350,6 @@ export default function App() {
                       </HrProvider>
                     }
                   />
-                  {/* Página antiga mantida só para os saldos de férias e feriados (ainda sem equivalente no 2.0). */}
-                  <Route path="/hr/ferias/saldos" element={<HrLeavePage />} />
                   <Route path="/hr/relatorio" element={<Navigate to="/hr/assiduidade" replace />} />
                   <Route
                     path="/hr/assiduidade"

@@ -19,8 +19,9 @@ import {
   type RecordsTab,
 } from "../../domain/services/absences-board.service.ts";
 import { RegisterAbsenceDrawer } from "./RegisterAbsenceDrawer.tsx";
+import { LeaveBalancesTab } from "./LeaveBalancesTab.tsx";
 
-type Tab = "calendar" | "records";
+type Tab = "calendar" | "records" | "balances";
 
 const todayYmd = () => new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Lisbon" }).format(new Date());
 const WEEKDAYS = ["SEG", "TER", "QUA", "QUI", "SEX", "SÁB", "DOM"];
@@ -187,9 +188,6 @@ export function LeaveView() {
           <p className="text-sm text-stone-500">Visão global da disponibilidade da equipa.</p>
         </div>
         <div className="flex items-center gap-3">
-          <Link to="/hr/ferias/saldos" className="text-sm text-stone-500 hover:underline">
-            Saldos de férias
-          </Link>
           <button type="button" onClick={() => setRegistering(true)} className="rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white shadow-sm">
             + Registar ausência
           </button>
@@ -201,6 +199,7 @@ export function LeaveView() {
           [
             { key: "calendar", label: "Calendário" },
             { key: "records", label: "Registos" },
+            { key: "balances", label: "Saldos" },
           ] as Array<{ key: Tab; label: string }>
         ).map((t) => (
           <button
@@ -224,6 +223,8 @@ export function LeaveView() {
           onChange={(e) => setFilters({ ...filters, search: e.target.value })}
           className="min-w-[200px] flex-1 rounded-lg border border-stone-300 px-3 py-2 text-sm"
         />
+        {tab !== "balances" && (
+          <>
         <select aria-label="Tipo" value={filters.type} onChange={(e) => setFilters({ ...filters, type: e.target.value as AbsenceType | "" })} className={select}>
           <option value="">Todos os tipos</option>
           {(Object.keys(ABSENCE_TYPE_LABEL) as AbsenceType[]).map((t) => (
@@ -257,9 +258,13 @@ export function LeaveView() {
             ⬇ Exportar
           </button>
         )}
+          </>
+        )}
       </div>
 
-      {isLoading ? (
+      {tab === "balances" ? (
+        <LeaveBalancesTab search={filters.search} />
+      ) : isLoading ? (
         <p className="text-sm text-stone-400">A carregar…</p>
       ) : isError || !board ? (
         <p className="text-sm text-red-700">Não foi possível carregar as ausências.</p>
@@ -276,9 +281,11 @@ export function LeaveView() {
             {calendarDays(month).map((ymd) => {
               const inMonth = ymd.startsWith(month);
               const day = recordsOnDay(records, ymd);
+              const holiday = board.holidays.find((h) => h.date === ymd);
               return (
-                <div key={ymd} className={`min-h-[96px] border-b border-r border-stone-100 p-1.5 ${inMonth ? "" : "bg-stone-50/60 text-stone-300"}`}>
+                <div key={ymd} className={`min-h-[96px] border-b border-r border-stone-100 p-1.5 ${inMonth ? "" : "bg-stone-50/60 text-stone-300"} ${holiday && inMonth ? "bg-amber-50/70" : ""}`}>
                   <span className={`text-xs ${ymd === today ? "rounded-full bg-[#ED5C32] px-1.5 text-white" : "text-stone-500"}`}>{Number(ymd.slice(8, 10))}</span>
+                  {holiday && <p className="truncate text-[10px] font-medium text-amber-700">{holiday.name}</p>}
                   <div className="mt-1 space-y-0.5">
                     {day.slice(0, 3).map((r) => (
                       <button
