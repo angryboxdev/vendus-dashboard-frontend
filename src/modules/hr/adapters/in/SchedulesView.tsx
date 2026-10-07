@@ -1,6 +1,5 @@
 import { useCallback, useMemo, useState } from "react";
 import { UndoToast, type UndoToastState } from "./UndoToast.tsx";
-import { SHIFT_EQUIVALENT_LABEL, workdayBadges } from "../../domain/services/workday.service.ts";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
@@ -281,9 +280,6 @@ export function SchedulesView() {
     queryFn: () => api.listPublicHolidays(rangeStart.getFullYear()),
   });
 
-  // Limites da jornada (1 turno / 1,5 / dupla) — de "Configurar regras" da Assiduidade.
-  const { data: attendanceRules } = useQuery({ queryKey: ["hr-attendance-rules"], queryFn: () => api.getAttendanceRules(), retry: false });
-  const workdayRules = attendanceRules?.standardShiftMinutes ? attendanceRules : null;
   const { data: alerts } = useQuery({
     queryKey: ["hr-schedule-alerts", from, to, locationFilter],
     queryFn: () => api.getScheduleAlerts(from, to, locationFilter || undefined),
@@ -820,8 +816,6 @@ export function SchedulesView() {
                     const dayLeaves = leavesByDate.get(ymd) ?? [];
                     const holiday = holidaysByDate.get(ymd);
                     const dayConflicts = conflictsByDate.get(ymd) ?? 0;
-                    const dayBadges = workdayRules ? workdayBadges(dayShifts, workdayRules) : new Map<string, 1.5 | 2>();
-                    const badgeShown = new Set<string>();
 
                     if (visualMode === "compact") {
                       const scheduledCount = new Set(dayShifts.map((s) => s.employeeId)).size;
@@ -888,22 +882,7 @@ export function SchedulesView() {
                                 title={`${s.employeeName} · ${s.startTime}–${s.endTime}${hasSecond ? ` | ${s.secondStartTime}–${s.secondEndTime}` : ""}${s.endsNextDay ? " (+1 dia)" : ""}${s.status === "draft" ? " (rascunho)" : ""}`}
                                 className={`block w-full rounded border px-1.5 py-0.5 text-left text-[11px] leading-snug ${c.bg} ${c.border} ${c.text}`}
                               >
-                                <div className="flex items-center justify-between gap-1 font-medium">
-                                  <span>{shortName(s.employeeName)}</span>
-                                  {(() => {
-                                    const eq = dayBadges.get(s.employeeId);
-                                    if (!eq || badgeShown.has(s.employeeId)) return null;
-                                    badgeShown.add(s.employeeId);
-                                    return (
-                                      <span
-                                        title={eq === 2 ? "Jornada conta como 2 turnos (dupla)" : "Jornada conta como 1,5 turnos"}
-                                        className="shrink-0 rounded bg-stone-800 px-1 text-[9px] font-semibold text-white"
-                                      >
-                                        {SHIFT_EQUIVALENT_LABEL[eq]}
-                                      </span>
-                                    );
-                                  })()}
-                                </div>
+                                <div className="font-medium">{shortName(s.employeeName)}</div>
                                 <div className="mt-0.5 flex items-center gap-1 text-[10px] opacity-70">
                                   <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${shiftDotClass(s)}`} />
                                   <span>
