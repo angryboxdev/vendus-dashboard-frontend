@@ -3,6 +3,8 @@ export interface NavItem {
   readonly path: string;
   readonly label: string;
   readonly end?: boolean;
+  /** Contador ao lado do rótulo (ex.: pedidos por decidir). */
+  readonly badgeKey?: "hr-requests";
 }
 
 export interface NavGroup {

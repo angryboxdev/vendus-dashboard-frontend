@@ -28,6 +28,10 @@ function setup(responses: Array<PunchResult | Error>) {
     listMyDocuments: vi.fn(),
     getDocumentUrl: vi.fn(),
     getMyLeave: vi.fn(),
+    replaceDocument: vi.fn(),
+    listMyRequests: vi.fn(),
+    createRequest: vi.fn(),
+    cancelRequest: vi.fn(),
   };
   const geolocation: GeolocationPort = { readOnce: vi.fn(async () => ({ latitude: 41.1, longitude: -8.6, accuracyM: 8 })) };
   return { useCase: new RegisterPunchUseCase(api, geolocation), calls, geolocation };

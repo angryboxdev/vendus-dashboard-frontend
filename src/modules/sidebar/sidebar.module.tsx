@@ -7,6 +7,8 @@ import {
 } from "react";
 import { useAuth } from "../../contexts/AuthContext.tsx";
 import { ReactAuthAdapter } from "./adapters/out/react-auth.adapter.ts";
+import { HttpBadgeCountsAdapter } from "./adapters/out/http-badge-counts.adapter.ts";
+import type { BadgeCountsPort } from "./domain/ports/out/badge-counts.port.ts";
 import { GetNavStateUseCase } from "./application/use-cases/get-nav-state.use-case.ts";
 import { SignOutUseCase } from "./application/use-cases/sign-out.use-case.ts";
 import type { GetNavStatePort } from "./domain/ports/in/get-nav-state.port.ts";
@@ -15,6 +17,7 @@ import type { SignOutPort } from "./domain/ports/in/sign-out.port.ts";
 export interface SidebarModule {
   getNavState: GetNavStatePort;
   signOut: SignOutPort;
+  badgeCounts?: BadgeCountsPort;
 }
 
 const SidebarContext = createContext<SidebarModule | null>(null);
@@ -45,6 +48,7 @@ export function SidebarProvider({
     return {
       getNavState: new GetNavStateUseCase(adapter),
       signOut: new SignOutUseCase(adapter),
+      badgeCounts: new HttpBadgeCountsAdapter(),
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mod]);

@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { useLocation, useNavigate } from "react-router-dom";
 import { useSidebarModule } from "../../sidebar.module.tsx";
 import type { SidebarNavEntry } from "../../domain/entities/nav-item.ts";
@@ -13,10 +14,12 @@ export interface UseSidebarResult {
   openMobile: () => void;
   closeMobile: () => void;
   signOut: () => void;
+  /** Contadores por `badgeKey` (0 = sem contador). */
+  badges: Partial<Record<"hr-requests", number>>;
 }
 
 export function useSidebar(): UseSidebarResult {
-  const { getNavState, signOut: signOutUseCase } = useSidebarModule();
+  const { getNavState, signOut: signOutUseCase, badgeCounts } = useSidebarModule();
   const location = useLocation();
   const navigate = useNavigate();
   const [manualExpanded, setManualExpanded] = useState<Set<string>>(new Set());
@@ -24,6 +27,14 @@ export function useSidebar(): UseSidebarResult {
   const [mobileOpen, setMobileOpen] = useState(false);
 
   const state = getNavState.execute(location.pathname);
+  const showsRequests = state.tree.some((e) => (e.kind === "group" ? e.items.some((i) => i.badgeKey === "hr-requests") : e.badgeKey === "hr-requests"));
+  const { data: pendingRequests } = useQuery({
+    queryKey: ["hr-requests-count"],
+    queryFn: () => badgeCounts!.pendingHrRequests(),
+    enabled: showsRequests && !!badgeCounts,
+    refetchInterval: 60_000,
+    retry: false,
+  });
 
   function isGroupActive(groupId: string): boolean {
     return state.activeGroupId === groupId;
@@ -80,5 +91,6 @@ export function useSidebar(): UseSidebarResult {
     openMobile: () => setMobileOpen(true),
     closeMobile: () => setMobileOpen(false),
     signOut,
+    badges: { "hr-requests": pendingRequests ?? 0 },
   };
 }

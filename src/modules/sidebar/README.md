@@ -48,6 +48,7 @@ grupos inactivos manualmente; esse estado local é gerido no hook `useSidebar`.
 - `ReactAuthAdapter` — implementa `AuthPort` com getter functions fechadas sobre um ref atualizado a cada render, garantindo que o use case (criado uma única vez) lê sempre os valores de auth mais recentes.
 
 ## Decisões de design (ADR resumido)
+- **Contador** (`badgeKey`, 2026-10-07): itens podem mostrar um número (ex.: Caixa de pedidos); `BadgeCountsPort` → `HttpBadgeCountsAdapter` (`GET /api/hr/requests`), só pedido quando o item está visível, a cada 60 s.
 
 - **Tema escuro (teste, 2026-10-06)** — fundo azul-noite `#141B2D` (constante `SIDEBAR_BG`), texto claro, item ativo com barra laranja da marca; rodapé "by" + logótipo Mezza ERP (`public/mezza-erp.png`, 320 px) alinhado à direita, discreto (opacidade 80%). Só a barra lateral muda — as páginas mantêm o tema claro e o laranja.
 

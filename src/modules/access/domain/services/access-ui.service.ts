@@ -107,7 +107,10 @@ export function formatLastAccess(iso: string | null, now: Date = new Date()): st
  * Usado pela barra lateral e pela guarda de rotas. `null` = livre para
  * qualquer utilizador da área de gestão; `"admin"` = só Admin.
  */
-const PATH_PERMISSIONS: Array<[RegExp, string | "admin" | null]> = [
+/** Uma permissão, "qualquer uma de" (lista), só Admin, ou livre (`null`). */
+type PathPermission = string | string[] | "admin" | null;
+
+const PATH_PERMISSIONS: Array<[RegExp, PathPermission]> = [
   [/^\/admin\/(users|access-profiles)/, "admin"],
   [/^\/admin\/location-tokens/, "company.devices"],
   [/^\/(vendus|analytics)/, "sales.dashboard"],
@@ -128,6 +131,8 @@ const PATH_PERMISSIONS: Array<[RegExp, string | "admin" | null]> = [
   [/^\/hr\/ferias/, "hr.leave"],
   [/^\/hr\/assiduidade/, "hr.attendance"],
   [/^\/hr\/historico/, "hr.history"],
+  // Caixa de pedidos: quem decide documentos, faltas ou folgas.
+  [/^\/hr\/pedidos/, ["hr.documents", "hr.attendance", "hr.schedules"]],
   [/^\/crm\/parameters/, "crm.settings"],
   [/^\/crm/, "crm.customers"],
   // Declaração de Vendas (Excel do MBS a partir de SAF-T) — o backend classifica-a em Vendas (Ver).
@@ -140,7 +145,7 @@ const PATH_PERMISSIONS: Array<[RegExp, string | "admin" | null]> = [
   [/^\/financial\/accounting/, "finance.accounting"],
 ];
 
-export function requiredPermissionForPath(path: string): string | "admin" | null {
+export function requiredPermissionForPath(path: string): PathPermission {
   for (const [re, perm] of PATH_PERMISSIONS) if (re.test(path)) return perm;
   return null;
 }
@@ -151,5 +156,6 @@ export function canOpenPath(access: { isAdmin: boolean; portalOnly: boolean; per
   const perm = requiredPermissionForPath(path);
   if (perm === null) return true;
   if (perm === "admin") return false;
+  if (Array.isArray(perm)) return perm.some((p) => hasLevel(access.permissions, p, "READ"));
   return hasLevel(access.permissions, perm, "READ");
 }

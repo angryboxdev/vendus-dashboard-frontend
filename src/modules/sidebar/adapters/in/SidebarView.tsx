@@ -56,10 +56,17 @@ function HamburgerIcon() {
 
 // ── NavItemLink ───────────────────────────────────────────────────────────────
 
-function NavItemLink({ item, onClick }: { item: NavItem; onClick: () => void }) {
+function NavItemLink({ item, onClick, badge = 0 }: { item: NavItem; onClick: () => void; badge?: number }) {
   return (
     <NavLink to={item.path} end={item.end} className={navLinkClass} onClick={onClick}>
-      {item.label}
+      <span className="flex items-center justify-between gap-2">
+        <span>{item.label}</span>
+        {badge > 0 && (
+          <span className="rounded-full bg-[#ED5C32] px-1.5 text-[10px] font-semibold leading-4 text-white" aria-label={`${badge} por decidir`}>
+            {badge}
+          </span>
+        )}
+      </span>
     </NavLink>
   );
 }
@@ -72,7 +79,9 @@ function NavGroupSection({
   active,
   onToggle,
   onNavClick,
+  badges,
 }: {
+  badges: UseSidebarResult["badges"];
   group: NavGroup;
   expanded: boolean;
   active: boolean;
@@ -96,7 +105,7 @@ function NavGroupSection({
       {expanded && (
         <div className="mb-1 ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-white/10 pl-2">
           {group.items.map((item) => (
-            <NavItemLink key={item.path} item={item} onClick={onNavClick} />
+            <NavItemLink key={item.path} item={item} onClick={onNavClick} badge={item.badgeKey ? badges[item.badgeKey] : 0} />
           ))}
         </div>
       )}
@@ -114,6 +123,7 @@ interface SidebarBodyProps {
   userEmail: string;
   onNavClick: () => void;
   onSignOut: () => void;
+  badges: UseSidebarResult["badges"];
 }
 
 function SidebarBody({
@@ -124,6 +134,7 @@ function SidebarBody({
   userEmail,
   onNavClick,
   onSignOut,
+  badges,
 }: SidebarBodyProps) {
   return (
     <>
@@ -142,7 +153,7 @@ function SidebarBody({
         {tree.map((entry) => {
           if (entry.kind === "item") {
             return (
-              <NavItemLink key={entry.path} item={entry} onClick={onNavClick} />
+              <NavItemLink key={entry.path} item={entry} onClick={onNavClick} badge={entry.badgeKey ? badges[entry.badgeKey] : 0} />
             );
           }
           return (
@@ -153,6 +164,7 @@ function SidebarBody({
               active={isGroupActive(entry.id)}
               onToggle={() => toggleGroup(entry.id)}
               onNavClick={onNavClick}
+              badges={badges}
             />
           );
         })}
@@ -190,6 +202,7 @@ export function Sidebar() {
     openMobile,
     closeMobile,
     signOut,
+    badges,
   }: UseSidebarResult = useSidebar();
 
   const bodyProps: SidebarBodyProps = {
@@ -200,6 +213,7 @@ export function Sidebar() {
     userEmail,
     onNavClick: closeMobile,
     onSignOut: signOut,
+    badges,
   };
 
   return (

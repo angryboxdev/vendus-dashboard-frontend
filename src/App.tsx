@@ -27,6 +27,8 @@ import { EmployeeProfileView } from "./modules/hr/adapters/in/EmployeeProfileVie
 import { OverviewView } from "./modules/hr/adapters/in/OverviewView.tsx";
 import { ShiftsToReviewView } from "./modules/hr/adapters/in/ShiftsToReviewView.tsx";
 import { SchedulesView } from "./modules/hr/adapters/in/SchedulesView.tsx";
+import { HrRequestsView } from "./modules/hr/adapters/in/HrRequestsView.tsx";
+import { LeaveView } from "./modules/hr/adapters/in/LeaveView.tsx";
 import { KioskDisplayPage } from "./pages/kiosk/KioskDisplayPage";
 import { KioskCheckinPage } from "./pages/kiosk/KioskCheckinPage";
 import { CashClosingPage } from "./pages/cashClosing/CashClosingPage";
@@ -341,7 +343,16 @@ export default function App() {
                     }
                   />
                   <Route path="/hr/calendar" element={<HrCalendarPage />} />
-                  <Route path="/hr/ferias" element={<HrLeavePage />} />
+                  <Route
+                    path="/hr/ferias"
+                    element={
+                      <HrProvider>
+                        <LeaveView />
+                      </HrProvider>
+                    }
+                  />
+                  {/* Página antiga mantida só para os saldos de férias e feriados (ainda sem equivalente no 2.0). */}
+                  <Route path="/hr/ferias/saldos" element={<HrLeavePage />} />
                   <Route path="/hr/relatorio" element={<Navigate to="/hr/assiduidade" replace />} />
                   <Route
                     path="/hr/assiduidade"
@@ -356,6 +367,14 @@ export default function App() {
                     element={
                       <HrProvider>
                         <AttendanceEmployeeDetailView />
+                      </HrProvider>
+                    }
+                  />
+                  <Route
+                    path="/hr/pedidos"
+                    element={
+                      <HrProvider>
+                        <HrRequestsView />
                       </HrProvider>
                     }
                   />

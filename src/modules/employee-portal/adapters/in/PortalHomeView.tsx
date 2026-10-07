@@ -11,6 +11,7 @@ import {
   shiftHours,
 } from "../../domain/services/portal-text.service.ts";
 import { PORTAL_HOME_QUERY_KEY, usePortalHome } from "./use-portal-home.ts";
+import { DocumentsAlert } from "./DocumentsAlert.tsx";
 
 function todayLisbon(): string {
   return new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Lisbon" }).format(new Date());
@@ -77,6 +78,7 @@ export function PortalHomeView() {
     <div className="space-y-4">
       <h1 className="text-xl font-semibold text-stone-900">Olá, {home.employee.shortName}</h1>
 
+      <DocumentsAlert />
       <section className="rounded-2xl border border-[#F5C992]/50 bg-white p-5 shadow-sm" aria-label="Próximo turno">
         <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Próximo turno</p>
         {nextShift ? (

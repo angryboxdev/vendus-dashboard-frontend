@@ -3,15 +3,18 @@ import { useQuery } from "@tanstack/react-query";
 import { dateLabel, LEAVE_TYPE_LABELS } from "../../domain/services/portal-text.service.ts";
 import { useEmployeePortalModule } from "../../employee-portal.module.tsx";
 import { todayLisbon } from "./portal-today.ts";
+import { PortalRequestsSection } from "./PortalRequestsSection.tsx";
 
-/** Ausências do próprio (ticket 09) — só consulta, sem saldo de férias nem feriados. */
+/** Pedidos (ticket 12) + ausências do próprio (ticket 09, só consulta, sem saldo de férias nem feriados). */
 export function PortalLeaveView() {
   const { selfService } = useEmployeePortalModule();
   const [year, setYear] = useState(() => Number(todayLisbon().slice(0, 4)));
   const { data, isLoading, isError } = useQuery({ queryKey: ["portal-leave", year], queryFn: () => selfService.getLeave(year), retry: false });
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-6">
+      <PortalRequestsSection />
+      <div className="space-y-4">
       <div className="flex items-center justify-between">
         <button type="button" onClick={() => setYear(year - 1)} className="rounded-lg px-3 py-2 text-sm text-stone-600" aria-label="Ano anterior">
           ‹
@@ -47,6 +50,7 @@ export function PortalLeaveView() {
             ))}
         </ul>
       )}
+      </div>
     </div>
   );
 }
