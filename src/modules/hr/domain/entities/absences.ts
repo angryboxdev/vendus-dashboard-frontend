@@ -1,0 +1,82 @@
+/** Férias & Ausências 2.0 — contrato com `/api/hr/leave/board` e `/api/hr/leave/absences` (backend, módulo hr). */
+
+export type AbsenceType = "vacation" | "sick_leave" | "justified" | "unjustified" | "compensatory" | "authorized_absence" | "license" | "other";
+export type AbsenceDuration = "day" | "half_day" | "hours";
+export type AbsenceRecordStatus = "pending" | "approved" | "rejected" | "cancelled";
+
+export interface AbsenceRecord {
+  id: string;
+  /** "absence" = registo; "request" = pedido do Portal ainda não aprovado. */
+  source: "absence" | "request";
+  employeeId: string;
+  employeeName: string;
+  positionName: string | null;
+  locationId: string | null;
+  locationName: string | null;
+  type: AbsenceType;
+  startDate: string;
+  endDate: string;
+  startTime: string | null;
+  endTime: string | null;
+  duration: string;
+  status: AbsenceRecordStatus;
+  affectedShifts: number;
+  notes: string | null;
+  origin: "hr" | "portal";
+  decisionNote: string | null;
+}
+
+export interface AbsenceBoard {
+  records: AbsenceRecord[];
+  attention: { pendingRequests: number; pendingDocuments: number; shiftConflicts: number };
+}
+
+export interface RegisterAbsencePayload {
+  employeeId: string;
+  type: AbsenceType;
+  duration: AbsenceDuration;
+  startDate: string;
+  endDate: string;
+  startTime?: string | null;
+  endTime?: string | null;
+  notes?: string | null;
+}
+
+export interface AbsenceImpact {
+  workingDays: number;
+  duration: string;
+  balance: { defined: boolean; available: number | null; after: number | null } | null;
+  affectedShifts: Array<{ workDate: string; hours: string }>;
+  othersAbsent: string[];
+  overlapsExisting: boolean;
+}
+
+export const ABSENCE_TYPE_LABEL: Record<AbsenceType, string> = {
+  vacation: "Férias",
+  sick_leave: "Baixa médica",
+  justified: "Falta justificada",
+  unjustified: "Falta injustificada",
+  compensatory: "Folga compensatória",
+  authorized_absence: "Ausência autorizada",
+  license: "Licença",
+  other: "Outra ausência",
+};
+
+/** Cores (fundo + texto + ponto) por tipo, como no mockup. */
+export const ABSENCE_TYPE_STYLE: Record<AbsenceType, { chip: string; dot: string }> = {
+  vacation: { chip: "bg-orange-50 text-orange-800", dot: "bg-orange-500" },
+  sick_leave: { chip: "bg-violet-50 text-violet-800", dot: "bg-violet-500" },
+  justified: { chip: "bg-indigo-50 text-indigo-800", dot: "bg-indigo-500" },
+  unjustified: { chip: "bg-red-50 text-red-800", dot: "bg-red-500" },
+  compensatory: { chip: "bg-amber-50 text-amber-800", dot: "bg-amber-500" },
+  authorized_absence: { chip: "bg-sky-50 text-sky-800", dot: "bg-sky-500" },
+  license: { chip: "bg-teal-50 text-teal-800", dot: "bg-teal-500" },
+  other: { chip: "bg-stone-100 text-stone-700", dot: "bg-stone-500" },
+};
+
+export const ABSENCE_STATUS_STYLE: Record<AbsenceRecordStatus, { label: string; cls: string }> = {
+  pending: { label: "Pendente", cls: "bg-amber-100 text-amber-800" },
+  approved: { label: "Aprovado", cls: "bg-emerald-100 text-emerald-800" },
+  rejected: { label: "Rejeitado", cls: "bg-red-100 text-red-800" },
+  cancelled: { label: "Cancelado", cls: "bg-stone-200 text-stone-700" },
+};

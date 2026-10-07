@@ -1,5 +1,6 @@
 import type { GrantPortalAccessResult, PortalAccess } from "../../entities/portal-access.ts";
 import type { InboxRequest, RequestsInbox } from "../../entities/portal-requests.ts";
+import type { AbsenceBoard, AbsenceImpact, RegisterAbsencePayload } from "../../entities/absences.ts";
 import type {
   CreateEmployeePayload,
   Employee,
@@ -121,6 +122,11 @@ export interface HrApiPort {
   getRequestsInbox(): Promise<RequestsInbox>;
   decidePortalRequest(id: string, decision: "approve" | "reject", note: string | null): Promise<InboxRequest>;
   getRequestAttachmentUrl(id: string): Promise<string>;
+  /** Férias & Ausências 2.0. */
+  getAbsenceBoard(from: string, to: string): Promise<AbsenceBoard>;
+  previewAbsence(payload: RegisterAbsencePayload): Promise<AbsenceImpact>;
+  registerAbsence(payload: RegisterAbsencePayload): Promise<{ id: string }>;
+  cancelAbsence(id: string, reason: string): Promise<void>;
   getEmployeeDocumentHistory(employeeId: string, documentId: string): Promise<EmployeeDocument[]>;
   /** 1 linha por (colaborador ativo × requisito documental) — fonte única da aba "Pessoas > Documentos". */
   getDocumentOverview(): Promise<DocumentOverviewRow[]>;
