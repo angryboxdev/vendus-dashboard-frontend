@@ -320,8 +320,12 @@ export class HttpHrApiAdapter implements HrApiPort {
     return apiPost<WorkShift>(`${SCHEDULES_BASE}/work-shifts/${encodeURIComponent(id)}/duplicate`, { targetDate });
   }
 
-  async deleteWorkShift(id: string): Promise<void> {
-    await apiDeleteNoContent(`${SCHEDULES_BASE}/work-shifts/${encodeURIComponent(id)}`);
+  async deleteWorkShift(id: string): Promise<{ undoToken: string }> {
+    return apiDeleteJson<{ undoToken: string }>(`${SCHEDULES_BASE}/work-shifts/${encodeURIComponent(id)}`);
+  }
+
+  async undoDeleteWorkShifts(undoToken: string): Promise<{ restoredCount: number }> {
+    return apiPost<{ restoredCount: number }>(`${SCHEDULES_BASE}/work-shifts/undo`, { undoToken });
   }
 
   async publishWorkShifts(ids: string[]): Promise<WorkShift[]> {

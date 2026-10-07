@@ -71,7 +71,7 @@ const PREVIEW: TemplateApplicationPreview = {
   summary: { employees: 3, valid: 1, duplicate: 0, overlap: 1, unavailable: 1, inactive: 0, holidays: 0 },
 };
 
-function renderModal() {
+function renderModal(onReviewDrafts?: (range: { from: string; to: string }) => void) {
   const calls: { config: TemplateApplicationConfig; decisions?: Record<string, OccurrenceDecision> }[] = [];
   const api = {
     listEmployees: async () => ({ items: [], total: 0, page: 1, pageSize: 100 }),
@@ -90,7 +90,7 @@ function renderModal() {
   render(
     <QueryClientProvider client={qc}>
       <HrProvider module={mod}>
-        <ApplyTemplateModal templates={[TEMPLATE]} initialTemplateId="tpl-1" onClose={() => {}} />
+        <ApplyTemplateModal templates={[TEMPLATE]} initialTemplateId="tpl-1" onClose={() => {}} {...(onReviewDrafts && { onReviewDrafts })} />
       </HrProvider>
     </QueryClientProvider>,
   );
@@ -99,7 +99,8 @@ function renderModal() {
 
 describe("ApplyTemplateModal", () => {
   it("configura por cargo + fins de semana, resolve o conflito com Substituir e confirma", async () => {
-    const calls = renderModal();
+    const onReviewDrafts = vi.fn();
+    const calls = renderModal(onReviewDrafts);
     const user = userEvent.setup();
     const dialog = screen.getByRole("dialog", { name: "Aplicar modelo de turno" });
 

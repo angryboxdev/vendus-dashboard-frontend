@@ -153,6 +153,8 @@ export type ClearShiftsScope =
 
 export interface ClearWorkShiftsResult {
   deletedCount: number;
+  /** Código para "Desfazer" (null quando nada foi apagado). */
+  undoToken: string | null;
   skipped: Array<{ id: string; workDate: string; reason: "has_attendance" }>;
 }
 

@@ -139,7 +139,10 @@ export interface HrApiPort {
   createWorkShift(payload: CreateWorkShiftPayload): Promise<WorkShift[]>;
   updateWorkShift(id: string, payload: UpdateWorkShiftPayload): Promise<WorkShift>;
   duplicateWorkShift(id: string, targetDate: string): Promise<WorkShift>;
-  deleteWorkShift(id: string): Promise<void>;
+  /** Devolve o código para "Desfazer". */
+  deleteWorkShift(id: string): Promise<{ undoToken: string }>;
+  /** Repõe o que a operação apagou (só quem apagou, até 15 min depois). */
+  undoDeleteWorkShifts(undoToken: string): Promise<{ restoredCount: number }>;
   publishWorkShifts(ids: string[]): Promise<WorkShift[]>;
 
   getBaseSchedule(employeeId: string): Promise<BaseScheduleCell[]>;

@@ -1,5 +1,5 @@
-import { PortalOfflineError, type PortalHome, type PunchResult } from "../../domain/entities/portal.ts";
-import type { GetPortalHomePort, RegisterPunchInput, RegisterPunchPort } from "../../domain/ports/in/portal.ports.ts";
+import { PortalOfflineError, type Coworker, type MyDocument, type MyLeave, type MyShift, type PortalHome, type PunchResult } from "../../domain/entities/portal.ts";
+import type { GetPortalHomePort, PortalSelfServicePort, RegisterPunchInput, RegisterPunchPort } from "../../domain/ports/in/portal.ports.ts";
 import type { GeolocationPort } from "../../domain/ports/out/geolocation.port.ts";
 import type { PortalApiPort } from "../../domain/ports/out/portal-api.port.ts";
 
@@ -39,5 +39,34 @@ export class RegisterPunchUseCase implements RegisterPunchPort {
       if (!(e instanceof PortalOfflineError)) throw e;
       return this.api.registerPunch(input.kind, input.idempotencyKey, location);
     }
+  }
+}
+
+/** Consulta do próprio — o servidor já filtra tudo pela sessão; aqui só se delega. */
+export class PortalSelfServiceUseCase implements PortalSelfServicePort {
+  private readonly api: PortalApiPort;
+
+  constructor(api: PortalApiPort) {
+    this.api = api;
+  }
+
+  listShifts(from: string, to: string): Promise<MyShift[]> {
+    return this.api.listMyShifts(from, to);
+  }
+
+  listCoworkers(shiftId: string): Promise<Coworker[]> {
+    return this.api.listCoworkers(shiftId);
+  }
+
+  listDocuments(): Promise<MyDocument[]> {
+    return this.api.listMyDocuments();
+  }
+
+  documentUrl(documentId: string): Promise<string> {
+    return this.api.getDocumentUrl(documentId);
+  }
+
+  getLeave(year: number): Promise<MyLeave> {
+    return this.api.getMyLeave(year);
   }
 }

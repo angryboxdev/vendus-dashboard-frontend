@@ -26,7 +26,9 @@ Spec e tickets: backend `.scratch/portal-colaborador/`.
 - Erros: `PunchRefusedError` (409 com `code`), `PortalNotLinkedError`,
   `PortalOfflineError` (sem rede — nunca há picagem offline).
 - `portal-text.service` — textos PT-PT (dia relativo, horário, estado,
-  recusas, confirmação, aviso de localização).
+  recusas, confirmação, aviso de localização) e regras de apresentação da
+  consulta (semana de segunda a domingo, período dos recibos, vencido / a
+  vencer em 30 dias, etiquetas das ausências).
 
 ## Ports
 ### Entrada (use cases)
@@ -34,8 +36,12 @@ Spec e tickets: backend `.scratch/portal-colaborador/`.
 - `RegisterPunchUseCase` — lê a localização só se a política ≠ `off`, uma vez;
   envia com a chave de idempotência; numa falha de rede repete UMA vez com a
   mesma chave.
+- `PortalSelfServiceUseCase` — escala, colegas, documentos, URL de download e
+  ausências do próprio (o servidor filtra pela sessão).
 ### Saída (dependências do domínio)
-- `PortalApiPort` — `GET /api/me`, `POST /api/me/punches`.
+- `PortalApiPort` — `GET /api/me`, `POST /api/me/punches`, `GET /api/me/shifts`,
+  `/me/shifts/:id/coworkers`, `/me/documents`, `/me/documents/:id/download-url`,
+  `/me/leave`.
 - `GeolocationPort` — uma leitura (`readOnce`), nunca lança.
 
 ## Adapters
@@ -44,14 +50,22 @@ Spec e tickets: backend `.scratch/portal-colaborador/`.
   Documentos, Ausências, Perfil); no 1º acesso com palavra-passe temporária
   mostra só `SetPasswordView`; liga o manifest/ícones/service worker.
 - `PortalHomeView` (+ `usePortalHome`) — próximo turno, estado e botão.
-- `PortalProfileView`, `SetPasswordView`, `PortalComingSoonView` (Escala,
-  Documentos, Ausências — tickets 07–09).
+- `PortalScheduleView` — semana a semana (só publicados), "Quem trabalha
+  comigo" por turno (nome curto + cargo + horário, carregado ao abrir).
+- `PortalDocumentsView` — Recibos (por período, "OUT 2026") e Documentos com
+  aviso de vencido / a vencer em 30 dias; "Abrir" pede o URL assinado.
+- `PortalLeaveView` — ausências do ano (só consulta; sem saldo de férias nem
+  feriados — decisão de 2026-10-07).
+- `PortalProfileView`, `SetPasswordView`.
 ### Saída
-- `HttpPortalApiAdapter` — `lib/api`; traduz 409/403/rede para os erros do domínio.
+- `HttpPortalApiAdapter` — `lib/api`; traduz 409/403/404/rede para os erros do domínio.
 - `BrowserGeolocationAdapter` — `navigator.geolocation.getCurrentPosition`
   (alta precisão, `maximumAge: 0`, timeout 12 s). Nunca `watchPosition`.
 
 ## Decisões de design (ADR resumido)
+- **Download no iPhone**: "Abrir" abre a janela no próprio toque e só depois
+  lhe dá o URL assinado — o Safari iOS bloqueia `window.open` feito depois de
+  um `await`.
 - **Uma chave por intenção**: o `PortalHomeView` guarda a chave enquanto a
   intenção não termina — novo toque depois de falha de rede reutiliza-a (o
   servidor devolve o que já gravou); recusa de negócio ou sucesso fecham a

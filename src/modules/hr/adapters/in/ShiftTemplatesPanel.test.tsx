@@ -81,7 +81,7 @@ function renderPanel(seed: ShiftTemplate[]) {
 const rowNames = () => screen.queryAllByRole("row").map((r) => within(r).queryByText(/^(Abertura 1|Fecho 3|Fecho 4|Intermédio repartido|Fecho antigo)$/)?.textContent).filter(Boolean);
 
 describe("ShiftTemplatesPanel — biblioteca (Modelos de Turno 2.0)", () => {
-  it("em Todos organiza por Grupo (secções recolhíveis) e mostra só Ativos por omissão", async () => {
+  it("em Todos abre com os grupos recolhidos (resumo por Grupo); abre-se um grupo com um clique; só Ativos por omissão", async () => {
     setRole("manager");
     renderPanel([ABERTURA, FECHO3, FECHO4, REP, ANTIGO]);
     const user = userEvent.setup();
@@ -90,16 +90,22 @@ describe("ShiftTemplatesPanel — biblioteca (Modelos de Turno 2.0)", () => {
     expect(screen.getByRole("button", { name: /Fecho · 2/ })).toBeInTheDocument();
     expect(screen.queryByText("Fecho antigo")).not.toBeInTheDocument();
 
-    await user.click(screen.getByRole("button", { name: /Fecho · 2/ }));
     expect(screen.queryByText("Fecho 3")).not.toBeInTheDocument();
-    expect(screen.getByText("Abertura 1")).toBeInTheDocument();
+    expect(screen.queryByText("Abertura 1")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: /Fecho · 2/ }));
+    expect(screen.getByText("Fecho 3")).toBeInTheDocument();
+    expect(screen.queryByText("Abertura 1")).not.toBeInTheDocument();
+
+    await user.type(screen.getByLabelText("Pesquisar modelos"), "abertura");
+    expect(screen.getByText("Abertura 1")).toBeInTheDocument(); // pesquisa mostra sempre os resultados
   });
 
   it("filtros: Grupo Fecho, Fecho + Repartido, Inativos; pesquisa por horário 20:00", async () => {
     setRole("manager");
     renderPanel([ABERTURA, FECHO3, FECHO4, REP, ANTIGO]);
     const user = userEvent.setup();
-    await screen.findByText("Abertura 1");
+    await screen.findByRole("button", { name: /Abertura · 1/ });
 
     await user.click(within(screen.getByRole("group", { name: "Grupo" })).getByRole("button", { name: "Fecho" }));
     expect(rowNames()).toEqual(["Fecho 3", "Fecho 4"]);
@@ -121,7 +127,7 @@ describe("ShiftTemplatesPanel — biblioteca (Modelos de Turno 2.0)", () => {
     setRole("manager");
     const api = renderPanel([ABERTURA]);
     const user = userEvent.setup();
-    await screen.findByText("Abertura 1");
+    await screen.findByRole("button", { name: /Abertura · 1/ });
 
     await user.click(screen.getByRole("button", { name: "Novo modelo" }));
     expect(within(screen.getByRole("dialog", { name: "Novo modelo de turno" })).getByLabelText("Grupo")).toHaveValue("OTHER");
@@ -141,7 +147,8 @@ describe("ShiftTemplatesPanel — biblioteca (Modelos de Turno 2.0)", () => {
     renderPanel([REP]);
     const user = userEvent.setup();
 
-    await user.click(await screen.findByRole("button", { name: "Mais ações de Intermédio repartido" }));
+    await user.click(await screen.findByRole("button", { name: /Intermédio · 1/ }));
+    await user.click(screen.getByRole("button", { name: "Mais ações de Intermédio repartido" }));
     await user.click(screen.getByRole("menuitem", { name: "Duplicar" }));
     const dialog = screen.getByRole("dialog", { name: "Duplicar modelo de turno" });
     expect(within(dialog).getByLabelText("Grupo")).toHaveValue("INTERMEDIATE");
@@ -158,7 +165,8 @@ describe("ShiftTemplatesPanel — biblioteca (Modelos de Turno 2.0)", () => {
     setRole("manager");
     renderPanel([ABERTURA, FECHO3]);
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "Aplicar Fecho 3" }));
+    await user.click(await screen.findByRole("button", { name: /Fecho · 1/ }));
+    await user.click(screen.getByRole("button", { name: "Aplicar Fecho 3" }));
     const dialog = await screen.findByRole("dialog");
     expect(within(dialog).getByText("Fecho 3 — 20:00 – 23:00")).toBeInTheDocument();
   });
@@ -166,7 +174,7 @@ describe("ShiftTemplatesPanel — biblioteca (Modelos de Turno 2.0)", () => {
   it("perfil só-leitura não vê ações", async () => {
     setRole("hr_viewer");
     renderPanel([ABERTURA]);
-    expect(await screen.findByText("Abertura 1")).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: /Abertura · 1/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Novo modelo" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Mais ações/ })).not.toBeInTheDocument();
   });

@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { UndoToast, type UndoToastState } from "./UndoToast.tsx";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
@@ -12,6 +13,8 @@ import { ShiftAutomationsPanel } from "./ShiftAutomationsPanel.tsx";
 import { useManageShiftAutomations } from "./use-shift-automations.ts";
 import { OCCURRENCE_STATUS_LABELS } from "../../domain/entities/shift-template.ts";
 import { ClearShiftsModal } from "./ClearShiftsModal.tsx";
+import { PublishReviewModal } from "./PublishReviewModal.tsx";
+import { draftSummary } from "../../domain/services/publish-review.service.ts";
 import { RepeatScheduleWeekModal } from "./RepeatScheduleWeekModal.tsx";
 import { DaySummaryPanel } from "./DaySummaryPanel.tsx";
 import { exportGeneralSchedulePdf } from "../../../../utils/schedulePdf.ts";
@@ -27,7 +30,7 @@ import {
 } from "../../domain/entities/schedule.ts";
 
 type ViewMode = "month" | "week";
-type Tab = "calendar" | "templates" | "alerts";
+type Tab = "calendar" | "templates";
 type VisualMode = "detailed" | "compact";
 
 const VISUAL_MODE_STORAGE_PREFIX = "hr-schedules-visual-mode-";
@@ -196,6 +199,24 @@ export function SchedulesView() {
   const [newShiftDate, setNewShiftDate] = useState<string | null>(null);
   const [showBaseSchedule, setShowBaseSchedule] = useState(false);
   const [showClearShifts, setShowClearShifts] = useState(false);
+  /** "Rever e publicar": revisão dos rascunhos antes de publicar (nunca publica direto). null = fechado. */
+  const [review, setReview] = useState<{ from: string; to: string } | null>(null);
+  const [publishedCount, setPublishedCount] = useState<number | null>(null);
+  /** Faixa "Alertas da escala" (faltas, sobreposições, automatizações) — recolhida por omissão. */
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  /** Aviso logo a seguir a criar turnos em rascunho (ainda não visíveis para os colaboradores). */
+  const [draftNotice, setDraftNotice] = useState<{ count: number; range: { from: string; to: string } } | null>(null);
+  function noticeDrafts(created: Pick<WorkShift, "status" | "workDate">[]) {
+    const summary = draftSummary(created);
+    if (summary) {
+      setPublishedCount(null);
+      setDraftNotice(summary);
+    }
+  }
+  function openReview(range: { from: string; to: string }) {
+    setPublishedCount(null);
+    setReview(range);
+  }
   const [showWeekActionsMenu, setShowWeekActionsMenu] = useState(false);
   const [repeatModalWeeks, setRepeatModalWeeks] = useState<number | null>(null);
   const [repeatModalRotate, setRepeatModalRotate] = useState(false);
@@ -263,6 +284,7 @@ export function SchedulesView() {
     queryKey: ["hr-schedule-alerts", from, to, locationFilter],
     queryFn: () => api.getScheduleAlerts(from, to, locationFilter || undefined),
   });
+  const otherAlertsCount = alerts ? alerts.coverageGaps.length + alerts.overlaps.length + (alerts.automationIssues ?? []).length : 0;
 
   function invalidate() {
     void qc.invalidateQueries({ queryKey: ["hr-work-shifts"] });
@@ -272,7 +294,8 @@ export function SchedulesView() {
 
   const createMutation = useMutation({
     mutationFn: (payload: CreateWorkShiftPayload) => api.createWorkShift(payload),
-    onSuccess: () => {
+    onSuccess: (created) => {
+      noticeDrafts(created);
       invalidate();
       setDrawerOpen(false);
       setFormError(null);
@@ -290,25 +313,36 @@ export function SchedulesView() {
   });
   const duplicateMutation = useMutation({
     mutationFn: ({ id, targetDate }: { id: string; targetDate: string }) => api.duplicateWorkShift(id, targetDate),
-    onSuccess: () => {
+    onSuccess: (duplicated) => {
+      noticeDrafts([duplicated]);
       invalidate();
       setDrawerOpen(false);
     },
     onError: (e: unknown) => setFormError(e instanceof Error ? e.message : "Erro ao duplicar turno"),
   });
+  const [undoToast, setUndoToast] = useState<UndoToastState | null>(null);
+  const closeUndoToast = useCallback(() => setUndoToast(null), []);
+  const offerUndo = (count: number, undoToken: string | null) => {
+    if (undoToken && count > 0) setUndoToast({ message: `${count} turno(s) apagado(s).`, undoToken });
+  };
+  const undoMutation = useMutation({
+    mutationFn: (token: string) => api.undoDeleteWorkShifts(token),
+    onSuccess: ({ restoredCount }) => {
+      invalidate();
+      setUndoToast({ message: `${restoredCount} turno(s) reposto(s).`, undoToken: null });
+    },
+    onError: (e: unknown) => setUndoToast({ message: e instanceof Error ? e.message : "Não foi possível desfazer.", undoToken: null }),
+  });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteWorkShift(id),
-    onSuccess: () => {
+    onSuccess: ({ undoToken }) => {
       invalidate();
       setDrawerOpen(false);
+      offerUndo(1, undoToken);
     },
     onError: (e: unknown) => setFormError(e instanceof Error ? e.message : "Erro ao apagar turno"),
   });
   const { dismissMutation } = useManageShiftAutomations();
-  const publishAllMutation = useMutation({
-    mutationFn: (ids: string[]) => api.publishWorkShifts(ids),
-    onSuccess: invalidate,
-  });
   const updateSeriesScopeMutation = useMutation({
     mutationFn: ({ id, payload }: { id: string; payload: UpdateWorkShiftSeriesScopePayload }) =>
       api.updateWorkShiftSeriesScope(id, payload),
@@ -321,9 +355,10 @@ export function SchedulesView() {
   });
   const clearSeriesMutation = useMutation({
     mutationFn: (seriesId: string) => api.clearWorkShifts({ kind: "series", seriesId }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       invalidate();
       setDrawerOpen(false);
+      offerUndo(result.deletedCount, result.undoToken);
     },
     onError: (e: unknown) => setFormError(e instanceof Error ? e.message : "Erro ao limpar a série"),
   });
@@ -424,7 +459,6 @@ export function SchedulesView() {
       ? anchorDate.toLocaleDateString("pt-PT", { month: "long", year: "numeric" })
       : `Semana ${formatDayHeader(days[0]!)}–${formatDayHeader(days[6]!)}`;
 
-  const pendingPublishIds = shifts.filter((s) => s.status === "draft").map((s) => s.id);
 
   return (
     <div className="min-h-screen bg-[#FAF6F3]">
@@ -445,7 +479,6 @@ export function SchedulesView() {
           {([
             { key: "calendar", label: "Calendário" },
             { key: "templates", label: "Modelos & Automatizações" },
-            { key: "alerts", label: "Alertas e ações" },
           ] as const).map(({ key, label }) => (
             <button
               key={key}
@@ -460,93 +493,127 @@ export function SchedulesView() {
         </div>
       </div>
 
+      {(draftNotice || publishedCount !== null || (alerts?.pendingPublishCount ?? 0) > 0 || otherAlertsCount > 0) && (
+        <div className="space-y-2 px-4 pt-4">
+          {draftNotice && (
+            <div role="status" className="flex flex-wrap items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm text-sky-900">
+              <span>
+                ✓ {draftNotice.count} turno(s) criado(s) <strong>em rascunho</strong> — ainda não visíveis para os colaboradores.
+              </span>
+              <button type="button" onClick={() => openReview(draftNotice.range)} className="font-medium text-[#ED5C32] hover:underline">
+                Rever e publicar agora
+              </button>
+              <button type="button" onClick={() => setDraftNotice(null)} aria-label="Fechar aviso" className="ml-auto text-sky-700 hover:text-sky-900">
+                ✕
+              </button>
+            </div>
+          )}
+          {publishedCount !== null && (
+            <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
+              ✓ {publishedCount} turno(s) publicado(s) — já visíveis para os colaboradores.
+            </p>
+          )}
+          {alerts && alerts.pendingPublishCount > 0 && alerts.pendingPublishRange && (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900" aria-label="Turnos em rascunho">
+              <span>
+                ⚠ <strong>{alerts.pendingPublishCount} turno(s) em rascunho</strong> neste período — os colaboradores ainda não os veem.
+              </span>
+              <button type="button" onClick={() => openReview(alerts.pendingPublishRange!)} className="font-medium text-[#ED5C32] hover:underline">
+                Rever e publicar
+              </button>
+            </div>
+          )}
+          {alerts && otherAlertsCount > 0 && (
+            <div className="rounded-xl border border-stone-200 bg-white" aria-label="Alertas da escala">
+              <button
+                type="button"
+                onClick={() => setAlertsOpen((o) => !o)}
+                aria-expanded={alertsOpen}
+                className="flex w-full flex-wrap items-center gap-2 px-4 py-2.5 text-left text-sm text-stone-800"
+              >
+                <span aria-hidden="true" className="text-stone-400">
+                  {alertsOpen ? "▾" : "▸"}
+                </span>
+                <strong>
+                  {otherAlertsCount} {otherAlertsCount === 1 ? "alerta" : "alertas"} na escala
+                </strong>
+                <span className="text-stone-500">
+                  {[
+                    alerts.coverageGaps.length > 0 && `${alerts.coverageGaps.length} sem cobertura`,
+                    alerts.overlaps.length > 0 && `${alerts.overlaps.length} ${alerts.overlaps.length === 1 ? "sobreposição" : "sobreposições"}`,
+                    (alerts.automationIssues ?? []).length > 0 && `${(alerts.automationIssues ?? []).length} das automatizações`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+                <span className="ml-auto text-xs font-medium text-[#ED5C32]">{alertsOpen ? "Esconder" : "Ver"}</span>
+              </button>
+              {alertsOpen && (
+                <div className="grid grid-cols-1 gap-2 border-t border-stone-100 p-3 sm:grid-cols-2 lg:grid-cols-3">
+              {alerts.coverageGaps.map((g, i) => (
+                <div key={`gap-${i}`} className="rounded-lg border border-red-100 bg-red-50/40 p-2 text-xs">
+                  <p className="font-semibold text-red-700">Falta cobertura</p>
+                  <p className="text-stone-600">{g.employeeName}</p>
+                  <p className="text-stone-400">{g.workDate}</p>
+                  <button
+                    onClick={() => {
+                      setTab("calendar");
+                      openNewShift(g.workDate);
+                    }}
+                    className="mt-1 font-medium text-[#ED5C32] hover:underline"
+                  >
+                    Atribuir turno →
+                  </button>
+                </div>
+              ))}
+              {alerts.overlaps.map((o, i) => (
+                <div key={`overlap-${i}`} className="rounded-lg border border-amber-100 bg-amber-50/40 p-2 text-xs">
+                  <p className="font-semibold text-amber-700">Conflito de sobreposição</p>
+                  <p className="text-stone-600">{o.employeeName}</p>
+                  <p className="text-stone-400">{o.workDate}</p>
+                </div>
+              ))}
+              {(alerts.automationIssues ?? []).map((issue) => (
+                <div key={issue.id} className="rounded-lg border border-violet-100 bg-violet-50/40 p-2 text-xs">
+                  <p className="font-semibold text-violet-700">Automatização não criou o turno</p>
+                  <p className="text-stone-600">
+                    {issue.employeeName} · {issue.workDate}
+                  </p>
+                  <p className="text-stone-500">
+                    {issue.automationName} — {issue.status === "inactive_template" ? "Modelo inativo" : OCCURRENCE_STATUS_LABELS[issue.status].label}
+                  </p>
+                  <div className="mt-1 flex gap-3">
+                    <button
+                      onClick={() => {
+                        openNewShift(issue.workDate);
+                      }}
+                      className="font-medium text-[#ED5C32] hover:underline"
+                    >
+                      Resolver na escala →
+                    </button>
+                    <button
+                      onClick={() => dismissMutation.mutate(issue.id)}
+                      disabled={dismissMutation.isPending}
+                      className="text-stone-500 hover:underline disabled:opacity-50"
+                    >
+                      Dispensar
+                    </button>
+                  </div>
+                </div>
+              ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {tab === "templates" ? (
         // RH 2.0: Modelos de turno (ticket 01); as rotações passam a automatizações no ticket 04.
         <div className="space-y-4 p-4">
-          <ShiftTemplatesPanel />
+          <ShiftTemplatesPanel onReviewDrafts={(range) => openReview(range)} />
           <ShiftAutomationsPanel />
           <ShiftRotationsPanel />
-        </div>
-      ) : tab === "alerts" ? (
-        <div className="p-4">
-          <div className="space-y-2 rounded-xl border border-[#F5C992]/40 bg-white p-3 shadow-sm">
-            <h2 className="text-sm font-semibold text-stone-800">Alertas e ações</h2>
-            {!alerts ||
-            (alerts.coverageGaps.length === 0 &&
-              alerts.overlaps.length === 0 &&
-              alerts.pendingPublishCount === 0 &&
-              (alerts.automationIssues ?? []).length === 0) ? (
-              <p className="text-sm text-stone-400">Sem alertas no período visível.</p>
-            ) : (
-              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {alerts.coverageGaps.map((g, i) => (
-                  <div key={`gap-${i}`} className="rounded-lg border border-red-100 bg-red-50/40 p-2 text-xs">
-                    <p className="font-semibold text-red-700">Falta cobertura</p>
-                    <p className="text-stone-600">{g.employeeName}</p>
-                    <p className="text-stone-400">{g.workDate}</p>
-                    <button
-                      onClick={() => {
-                        setTab("calendar");
-                        openNewShift(g.workDate);
-                      }}
-                      className="mt-1 font-medium text-[#ED5C32] hover:underline"
-                    >
-                      Atribuir turno →
-                    </button>
-                  </div>
-                ))}
-                {alerts.overlaps.map((o, i) => (
-                  <div key={`overlap-${i}`} className="rounded-lg border border-amber-100 bg-amber-50/40 p-2 text-xs">
-                    <p className="font-semibold text-amber-700">Conflito de sobreposição</p>
-                    <p className="text-stone-600">{o.employeeName}</p>
-                    <p className="text-stone-400">{o.workDate}</p>
-                  </div>
-                ))}
-                {(alerts.automationIssues ?? []).map((issue) => (
-                  <div key={issue.id} className="rounded-lg border border-violet-100 bg-violet-50/40 p-2 text-xs">
-                    <p className="font-semibold text-violet-700">Automatização não criou o turno</p>
-                    <p className="text-stone-600">
-                      {issue.employeeName} · {issue.workDate}
-                    </p>
-                    <p className="text-stone-500">
-                      {issue.automationName} — {issue.status === "inactive_template" ? "Modelo inativo" : OCCURRENCE_STATUS_LABELS[issue.status].label}
-                    </p>
-                    <div className="mt-1 flex gap-3">
-                      <button
-                        onClick={() => {
-                          setTab("calendar");
-                          openNewShift(issue.workDate);
-                        }}
-                        className="font-medium text-[#ED5C32] hover:underline"
-                      >
-                        Resolver na escala →
-                      </button>
-                      <button
-                        onClick={() => dismissMutation.mutate(issue.id)}
-                        disabled={dismissMutation.isPending}
-                        className="text-stone-500 hover:underline disabled:opacity-50"
-                      >
-                        Dispensar
-                      </button>
-                    </div>
-                  </div>
-                ))}
-                {alerts.pendingPublishCount > 0 && (
-                  <div className="rounded-lg border border-stone-200 bg-stone-50 p-2 text-xs">
-                    <p className="font-semibold text-stone-700">Turnos por publicar</p>
-                    <p className="text-stone-500">{alerts.pendingPublishCount} turno(s) restante(s)</p>
-                    <button
-                      onClick={() => publishAllMutation.mutate(pendingPublishIds)}
-                      disabled={publishAllMutation.isPending}
-                      className="mt-1 font-medium text-[#ED5C32] hover:underline disabled:opacity-50"
-                    >
-                      Rever e publicar →
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-          </div>
         </div>
       ) : (
         <div className="p-4">
@@ -908,6 +975,21 @@ export function SchedulesView() {
         />
       )}
 
+      {review && (
+        <PublishReviewModal
+          range={review}
+          locationId={locationFilter || undefined}
+          locationName={(id) => locationNameById.get(id) ?? "—"}
+          onClose={() => setReview(null)}
+          onPublished={(count) => {
+            invalidate();
+            setReview(null);
+            setDraftNotice(null);
+            setPublishedCount(count);
+          }}
+        />
+      )}
+
       {showClearShifts && (
         <ClearShiftsModal
           employeeId={employeeFilter || null}
@@ -916,12 +998,15 @@ export function SchedulesView() {
           defaultWeekStartDate={toYmd(mondayOf(anchorDate))}
           locationId={locationFilter || undefined}
           onClose={() => setShowClearShifts(false)}
-          onCleared={() => {
+          onCleared={(result) => {
             invalidate();
             setShowClearShifts(false);
+            offerUndo(result.deletedCount, result.undoToken);
           }}
         />
       )}
+
+      {undoToast && <UndoToast state={undoToast} busy={undoMutation.isPending} onUndo={(t) => undoMutation.mutate(t)} onClose={closeUndoToast} />}
 
       {repeatModalWeeks !== null && (
         <RepeatScheduleWeekModal
@@ -931,7 +1016,8 @@ export function SchedulesView() {
           defaultWeeks={repeatModalWeeks}
           defaultRotate={repeatModalRotate}
           onClose={() => setRepeatModalWeeks(null)}
-          onCompleted={() => {
+          onCompleted={(result) => {
+            noticeDrafts(result.employees.flatMap((e) => e.created));
             invalidate();
             setRepeatModalWeeks(null);
           }}

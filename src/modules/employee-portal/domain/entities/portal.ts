@@ -79,3 +79,51 @@ export class PortalOfflineError extends Error {
     this.name = "PortalOfflineError";
   }
 }
+
+// ── Self-service (tickets 07–09): `/api/me/shifts`, `/documents`, `/leave` ──
+
+export interface MyShift extends PortalShift {
+  id: string;
+}
+
+/** Quem trabalha comigo — só nome curto, cargo e horário (o servidor não manda mais nada). */
+export interface Coworker {
+  shortName: string;
+  positionName: string | null;
+  hours: string;
+}
+
+export interface MyDocument {
+  id: string;
+  categoryLabel: string;
+  fileName: string;
+  /** `YYYY-MM` nos recibos. */
+  period: string | null;
+  isPayslip: boolean;
+  issuedAt: string | null;
+  expiresAt: string | null;
+  uploadedAt: string;
+}
+
+export type LeaveType = "vacation" | "sick_leave" | "justified" | "unjustified" | "compensatory";
+
+export interface MyLeaveEntry {
+  id: string;
+  type: LeaveType;
+  startDate: string;
+  endDate: string;
+  workingDays: number;
+}
+
+export interface MyLeave {
+  year: number;
+  entries: MyLeaveEntry[];
+}
+
+/** Turno/documento que não existe ou não é do próprio (404). */
+export class PortalNotFoundError extends Error {
+  constructor() {
+    super("Não encontrado.");
+    this.name = "PortalNotFoundError";
+  }
+}

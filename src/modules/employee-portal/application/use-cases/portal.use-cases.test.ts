@@ -23,6 +23,11 @@ function setup(responses: Array<PunchResult | Error>) {
       if (next instanceof Error) throw next;
       return next;
     }),
+    listMyShifts: vi.fn(),
+    listCoworkers: vi.fn(),
+    listMyDocuments: vi.fn(),
+    getDocumentUrl: vi.fn(),
+    getMyLeave: vi.fn(),
   };
   const geolocation: GeolocationPort = { readOnce: vi.fn(async () => ({ latitude: 41.1, longitude: -8.6, accuracyM: 8 })) };
   return { useCase: new RegisterPunchUseCase(api, geolocation), calls, geolocation };

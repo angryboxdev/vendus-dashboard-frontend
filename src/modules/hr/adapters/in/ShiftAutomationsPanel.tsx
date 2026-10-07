@@ -10,8 +10,6 @@ import { WEEKDAY_SHORT_LABELS } from "../../domain/services/template-application
 import { MOTION_ROW_HOVER, MotionLayer, MotionPresence, useRetained } from "../../../../components/motion/index.ts";
 import { useManageShiftAutomations, useShiftAutomations } from "./use-shift-automations.ts";
 import { usePositions } from "./use-positions.ts";
-import { useShiftTemplates } from "./use-shift-templates.ts";
-import { ApplyTemplateModal } from "./ApplyTemplateModal.tsx";
 
 const inputCls = "w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#ED5C32]";
 const labelCls = "mb-1 block text-sm font-medium text-stone-700";
@@ -186,8 +184,6 @@ export function ShiftAutomationsPanel() {
     queryKey: ["hr-people-list", "automations"],
     queryFn: () => api.listEmployees({ status: "all", page: 1, pageSize: 100 }),
   });
-  const { data: templates = [] } = useShiftTemplates();
-  const [creating, setCreating] = useState(false);
   const [search, setSearch] = useState("");
   const [dialog, setDialog] = useState<Dialog>(null);
   const shownDialog = useRetained(dialog);
@@ -198,6 +194,9 @@ export function ShiftAutomationsPanel() {
     employee: (id: string) => employeesQuery.data?.items.find((e) => e.id === id)?.fullName ?? "Colaborador",
   };
   const visible = automations.filter((a) => a.name.toLowerCase().includes(search.trim().toLowerCase()));
+
+  // Sem automatizações não há nada a gerir — o painel some (criam-se em Aplicar modelo → "Guardar como automatização").
+  if (!isLoading && !isError && automations.length === 0) return null;
 
   return (
     <section className="rounded-xl border border-[#F5C992]/40 bg-white shadow-sm">
@@ -214,11 +213,6 @@ export function ShiftAutomationsPanel() {
             aria-label="Pesquisar automatizações"
             className="w-56 rounded-lg border border-stone-200 px-3 py-2 text-sm outline-none focus:border-[#ED5C32]"
           />
-          {canEdit && templates.some((t) => t.active) && (
-            <button type="button" onClick={() => setCreating(true)} className="rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90">
-              Nova automatização
-            </button>
-          )}
         </div>
       </div>
 
@@ -245,7 +239,7 @@ export function ShiftAutomationsPanel() {
               {visible.length === 0 && (
                 <tr>
                   <td colSpan={canEdit ? 8 : 7} className="px-4 py-6 text-center text-stone-500">
-                    {automations.length === 0 ? "Ainda não há automatizações — crie uma em \"Nova automatização\"." : "Nenhuma automatização corresponde à pesquisa."}
+                    {automations.length === 0 ? "Ainda não há automatizações — crie uma em Modelos de turno → Aplicar modelo → \"Guardar como automatização\"." : "Nenhuma automatização corresponde à pesquisa."}
                   </td>
                 </tr>
               )}
@@ -299,10 +293,6 @@ export function ShiftAutomationsPanel() {
           </table>
         </div>
       )}
-
-      <MotionPresence show={creating}>
-        <ApplyTemplateModal templates={templates} initialTemplateId={null} initialUsage="automation" onClose={() => setCreating(false)} />
-      </MotionPresence>
 
       <MotionPresence show={dialog !== null}>
         {shownDialog?.kind === "edit" && <EditAutomationModal key={shownDialog.automation.id} automation={shownDialog.automation} onClose={() => setDialog(null)} />}

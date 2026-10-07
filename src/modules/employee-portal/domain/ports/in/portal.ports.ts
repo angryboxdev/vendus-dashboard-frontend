@@ -1,4 +1,4 @@
-import type { GeofencePolicy, PortalHome, PunchKind, PunchResult } from "../../entities/portal.ts";
+import type { Coworker, GeofencePolicy, MyDocument, MyLeave, MyShift, PortalHome, PunchKind, PunchResult } from "../../entities/portal.ts";
 
 export interface GetPortalHomePort {
   execute(): Promise<PortalHome>;
@@ -14,4 +14,13 @@ export interface RegisterPunchInput {
 
 export interface RegisterPunchPort {
   execute(input: RegisterPunchInput): Promise<PunchResult>;
+}
+
+/** Consulta do próprio colaborador (escala, colegas, documentos, ausências). */
+export interface PortalSelfServicePort {
+  listShifts(from: string, to: string): Promise<MyShift[]>;
+  listCoworkers(shiftId: string): Promise<Coworker[]>;
+  listDocuments(): Promise<MyDocument[]>;
+  documentUrl(documentId: string): Promise<string>;
+  getLeave(year: number): Promise<MyLeave>;
 }
