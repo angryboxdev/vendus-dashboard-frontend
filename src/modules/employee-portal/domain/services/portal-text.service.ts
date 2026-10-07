@@ -1,8 +1,8 @@
-import type { PortalHome, PortalShift, PunchRefusal, PunchResult } from "../entities/portal.ts";
+import type { LeaveType, MyDocument, PortalHome, PortalShift, PunchRefusal, PunchResult } from "../entities/portal.ts";
 
 const WEEKDAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
 
-function addDays(ymd: string, days: number): string {
+export function addDays(ymd: string, days: number): string {
   const [y, m, d] = ymd.split("-").map(Number) as [number, number, number];
   return new Date(Date.UTC(y, m - 1, d + days)).toISOString().slice(0, 10);
 }
@@ -59,3 +59,50 @@ export function punchSuccessMessage(result: PunchResult): string {
 /** Explicação curta, antes de pedir o GPS pela primeira vez (minimização / transparência). */
 export const LOCATION_NOTICE =
   "Para registar a entrada ou saída, o Portal lê a localização do telemóvel uma única vez, no momento do toque. Não há acompanhamento contínuo nem fora da picagem.";
+
+/** Segunda-feira da semana de `ymd`. */
+export function mondayOf(ymd: string): string {
+  const [y, m, d] = ymd.split("-").map(Number) as [number, number, number];
+  const weekday = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
+  return addDays(ymd, weekday === 0 ? -6 : 1 - weekday);
+}
+
+/** "06/10 – 12/10" */
+export function weekLabel(monday: string): string {
+  const f = (ymd: string) => `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}`;
+  return `${f(monday)} – ${f(addDays(monday, 6))}`;
+}
+
+const MONTHS = ["JAN", "FEV", "MAR", "ABR", "MAI", "JUN", "JUL", "AGO", "SET", "OUT", "NOV", "DEZ"];
+
+/** `2026-10` → "OUT 2026". */
+export function periodLabel(period: string): string {
+  return `${MONTHS[Number(period.slice(5, 7)) - 1] ?? "?"} ${period.slice(0, 4)}`;
+}
+
+/** `2026-10-07` → "07/10/2026". */
+export function dateLabel(ymd: string): string {
+  return `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
+}
+
+export type ExpiryState = "expired" | "expiring" | "ok";
+
+/** Vencido (antes de hoje) ou a vencer nos próximos 30 dias. */
+export function expiryState(doc: Pick<MyDocument, "expiresAt">, today: string): ExpiryState {
+  if (!doc.expiresAt) return "ok";
+  if (doc.expiresAt < today) return "expired";
+  return doc.expiresAt <= addDays(today, 30) ? "expiring" : "ok";
+}
+
+/** Recibos (com período) e restantes documentos, separados. */
+export function splitDocuments(docs: MyDocument[]): { payslips: MyDocument[]; others: MyDocument[] } {
+  return { payslips: docs.filter((d) => d.isPayslip), others: docs.filter((d) => !d.isPayslip) };
+}
+
+export const LEAVE_TYPE_LABELS: Record<LeaveType, string> = {
+  vacation: "Férias",
+  sick_leave: "Baixa médica",
+  justified: "Falta justificada",
+  unjustified: "Falta injustificada",
+  compensatory: "Folga compensatória",
+};

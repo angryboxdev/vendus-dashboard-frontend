@@ -95,7 +95,10 @@ import { PlanningAlertsView } from "./modules/stock-planning/adapters/in/Plannin
 import { SuggestedPurchaseListView } from "./modules/stock-planning/adapters/in/SuggestedPurchaseListView.tsx";
 import { ForecastHistoryView } from "./modules/stock-planning/adapters/in/ForecastHistoryView.tsx";
 import { EmployeePortalProvider } from "./modules/employee-portal/employee-portal.module.tsx";
-import { PortalComingSoonView, PortalLayout } from "./modules/employee-portal/adapters/in/PortalLayout.tsx";
+import { PortalLayout } from "./modules/employee-portal/adapters/in/PortalLayout.tsx";
+import { PortalScheduleView } from "./modules/employee-portal/adapters/in/PortalScheduleView.tsx";
+import { PortalDocumentsView } from "./modules/employee-portal/adapters/in/PortalDocumentsView.tsx";
+import { PortalLeaveView } from "./modules/employee-portal/adapters/in/PortalLeaveView.tsx";
 import { PortalHomeView } from "./modules/employee-portal/adapters/in/PortalHomeView.tsx";
 import { PortalProfileView } from "./modules/employee-portal/adapters/in/PortalProfileView.tsx";
 
@@ -161,9 +164,9 @@ export default function App() {
         }
       >
         <Route index element={<PortalHomeView />} />
-        <Route path="escala" element={<PortalComingSoonView title="A minha escala" />} />
-        <Route path="documentos" element={<PortalComingSoonView title="Documentos e recibos" />} />
-        <Route path="ausencias" element={<PortalComingSoonView title="Férias e ausências" />} />
+        <Route path="escala" element={<PortalScheduleView />} />
+        <Route path="documentos" element={<PortalDocumentsView />} />
+        <Route path="ausencias" element={<PortalLeaveView />} />
         <Route path="perfil" element={<PortalProfileView />} />
         <Route path="*" element={<Navigate to="/portal" replace />} />
       </Route>

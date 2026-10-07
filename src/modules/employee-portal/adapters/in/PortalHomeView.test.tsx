@@ -36,6 +36,7 @@ function renderView(opts: { homes: PortalHome[]; punch: (key: string) => Promise
         return opts.punch(idempotencyKey);
       }),
     },
+    selfService: {} as EmployeePortalModule["selfService"],
     newIdempotencyKey: () => `key-${++seq}`,
   };
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });

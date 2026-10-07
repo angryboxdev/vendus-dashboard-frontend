@@ -70,13 +70,3 @@ export function PortalLayout() {
     </div>
   );
 }
-
-/** Separadores das fases seguintes (escala, documentos, ausências — tickets 07–09). */
-export function PortalComingSoonView({ title }: { title: string }) {
-  return (
-    <section className="rounded-2xl border border-[#F5C992]/50 bg-white p-5 text-center shadow-sm">
-      <h1 className="text-lg font-semibold text-stone-900">{title}</h1>
-      <p className="mt-1 text-sm text-stone-600">Disponível em breve.</p>
-    </section>
-  );
-}

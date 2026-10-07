@@ -1,12 +1,13 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { HttpPortalApiAdapter } from "./adapters/out/http-portal-api.adapter.ts";
 import { BrowserGeolocationAdapter } from "./adapters/out/browser-geolocation.adapter.ts";
-import { GetPortalHomeUseCase, RegisterPunchUseCase } from "./application/use-cases/portal.use-cases.ts";
-import type { GetPortalHomePort, RegisterPunchPort } from "./domain/ports/in/portal.ports.ts";
+import { GetPortalHomeUseCase, PortalSelfServiceUseCase, RegisterPunchUseCase } from "./application/use-cases/portal.use-cases.ts";
+import type { GetPortalHomePort, PortalSelfServicePort, RegisterPunchPort } from "./domain/ports/in/portal.ports.ts";
 
 export interface EmployeePortalModule {
   getHome: GetPortalHomePort;
   registerPunch: RegisterPunchPort;
+  selfService: PortalSelfServicePort;
   /** Nova chave de idempotência por intenção de picagem. */
   newIdempotencyKey: () => string;
 }
@@ -18,6 +19,7 @@ function buildModule(): EmployeePortalModule {
   return {
     getHome: new GetPortalHomeUseCase(api),
     registerPunch: new RegisterPunchUseCase(api, geolocation),
+    selfService: new PortalSelfServiceUseCase(api),
     newIdempotencyKey: () => crypto.randomUUID(),
   };
 }
