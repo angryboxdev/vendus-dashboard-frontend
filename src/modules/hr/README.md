@@ -595,6 +595,7 @@ Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
   (legacy, `setEmployeeKioskPin`) + `/api/hr/payslips/import*` (ticket 10).
 
 ## Decisões de design
+- **Jornada / dupla** (2026-10-07): `workday.service` (mesma regra do backend). Limites em "Configurar regras" (secção Jornada, em horas/minutos); selo "Dupla"/"1,5" no calendário detalhado pelas horas **planeadas**; coluna "Jornadas" no Fecho mensal pelas horas **reais** (vem do backend). "Termina no dia seguinte" deixou de ser caixa: é automático quando o fim é antes do início (`ShiftDrawer`, `ShiftSeriesForm`).
 - **Desfazer** (2026-10-07): apagar um turno, limpar série ou "Limpar turnos" mostra `UndoToast` (15 s) com "Desfazer" → `undoDeleteWorkShifts(undoToken)`; o servidor repõe a partir da auditoria (só quem apagou, até 15 min).
 
 - **Sem aba "Alertas e ações" (2026-10-07)** — tudo vive em faixas no topo das Escalas: rascunhos (Rever e publicar) e "N alertas na escala" (recolhível: faltas de cobertura → Atribuir turno, sobreposições, ocorrências das automatizações → Resolver/Dispensar). O painel Automatizações só aparece quando existe alguma (vazio, some).

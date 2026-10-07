@@ -71,7 +71,6 @@ export function ShiftDrawer({
   const [kind, setKind] = useState<"direct" | "split">(editing?.secondStartTime ? "split" : "direct");
   const [startTime, setStartTime] = useState(editing?.startTime ?? "09:00");
   const [endTime, setEndTime] = useState(editing?.endTime ?? "17:00");
-  const [endsNextDay, setEndsNextDay] = useState(editing?.endsNextDay ?? false);
   const [secondStartTime, setSecondStartTime] = useState(editing?.secondStartTime ?? "19:00");
   const [secondEndTime, setSecondEndTime] = useState(editing?.secondEndTime ?? "23:00");
   const [locationId, setLocationId] = useState<string | null>(editing?.locationId ?? null);
@@ -91,7 +90,6 @@ export function ShiftDrawer({
     setKind(editing?.secondStartTime ? "split" : "direct");
     setStartTime(editing?.startTime ?? "09:00");
     setEndTime(editing?.endTime ?? "17:00");
-    setEndsNextDay(editing?.endsNextDay ?? false);
     setSecondStartTime(editing?.secondStartTime ?? "19:00");
     setSecondEndTime(editing?.secondEndTime ?? "23:00");
     setLocationId(editing?.locationId ?? null);
@@ -108,6 +106,8 @@ export function ShiftDrawer({
 
   if (!open) return null;
 
+  // Fim antes do início = passa da meia-noite (ex.: 18:00–01:30) — automático, sem caixa para marcar.
+  const endsNextDay = kind === "direct" && endTime < startTime;
   const timeOrderValid = endsNextDay || startTime < endTime;
   const secondSegmentValid = kind === "direct" || (secondStartTime < secondEndTime && secondStartTime >= endTime);
   const formValid = timeOrderValid && secondSegmentValid;
@@ -235,16 +235,14 @@ export function ShiftDrawer({
                   <input type="time" value={endTime} onChange={(e) => setEndTime(e.target.value)} required className={inputCls} />
                 </div>
               </div>
-              <label className="-mt-2 flex items-center gap-2 text-sm text-stone-600">
-                <input
-                  type="checkbox"
-                  checked={endsNextDay}
-                  disabled={kind === "split"}
-                  onChange={(e) => setEndsNextDay(e.target.checked)}
-                />
-                Termina no dia seguinte
-              </label>
-              {!timeOrderValid && <p className="-mt-2 text-xs text-red-600">A hora final tem de ser depois da inicial.</p>}
+              {endsNextDay && (
+                <p className="-mt-2 text-xs text-stone-500">Termina no dia seguinte (+1 dia) — conta como um só turno, no dia em que começa.</p>
+              )}
+              {!timeOrderValid && (
+                <p className="-mt-2 text-xs text-red-600">
+                  {kind === "split" ? "A hora final tem de ser depois da inicial." : "A hora final tem de ser diferente da inicial."}
+                </p>
+              )}
 
               {kind === "split" && (
                 <>
