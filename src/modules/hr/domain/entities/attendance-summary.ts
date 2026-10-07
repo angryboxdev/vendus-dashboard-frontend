@@ -25,12 +25,6 @@ export interface MonthlyAttendanceSummaryRow {
   absenceDaysCount: number;
   /** `actualMinutes - planeado ATÉ HOJE` (nunca o total do mês — turnos futuros nunca reduzem saldo). */
   balanceMinutes: number;
-  /** Jornadas trabalhadas (horas reais, pelo dia em que o turno começa). */
-  workedDaysCount?: number;
-  /** Soma das equivalências por jornada (1 / 1,5 / 2). */
-  shiftEquivalents?: number;
-  oneAndHalfDaysCount?: number;
-  doubleDaysCount?: number;
   status: AttendanceEmployeeStatus;
 }
 
