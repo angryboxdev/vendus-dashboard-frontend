@@ -595,6 +595,7 @@ Exposto em `HrModule.setEmployeeKioskPin` (composition root `hr.module.tsx`).
   (legacy, `setEmployeeKioskPin`) + `/api/hr/payslips/import*` (ticket 10).
 
 ## Decisões de design
+- **Desfazer** (2026-10-07): apagar um turno, limpar série ou "Limpar turnos" mostra `UndoToast` (15 s) com "Desfazer" → `undoDeleteWorkShifts(undoToken)`; o servidor repõe a partir da auditoria (só quem apagou, até 15 min).
 
 - **Sem aba "Alertas e ações" (2026-10-07)** — tudo vive em faixas no topo das Escalas: rascunhos (Rever e publicar) e "N alertas na escala" (recolhível: faltas de cobertura → Atribuir turno, sobreposições, ocorrências das automatizações → Resolver/Dispensar). O painel Automatizações só aparece quando existe alguma (vazio, some).
 

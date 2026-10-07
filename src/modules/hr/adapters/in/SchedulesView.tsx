@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
+import { UndoToast, type UndoToastState } from "./UndoToast.tsx";
 import { useSearchParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
@@ -319,11 +320,25 @@ export function SchedulesView() {
     },
     onError: (e: unknown) => setFormError(e instanceof Error ? e.message : "Erro ao duplicar turno"),
   });
+  const [undoToast, setUndoToast] = useState<UndoToastState | null>(null);
+  const closeUndoToast = useCallback(() => setUndoToast(null), []);
+  const offerUndo = (count: number, undoToken: string | null) => {
+    if (undoToken && count > 0) setUndoToast({ message: `${count} turno(s) apagado(s).`, undoToken });
+  };
+  const undoMutation = useMutation({
+    mutationFn: (token: string) => api.undoDeleteWorkShifts(token),
+    onSuccess: ({ restoredCount }) => {
+      invalidate();
+      setUndoToast({ message: `${restoredCount} turno(s) reposto(s).`, undoToken: null });
+    },
+    onError: (e: unknown) => setUndoToast({ message: e instanceof Error ? e.message : "Não foi possível desfazer.", undoToken: null }),
+  });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteWorkShift(id),
-    onSuccess: () => {
+    onSuccess: ({ undoToken }) => {
       invalidate();
       setDrawerOpen(false);
+      offerUndo(1, undoToken);
     },
     onError: (e: unknown) => setFormError(e instanceof Error ? e.message : "Erro ao apagar turno"),
   });
@@ -340,9 +355,10 @@ export function SchedulesView() {
   });
   const clearSeriesMutation = useMutation({
     mutationFn: (seriesId: string) => api.clearWorkShifts({ kind: "series", seriesId }),
-    onSuccess: () => {
+    onSuccess: (result) => {
       invalidate();
       setDrawerOpen(false);
+      offerUndo(result.deletedCount, result.undoToken);
     },
     onError: (e: unknown) => setFormError(e instanceof Error ? e.message : "Erro ao limpar a série"),
   });
@@ -982,12 +998,15 @@ export function SchedulesView() {
           defaultWeekStartDate={toYmd(mondayOf(anchorDate))}
           locationId={locationFilter || undefined}
           onClose={() => setShowClearShifts(false)}
-          onCleared={() => {
+          onCleared={(result) => {
             invalidate();
             setShowClearShifts(false);
+            offerUndo(result.deletedCount, result.undoToken);
           }}
         />
       )}
+
+      {undoToast && <UndoToast state={undoToast} busy={undoMutation.isPending} onUndo={(t) => undoMutation.mutate(t)} onClose={closeUndoToast} />}
 
       {repeatModalWeeks !== null && (
         <RepeatScheduleWeekModal
