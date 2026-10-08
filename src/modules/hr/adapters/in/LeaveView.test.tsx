@@ -7,6 +7,7 @@ import { describe, expect, it, vi } from "vitest";
 import type { HrApiPort } from "../../domain/ports/out/hr-api.port.ts";
 import type { AbsenceBoard, AbsenceImpact } from "../../domain/entities/absences.ts";
 import type { AttendanceIssueDetail } from "../../domain/entities/attendance-conference.ts";
+import type { InboxRequest } from "../../domain/entities/portal-requests.ts";
 import { HrProvider, type HrModule } from "../../hr.module.tsx";
 import { SetEmployeeKioskPinUseCase } from "../../application/use-cases/set-employee-kiosk-pin.use-case.ts";
 import { LeaveView } from "./LeaveView.tsx";
@@ -177,7 +178,7 @@ describe("Resolver ocorrência — Confirmar ausência", () => {
   });
 
   it("pedido pendente: Rever pedido → Aprovar", async () => {
-    const decidePortalRequest = vi.fn(async () => ({}));
+    const decidePortalRequest = vi.fn(async () => ({}) as InboxRequest);
     renderWith(<AttendanceIssueResolutionModal issue={ISSUE} onClose={vi.fn()} onCorrected={vi.fn()} />, {
       previewConfirmAbsence: vi.fn(async () => ({
         ...base,
