@@ -20,6 +20,29 @@ import {
 } from "../../domain/services/absences-board.service.ts";
 import { RegisterAbsenceDrawer } from "./RegisterAbsenceDrawer.tsx";
 import { LeaveBalancesTab } from "./LeaveBalancesTab.tsx";
+import {
+  AlertBanner,
+  Button,
+  Drawer,
+  FIELD,
+  IconAlert,
+  IconCheck,
+  IconChevronLeft,
+  IconChevronRight,
+  IconDownload,
+  IconPlus,
+  PageShell,
+  StatusBadge,
+  SURFACE,
+  TABLE,
+  Tabs,
+  TD,
+  TH,
+  THEAD,
+  TR,
+  buttonClass,
+  type StatusTone,
+} from "../../../../components/ui/index.ts";
 
 type Tab = "calendar" | "records" | "balances";
 
@@ -32,6 +55,14 @@ const RECORD_TABS: Array<{ key: RecordsTab; label: string }> = [
   { key: "closed", label: "Rejeitados/Cancelados" },
 ];
 
+const STATUS_TONE: Record<AbsenceRecord["status"], StatusTone> = { pending: "warning", approved: "success", rejected: "danger", cancelled: "neutral" };
+const TypeChip = ({ type }: { type: AbsenceType }) => (
+  <span className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${ABSENCE_TYPE_STYLE[type].chip}`}>
+    <span className={`h-1.5 w-1.5 rounded-full ${ABSENCE_TYPE_STYLE[type].dot}`} />
+    {ABSENCE_TYPE_LABEL[type]}
+  </span>
+);
+
 const period = (r: AbsenceRecord) => (r.startDate === r.endDate ? fmtDate(r.startDate) : `${fmtDate(r.startDate)} → ${fmtDate(r.endDate)}`);
 
 function AttentionBanner({ attention }: { attention: { pendingRequests: number; pendingDocuments: number; shiftConflicts: number } }) {
@@ -43,18 +74,19 @@ function AttentionBanner({ attention }: { attention: { pendingRequests: number; 
     attention.shiftConflicts > 0 && `${attention.shiftConflicts} ${attention.shiftConflicts === 1 ? "conflito" : "conflitos"} em turnos`,
   ].filter(Boolean);
   return (
-    <div className="flex flex-wrap items-center gap-3 rounded-xl border border-orange-200 bg-orange-50/70 px-4 py-3" role="status">
-      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#ED5C32] text-sm font-bold text-white">!</span>
-      <div className="flex-1">
-        <p className="text-sm font-semibold text-[#C2410C]">Requer atenção</p>
-        <p className="text-sm text-stone-700">{parts.join(" · ")}</p>
-      </div>
-      {(attention.pendingRequests > 0 || attention.pendingDocuments > 0) && (
-        <Link to="/hr/pedidos" className="text-sm font-medium text-[#ED5C32] hover:underline">
-          Abrir Caixa de pedidos →
-        </Link>
-      )}
-    </div>
+    <AlertBanner
+      tone="warning"
+      title="Requer atenção"
+      action={
+        (attention.pendingRequests > 0 || attention.pendingDocuments > 0) && (
+          <Link to="/hr/pedidos" className={buttonClass("tertiary")}>
+            Abrir Caixa de pedidos →
+          </Link>
+        )
+      }
+    >
+      {parts.join(" · ")}
+    </AlertBanner>
   );
 }
 
@@ -69,20 +101,12 @@ function RecordDrawer({ record, onClose, onChanged }: { record: AbsenceRecord; o
   const error = cancel.error ?? decide.error;
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/30" role="dialog" aria-modal="true" aria-label="Detalhe da ausência">
-      <div className="flex h-full w-full max-w-md flex-col bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-stone-100 px-6 py-4">
-          <h2 className="text-lg font-semibold text-stone-900">{record.source === "request" ? "Pedido do Portal" : "Ausência"}</h2>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="text-stone-400 hover:text-stone-600">
-            ✕
-          </button>
-        </div>
-        <div className="flex-1 space-y-3 overflow-y-auto px-6 py-4 text-sm">
-          <p className="font-semibold text-stone-900">{record.employeeName}</p>
+    <Drawer open title={record.source === "request" ? "Pedido do Portal" : "Ausência"} description={record.employeeName} onClose={onClose}>
+        <div className="space-y-3 text-sm">
           <p className="text-stone-500">{[record.positionName, record.locationName].filter(Boolean).join(" · ")}</p>
           <div className="flex flex-wrap gap-2">
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${ABSENCE_TYPE_STYLE[record.type].chip}`}>{ABSENCE_TYPE_LABEL[record.type]}</span>
-            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${st.cls}`}>{st.label}</span>
+            <TypeChip type={record.type} />
+            <StatusBadge tone={STATUS_TONE[record.status]}>{st.label}</StatusBadge>
           </div>
           <p>
             {period(record)} · {record.duration}
@@ -106,9 +130,9 @@ function RecordDrawer({ record, onClose, onChanged }: { record: AbsenceRecord; o
                 Cancelar ausência — motivo (fica no histórico)
               </label>
               <textarea id="cancel-reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={2} className="w-full rounded-md border border-stone-300 p-2" />
-              <button type="button" disabled={!reason.trim() || cancel.isPending} onClick={() => cancel.mutate()} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-medium text-red-700 disabled:opacity-50">
+              <Button variant="danger" size="sm" disabled={!reason.trim() || cancel.isPending} onClick={() => cancel.mutate()}>
                 Cancelar ausência
-              </button>
+              </Button>
             </div>
           )}
           {record.source === "request" && record.status === "pending" && (
@@ -133,8 +157,7 @@ function RecordDrawer({ record, onClose, onChanged }: { record: AbsenceRecord; o
             </p>
           )}
         </div>
-      </div>
-    </div>
+    </Drawer>
   );
 }
 
@@ -178,40 +201,30 @@ export function LeaveView() {
     URL.revokeObjectURL(a.href);
   };
   const today = todayYmd();
-  const select = "rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm";
+  const select = FIELD;
 
   return (
-    <div className="space-y-5 p-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-semibold text-stone-900">Férias &amp; Ausências</h1>
-          <p className="text-sm text-stone-500">Visão global da disponibilidade da equipa.</p>
-        </div>
-        <div className="flex items-center gap-3">
-          <button type="button" onClick={() => setRegistering(true)} className="rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white shadow-sm">
-            + Registar ausência
-          </button>
-        </div>
-      </div>
-
-      <div className="flex gap-1 border-b border-stone-200">
-        {(
-          [
+    <PageShell
+      title="Férias & Ausências"
+      description="Visão global da disponibilidade da equipa."
+      actions={
+        <Button variant="primary" icon={<IconPlus />} onClick={() => setRegistering(true)}>
+          Registar ausência
+        </Button>
+      }
+      tabs={
+        <Tabs<Tab>
+          label="Férias & Ausências"
+          value={tab}
+          onChange={setTab}
+          items={[
             { key: "calendar", label: "Calendário" },
             { key: "records", label: "Registos" },
             { key: "balances", label: "Saldos" },
-          ] as Array<{ key: Tab; label: string }>
-        ).map((t) => (
-          <button
-            key={t.key}
-            type="button"
-            onClick={() => setTab(t.key)}
-            className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${tab === t.key ? "border-[#ED5C32] text-[#ED5C32]" : "border-transparent text-stone-500"}`}
-          >
-            {t.label}
-          </button>
-        ))}
-      </div>
+          ]}
+        />
+      }
+    >
 
       {board && <AttentionBanner attention={board.attention} />}
 
@@ -221,7 +234,7 @@ export function LeaveView() {
           placeholder="Pesquisar colaborador…"
           value={filters.search}
           onChange={(e) => setFilters({ ...filters, search: e.target.value })}
-          className="min-w-[200px] flex-1 rounded-lg border border-stone-300 px-3 py-2 text-sm"
+          className={`min-w-[200px] flex-1 ${FIELD}`}
         />
         {tab !== "balances" && (
           <>
@@ -242,21 +255,15 @@ export function LeaveView() {
           ))}
         </select>
         <div className="flex items-center gap-1">
-          <button type="button" aria-label="Mês anterior" onClick={() => setMonth(shiftMonth(month, -1))} className={select}>
-            ‹
-          </button>
+          <Button aria-label="Mês anterior" onClick={() => setMonth(shiftMonth(month, -1))} icon={<IconChevronLeft />} />
           <span className="min-w-[150px] text-center text-sm font-medium text-stone-800">{monthLabel(month)}</span>
-          <button type="button" aria-label="Mês seguinte" onClick={() => setMonth(shiftMonth(month, 1))} className={select}>
-            ›
-          </button>
-          <button type="button" onClick={() => setMonth(today.slice(0, 7))} className={select}>
-            Hoje
-          </button>
+          <Button aria-label="Mês seguinte" onClick={() => setMonth(shiftMonth(month, 1))} icon={<IconChevronRight />} />
+          <Button onClick={() => setMonth(today.slice(0, 7))}>Hoje</Button>
         </div>
         {tab === "records" && (
-          <button type="button" onClick={exportCsv} className={select}>
-            ⬇ Exportar
-          </button>
+          <Button onClick={exportCsv} icon={<IconDownload />}>
+            Exportar
+          </Button>
         )}
           </>
         )}
@@ -269,8 +276,8 @@ export function LeaveView() {
       ) : isError || !board ? (
         <p className="text-sm text-red-700">Não foi possível carregar as ausências.</p>
       ) : tab === "calendar" ? (
-        <div className="overflow-hidden rounded-xl border border-stone-200 bg-white">
-          <div className="grid grid-cols-7 border-b border-stone-100 bg-stone-50 text-center text-xs font-semibold text-stone-500">
+        <div className={`overflow-hidden ${SURFACE}`}>
+          <div className="grid grid-cols-7 border-b border-[#F5C992]/40 bg-stone-50/60 text-center text-xs font-semibold text-stone-500">
             {WEEKDAYS.map((d) => (
               <div key={d} className="py-2">
                 {d}
@@ -309,30 +316,23 @@ export function LeaveView() {
           </div>
         </div>
       ) : (
-        <div className="rounded-xl border border-stone-200 bg-white">
-          <div className="flex flex-wrap gap-1 border-b border-stone-100 px-3">
-            {RECORD_TABS.map((t) => (
-              <button
-                key={t.key}
-                type="button"
-                onClick={() => setRecordsTab(t.key)}
-                className={`-mb-px border-b-2 px-3 py-2.5 text-sm ${recordsTab === t.key ? "border-[#ED5C32] font-medium text-[#ED5C32]" : "border-transparent text-stone-500"}`}
-              >
-                {t.label} <span className="ml-1 rounded-full bg-stone-100 px-1.5 text-xs text-stone-600">{counts[t.key]}</span>
-              </button>
-            ))}
+        <div className={SURFACE}>
+          <div className="border-b border-[#F5C992]/40 px-3">
+            <Tabs<RecordsTab> label="Estado" value={recordsTab} onChange={setRecordsTab} items={RECORD_TABS.map((t) => ({ ...t, count: counts[t.key] }))} />
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-stone-100 text-left text-xs font-medium uppercase text-stone-400">
-                  <th className="px-4 py-2.5">Colaborador</th>
-                  <th className="px-4 py-2.5">Período</th>
-                  <th className="px-4 py-2.5">Tipo</th>
-                  <th className="px-4 py-2.5">Duração</th>
-                  <th className="px-4 py-2.5">Estado</th>
-                  <th className="px-4 py-2.5">Impacto</th>
-                  <th className="px-4 py-2.5">Ação</th>
+            <table className={TABLE}>
+              <thead className={THEAD}>
+                <tr>
+                  <th className={TH}>Colaborador</th>
+                  <th className={TH}>Período</th>
+                  <th className={TH}>Tipo</th>
+                  <th className={TH}>Duração</th>
+                  <th className={TH}>Estado</th>
+                  <th className={TH}>Impacto</th>
+                  <th className={TH}>
+                    <span className="sr-only">Ação</span>
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -348,32 +348,36 @@ export function LeaveView() {
                     .map((r) => {
                       const review = r.status === "pending";
                       return (
-                        <tr key={`${r.source}-${r.id}`} className="border-b border-stone-50 last:border-0 hover:bg-stone-50/60">
-                          <td className="px-4 py-2.5">
+                        <tr key={`${r.source}-${r.id}`} className={TR}>
+                          <td className={TD}>
                             <p className="font-medium text-stone-800">{r.employeeName}</p>
                             <p className="text-xs text-stone-400">{r.positionName ?? ""}</p>
                           </td>
-                          <td className="whitespace-nowrap px-4 py-2.5 text-stone-600">{period(r)}</td>
-                          <td className="px-4 py-2.5">
-                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${ABSENCE_TYPE_STYLE[r.type].chip}`}>{ABSENCE_TYPE_LABEL[r.type]}</span>
+                          <td className={`whitespace-nowrap ${TD}`}>{period(r)}</td>
+                          <td className={TD}>
+                            <TypeChip type={r.type} />
                           </td>
-                          <td className="whitespace-nowrap px-4 py-2.5 text-stone-600">{r.duration}</td>
-                          <td className="px-4 py-2.5">
-                            <span className={`rounded-full px-2.5 py-0.5 text-xs font-medium ${ABSENCE_STATUS_STYLE[r.status].cls}`}>{ABSENCE_STATUS_STYLE[r.status].label}</span>
+                          <td className={`whitespace-nowrap ${TD}`}>{r.duration}</td>
+                          <td className={TD}>
+                            <StatusBadge tone={STATUS_TONE[r.status]}>{ABSENCE_STATUS_STYLE[r.status].label}</StatusBadge>
                           </td>
-                          <td className="whitespace-nowrap px-4 py-2.5">
+                          <td className={`whitespace-nowrap ${TD}`}>
                             {r.affectedShifts > 0 ? (
-                              <span className="text-[#C2410C]">
-                                ⚠ {r.affectedShifts} {r.affectedShifts === 1 ? "turno afetado" : "turnos afetados"}
+                              <span className="inline-flex items-center gap-1.5 text-amber-800">
+                                <IconAlert className="text-amber-600" />
+                                {r.affectedShifts} {r.affectedShifts === 1 ? "turno afetado" : "turnos afetados"}
                               </span>
                             ) : (
-                              <span className="text-emerald-700">✓ Sem impacto</span>
+                              <span className="inline-flex items-center gap-1.5 text-stone-500">
+                                <IconCheck className="text-emerald-600" />
+                                Sem impacto
+                              </span>
                             )}
                           </td>
-                          <td className="px-4 py-2.5">
-                            <button type="button" onClick={() => setSelected(r)} className="font-medium text-[#ED5C32] hover:underline">
+                          <td className={TD}>
+                            <Button variant="tertiary" onClick={() => setSelected(r)}>
                               {review ? "Rever →" : "Ver →"}
-                            </button>
+                            </Button>
                           </td>
                         </tr>
                       );
@@ -405,6 +409,6 @@ export function LeaveView() {
           }}
         />
       )}
-    </div>
+    </PageShell>
   );
 }

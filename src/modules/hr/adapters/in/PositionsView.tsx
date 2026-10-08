@@ -1,4 +1,5 @@
 import { useState, type FormEvent } from "react";
+import { Button, IconPlus, PageShell, SURFACE } from "../../../../components/ui/index.ts";
 import { ApiError } from "../../../../lib/api.ts";
 import { useAuth } from "../../../../contexts/AuthContext.tsx";
 import type { Position } from "../../domain/entities/position.ts";
@@ -100,32 +101,24 @@ export function PositionsView() {
   }
 
   return (
-    <div className="flex min-h-full flex-col bg-[#FAF6F3]">
-      <div className="border-b border-[#F5C992]/40 bg-white px-6 py-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold text-stone-900">Colaboradores</h1>
-            <p className="text-xs text-stone-500">Cargos da organização. Um cargo não dá permissões no Hub.</p>
-          </div>
-          {canEdit && (
-            <button
-              type="button"
-              onClick={() => openDrawer(null)}
-              className="rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90"
-            >
-              Novo cargo
-            </button>
-          )}
-        </div>
-        <PeopleTabs />
-      </div>
-
-      <div className="flex-1 p-4">
+    <PageShell
+      title="Colaboradores"
+      description="Cargos da organização. Um cargo não dá permissões no Hub."
+      actions={
+        canEdit && (
+          <Button variant="primary" icon={<IconPlus />} onClick={() => openDrawer(null)}>
+            Novo cargo
+          </Button>
+        )
+      }
+      tabs={<PeopleTabs />}
+    >
+      <div>
         {isLoading && <p className="text-sm text-stone-500">A carregar…</p>}
         {isError && <p className="text-sm text-red-600">Não foi possível carregar os cargos.</p>}
         {setActiveMutation.isError && <p className="mb-2 text-sm text-red-600">Não foi possível alterar o estado do cargo.</p>}
         {!isLoading && !isError && (
-          <div className="overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white shadow-sm">
+          <div className={`overflow-hidden ${SURFACE}`}>
             <table className="w-full text-sm">
               <thead className="bg-[#FDF8F5] text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                 <tr>
@@ -190,6 +183,6 @@ export function PositionsView() {
         />
         )}
       </MotionPresence>
-    </div>
+    </PageShell>
   );
 }

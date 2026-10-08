@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
@@ -74,8 +74,8 @@ describe("LeaveView — Férias & Ausências 2.0", () => {
     const user = userEvent.setup();
     expect(await screen.findByText(/1 pedido aguarda aprovação · 1 conflito em turnos/)).toBeInTheDocument();
     expect(screen.getByText("Carla Demo — Férias")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Registos" }));
-    expect(screen.getByText("⚠ 1 turno afetado")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Registos" }));
+    expect(screen.getByText("1 turno afetado")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Ver →" })).toBeInTheDocument();
   });
 
@@ -84,13 +84,13 @@ describe("LeaveView — Férias & Ausências 2.0", () => {
     const registerAbsence = vi.fn(async () => ({ id: "new" }));
     renderWith(<LeaveView />, { previewAbsence, registerAbsence });
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "+ Registar ausência" }));
+    await user.click(await screen.findByRole("button", { name: "Registar ausência" }));
     await user.selectOptions(screen.getByLabelText("Colaborador"), "e1");
     await user.type(screen.getByLabelText("Início"), "2026-10-12");
     await user.type(screen.getByLabelText("Fim"), "2026-10-16");
     expect(await screen.findByText("9 dias disponíveis")).toBeInTheDocument();
     expect(screen.getByText("1 outro colaborador ausente")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Registar ausência" }));
+    await user.click(within(screen.getByRole("dialog", { name: "Registar ausência" })).getByRole("button", { name: "Registar ausência" }));
     expect(registerAbsence).toHaveBeenCalledWith(expect.objectContaining({ employeeId: "e1", type: "vacation", duration: "day", startDate: "2026-10-12", endDate: "2026-10-16" }));
   });
 });
@@ -104,7 +104,7 @@ describe("LeaveView — Saldos", () => {
     renderWith(<LeaveView />, { listLeaveBalances, setLeaveBalance });
     const user = userEvent.setup();
     expect(await screen.findByText("Feriado Teste")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Saldos" }));
+    await user.click(screen.getByRole("tab", { name: "Saldos" }));
     expect(await screen.findByText("sugerido")).toBeInTheDocument();
     const input = screen.getByLabelText("Dias transitados de CARLA DEMO");
     await user.clear(input);

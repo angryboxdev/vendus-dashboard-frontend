@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button, PageShell } from "../../../../components/ui/index.ts";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useHrModule } from "../../hr.module.tsx";
@@ -106,37 +107,19 @@ export function PeopleDocumentsView() {
   }
 
   return (
-    <div className="flex min-h-full flex-col bg-[#FAF6F3]">
-      <div className="border-b border-[#F5C992]/40 bg-white px-6 py-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold text-stone-900">Colaboradores</h1>
-            <p className="text-xs text-stone-500">Gestão de colaboradores e documentação.</p>
-          </div>
-          <div className="flex gap-2">
-            {/* Recibos têm dados salariais — importação só para admin (ticket 10). */}
-            {user?.role === "admin" && (
-              <button
-                type="button"
-                onClick={() => setImportOpen(true)}
-                className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
-              >
-                Importar recibos
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setCategoriesModalOpen(true)}
-              className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
-            >
-              Categorias de documentos
-            </button>
-          </div>
-        </div>
-        <PeopleTabs />
-      </div>
-
-      <div className="flex-1 space-y-4 p-4">
+    <PageShell
+      title="Colaboradores"
+      description="Gestão de colaboradores e documentação."
+      actions={
+        <>
+          {/* Recibos têm dados salariais — importação só para admin (ticket 10). */}
+          {user?.role === "admin" && <Button onClick={() => setImportOpen(true)}>Importar recibos</Button>}
+          <Button onClick={() => setCategoriesModalOpen(true)}>Categorias de documentos</Button>
+        </>
+      }
+      tabs={<PeopleTabs />}
+    >
+      <div className="space-y-4">
         {/* KPIs — clicáveis, funcionam como filtro de estado (secção 11) */}
         <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
           <button
@@ -326,6 +309,6 @@ export function PeopleDocumentsView() {
       <MotionPresence show={importOpen}>
         <ImportPayslipsModal onClose={() => setImportOpen(false)} />
       </MotionPresence>
-    </div>
+    </PageShell>
   );
 }

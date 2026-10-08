@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Button, FIELD, IconPlus, PageShell, SURFACE, TABLE, TH, THEAD } from "../../../../components/ui/index.ts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useHrModule } from "../../hr.module.tsx";
@@ -134,38 +135,27 @@ export function PeopleListView() {
   }
 
   return (
-    <div className="flex min-h-full flex-col bg-[#FAF6F3]">
-      <div className="border-b border-[#F5C992]/40 bg-white px-6 py-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-lg font-bold text-stone-900">Colaboradores</h1>
-            <p className="text-xs text-stone-500">Gestão de colaboradores e documentação.</p>
-          </div>
-          <button
-            type="button"
-            onClick={() => setDrawerOpen(true)}
-            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-            </svg>
-            Novo colaborador
-          </button>
-        </div>
-        <PeopleTabs />
-      </div>
-
-      <div className="flex-1 space-y-4 p-4">
+    <PageShell
+      title="Colaboradores"
+      description="Gestão de colaboradores e documentação."
+      actions={
+        <Button variant="primary" icon={<IconPlus />} onClick={() => setDrawerOpen(true)}>
+          Novo colaborador
+        </Button>
+      }
+      tabs={<PeopleTabs />}
+    >
+      <div className="space-y-4">
         {/* KPI Cards — clicáveis, funcionam como filtros locais (task "Melhorar Visão Geral e reorganizar Pessoas", secção 3/11) */}
         <MotionStagger className="grid grid-cols-1 gap-3 md:grid-cols-3">
-          <div className="rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 shadow-sm">
+          <div className={`${SURFACE} px-4 py-2.5`}>
             <p className="text-xs font-medium text-stone-500">Funcionários ativos</p>
             <p className="mt-0.5 text-lg font-bold text-emerald-600">{kpis ? <MotionNumber value={kpis.activeEmployees} /> : "—"}</p>
           </div>
           <button
             type="button"
             onClick={() => updateParams({ profileComplete: "incomplete", page: undefined })}
-            className={`rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 text-left shadow-sm hover:bg-[#FDF8F5] ${MOTION_CARD_HOVER}`}
+            className={`${SURFACE} px-4 py-2.5 text-left hover:bg-[#FDF8F5] ${MOTION_CARD_HOVER}`}
           >
             <p className="text-xs font-medium text-stone-500">Dados incompletos</p>
             <p className="mt-0.5 text-lg font-bold text-amber-600">{kpis ? <MotionNumber value={kpis.incompleteProfiles} /> : "—"}</p>
@@ -173,7 +163,7 @@ export function PeopleListView() {
           <button
             type="button"
             onClick={() => navigate("/hr/people/documentos?status=expiring")}
-            className={`rounded-xl border border-[#F5C992]/40 bg-white px-4 py-2.5 text-left shadow-sm hover:bg-[#FDF8F5] ${MOTION_CARD_HOVER}`}
+            className={`${SURFACE} px-4 py-2.5 text-left hover:bg-[#FDF8F5] ${MOTION_CARD_HOVER}`}
           >
             <p className="text-xs font-medium text-stone-500">Documentos a expirar</p>
             <p className="mt-0.5 text-lg font-bold text-red-600">{kpis ? <MotionNumber value={kpis.documentsExpiringSoon} /> : "—"}</p>
@@ -187,12 +177,12 @@ export function PeopleListView() {
               value={search}
               onChange={(e) => updateParams({ search: e.target.value, page: undefined })}
               placeholder="Pesquisar por nome ou email..."
-              className="w-64 rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
+              className={`w-64 ${FIELD}`}
             />
             <select
               value={status}
               onChange={(e) => updateParams({ status: e.target.value, page: undefined })}
-              className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
+              className={FIELD}
             >
               <option value="all">Estado: Todos</option>
               <option value="active">Ativo</option>
@@ -201,7 +191,7 @@ export function PeopleListView() {
             <select
               value={employmentType}
               onChange={(e) => updateParams({ employmentType: e.target.value, page: undefined })}
-              className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
+              className={FIELD}
             >
               <option value="">Vínculo: Todos</option>
               {Object.entries(EMPLOYMENT_TYPE_LABELS).map(([value, label]) => (
@@ -213,7 +203,7 @@ export function PeopleListView() {
             <select
               value={profileComplete}
               onChange={(e) => updateParams({ profileComplete: e.target.value, page: undefined })}
-              className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
+              className={FIELD}
             >
               <option value="">Dados do perfil: Todos</option>
               <option value="complete">Completos</option>
@@ -223,7 +213,7 @@ export function PeopleListView() {
               aria-label="Cargo"
               value={positionId}
               onChange={(e) => updateParams({ positionId: e.target.value, page: undefined })}
-              className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
+              className={FIELD}
             >
               <option value="">Cargo: Todos</option>
               {positions.map((p) => (
@@ -237,7 +227,7 @@ export function PeopleListView() {
                 aria-label="Local"
                 value={locationId}
                 onChange={(e) => updateParams({ locationId: e.target.value, page: undefined })}
-                className="rounded-md border border-stone-300 bg-white py-1.5 px-3 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
+                className={FIELD}
               >
                 <option value="">Local: Todos</option>
                 {locations.map((l) => (
@@ -259,7 +249,7 @@ export function PeopleListView() {
           </div>
 
           {/* Table */}
-          <div className="overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white">
+          <div className={`overflow-hidden ${SURFACE}`}>
             {isLoading ? (
               <div className="flex items-center justify-center py-16 text-sm text-stone-400">A carregar…</div>
             ) : items.length === 0 ? (
@@ -271,31 +261,31 @@ export function PeopleListView() {
             ) : (
               <>
                 <div className="overflow-x-auto">
-                  <table className="min-w-full text-sm">
-                    <thead className="border-b border-[#F5C992]/40 bg-stone-50/60">
+                  <table className={TABLE}>
+                    <thead className={THEAD}>
                       <tr>
-                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className={TH}>
                           Colaborador
                         </th>
-                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className={TH}>
                           Cargo
                         </th>
-                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className={TH}>
                           Local principal
                         </th>
-                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className={TH}>
                           Vínculo
                         </th>
-                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className={TH}>
                           Contacto
                         </th>
-                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className={TH}>
                           Dados do perfil
                         </th>
-                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className={TH}>
                           Documentos
                         </th>
-                        <th className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+                        <th className={TH}>
                           Última atualização
                         </th>
                       </tr>
@@ -371,7 +361,6 @@ export function PeopleListView() {
           </div>
         </div>
       </div>
-
       <EmployeeDrawer
         open={drawerOpen}
         editing={null}
@@ -379,6 +368,6 @@ export function PeopleListView() {
         onSave={(payload) => createMutation.mutate(payload)}
         saving={createMutation.isPending}
       />
-    </div>
+    </PageShell>
   );
 }

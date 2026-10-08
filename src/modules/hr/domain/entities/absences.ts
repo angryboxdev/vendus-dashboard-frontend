@@ -66,13 +66,13 @@ export const ABSENCE_TYPE_LABEL: Record<AbsenceType, string> = {
 
 /** Cores (fundo + texto + ponto) por tipo, como no mockup. */
 export const ABSENCE_TYPE_STYLE: Record<AbsenceType, { chip: string; dot: string }> = {
-  vacation: { chip: "bg-orange-50 text-orange-800", dot: "bg-orange-500" },
-  sick_leave: { chip: "bg-violet-50 text-violet-800", dot: "bg-violet-500" },
-  justified: { chip: "bg-indigo-50 text-indigo-800", dot: "bg-indigo-500" },
-  unjustified: { chip: "bg-red-50 text-red-800", dot: "bg-red-500" },
-  compensatory: { chip: "bg-amber-50 text-amber-800", dot: "bg-amber-500" },
-  authorized_absence: { chip: "bg-sky-50 text-sky-800", dot: "bg-sky-500" },
-  license: { chip: "bg-teal-50 text-teal-800", dot: "bg-teal-500" },
+  vacation: { chip: "bg-stone-100 text-stone-700", dot: "bg-orange-500" },
+  sick_leave: { chip: "bg-stone-100 text-stone-700", dot: "bg-violet-500" },
+  justified: { chip: "bg-stone-100 text-stone-700", dot: "bg-indigo-500" },
+  unjustified: { chip: "bg-stone-100 text-stone-700", dot: "bg-red-500" },
+  compensatory: { chip: "bg-stone-100 text-stone-700", dot: "bg-amber-500" },
+  authorized_absence: { chip: "bg-stone-100 text-stone-700", dot: "bg-sky-500" },
+  license: { chip: "bg-stone-100 text-stone-700", dot: "bg-teal-500" },
   other: { chip: "bg-stone-100 text-stone-700", dot: "bg-stone-500" },
 };
 
