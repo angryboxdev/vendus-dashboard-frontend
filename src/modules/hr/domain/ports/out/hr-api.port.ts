@@ -1,6 +1,6 @@
 import type { GrantPortalAccessResult, PortalAccess } from "../../entities/portal-access.ts";
 import type { InboxRequest, RequestsInbox } from "../../entities/portal-requests.ts";
-import type { AbsenceBoard, AbsenceImpact, RegisterAbsencePayload } from "../../entities/absences.ts";
+import type { AbsenceBoard, AbsenceImpact, ConfirmAbsencePayload, ConfirmAbsencePreview, ConfirmAbsenceResult, LeaveBalanceRow, OccurrenceRef, RegisterAbsencePayload } from "../../entities/absences.ts";
 import type {
   CreateEmployeePayload,
   Employee,
@@ -127,6 +127,12 @@ export interface HrApiPort {
   previewAbsence(payload: RegisterAbsencePayload): Promise<AbsenceImpact>;
   registerAbsence(payload: RegisterAbsencePayload): Promise<{ id: string }>;
   cancelAbsence(id: string, reason: string): Promise<void>;
+  listLeaveBalances(year: number): Promise<LeaveBalanceRow[]>;
+  /** Assiduidade: há ausência compatível com a ocorrência? (não grava). */
+  previewConfirmAbsence(ref: OccurrenceRef): Promise<ConfirmAbsencePreview>;
+  /** Vincula a existente (ou a escolhida) ou cria uma — e resolve a ocorrência. */
+  confirmAbsence(payload: ConfirmAbsencePayload): Promise<ConfirmAbsenceResult>;
+  setLeaveBalance(employeeId: string, year: number, daysEntitled: number, daysCarriedOver: number): Promise<void>;
   getEmployeeDocumentHistory(employeeId: string, documentId: string): Promise<EmployeeDocument[]>;
   /** 1 linha por (colaborador ativo × requisito documental) — fonte única da aba "Pessoas > Documentos". */
   getDocumentOverview(): Promise<DocumentOverviewRow[]>;

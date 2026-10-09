@@ -3,21 +3,20 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
 import { formatMinutes } from "../../../../lib/format-minutes.ts";
 import type { AttendanceCorrectionType, AttendanceIssueDetail } from "../../domain/entities/attendance-conference.ts";
-import { ABSENCE_TYPE_LABEL, type AbsenceType } from "../../domain/entities/absences.ts";
+import { ABSENCE_TYPE_LABEL, type AbsenceType, type ConfirmAbsenceResult } from "../../domain/entities/absences.ts";
 
 /**
- * "Resolver ocorrência" (mockup Assiduidade, 2026-10-07) — painel lateral
- * com 4 caminhos principais: registar ausência (fica em Férias & Ausências e
- * a ocorrência fica associada), associar a uma ausência existente, corrigir
- * picagem, corrigir o turno planeado. As ações antigas (manter, justificar
+ * "Resolver ocorrência" (mockup Assiduidade) — painel lateral. "Confirmar
+ * ausência" (task 2026-10-08) junta registar e associar: o servidor procura
+ * a ausência compatível e vincula-a, ou cria uma; com pedido pendente ou
+ * várias possíveis, nunca decide sozinho. Mantém corrigir picagem/turno. As ações antigas (manter, justificar
  * sem impacto, remover marcação) continuam em "Mais opções". A ocorrência
  * fecha sempre por uma correção com motivo (o backend exige-o).
  */
-type Path = "register_absence" | "link_absence" | "fix_punch" | "fix_shift" | "keep_as_is" | "justify_no_impact" | "remove_marking";
+type Path = "confirm_absence" | "fix_punch" | "fix_shift" | "keep_as_is" | "justify_no_impact" | "remove_marking";
 
 const MAIN: Array<{ key: Path; title: string; hint: string }> = [
-  { key: "register_absence", title: "Registar ausência", hint: "Criar um registo em Férias & Ausências." },
-  { key: "link_absence", title: "Associar a ausência existente", hint: "Vincular esta ocorrência a uma ausência já registada." },
+  { key: "confirm_absence", title: "Confirmar ausência", hint: "Registar ou vincular automaticamente a ausência correspondente." },
   { key: "fix_punch", title: "Corrigir picagem", hint: "Registar ou corrigir a(s) picagem(ns) deste turno." },
   { key: "fix_shift", title: "Corrigir turno", hint: "Ajustar o turno planeado." },
 ];
@@ -61,15 +60,18 @@ export function AttendanceIssueResolutionModal({ issue, onClose, onCorrected }: 
   const plannedStart = planned?.plannedStart ?? "";
   const plannedEnd = planned?.plannedEnd ?? "";
 
-  const [path, setPath] = useState<Path>("register_absence");
+  const [path, setPath] = useState<Path>("confirm_absence");
   const [showMore, setShowMore] = useState(false);
   // Registar ausência
   const [kind, setKind] = useState<"falta" | AbsenceType>("falta");
   const [justified, setJustified] = useState(true);
   const [absStart, setAbsStart] = useState(plannedStart);
   const [absEnd, setAbsEnd] = useState(plannedEnd);
-  // Associar
-  const [linkedId, setLinkedId] = useState("");
+  // Várias compatíveis: a escolhida
+  const [chosenId, setChosenId] = useState("");
+  const [reviewing, setReviewing] = useState(false);
+  const [decisionNote, setDecisionNote] = useState("");
+  const [done, setDone] = useState<ConfirmAbsenceResult | null>(null);
   // Corrigir picagem / turno
   const [actualStart, setActualStart] = useState(planned?.actualStart ?? "");
   const [actualEnd, setActualEnd] = useState(planned?.actualEnd ?? "");
@@ -78,13 +80,22 @@ export function AttendanceIssueResolutionModal({ issue, onClose, onCorrected }: 
   // Comum
   const [reason, setReason] = useState("");
 
-  const { data: dayBoard } = useQuery({
-    queryKey: ["hr-absence-board", issue.workDate, issue.workDate],
-    queryFn: () => api.getAbsenceBoard(issue.workDate, issue.workDate),
-    enabled: path === "link_absence",
+  const ref = { workShiftId: issue.shiftId, attendanceId: issue.attendanceId, employeeId: issue.employeeId, workDate: issue.workDate, locationId: issue.locationId ?? "" };
+  const previewKey = ["hr-confirm-absence-preview", issue.employeeId, issue.workDate, issue.shiftId];
+  const { data: preview, isLoading: previewLoading } = useQuery({
+    queryKey: previewKey,
+    queryFn: () => api.previewConfirmAbsence(ref),
+    enabled: path === "confirm_absence" && !done,
     retry: false,
   });
-  const existing = (dayBoard?.records ?? []).filter((r) => r.source === "absence" && r.status === "approved" && r.employeeId === issue.employeeId);
+  const decideRequest = useMutation({
+    mutationFn: (decision: "approve" | "reject") => api.decidePortalRequest(preview!.pendingRequest!.id, decision, decisionNote || null),
+    onSuccess: () => {
+      setReviewing(false);
+      void qc.invalidateQueries({ queryKey: previewKey });
+      void qc.invalidateQueries({ queryKey: ["hr-requests-count"] });
+    },
+  });
 
   const absenceType: AbsenceType = kind === "falta" ? (justified ? "justified" : "unjustified") : kind;
   // Turno inteiro (ou noturno) = ausência de dia; horas diferentes do turno = parcial.
@@ -105,23 +116,14 @@ export function AttendanceIssueResolutionModal({ issue, onClose, onCorrected }: 
   const resolve = useMutation({
     mutationFn: async () => {
       switch (path) {
-        case "register_absence": {
-          await api.registerAbsence({
-            employeeId: issue.employeeId,
-            type: absenceType,
-            duration: fullShift ? "day" : "hours",
-            startDate: issue.workDate,
-            endDate: issue.workDate,
-            ...(fullShift ? {} : { startTime: absStart, endTime: absEnd }),
-            notes: reason || null,
+        case "confirm_absence": {
+          const result = await api.confirmAbsence({
+            ...ref,
+            ...(preview?.match === "multiple" ? { absenceId: chosenId } : {}),
+            ...(preview?.match === "none" ? { newAbsence: { type: absenceType, startTime: absStart || null, endTime: absEnd || null, notes: reason || null } } : {}),
           });
-          const why = `Ausência registada em Férias & Ausências: ${ABSENCE_TYPE_LABEL[absenceType]}${reason ? ` — ${reason}` : ""}`;
-          // Falta injustificada continua a contar como ausência; as restantes ficam justificadas.
-          return correction(absenceType === "unjustified" ? "mark_absence" : "justify_no_impact", why);
-        }
-        case "link_absence": {
-          const a = existing.find((r) => r.id === linkedId)!;
-          return correction("justify_no_impact", `Associada à ausência existente: ${ABSENCE_TYPE_LABEL[a.type]} (${a.startDate}${a.endDate !== a.startDate ? ` a ${a.endDate}` : ""})${reason ? ` — ${reason}` : ""}`);
+          setDone(result);
+          return null;
         }
         case "fix_punch":
           return correction("fix_times", reason, { actualStartTime: actualStart || null, actualEndTime: actualEnd || null });
@@ -136,7 +138,11 @@ export function AttendanceIssueResolutionModal({ issue, onClose, onCorrected }: 
       for (const key of ["hr-attendance-issues", "hr-attendance-closure", "hr-attendance-summary", "hr-attendance-employee-detail", "hr-absence-board", "hr-work-shifts"]) {
         void qc.invalidateQueries({ queryKey: [key] });
       }
-      onCorrected();
+      // "Confirmar ausência" mostra primeiro a mensagem (já registada / registada); fecha em "Concluir".
+      if (path !== "confirm_absence") onCorrected();
+    },
+    onError: () => {
+      if (path === "confirm_absence") void qc.invalidateQueries({ queryKey: previewKey });
     },
   });
 
@@ -144,8 +150,9 @@ export function AttendanceIssueResolutionModal({ issue, onClose, onCorrected }: 
   const canSubmit =
     !resolve.isPending &&
     (!reasonRequired || reason.trim().length > 0) &&
-    (path !== "register_absence" || fullShift || (absStart && absEnd && absEnd > absStart)) &&
-    (path !== "link_absence" || !!linkedId) &&
+    (path !== "confirm_absence" ||
+      (!!preview &&
+        (preview.match === "single" || (preview.match === "multiple" && !!chosenId) || (preview.match === "none" && (fullShift || (absStart && absEnd && absEnd > absStart)))))) &&
     (path !== "fix_shift" || (!!issue.shiftId && shiftStart && shiftEnd && shiftStart !== shiftEnd));
 
   return (
@@ -158,6 +165,22 @@ export function AttendanceIssueResolutionModal({ issue, onClose, onCorrected }: 
           </button>
         </div>
 
+        {done ? (
+          <div className="flex-1 space-y-3 px-6 py-8 text-center">
+            <p className="text-4xl text-emerald-600">✓</p>
+            <p className="text-lg font-semibold text-stone-900">{done.outcome === "linked" ? "Ausência já registada" : "Ausência registada"}</p>
+            <p className="text-sm text-stone-600">
+              {done.outcome === "linked"
+                ? done.fullDay
+                  ? "Existe uma ausência para este dia. A ocorrência foi vinculada automaticamente."
+                  : "Existe uma ausência para este período. A ocorrência foi vinculada automaticamente ao registo existente em Férias & Ausências."
+                : "Foi criado um registo em Férias & Ausências e vinculado a esta ocorrência."}
+            </p>
+            <p className="text-xs text-stone-500">
+              {ABSENCE_TYPE_LABEL[done.absence.type]} · {done.absence.duration}
+            </p>
+          </div>
+        ) : (
         <div className="flex-1 space-y-5 overflow-y-auto px-6 py-4">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-full bg-stone-100 text-sm font-semibold text-stone-600">
@@ -207,63 +230,104 @@ export function AttendanceIssueResolutionModal({ issue, onClose, onCorrected }: 
             </div>
           </div>
 
-          {path === "register_absence" && (
-            <section className="space-y-3 border-t border-stone-100 pt-4" aria-label="Dados da ausência">
-              <p className="text-sm font-semibold text-stone-900">Dados da ausência</p>
-              <div className="flex items-center gap-3">
-                <label className={labelCls} htmlFor="res-kind">
-                  Tipo
-                </label>
-                <select id="res-kind" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className={inputCls}>
-                  {ABSENCE_KINDS.map((k) => (
-                    <option key={k.key} value={k.key}>
-                      {k.label}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              {kind === "falta" && (
-                <div className="flex items-center gap-3">
-                  <label className={labelCls} htmlFor="res-class">
-                    Classificação
-                  </label>
-                  <select id="res-class" value={justified ? "j" : "i"} onChange={(e) => setJustified(e.target.value === "j")} className={inputCls}>
-                    <option value="j">Justificada</option>
-                    <option value="i">Injustificada</option>
-                  </select>
+          {path === "confirm_absence" && (
+            <section className="space-y-3 border-t border-stone-100 pt-4" aria-label="Confirmar ausência">
+              {previewLoading || !preview ? (
+                <p className="text-xs text-stone-500">A procurar ausências registadas…</p>
+              ) : preview.match === "single" ? (
+                <div className="rounded-lg bg-emerald-50 p-3 text-sm text-emerald-900">
+                  <p className="font-semibold">Ausência já registada</p>
+                  <p>
+                    {ABSENCE_TYPE_LABEL[preview.candidates[0]!.type]} · {preview.candidates[0]!.duration}
+                    {preview.candidates[0]!.startTime && ` (${preview.candidates[0]!.startTime}–${preview.candidates[0]!.endTime})`}. Ao confirmar, a ocorrência fica vinculada a esse registo — não é
+                    criado outro.
+                  </p>
                 </div>
-              )}
-              <div className="flex items-center gap-3">
-                <span className={labelCls}>Período</span>
-                <span className="text-sm text-stone-700">{issue.workDate.split("-").reverse().join("/")}</span>
-                <input aria-label="Início da ausência" type="time" value={absStart} disabled={issue.endsNextDay} onChange={(e) => setAbsStart(e.target.value)} className={inputCls} />
-                <span className="text-stone-400">→</span>
-                <input aria-label="Fim da ausência" type="time" value={absEnd} disabled={issue.endsNextDay} onChange={(e) => setAbsEnd(e.target.value)} className={inputCls} />
-              </div>
-              <div className="flex items-start gap-2 rounded-lg bg-orange-50 p-3 text-sm">
-                <span className="text-[#ED5C32]">ⓘ</span>
-                <p>
-                  <strong>Será criado 1 registo em Férias &amp; Ausências</strong> ({fullShift ? "dia inteiro" : `${absStart}–${absEnd}`}).
-                  <span className="block text-stone-600">Esta ocorrência ficará associada ao mesmo registo.</span>
-                </p>
-              </div>
-            </section>
-          )}
-
-          {path === "link_absence" && (
-            <section className="space-y-2 border-t border-stone-100 pt-4">
-              <p className="text-sm font-semibold text-stone-900">Ausências registadas neste dia</p>
-              {!dayBoard ? (
-                <p className="text-xs text-stone-500">A carregar…</p>
-              ) : existing.length === 0 ? (
-                <p className="text-xs text-stone-500">Não há nenhuma ausência deste colaborador neste dia — use "Registar ausência".</p>
+              ) : preview.match === "multiple" ? (
+                <div className="space-y-2">
+                  <p className="text-sm font-semibold text-stone-900">Há mais de uma ausência neste período — qual corresponde?</p>
+                  {preview.candidates.map((c) => (
+                    <label key={c.id} className="flex items-center gap-2 rounded-lg border border-stone-200 px-3 py-2 text-sm">
+                      <input type="radio" name="chosen-absence" checked={chosenId === c.id} onChange={() => setChosenId(c.id)} className="accent-[#ED5C32]" />
+                      {ABSENCE_TYPE_LABEL[c.type]} · {c.duration}
+                      {c.startTime && ` (${c.startTime}–${c.endTime})`}
+                    </label>
+                  ))}
+                </div>
+              ) : preview.match === "pending_request" ? (
+                <div className="space-y-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+                  <p className="font-semibold">Existe um pedido pendente para este período.</p>
+                  <p>
+                    {preview.pendingRequest!.kind === "day_off" ? "Pedido de folga" : "Justificação de falta"} · {preview.pendingRequest!.reasonLabel}
+                    {preview.pendingRequest!.reasonText && ` — ${preview.pendingRequest!.reasonText}`}
+                  </p>
+                  {!reviewing ? (
+                    <button type="button" onClick={() => setReviewing(true)} className="rounded-lg border border-amber-300 bg-white px-3 py-1.5 text-xs font-medium">
+                      Rever pedido
+                    </button>
+                  ) : (
+                    <div className="space-y-2">
+                      <textarea
+                        aria-label="Nota da decisão"
+                        placeholder="Nota (obrigatória para rejeitar)"
+                        value={decisionNote}
+                        onChange={(e) => setDecisionNote(e.target.value)}
+                        rows={2}
+                        className={inputCls}
+                      />
+                      <div className="flex gap-2">
+                        <button type="button" disabled={decideRequest.isPending} onClick={() => decideRequest.mutate("approve")} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+                          Aprovar
+                        </button>
+                        <button
+                          type="button"
+                          disabled={decideRequest.isPending || !decisionNote.trim()}
+                          onClick={() => decideRequest.mutate("reject")}
+                          className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-medium text-red-700 disabled:opacity-50"
+                        >
+                          Rejeitar
+                        </button>
+                      </div>
+                      {decideRequest.isError && <p className="text-xs text-red-700">{decideRequest.error instanceof Error ? decideRequest.error.message : "Não foi possível decidir."}</p>}
+                    </div>
+                  )}
+                  <p className="text-xs">Depois de aprovado, a ausência criada é vinculada a esta ocorrência.</p>
+                </div>
               ) : (
-                existing.map((a) => (
-                  <label key={a.id} className="flex items-center gap-2 rounded-lg border border-stone-200 px-3 py-2 text-sm">
-                    <input type="radio" name="linked" checked={linkedId === a.id} onChange={() => setLinkedId(a.id)} className="accent-[#ED5C32]" />
-                    {ABSENCE_TYPE_LABEL[a.type]} · {a.duration}
-                  </label>
-                ))
+                <>
+                  <p className="text-sm font-semibold text-stone-900">Não há ausência registada — dados para registar</p>
+                  <div className="flex items-center gap-3">
+                    <label className={labelCls} htmlFor="res-kind">
+                      Tipo
+                    </label>
+                    <select id="res-kind" value={kind} onChange={(e) => setKind(e.target.value as typeof kind)} className={inputCls}>
+                      {ABSENCE_KINDS.map((k) => (
+                        <option key={k.key} value={k.key}>
+                          {k.label}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                  {kind === "falta" && (
+                    <div className="flex items-center gap-3">
+                      <label className={labelCls} htmlFor="res-class">
+                        Classificação
+                      </label>
+                      <select id="res-class" value={justified ? "j" : "i"} onChange={(e) => setJustified(e.target.value === "j")} className={inputCls}>
+                        <option value="j">Justificada</option>
+                        <option value="i">Injustificada</option>
+                      </select>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-3">
+                    <span className={labelCls}>Período</span>
+                    <span className="text-sm text-stone-700">{issue.workDate.split("-").reverse().join("/")}</span>
+                    <input aria-label="Início da ausência" type="time" value={absStart} disabled={issue.endsNextDay} onChange={(e) => setAbsStart(e.target.value)} className={inputCls} />
+                    <span className="text-stone-400">→</span>
+                    <input aria-label="Fim da ausência" type="time" value={absEnd} disabled={issue.endsNextDay} onChange={(e) => setAbsEnd(e.target.value)} className={inputCls} />
+                  </div>
+                  <p className="text-xs text-stone-500">Será criado 1 registo em Férias &amp; Ausências ({fullShift ? "dia inteiro" : `${absStart}–${absEnd}`}) e vinculado a esta ocorrência.</p>
+                </>
               )}
             </section>
           )}
@@ -335,7 +399,15 @@ export function AttendanceIssueResolutionModal({ issue, onClose, onCorrected }: 
             </p>
           )}
         </div>
+        )}
 
+        {done ? (
+          <div className="border-t border-stone-100 px-6 py-4">
+            <button type="button" onClick={onCorrected} className="w-full rounded-lg bg-[#ED5C32] py-2.5 text-sm font-medium text-white">
+              Concluir
+            </button>
+          </div>
+        ) : (
         <div className="grid grid-cols-[1fr_2fr] gap-3 border-t border-stone-100 px-6 py-4">
           <button type="button" onClick={onClose} className="rounded-lg border border-stone-300 py-2.5 text-sm font-medium text-stone-700">
             Cancelar
@@ -344,6 +416,7 @@ export function AttendanceIssueResolutionModal({ issue, onClose, onCorrected }: 
             {resolve.isPending ? "A guardar…" : "Resolver ocorrência"}
           </button>
         </div>
+        )}
       </div>
     </div>
   );

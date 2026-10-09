@@ -28,6 +28,8 @@ export interface AbsenceRecord {
 
 export interface AbsenceBoard {
   records: AbsenceRecord[];
+  /** Feriados no intervalo. */
+  holidays: Array<{ date: string; name: string }>;
   attention: { pendingRequests: number; pendingDocuments: number; shiftConflicts: number };
 }
 
@@ -64,13 +66,13 @@ export const ABSENCE_TYPE_LABEL: Record<AbsenceType, string> = {
 
 /** Cores (fundo + texto + ponto) por tipo, como no mockup. */
 export const ABSENCE_TYPE_STYLE: Record<AbsenceType, { chip: string; dot: string }> = {
-  vacation: { chip: "bg-orange-50 text-orange-800", dot: "bg-orange-500" },
-  sick_leave: { chip: "bg-violet-50 text-violet-800", dot: "bg-violet-500" },
-  justified: { chip: "bg-indigo-50 text-indigo-800", dot: "bg-indigo-500" },
-  unjustified: { chip: "bg-red-50 text-red-800", dot: "bg-red-500" },
-  compensatory: { chip: "bg-amber-50 text-amber-800", dot: "bg-amber-500" },
-  authorized_absence: { chip: "bg-sky-50 text-sky-800", dot: "bg-sky-500" },
-  license: { chip: "bg-teal-50 text-teal-800", dot: "bg-teal-500" },
+  vacation: { chip: "bg-stone-100 text-stone-700", dot: "bg-orange-500" },
+  sick_leave: { chip: "bg-stone-100 text-stone-700", dot: "bg-violet-500" },
+  justified: { chip: "bg-stone-100 text-stone-700", dot: "bg-indigo-500" },
+  unjustified: { chip: "bg-stone-100 text-stone-700", dot: "bg-red-500" },
+  compensatory: { chip: "bg-stone-100 text-stone-700", dot: "bg-amber-500" },
+  authorized_absence: { chip: "bg-stone-100 text-stone-700", dot: "bg-sky-500" },
+  license: { chip: "bg-stone-100 text-stone-700", dot: "bg-teal-500" },
   other: { chip: "bg-stone-100 text-stone-700", dot: "bg-stone-500" },
 };
 
@@ -80,3 +82,58 @@ export const ABSENCE_STATUS_STYLE: Record<AbsenceRecordStatus, { label: string; 
   rejected: { label: "Rejeitado", cls: "bg-red-100 text-red-800" },
   cancelled: { label: "Cancelado", cls: "bg-stone-200 text-stone-700" },
 };
+
+/** Separador "Saldos". */
+export interface LeaveBalanceRow {
+  employeeId: string;
+  employeeName: string;
+  positionName: string | null;
+  /** false = ainda não definido (valores sugeridos). */
+  defined: boolean;
+  daysEntitled: number;
+  daysCarriedOver: number;
+  suggested: number;
+  taken: number;
+  scheduled: number;
+  available: number;
+}
+
+// ── Assiduidade → "Confirmar ausência" ───────────────────────────────────
+
+export interface OccurrenceRef {
+  workShiftId: string | null;
+  attendanceId: string | null;
+  employeeId: string;
+  workDate: string;
+  locationId: string;
+}
+
+export interface AbsenceCandidate {
+  id: string;
+  type: AbsenceType;
+  startDate: string;
+  endDate: string;
+  startTime: string | null;
+  endTime: string | null;
+  duration: string;
+}
+
+export interface ConfirmAbsencePreview {
+  match: "single" | "multiple" | "pending_request" | "none";
+  candidates: AbsenceCandidate[];
+  pendingRequest: { id: string; kind: "justify_absence" | "day_off"; startDate: string; endDate: string; reasonLabel: string; reasonText: string | null } | null;
+  shiftStart: string | null;
+  shiftEnd: string | null;
+  endsNextDay: boolean;
+}
+
+export interface ConfirmAbsencePayload extends OccurrenceRef {
+  absenceId?: string;
+  newAbsence?: { type: AbsenceType; startTime?: string | null; endTime?: string | null; notes?: string | null };
+}
+
+export interface ConfirmAbsenceResult {
+  outcome: "linked" | "created";
+  fullDay: boolean;
+  absence: AbsenceCandidate;
+}

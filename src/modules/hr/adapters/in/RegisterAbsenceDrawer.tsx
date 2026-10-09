@@ -3,6 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
 import { ABSENCE_TYPE_LABEL, type AbsenceDuration, type AbsenceType, type RegisterAbsencePayload } from "../../domain/entities/absences.ts";
 import type { EmployeeListRow } from "../../domain/entities/employee.ts";
+import { Button, Drawer, IconAlert, IconCalendar, IconCheck, IconClock, IconUsers, LABEL } from "../../../../components/ui/index.ts";
 
 const TYPES = Object.keys(ABSENCE_TYPE_LABEL) as AbsenceType[];
 const DURATIONS: Array<{ key: AbsenceDuration; label: string }> = [
@@ -11,7 +12,7 @@ const DURATIONS: Array<{ key: AbsenceDuration; label: string }> = [
   { key: "hours", label: "Horas" },
 ];
 
-const labelCls = "mb-1 block text-sm font-medium text-stone-700";
+const labelCls = LABEL;
 const inputCls = "w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm outline-none focus:border-[#ED5C32]";
 
 /** Espera que o utilizador pare de escrever antes de pedir o impacto ao servidor. */
@@ -77,16 +78,21 @@ export function RegisterAbsenceDrawer({ employees, onClose, onSaved }: { employe
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex justify-end bg-black/30" role="dialog" aria-modal="true" aria-label="Registar ausência">
-      <form onSubmit={submit} className="flex h-full w-full max-w-md flex-col bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-stone-100 px-6 py-4">
-          <h2 className="text-lg font-semibold text-stone-900">Registar ausência</h2>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="text-stone-400 hover:text-stone-600">
-            ✕
-          </button>
-        </div>
-
-        <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">
+    <Drawer
+      open
+      as="form"
+      onSubmit={submit}
+      title="Registar ausência"
+      onClose={onClose}
+      footer={
+        <>
+          <Button onClick={onClose}>Cancelar</Button>
+          <Button type="submit" variant="primary" disabled={!ready || !!impact?.overlapsExisting || save.isPending}>
+            {save.isPending ? "A registar…" : "Registar ausência"}
+          </Button>
+        </>
+      }
+    >
           <div>
             <label className={labelCls} htmlFor="abs-employee">
               Colaborador
@@ -172,7 +178,7 @@ export function RegisterAbsenceDrawer({ employees, onClose, onSaved }: { employe
             <textarea id="abs-notes" value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} maxLength={500} placeholder="Adicionar uma observação…" className={inputCls} />
           </div>
 
-          <section className="rounded-xl border border-stone-100 bg-stone-50/60 p-4" aria-label="Impacto">
+          <section className="rounded-xl border border-[#F5C992]/40 bg-[#FDF8F5] p-4" aria-label="Impacto">
             <p className="mb-2 text-sm font-semibold text-stone-800">Impacto</p>
             {!ready ? (
               <p className="text-xs text-stone-500">Escolha o colaborador e o período para ver o impacto.</p>
@@ -182,10 +188,13 @@ export function RegisterAbsenceDrawer({ employees, onClose, onSaved }: { employe
               <p className="text-xs text-stone-500">A calcular…</p>
             ) : (
               <ul className="space-y-1.5 text-sm text-stone-700">
-                <li>📅 {impact.duration}</li>
+                <li className="flex items-center gap-2">
+                  <IconCalendar className="text-stone-400" />
+                  {impact.duration}
+                </li>
                 {impact.balance && (
-                  <li>
-                    ⏱{" "}
+                  <li className="flex items-center gap-2">
+                    <IconClock className="text-stone-400" />
                     {impact.balance.defined ? (
                       <>
                         Saldo: {impact.balance.available} →{" "}
@@ -197,11 +206,15 @@ export function RegisterAbsenceDrawer({ employees, onClose, onSaved }: { employe
                   </li>
                 )}
                 <li>
-                  👥 Turnos afetados: <span className={impact.affectedShifts.length > 0 ? "font-medium text-[#ED5C32]" : ""}>{impact.affectedShifts.length}</span>
+                  <span className="inline-flex items-center gap-2">
+                    <IconAlert className={impact.affectedShifts.length > 0 ? "text-amber-600" : "text-stone-400"} />
+                    Turnos afetados:
+                  </span> <span className={impact.affectedShifts.length > 0 ? "font-medium text-[#ED5C32]" : ""}>{impact.affectedShifts.length}</span>
                   {impact.affectedShifts.length > 0 && <span className="block text-xs text-stone-500">Ficam na escala e aparecem como conflito — ajuste-os nas Escalas.</span>}
                 </li>
-                <li>
-                  👪 Equipa no período:{" "}
+                <li className="flex flex-wrap items-center gap-x-2">
+                  <IconUsers className="text-stone-400" />
+                  Equipa no período:
                   {impact.othersAbsent.length === 0 ? (
                     "ninguém mais ausente"
                   ) : (
@@ -210,12 +223,14 @@ export function RegisterAbsenceDrawer({ employees, onClose, onSaved }: { employe
                     </span>
                   )}
                 </li>
-                <li className={impact.overlapsExisting ? "font-medium text-red-700" : "text-emerald-700"}>
-                  {impact.overlapsExisting ? "✕ Já existe uma ausência neste período" : "✓ Sem sobreposição"}
+                <li className={`flex items-center gap-2 ${impact.overlapsExisting ? "font-medium text-red-700" : "text-emerald-700"}`}>
+                  {impact.overlapsExisting ? <IconAlert /> : <IconCheck />}
+                  {impact.overlapsExisting ? "Já existe uma ausência neste período" : "Sem sobreposição"}
                 </li>
                 {impact.balance?.defined && (
-                  <li className={(impact.balance.after ?? 0) < 0 ? "font-medium text-red-700" : "text-emerald-700"}>
-                    {(impact.balance.after ?? 0) < 0 ? "✕ Saldo insuficiente" : "✓ Saldo suficiente"}
+                  <li className={`flex items-center gap-2 ${(impact.balance.after ?? 0) < 0 ? "font-medium text-red-700" : "text-emerald-700"}`}>
+                    {(impact.balance.after ?? 0) < 0 ? <IconAlert /> : <IconCheck />}
+                    {(impact.balance.after ?? 0) < 0 ? "Saldo insuficiente" : "Saldo suficiente"}
                   </li>
                 )}
               </ul>
@@ -226,17 +241,6 @@ export function RegisterAbsenceDrawer({ employees, onClose, onSaved }: { employe
               {save.error instanceof Error ? save.error.message : "Não foi possível registar."}
             </p>
           )}
-        </div>
-
-        <div className="grid grid-cols-2 gap-3 border-t border-stone-100 px-6 py-4">
-          <button type="button" onClick={onClose} className="rounded-lg border border-stone-300 py-2.5 text-sm font-medium text-stone-700">
-            Cancelar
-          </button>
-          <button type="submit" disabled={!ready || !!impact?.overlapsExisting || save.isPending} className="rounded-lg bg-[#ED5C32] py-2.5 text-sm font-medium text-white disabled:opacity-50">
-            {save.isPending ? "A registar…" : "Registar ausência"}
-          </button>
-        </div>
-      </form>
-    </div>
+    </Drawer>
   );
 }
