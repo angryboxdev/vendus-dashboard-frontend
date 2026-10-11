@@ -2,7 +2,7 @@
 
 export type SettingType = "bool" | "int" | "duration" | "enum" | "time" | "list" | "json";
 export type SettingData = boolean | number | string | string[] | { [k: string]: unknown };
-export type SettingDomain = "security" | "time_tracking" | "notifications";
+export type SettingDomain = "security" | "time_tracking" | "notifications" | "legal";
 
 export interface SettingDefinition {
   key: string;
@@ -11,7 +11,8 @@ export interface SettingDefinition {
   label: string;
   description: string;
   unit?: "minutes" | "days" | "meters";
-  defaultValue: SettingData;
+  /** null = parâmetro sem valor (legais — ADR-0026 do backend). */
+  defaultValue: SettingData | null;
   min?: number;
   max?: number;
   allowed?: string[];
@@ -72,9 +73,9 @@ export interface ValueOrigin {
 
 export interface EffectiveSetting {
   key: string;
-  value: SettingData;
+  value: SettingData | null;
   origin: ValueOrigin;
-  inherited: { value: SettingData; origin: ValueOrigin } | null;
+  inherited: { value: SettingData | null; origin: ValueOrigin } | null;
 }
 
 export interface ImpactPreview {

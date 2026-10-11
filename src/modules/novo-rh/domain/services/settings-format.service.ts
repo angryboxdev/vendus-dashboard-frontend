@@ -15,9 +15,10 @@ export const DOMAIN_KEY: Record<SettingDomain, MessageKey> = {
   security: "settings.domain.security",
   time_tracking: "settings.domain.time_tracking",
   notifications: "settings.domain.notifications",
+  legal: "settings.domain.legal",
 };
 
-export const DOMAINS: SettingDomain[] = ["security", "time_tracking", "notifications"];
+export const DOMAINS: SettingDomain[] = ["security", "time_tracking", "notifications", "legal"];
 
 /** Valor legível ("15 min", "Sim", "—"). `yes`/`no` vêm traduzidos. */
 export function formatSettingValue(def: Pick<SettingDefinition, "type" | "unit"> | undefined, value: SettingData | null, words: { yes: string; no: string }): string {

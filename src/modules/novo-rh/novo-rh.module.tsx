@@ -15,6 +15,9 @@ import type { PeopleApiPort } from "./domain/ports/out/people-api.port.ts";
 import { HttpPeopleApiAdapter } from "./adapters/out/http-people-api.adapter.ts";
 import { PeopleListView } from "./adapters/in/people/PeopleListView.tsx";
 import { PersonView } from "./adapters/in/people/PersonView.tsx";
+import type { TimeApiPort } from "./domain/ports/out/time-api.port.ts";
+import { HttpTimeApiAdapter } from "./adapters/out/http-time-api.adapter.ts";
+import { TimeView } from "./adapters/in/time/TimeView.tsx";
 import { NovoRhHomeView } from "./adapters/in/NovoRhHomeView.tsx";
 import { NovoRhLayout } from "./adapters/in/NovoRhLayout.tsx";
 import { SettingsView } from "./adapters/in/settings/SettingsView.tsx";
@@ -28,6 +31,7 @@ export interface NovoRhModule {
   audit: AuditApiPort;
   notifications: NotificationsApiPort;
   people: PeopleApiPort;
+  time: TimeApiPort;
 }
 
 const NovoRhContext = createContext<NovoRhModule | null>(null);
@@ -47,6 +51,7 @@ export function NovoRhProvider({ children, module: mod }: { children: ReactNode;
         audit: new HttpAuditApiAdapter(),
         notifications: new HttpNotificationsApiAdapter(),
         people: new HttpPeopleApiAdapter(),
+        time: new HttpTimeApiAdapter(),
       },
   );
   return <NovoRhContext.Provider value={value}>{children}</NovoRhContext.Provider>;
@@ -70,6 +75,7 @@ export function NovoRhPage() {
               <Route index element={<NovoRhHomeView />} />
               <Route path="pessoas" element={<PeopleListView />} />
               <Route path="pessoas/:id" element={<PersonView />} />
+              <Route path="tempo" element={<TimeView />} />
               <Route path="configuracoes" element={<SettingsView />} />
               <Route path="estrutura" element={<StructureView />} />
               <Route path="acessos" element={<AccessView />} />

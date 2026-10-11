@@ -8,6 +8,7 @@ import { useNovoRh } from "../../../novo-rh.module.tsx";
 
 const initialText = (v: SettingData | null, def: SettingDefinition): string => {
   const value = v ?? def.defaultValue;
+  if (value === null) return def.type === "bool" ? "false" : "";
   if (Array.isArray(value)) return value.join(", ");
   if (typeof value === "object") return JSON.stringify(value);
   return String(value);

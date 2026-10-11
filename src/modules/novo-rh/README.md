@@ -43,6 +43,7 @@ módulo a usar a base de i18n (`src/i18n`).
 - `MfaPort` — MFA TOTP do Supabase (estado, ativar, confirmar).
 - `StructureApiPort`, `AccessGovernanceApiPort`, `AuditApiPort`, `NotificationsApiPort` (`governance-api.port.ts`).
 - `PeopleApiPort` — `/api/novo-rh/people` e `/api/novo-rh/catalog` (Fase 2).
+- `TimeApiPort` — `/api/novo-rh/time` (Fase 3).
 
 ## Adapters
 
@@ -50,6 +51,7 @@ módulo a usar a base de i18n (`src/i18n`).
 
 - `NovoRhLayout` + `NovoRhHomeView` → `/hr/novo`.
 - `MfaGate` — só abre o Novo RH com sessão `aal2` (TK-3).
+- `time/TimeView` → `/hr/novo/tempo`: Horários (fixos/flexíveis, versões, aplicar a), Feriados (calendários por centro, importar nacionais "a confirmar", confirmar, eliminar com impacto), Férias (configuração, sem limite por omissão), Tempo teórico por colaborador.
 - `people/PeopleListView` → `/hr/novo/pessoas` (lista no âmbito, criar, importar CSV com simulação, exportar); `people/PersonView` → `/hr/novo/pessoas/:id` (Dados com privacidade por campo e motivo nos sensíveis, Contratos, Organização/transferência, Responsáveis, Remuneração, Campos da empresa, Regras pessoais, Documentos); `structure/CatalogSections` (convénios, complementos/benefícios, campos personalizados).
 - `structure/StructureView` → `/hr/novo/estrutura`; `access/AccessView` → `/hr/novo/acessos`; `audit/AuditView` → `/hr/novo/auditoria`; `NotificationsBell` no cabeçalho.
 - `settings/SettingsView` → `/hr/novo/configuracoes`: perfis por área, alterar valor (data de efeito, motivo, impacto se retroativo), alvos, valor por colaborador, histórico + CSV.
