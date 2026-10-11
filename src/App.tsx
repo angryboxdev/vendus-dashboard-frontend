@@ -377,7 +377,7 @@ export default function App() {
                     }
                   />
                   <Route path="/hr/historico" element={<HrAuditLogPage />} />
-                  <Route path="/hr/novo" element={<NovoRhPage />} />
+                  <Route path="/hr/novo/*" element={<NovoRhPage />} />
                   <Route
                     path="/hr/employees/:id"
                     element={<HrEmployeeDetailPage />}

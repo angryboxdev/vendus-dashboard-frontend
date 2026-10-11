@@ -1,6 +1,6 @@
 import { useI18n } from "../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../i18n/i18n.ts";
-import { AlertBanner, PageShell, StatusBadge, SURFACE, type StatusTone } from "../../../../components/ui/index.ts";
+import { AlertBanner, StatusBadge, SURFACE, type StatusTone } from "../../../../components/ui/index.ts";
 import type { PhaseStatus } from "../../domain/entities/roadmap.ts";
 import { ROADMAP, roadmapProgress } from "../../domain/services/roadmap.service.ts";
 
@@ -11,15 +11,15 @@ const STATUS: Record<PhaseStatus, { tone: StatusTone; key: MessageKey }> = {
 };
 
 /**
- * Entrada do "Novo RH" (RH → Novo RH): área separada do RH atual onde se vê
- * o novo modelo a ser construído, fase a fase. Por agora só o Admin a vê.
+ * Novo RH → Visão geral: área separada do RH atual onde se vê o novo modelo
+ * a ser construído, fase a fase. Por agora só o Admin a vê.
  */
 export function NovoRhHomeView() {
   const { t } = useI18n();
   const progress = roadmapProgress(ROADMAP);
 
   return (
-    <PageShell title={t("novoRh.title")} description={t("novoRh.description")} actions={<StatusBadge tone="warning">{t("common.inDevelopment")}</StatusBadge>}>
+    <div className="space-y-4">
       <AlertBanner tone="info" title={t("novoRh.banner.title")}>
         {t("novoRh.banner.body")}
       </AlertBanner>
@@ -64,6 +64,6 @@ export function NovoRhHomeView() {
           })}
         </ol>
       </section>
-    </PageShell>
+    </div>
   );
 }

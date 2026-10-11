@@ -24,7 +24,7 @@ Acompanhar e testar o desenvolvimento novo sem arriscar o RH que está em uso.
 
 ## Technical purpose
 
-Página de entrada e, nas próximas fases, os ecrãs do novo modelo. Só o Admin
+Moldura com separadores (Visão geral | Configurações) e os ecrãs do novo modelo. Só o Admin
 a vê por agora (`/hr/novo` → `"admin"` em `access-ui.service.ts`). Primeiro
 módulo a usar a base de i18n (`src/i18n`).
 
@@ -32,17 +32,25 @@ módulo a usar a base de i18n (`src/i18n`).
 
 - `RoadmapPhase` (`number`, `status`) e `ROADMAP` — estado das fases; atualizar quando uma fase passa o gate.
 - `DataMode` — `real` | `demo`.
+- `settings.ts` — contrato do motor de configurações (definições, perfis, alvos, valores, valor efetivo com origem/herdado, histórico).
+- `settings-format.service.ts` — formatar/converter valores por tipo; chaves de texto por nível e área.
 
 ## Ports
 
-Ainda sem ports: a Fase 0 não tem dados do backend. Os ports (HTTP) entram
-com os primeiros endpoints do Novo RH na Fase 1.
+### Output
+
+- `SettingsApiPort` — `/api/novo-rh/settings` (+ listas de colaboradores e locais para os alvos).
 
 ## Adapters
 
 ### Input
 
-- `NovoRhHomeView` → rota `/hr/novo`.
+- `NovoRhLayout` + `NovoRhHomeView` → `/hr/novo`.
+- `settings/SettingsView` → `/hr/novo/configuracoes`: perfis por área, alterar valor (data de efeito, motivo, impacto se retroativo), alvos, valor por colaborador, histórico + CSV.
+
+### Output
+
+- `HttpSettingsApiAdapter` — usa `apiGetVersioned`/`apiWrite` (`src/lib/api.ts`): ETag lido e enviado em If-Match; Idempotency-Key em cada escrita.
 
 ## Design decisions (ADR summary)
 
@@ -56,4 +64,5 @@ com os primeiros endpoints do Novo RH na Fase 1.
 
 ## Known gaps / open debt
 
+- Departamentos e grupos como alvo chegam com a estrutura organizacional (ticket 04).
 - Seletor de modo ainda só informativo (a organização de demonstração chega depois da Fase 1).
