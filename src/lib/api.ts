@@ -51,6 +51,8 @@ async function request(
   });
   if (!res.ok) {
     const { message, data } = await readErrorBody(res);
+    // Novo RH (TK-4): perfil/estado alterado → as sessões abertas foram revogadas; terminar esta.
+    if (res.status === 401 && (data as { code?: unknown } | undefined)?.code === "SESSION_REVOKED") await supabase.auth.signOut();
     throw new ApiError(message, res.status, data);
   }
   return res;

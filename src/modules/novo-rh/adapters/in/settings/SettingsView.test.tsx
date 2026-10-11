@@ -54,7 +54,7 @@ function setup(over: Partial<SettingsApiPort> = {}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <NovoRhProvider module={{ settings: api }}>
+      <NovoRhProvider module={{ settings: api, mfa: { status: vi.fn(), enroll: vi.fn(), verify: vi.fn() } }}>
         <SettingsView />
       </NovoRhProvider>
     </QueryClientProvider>,

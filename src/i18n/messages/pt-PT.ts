@@ -112,6 +112,18 @@ export const ptPT = {
   "settings.history.before": "Antes",
   "settings.history.after": "Depois",
   "settings.history.reason": "Motivo",
+
+  "mfa.enroll.title": "Ative a autenticação de dois fatores",
+  "mfa.enroll.body": "O Novo RH tem dados pessoais e regras da empresa. Para entrar, além da palavra-passe, use um código da app autenticadora (Google Authenticator, Microsoft Authenticator ou outra).",
+  "mfa.enroll.start": "Ativar agora",
+  "mfa.enroll.qrAlt": "Código QR para a app autenticadora",
+  "mfa.enroll.secret": "Sem câmara? Introduza esta chave na app:",
+  "mfa.verify.title": "Confirme que é você",
+  "mfa.verify.body": "Introduza o código de 6 dígitos que aparece na sua app autenticadora.",
+  "mfa.code": "Código de 6 dígitos",
+  "mfa.confirm": "Confirmar",
+  "mfa.wrongCode": "Código inválido ou expirado. Tente o código atual da app.",
+  "mfa.error": "Não foi possível concluir a verificação",
 } as const;
 
 export type MessageKey = keyof typeof ptPT;

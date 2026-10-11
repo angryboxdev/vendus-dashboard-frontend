@@ -89,6 +89,25 @@ function sessionToUser(session: Session | null): AuthUser | null {
   };
 }
 
+/**
+ * Chama `onIdle` depois de `ms` sem atividade (rato, teclado, toque, scroll).
+ * Devolve a função que desliga o temporizador.
+ */
+// eslint-disable-next-line react-refresh/only-export-components
+export function startIdleTimer(ms: number, onIdle: () => void, target: Pick<Window, "addEventListener" | "removeEventListener"> = window): () => void {
+  const events = ["mousemove", "keydown", "pointerdown", "scroll", "touchstart"] as const;
+  let timer = setTimeout(onIdle, ms);
+  const reset = () => {
+    clearTimeout(timer);
+    timer = setTimeout(onIdle, ms);
+  };
+  for (const e of events) target.addEventListener(e, reset, { passive: true });
+  return () => {
+    clearTimeout(timer);
+    for (const e of events) target.removeEventListener(e, reset);
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -112,6 +131,25 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, [userId]);
+
+  // Fim de sessão por inatividade (Novo RH, configuração security.session.inactivity_minutes).
+  // Só área de gestão: no Portal o colaborador pica o ponto e não deve ter de entrar sempre de novo.
+  const portalOnly = accessState?.userId === userId ? accessState.access.portalOnly : true;
+  useEffect(() => {
+    if (!userId || portalOnly) return;
+    let cancelled = false;
+    let stop: (() => void) | null = null;
+    apiGet<{ inactivityMinutes: number }>("/api/me/session-policy")
+      .catch(() => ({ inactivityMinutes: 30 }))
+      .then(({ inactivityMinutes }) => {
+        if (cancelled) return;
+        stop = startIdleTimer(Math.max(5, inactivityMinutes) * 60_000, () => void supabase.auth.signOut());
+      });
+    return () => {
+      cancelled = true;
+      stop?.();
+    };
+  }, [userId, portalOnly]);
 
   useEffect(() => {
     // Resolve initial session synchronously if cached, then listen for changes
