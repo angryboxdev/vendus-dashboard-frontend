@@ -1,5 +1,20 @@
 import { vi } from "vitest";
 import type { NovoRhModule } from "./novo-rh.module.tsx";
+import type { QueuedPunch } from "./domain/entities/attendance.ts";
+import type { PunchQueueStoragePort } from "./domain/ports/out/attendance-api.port.ts";
+import { PunchQueue } from "./domain/services/attendance.service.ts";
+
+/** Fila offline em memória (testes). */
+export function memoryQueue(): PunchQueueStoragePort & { items: QueuedPunch[] } {
+  const q = {
+    items: [] as QueuedPunch[],
+    load: () => [...q.items],
+    save: (items: QueuedPunch[]) => {
+      q.items = [...items];
+    },
+  };
+  return q;
+}
 
 /** Módulo Novo RH com todas as portas falsas (sobrepor só o que o teste usa). */
 export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule {
@@ -87,6 +102,18 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       endAssignment: vi.fn(),
       theoretical: vi.fn(),
     },
+    attendance: {
+      days: vi.fn(),
+      revise: vi.fn(),
+      corrections: none(),
+      decide: vi.fn(),
+      incidents: none(),
+      resolveIncident: vi.fn(),
+      adjustments: none(),
+      recalculate: vi.fn(),
+    },
+    myClock: { status: vi.fn(), punch: vi.fn(), days: vi.fn(), refuse: vi.fn(), corrections: none(), requestCorrection: vi.fn() },
+    punchQueue: new PunchQueue(memoryQueue(), () => `id-${Math.random().toString(36).slice(2)}`),
     ...over,
   };
 }
