@@ -7,6 +7,7 @@ import { CONTACT_ROLES, type Contact, type ContactRole, type Group, type UnitTyp
 import { groupTree } from "../../../domain/services/structure.service.ts";
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
+import { CatalogSections } from "./CatalogSections.tsx";
 
 const KEY = ["novo-rh", "structure"] as const;
 
@@ -330,6 +331,7 @@ export function StructureView() {
         <Groups />
       </div>
       <Assignments />
+      <CatalogSections />
       <Contacts />
       <Terms />
     </div>

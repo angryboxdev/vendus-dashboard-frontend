@@ -21,7 +21,7 @@ describe("Novo RH — entrada", () => {
     expect(screen.getAllByRole("listitem")).toHaveLength(10);
     expect(screen.getByRole("link", { name: "Configurações" })).toHaveAttribute("href", "/hr/novo/configuracoes");
     expect(screen.getByText("Preparação")).toBeInTheDocument();
-    expect(screen.getByText("1 de 10 fases concluídas")).toBeInTheDocument();
+    expect(screen.getByText("2 de 10 fases concluídas")).toBeInTheDocument();
   });
 
   it("modo Real ativo; Demonstração ainda indisponível", () => {
@@ -39,7 +39,7 @@ describe("Novo RH — entrada", () => {
   });
 
   it("progresso: fase atual é a primeira em curso", () => {
-    expect(roadmapProgress(ROADMAP).current?.number).toBe(1);
+    expect(roadmapProgress(ROADMAP).current?.number).toBe(2);
     expect(roadmapProgress([{ number: 0, status: "done" }, { number: 1, status: "planned" }])).toEqual({ done: 1, total: 2, current: { number: 1, status: "planned" } });
   });
 });

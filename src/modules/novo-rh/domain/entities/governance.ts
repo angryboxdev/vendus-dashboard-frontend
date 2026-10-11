@@ -19,7 +19,8 @@ export interface Group {
   etag: string;
 }
 
-export type UnitType = "department" | "group";
+/** `location` = centro com vigência (transferências). */
+export type UnitType = "department" | "group" | "location";
 
 export interface Assignment {
   id: string;

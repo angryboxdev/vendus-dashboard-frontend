@@ -6,8 +6,9 @@ import type { RoadmapPhase } from "../entities/roadmap.ts";
  */
 export const ROADMAP: RoadmapPhase[] = [
   { number: 0, status: "done" },
-  { number: 1, status: "in_progress" },
-  ...[2, 3, 4, 5, 6, 7, 8, 9].map((number) => ({ number, status: "planned" as const })),
+  { number: 1, status: "done" },
+  { number: 2, status: "in_progress" },
+  ...[3, 4, 5, 6, 7, 8, 9].map((number) => ({ number, status: "planned" as const })),
 ];
 
 export function roadmapProgress(phases: RoadmapPhase[]): { done: number; total: number; current: RoadmapPhase | null } {
