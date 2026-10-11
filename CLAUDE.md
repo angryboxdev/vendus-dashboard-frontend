@@ -64,6 +64,8 @@ padrão novo, abra o `README.md` dele e veja o campo `Status`; sem README ou com
   Utilizadores/Perfis e acesso efetivo para menu e rotas)
 - `employee-portal` (outubro 2026) — Portal do Colaborador (`/portal`, PWA,
   picagem com geolocalização)
+- `novo-rh` (outubro 2026) — RH → Novo RH (`/hr/novo`): o novo modelo de RH
+  da task faseada, separado do RH atual; só Admin. Usa `src/i18n` (pt-PT/es-ES)
 
 ## Stack
 

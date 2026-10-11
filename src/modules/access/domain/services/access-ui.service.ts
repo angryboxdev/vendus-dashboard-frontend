@@ -125,6 +125,8 @@ const PATH_PERMISSIONS: Array<[RegExp, PathPermission]> = [
   [/^\/stock\/contagens/, "stock.counts"],
   [/^\/stock\/planeamento/, "stock.planning"],
   [/^\/stock\/compras-por-rever/, "stock.purchase_reviews"],
+  // Novo RH (em desenvolvimento): só Admin por agora.
+  [/^\/hr\/novo/, "admin"],
   [/^\/hr\/overview/, "hr.overview"],
   [/^\/hr\/people/, "hr.employees"],
   [/^\/hr\/schedules/, "hr.schedules"],
