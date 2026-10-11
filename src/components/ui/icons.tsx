@@ -89,3 +89,9 @@ export const IconHistory = (p: IconProps) => (
     <path d="M3.5 4v4h4M12 8v4.5l3 2" />
   </Svg>
 );
+export const IconBell = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M6 16V11a6 6 0 1112 0v5l1.5 2h-15L6 16z" />
+    <path d="M10 20.5a2 2 0 004 0" />
+  </Svg>
+);

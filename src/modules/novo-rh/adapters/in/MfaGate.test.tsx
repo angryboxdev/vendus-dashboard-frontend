@@ -5,13 +5,14 @@ import { describe, expect, it, vi } from "vitest";
 import type { MfaPort } from "../../domain/ports/out/mfa.port.ts";
 import type { SettingsApiPort } from "../../domain/ports/out/settings-api.port.ts";
 import { NovoRhProvider } from "../../novo-rh.module.tsx";
+import { fakeNovoRhModule } from "../../fake-module.test-utils.ts";
 import { MfaGate } from "./MfaGate.tsx";
 
 function renderGate(mfa: MfaPort) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <NovoRhProvider module={{ settings: {} as SettingsApiPort, mfa }}>
+      <NovoRhProvider module={fakeNovoRhModule({ settings: {} as SettingsApiPort, mfa })}>
         <MfaGate>
           <p>conteúdo protegido</p>
         </MfaGate>

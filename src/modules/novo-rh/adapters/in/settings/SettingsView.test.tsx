@@ -7,6 +7,7 @@ import type { SettingDefinition } from "../../../domain/entities/settings.ts";
 import type { SettingsApiPort } from "../../../domain/ports/out/settings-api.port.ts";
 import { formatSettingValue, parseSettingInput } from "../../../domain/services/settings-format.service.ts";
 import { NovoRhProvider } from "../../../novo-rh.module.tsx";
+import { fakeNovoRhModule } from "../../../fake-module.test-utils.ts";
 import { SettingsView } from "./SettingsView.tsx";
 
 const DEFS: SettingDefinition[] = [
@@ -54,7 +55,7 @@ function setup(over: Partial<SettingsApiPort> = {}) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <NovoRhProvider module={{ settings: api, mfa: { status: vi.fn(), enroll: vi.fn(), verify: vi.fn() } }}>
+      <NovoRhProvider module={fakeNovoRhModule({ settings: api })}>
         <SettingsView />
       </NovoRhProvider>
     </QueryClientProvider>,

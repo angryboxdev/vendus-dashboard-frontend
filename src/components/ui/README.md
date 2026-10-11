@@ -25,7 +25,7 @@ não criar estilos próprios por módulo. Melhorias aqui valem para todo o ERP.
 | `AlertBanner` | Alerta de página — só quando há algo a tratar. |
 | `Drawer` | Painel lateral: cabeçalho fixo, scroll único, rodapé fixo; Esc fecha. |
 | `ui-classes.ts` | `SURFACE`, `FIELD`, `LABEL`, `TABLE`/`THEAD`/`TH`/`TD`/`TR`… para elementos nativos. |
-| `icons.tsx` | `IconPlus`, `IconClose`, `IconCheck`, `IconAlert`, `IconInfo`, `IconCalendar`, `IconClock`, `IconUsers`, `IconDownload`, `IconSearch`, `IconChevron*`, `IconHistory`. |
+| `icons.tsx` | `IconPlus`, `IconClose`, `IconCheck`, `IconAlert`, `IconInfo`, `IconCalendar`, `IconClock`, `IconUsers`, `IconDownload`, `IconSearch`, `IconChevron*`, `IconHistory`, `IconBell`. |
 
 ## Onde já está aplicado
 

@@ -24,7 +24,7 @@ Acompanhar e testar o desenvolvimento novo sem arriscar o RH que está em uso.
 
 ## Technical purpose
 
-Moldura com separadores (Visão geral | Configurações) e os ecrãs do novo modelo. Só o Admin
+Moldura com separadores (Visão geral | Configurações | Estrutura | Acessos | Auditoria), sino de notificações e ecrã de MFA à entrada. Só o Admin
 a vê por agora (`/hr/novo` → `"admin"` em `access-ui.service.ts`). Primeiro
 módulo a usar a base de i18n (`src/i18n`).
 
@@ -40,12 +40,16 @@ módulo a usar a base de i18n (`src/i18n`).
 ### Output
 
 - `SettingsApiPort` — `/api/novo-rh/settings` (+ listas de colaboradores e locais para os alvos).
+- `MfaPort` — MFA TOTP do Supabase (estado, ativar, confirmar).
+- `StructureApiPort`, `AccessGovernanceApiPort`, `AuditApiPort`, `NotificationsApiPort` (`governance-api.port.ts`).
 
 ## Adapters
 
 ### Input
 
 - `NovoRhLayout` + `NovoRhHomeView` → `/hr/novo`.
+- `MfaGate` — só abre o Novo RH com sessão `aal2` (TK-3).
+- `structure/StructureView` → `/hr/novo/estrutura`; `access/AccessView` → `/hr/novo/acessos`; `audit/AuditView` → `/hr/novo/auditoria`; `NotificationsBell` no cabeçalho.
 - `settings/SettingsView` → `/hr/novo/configuracoes`: perfis por área, alterar valor (data de efeito, motivo, impacto se retroativo), alvos, valor por colaborador, histórico + CSV.
 
 ### Output
@@ -64,5 +68,5 @@ módulo a usar a base de i18n (`src/i18n`).
 
 ## Known gaps / open debt
 
-- Departamentos e grupos como alvo chegam com a estrutura organizacional (ticket 04).
+- Alvos de configuração por departamento/grupo ainda desligados no seletor (o backend já os aceita).
 - Seletor de modo ainda só informativo (a organização de demonstração chega depois da Fase 1).
