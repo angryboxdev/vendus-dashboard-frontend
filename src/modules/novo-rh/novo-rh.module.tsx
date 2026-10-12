@@ -53,6 +53,9 @@ import { AnnouncementsView } from "./adapters/in/engagement/AnnouncementsView.ts
 import type { DistributionsApiPort } from "./domain/ports/out/distributions-api.port.ts";
 import { HttpDistributionsApiAdapter } from "./adapters/out/http-distributions-api.adapter.ts";
 import { DocumentsView } from "./adapters/in/documents/DocumentsView.tsx";
+import type { LegalEntitiesApiPort } from "./domain/ports/out/legal-entities-api.port.ts";
+import { HttpLegalEntitiesApiAdapter } from "./adapters/out/http-legal-entities-api.adapter.ts";
+import { LegalEntitiesView } from "./adapters/in/structure/LegalEntitiesView.tsx";
 import { NotificationsView } from "./adapters/in/NotificationsView.tsx";
 import { TransfersView } from "./adapters/in/TransfersView.tsx";
 import { NotFoundView } from "./adapters/in/common/NotFoundView.tsx";
@@ -88,6 +91,7 @@ export interface NovoRhModule {
   periods: PeriodsApiPort;
   announcements: AnnouncementsApiPort;
   distributions: DistributionsApiPort;
+  legalEntities: LegalEntitiesApiPort;
   alerts: AlertsApiPort;
   workspace: WorkspaceApiPort;
   reports: ReportsApiPort;
@@ -163,6 +167,7 @@ export function NovoRhProvider({ children, module: mod, modeStore }: { children:
         periods: new HttpPeriodsApiAdapter(),
         announcements: new HttpAnnouncementsApiAdapter(),
         distributions: new HttpDistributionsApiAdapter(),
+        legalEntities: new HttpLegalEntitiesApiAdapter(),
         alerts: new HttpAlertsApiAdapter(),
         workspace: new HttpWorkspaceApiAdapter(),
         reports: new HttpReportsApiAdapter(),
@@ -224,6 +229,7 @@ function NovoRhRoutes() {
         <Route path="relatorios" element={<ReportsView />} />
         <Route path="configuracoes" element={<SettingsHubView />} />
         <Route path="estrutura" element={<StructureView />} />
+        <Route path="entidades" element={<LegalEntitiesView />} />
         <Route path="acessos" element={mode === "demo" ? <DemoAccessNotice /> : <AccessView />} />
         <Route path="auditoria" element={<AuditView />} />
         <Route path="*" element={<NotFoundView />} />

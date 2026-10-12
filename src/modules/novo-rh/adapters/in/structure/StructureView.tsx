@@ -1,5 +1,6 @@
 import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
 import { AlertBanner, Button, FIELD, IconPlus, LABEL, SECTION_TITLE, SURFACE, TABLE, TD, TH, THEAD, TR } from "../../../../../components/ui/index.ts";
@@ -324,8 +325,12 @@ function Terms() {
 
 /** Novo RH → Estrutura (ticket 08): departamentos, grupos, pertenças, contactos e termos. */
 export function StructureView() {
+  const { t } = useI18n();
   return (
     <div className="space-y-4">
+      <Link to="/hr/novo/entidades" className={`${SURFACE} block p-4 text-sm font-medium text-[#C2410C] hover:bg-[#FDF8F5]`}>
+        {t("le.link")} →
+      </Link>
       <div className="grid gap-4 lg:grid-cols-2">
         <Departments />
         <Groups />
