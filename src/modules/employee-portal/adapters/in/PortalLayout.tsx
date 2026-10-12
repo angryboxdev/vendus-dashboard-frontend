@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { NavLink, Outlet } from "react-router-dom";
+import { NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "../../../../contexts/AuthContext.tsx";
 import { SetPasswordView } from "./SetPasswordView.tsx";
 
@@ -8,8 +8,11 @@ const TABS = [
   { to: "/portal/escala", label: "Escala", end: false },
   { to: "/portal/documentos", label: "Documentos", end: false },
   { to: "/portal/ausencias", label: "Pedidos", end: false },
-  { to: "/portal/perfil", label: "Perfil", end: false },
+  { to: "/portal/mais", label: "Mais", end: false },
 ];
+
+/** Secções abertas a partir de "Mais" (o separador fica ativo nelas). */
+const MORE = ["/portal/mais", "/portal/perfil", "/portal/comunicados", "/portal/tarefas", "/portal/solicitacoes", "/portal/equipa", "/portal/banco-de-horas"];
 
 /** Liga o manifest da PWA e o service worker só no Portal (a área de gestão não é instalável). */
 function usePortalPwa() {
@@ -38,6 +41,7 @@ function usePortalPwa() {
 /** Portal do Colaborador — layout mobile, sem a barra lateral de gestão. */
 export function PortalLayout() {
   const { user } = useAuth();
+  const { pathname } = useLocation();
   usePortalPwa();
 
   return (
@@ -58,7 +62,7 @@ export function PortalLayout() {
                 <NavLink
                   to={t.to}
                   end={t.end}
-                  className={({ isActive }) => `block px-1 py-3 text-center text-xs font-medium ${isActive ? "text-[#ED5C32]" : "text-stone-500"}`}
+                  className={({ isActive }) => `block px-1 py-3 text-center text-xs font-medium ${isActive || (t.to === "/portal/mais" && MORE.includes(pathname)) ? "text-[#ED5C32]" : "text-stone-500"}`}
                 >
                   {t.label}
                 </NavLink>

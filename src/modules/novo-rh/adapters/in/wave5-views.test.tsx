@@ -8,6 +8,7 @@ import { ApiError } from "../../../../lib/api.ts";
 import type { ExportJob } from "../../domain/entities/periods.ts";
 import { describeError, safeInternalLink } from "../../domain/services/errors.service.ts";
 import { pollInterval, transferState } from "../../domain/services/transfers.service.ts";
+import { screenFor, searchScreens } from "../../domain/services/screens.registry.ts";
 import { fakeNovoRhModule } from "../../fake-module.test-utils.ts";
 import { NovoRhProvider, type NovoRhModule } from "../../novo-rh.module.tsx";
 import { ErrorPanel } from "./common/ErrorPanel.tsx";
@@ -36,6 +37,15 @@ function renderWith(m: NovoRhModule, ui: ReactNode, path = "/hr/novo/x") {
 }
 
 describe("Onda 5 — regras", () => {
+  it("FE-002: registo de ecrãs — ecrã do caminho e pesquisa sem acentos", () => {
+    expect(screenFor("/hr/novo")?.label).toBe("novoRh.tab.overview");
+    expect(screenFor("/hr/novo/pessoas/e1")?.label).toBe("novoRh.tab.people");
+    expect(screenFor("/hr/novo/nao-existe")).toBeNull();
+    const label = (s: { label: string }) => ({ "novoRh.tab.transfers": "Transferências", "novoRh.tab.reports": "Relatórios" })[s.label] ?? s.label;
+    expect(searchScreens("transferencias", label).map((s) => s.path)).toEqual(["/hr/novo/transferencias"]);
+    expect(searchScreens("  ", label)).toEqual([]);
+  });
+
   it("só ligações internas (sem redirecionamento aberto)", () => {
     expect(safeInternalLink("/hr/novo/pedidos")).toBe("/hr/novo/pedidos");
     expect(safeInternalLink("//evil.example")).toBeNull();

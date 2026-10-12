@@ -103,6 +103,9 @@ import { PortalDocumentsView } from "./modules/employee-portal/adapters/in/Porta
 import { PortalLeaveView } from "./modules/employee-portal/adapters/in/PortalLeaveView.tsx";
 import { PortalHomeView } from "./modules/employee-portal/adapters/in/PortalHomeView.tsx";
 import { PortalProfileView } from "./modules/employee-portal/adapters/in/PortalProfileView.tsx";
+import { PortalMoreView } from "./modules/employee-portal/adapters/in/PortalMoreView.tsx";
+import { PortalNewsView } from "./modules/employee-portal/adapters/in/PortalNewsView.tsx";
+import { PortalCustomRequestsView, PortalTasksView, PortalTeamView, PortalTimeBankView } from "./modules/employee-portal/adapters/in/PortalWorkViews.tsx";
 
 export default function App() {
   return (
@@ -170,6 +173,12 @@ export default function App() {
         <Route path="documentos" element={<PortalDocumentsView />} />
         <Route path="ausencias" element={<PortalLeaveView />} />
         <Route path="perfil" element={<PortalProfileView />} />
+        <Route path="mais" element={<PortalMoreView />} />
+        <Route path="comunicados" element={<PortalNewsView />} />
+        <Route path="tarefas" element={<PortalTasksView />} />
+        <Route path="solicitacoes" element={<PortalCustomRequestsView />} />
+        <Route path="equipa" element={<PortalTeamView />} />
+        <Route path="banco-de-horas" element={<PortalTimeBankView />} />
         <Route path="*" element={<Navigate to="/portal" replace />} />
       </Route>
 

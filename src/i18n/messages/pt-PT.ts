@@ -1149,6 +1149,9 @@ export const ptPT = {
 
   // Fase 9 — Comunicação, alertas, tarefas e relatórios
   "novoRh.tab.announcements": "Comunicados",
+  "novoRh.tab.legalEntities": "Entidades legais",
+  "novoRh.tab.invitations": "Convites",
+  "novoRh.search": "Ir para…",
   "novoRh.tab.transfers": "Transferências",
   "notifications.viewAll": "Ver todas as notificações",
   "notifications.tab.unread": "Não lidas",
