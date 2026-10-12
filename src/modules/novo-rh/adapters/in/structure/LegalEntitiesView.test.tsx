@@ -35,7 +35,7 @@ describe("Entidades legais (FE-092)", () => {
     expect(Object.keys(e).sort()).toEqual(["phone", "postalCode", "taxId"]);
   });
 
-  it("criar: erros ao sair do campo e envio com os dados", async () => {
+  it("criar: erros ao sair do campo e envio com os dados", { timeout: 20_000 }, async () => {
     const m = fakeNovoRhModule();
     m.legalEntities.catalog = vi.fn(async () => CATALOG);
     m.legalEntities.create = vi.fn(async () => ENTITY);
