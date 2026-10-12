@@ -22,6 +22,9 @@ import type { AttendanceApiPort, MyClockApiPort } from "./domain/ports/out/atten
 import { HttpAttendanceApiAdapter, HttpMyClockApiAdapter, LocalStoragePunchQueue } from "./adapters/out/http-attendance-api.adapter.ts";
 import { PunchQueue } from "./domain/services/attendance.service.ts";
 import { AttendanceView } from "./adapters/in/attendance/AttendanceView.tsx";
+import type { AbsencesApiPort, MyAbsencesApiPort } from "./domain/ports/out/absences-api.port.ts";
+import { HttpAbsencesApiAdapter, HttpMyAbsencesApiAdapter } from "./adapters/out/http-absences-api.adapter.ts";
+import { AbsencesView } from "./adapters/in/absences/AbsencesView.tsx";
 import { NovoRhHomeView } from "./adapters/in/NovoRhHomeView.tsx";
 import { NovoRhLayout } from "./adapters/in/NovoRhLayout.tsx";
 import { SettingsView } from "./adapters/in/settings/SettingsView.tsx";
@@ -39,6 +42,8 @@ export interface NovoRhModule {
   attendance: AttendanceApiPort;
   myClock: MyClockApiPort;
   punchQueue: PunchQueue;
+  absences: AbsencesApiPort;
+  myAbsences: MyAbsencesApiPort;
 }
 
 const NovoRhContext = createContext<NovoRhModule | null>(null);
@@ -62,6 +67,8 @@ export function NovoRhProvider({ children, module: mod }: { children: ReactNode;
         attendance: new HttpAttendanceApiAdapter(),
         myClock: new HttpMyClockApiAdapter(),
         punchQueue: new PunchQueue(new LocalStoragePunchQueue(), () => crypto.randomUUID()),
+        absences: new HttpAbsencesApiAdapter(),
+        myAbsences: new HttpMyAbsencesApiAdapter(),
       },
   );
   return <NovoRhContext.Provider value={value}>{children}</NovoRhContext.Provider>;
@@ -87,6 +94,7 @@ export function NovoRhPage() {
               <Route path="pessoas/:id" element={<PersonView />} />
               <Route path="tempo" element={<TimeView />} />
               <Route path="assiduidade" element={<AttendanceView />} />
+              <Route path="ausencias" element={<AbsencesView />} />
               <Route path="configuracoes" element={<SettingsView />} />
               <Route path="estrutura" element={<StructureView />} />
               <Route path="acessos" element={<AccessView />} />

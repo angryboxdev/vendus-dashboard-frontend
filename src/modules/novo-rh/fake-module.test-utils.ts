@@ -114,6 +114,22 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
     },
     myClock: { status: vi.fn(), punch: vi.fn(), days: vi.fn(), refuse: vi.fn(), corrections: none(), requestCorrection: vi.fn() },
     punchQueue: new PunchQueue(memoryQueue(), () => `id-${Math.random().toString(36).slice(2)}`),
+    absences: {
+      listTypes: none(),
+      createType: vi.fn(),
+      updateType: vi.fn(),
+      archiveType: vi.fn(),
+      listFlows: none(),
+      createFlow: vi.fn(),
+      archiveFlow: vi.fn(),
+      listRequests: none(),
+      assign: vi.fn(),
+      cancel: vi.fn(),
+      balances: none(),
+      adjust: vi.fn(),
+      holidayCompensation: vi.fn(),
+    },
+    myAbsences: { requests: vi.fn(async () => ({ employeeId: "e1", requests: [] })), types: none(), balances: none(), request: vi.fn(), cancel: vi.fn(), approvals: none(), decide: vi.fn() },
     ...over,
   };
 }

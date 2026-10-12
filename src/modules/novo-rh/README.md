@@ -44,6 +44,7 @@ módulo a usar a base de i18n (`src/i18n`).
 - `StructureApiPort`, `AccessGovernanceApiPort`, `AuditApiPort`, `NotificationsApiPort` (`governance-api.port.ts`).
 - `PeopleApiPort` — `/api/novo-rh/people` e `/api/novo-rh/catalog` (Fase 2).
 - `TimeApiPort` — `/api/novo-rh/time` (Fase 3).
+- `AbsencesApiPort` — `/api/novo-rh/absences`; `MyAbsencesApiPort` — `/api/me/absences` e `/api/me/approvals` (Fase 5).
 - `AttendanceApiPort` — `/api/novo-rh/attendance`; `MyClockApiPort` — `/api/me/clock`; `PunchQueueStoragePort` — onde fica a fila offline (Fase 4).
 
 ## Adapters
@@ -52,6 +53,7 @@ módulo a usar a base de i18n (`src/i18n`).
 
 - `NovoRhLayout` + `NovoRhHomeView` → `/hr/novo`.
 - `MfaGate` — só abre o Novo RH com sessão `aal2` (TK-3).
+- `absences/AbsencesView` → `/hr/novo/ausencias`: Para aprovar (caixa do aprovador, nível e escalonamento), Pedidos (filtrar, atribuir, cancelar — aprovada exige motivo), Saldos (movimentos, ajuste com motivo, compensar feriados trabalhados), Tipos (valores seguros, sem valores legais), Fluxos de aprovação (níveis com pessoas/papéis, recurso; nível vazio não grava), As minhas.
 - `attendance/AttendanceView` → `/hr/novo/assiduidade`: Dias (totais do motor, marcações, corrigir com motivo, ajustes, recalcular), Incidentes (corrigido / validar horas / dispensar com comentário), Pedidos de correção (aprovar / recusar com motivo), O meu ponto (picar com fila offline, recusar correções no prazo, pedir correção). O Portal do Colaborador continua no registo atual (ADR-0027 do backend).
 - `time/TimeView` → `/hr/novo/tempo`: Horários (fixos/flexíveis, versões, aplicar a), Feriados (calendários por centro, importar nacionais "a confirmar", confirmar, eliminar com impacto), Férias (configuração, sem limite por omissão), Tempo teórico por colaborador.
 - `people/PeopleListView` → `/hr/novo/pessoas` (lista no âmbito, criar, importar CSV com simulação, exportar); `people/PersonView` → `/hr/novo/pessoas/:id` (Dados com privacidade por campo e motivo nos sensíveis, Contratos, Organização/transferência, Responsáveis, Remuneração, Campos da empresa, Regras pessoais, Documentos); `structure/CatalogSections` (convénios, complementos/benefícios, campos personalizados).
@@ -61,6 +63,7 @@ módulo a usar a base de i18n (`src/i18n`).
 ### Output
 
 - `HttpSettingsApiAdapter` — usa `apiGetVersioned`/`apiWrite` (`src/lib/api.ts`): ETag lido e enviado em If-Match; Idempotency-Key em cada escrita.
+- `HttpAbsencesApiAdapter`, `HttpMyAbsencesApiAdapter`.
 - `HttpAttendanceApiAdapter`, `HttpMyClockApiAdapter` (a marcação usa o `clientEventId` como Idempotency-Key), `LocalStoragePunchQueue` (só ids e tipo; em memória se o navegador não deixar guardar).
 
 ## Design decisions (ADR summary)

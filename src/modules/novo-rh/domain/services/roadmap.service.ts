@@ -10,8 +10,9 @@ export const ROADMAP: RoadmapPhase[] = [
   { number: 2, status: "done" },
   { number: 3, status: "done" },
   { number: 4, status: "done" },
-  { number: 5, status: "in_progress" },
-  ...[6, 7, 8, 9].map((number) => ({ number, status: "planned" as const })),
+  { number: 5, status: "done" },
+  { number: 6, status: "in_progress" },
+  ...[7, 8, 9].map((number) => ({ number, status: "planned" as const })),
 ];
 
 export function roadmapProgress(phases: RoadmapPhase[]): { done: number; total: number; current: RoadmapPhase | null } {
