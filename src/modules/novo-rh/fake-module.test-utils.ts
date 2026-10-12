@@ -130,6 +130,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       holidayCompensation: vi.fn(),
     },
     myAbsences: { requests: vi.fn(async () => ({ employeeId: "e1", requests: [] })), types: none(), balances: none(), request: vi.fn(), cancel: vi.fn(), approvals: none(), decide: vi.fn() },
+    timeBank: { ledger: vi.fn(), sync: vi.fn(), compensate: vi.fn(), adjust: vi.fn(), decideValidation: vi.fn(), listCategories: none(), createCategory: vi.fn(), archiveCategory: vi.fn() },
     ...over,
   };
 }
