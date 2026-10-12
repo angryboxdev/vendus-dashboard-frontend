@@ -60,7 +60,7 @@ describe("Novo RH — entrada", () => {
   });
 
   it("trocar para Demonstração: guarda o modo, mostra a faixa e volta ao Real", async () => {
-    const mod = fakeNovoRhModule({ demo: { status: vi.fn(async () => ({ exists: true, name: "Mezza — Demonstração" })), create: vi.fn() } });
+    const mod = fakeNovoRhModule({ demo: { status: vi.fn(async () => ({ exists: true, name: "Mezza — Demonstração" })), create: vi.fn(), refresh: vi.fn(async () => ({ punches: 12, scenario: false })) } });
     const store = memoryStore();
     render(inLayout(<NovoRhHomeView />, mod, store));
     const demo = await screen.findByRole("radio", { name: "Demonstração" });
@@ -68,6 +68,9 @@ describe("Novo RH — entrada", () => {
     await userEvent.click(demo);
     expect(store.mode).toBe("demo");
     expect(await screen.findByText("Modo Demonstração — dados fictícios")).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole("button", { name: "Atualizar dados fictícios" }));
+    expect(mod.demo.refresh).toHaveBeenCalledTimes(1);
+    expect(await screen.findByText("12 marcações novas.")).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "Voltar ao modo Real" }));
     expect(store.mode).toBe("real");
     expect(screen.queryByText("Modo Demonstração — dados fictícios")).not.toBeInTheDocument();

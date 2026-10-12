@@ -15,6 +15,9 @@ export class HttpDemoApiAdapter implements DemoApiPort {
   async create() {
     return (await apiWrite<DemoStatus>(P, {})).data;
   }
+  async refresh() {
+    return (await apiWrite<{ punches: number; scenario: boolean }>(`${P}/refresh`, {})).data;
+  }
 }
 
 const STORAGE_KEY = "novo-rh.data-mode";

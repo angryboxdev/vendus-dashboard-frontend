@@ -22,6 +22,11 @@ export function DataModeSwitch() {
       setConfirming(false);
     },
   });
+  const refresh = useMutation({
+    mutationFn: () => demo.refresh(),
+    // Os ecrãs do Novo RH voltam a pedir com as marcações novas.
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["novo-rh"] }),
+  });
   const exists = status.data?.exists === true;
   const option = (value: DataMode, label: string, enabled: boolean) => {
     const on = mode === value;
@@ -61,6 +66,17 @@ export function DataModeSwitch() {
           </p>
         )}
       </div>
+      {exists && mode === "demo" && (
+        <div className="flex flex-wrap items-center gap-2">
+          <Button size="sm" onClick={() => refresh.mutate()} disabled={refresh.isPending}>
+            {refresh.isPending ? t("novoRh.mode.refreshing") : t("novoRh.mode.refresh")}
+          </Button>
+          <p className="text-xs text-stone-500">
+            {refresh.data ? t("novoRh.mode.refreshed", { count: refresh.data.punches }) : t("novoRh.mode.refreshHint")}
+          </p>
+          {refresh.isError && <p className="text-xs text-red-700">{refresh.error.message}</p>}
+        </div>
+      )}
       {status.isSuccess && !exists && !confirming && (
         <div className="flex flex-wrap items-center gap-2">
           <p className="text-xs text-stone-500">
