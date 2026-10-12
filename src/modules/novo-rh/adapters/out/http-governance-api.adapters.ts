@@ -117,8 +117,8 @@ export class HttpAuditApiAdapter implements AuditApiPort {
 }
 
 export class HttpNotificationsApiAdapter implements NotificationsApiPort {
-  list() {
-    return apiGet<AppNotification[]>("/api/me/notifications?limit=30");
+  list(options: { unreadOnly?: boolean; limit?: number } = {}) {
+    return apiGet<AppNotification[]>(`/api/me/notifications?limit=${options.limit ?? 30}${options.unreadOnly ? "&unread=1" : ""}`);
   }
   async unreadCount() {
     return (await apiGet<{ count: number }>("/api/me/notifications/unread-count")).count;

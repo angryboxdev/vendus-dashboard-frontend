@@ -33,6 +33,7 @@ export function NovoRhLayout({ children, extraActions }: { children: ReactNode; 
             { to: "/hr/novo/alertas", label: t("novoRh.tab.alerts") },
             { to: "/hr/novo/tarefas", label: t("novoRh.tab.workspace") },
             { to: "/hr/novo/relatorios", label: t("novoRh.tab.reports") },
+            { to: "/hr/novo/transferencias", label: t("novoRh.tab.transfers") },
             { to: "/hr/novo/configuracoes", label: t("novoRh.tab.settings") },
             { to: "/hr/novo/estrutura", label: t("novoRh.tab.structure") },
             { to: "/hr/novo/acessos", label: t("novoRh.tab.access") },

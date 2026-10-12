@@ -66,7 +66,7 @@ export interface AuditApiPort {
 
 /** As minhas notificações. */
 export interface NotificationsApiPort {
-  list(): Promise<AppNotification[]>;
+  list(options?: { unreadOnly?: boolean; limit?: number }): Promise<AppNotification[]>;
   unreadCount(): Promise<number>;
   markRead(id: string): Promise<void>;
   markAllRead(): Promise<void>;

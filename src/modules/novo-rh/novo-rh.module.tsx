@@ -53,6 +53,10 @@ import { AnnouncementsView } from "./adapters/in/engagement/AnnouncementsView.ts
 import type { DistributionsApiPort } from "./domain/ports/out/distributions-api.port.ts";
 import { HttpDistributionsApiAdapter } from "./adapters/out/http-distributions-api.adapter.ts";
 import { DocumentsView } from "./adapters/in/documents/DocumentsView.tsx";
+import { NotificationsView } from "./adapters/in/NotificationsView.tsx";
+import { TransfersView } from "./adapters/in/TransfersView.tsx";
+import { NotFoundView } from "./adapters/in/common/NotFoundView.tsx";
+import { OfflineBanner } from "./adapters/in/common/OfflineBanner.tsx";
 import { AlertsView } from "./adapters/in/engagement/AlertsView.tsx";
 import { WorkspaceView } from "./adapters/in/engagement/WorkspaceView.tsx";
 import { ReportsView } from "./adapters/in/engagement/ReportsView.tsx";
@@ -199,6 +203,7 @@ function NovoRhRoutes() {
   return (
     <div key={mode} className="space-y-4">
       <DemoModeBanner />
+      <OfflineBanner />
       <Routes>
         <Route index element={<NovoRhHomeView />} />
         <Route path="pedidos" element={<InboxView />} />
@@ -212,6 +217,8 @@ function NovoRhRoutes() {
         <Route path="fecho" element={<PeriodsView />} />
         <Route path="comunicados" element={<AnnouncementsView />} />
         <Route path="documentos" element={<DocumentsView />} />
+        <Route path="notificacoes" element={<NotificationsView />} />
+        <Route path="transferencias" element={<TransfersView />} />
         <Route path="alertas" element={<AlertsView />} />
         <Route path="tarefas" element={<WorkspaceView />} />
         <Route path="relatorios" element={<ReportsView />} />
@@ -219,6 +226,7 @@ function NovoRhRoutes() {
         <Route path="estrutura" element={<StructureView />} />
         <Route path="acessos" element={mode === "demo" ? <DemoAccessNotice /> : <AccessView />} />
         <Route path="auditoria" element={<AuditView />} />
+        <Route path="*" element={<NotFoundView />} />
       </Routes>
     </div>
   );

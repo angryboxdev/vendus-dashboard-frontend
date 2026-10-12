@@ -4,6 +4,7 @@ import { Link } from "react-router-dom";
 import { useI18n } from "../../../../i18n/I18nProvider.tsx";
 import { Button, IconBell } from "../../../../components/ui/index.ts";
 import { useNovoRh } from "../../novo-rh.module.tsx";
+import { safeInternalLink } from "../../domain/services/errors.service.ts";
 
 /** As minhas notificações (Novo RH, ticket 10) — botão com contador e lista. */
 export function NotificationsBell() {
@@ -39,14 +40,17 @@ export function NotificationsBell() {
               </button>
             )}
           </div>
+          <Link to="/hr/novo/notificacoes" className="mb-2 block text-xs font-medium text-[#C2410C] hover:underline" onClick={() => setOpen(false)}>
+            {t("notifications.viewAll")}
+          </Link>
           {(list.data ?? []).length === 0 ? (
             <p className="text-sm text-stone-500">{t("notifications.empty")}</p>
           ) : (
             <ul className="max-h-80 space-y-2 overflow-auto">
               {list.data!.map((n) => (
                 <li key={n.id} className={`rounded-lg p-2 text-sm ${n.readAt ? "text-stone-500" : "bg-[#FDF8F5] text-stone-800"}`}>
-                  {n.link ? (
-                    <Link to={n.link} className="font-medium hover:underline" onClick={() => (!n.readAt && read.mutate(n.id), setOpen(false))}>
+                  {safeInternalLink(n.link) ? (
+                    <Link to={safeInternalLink(n.link)!} className="font-medium hover:underline" onClick={() => (!n.readAt && read.mutate(n.id), setOpen(false))}>
                       {n.title}
                     </Link>
                   ) : (

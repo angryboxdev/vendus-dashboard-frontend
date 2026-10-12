@@ -4,7 +4,7 @@ import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
 import { AlertBanner, Button, FIELD, LABEL, SECTION_TITLE, StatusBadge, SURFACE, Tabs, type StatusTone } from "../../../../../components/ui/index.ts";
 import type { PayPeriod, PendingItem } from "../../../domain/entities/periods.ts";
-import { downloadBlob } from "../download.ts";
+import { TransfersView } from "../TransfersView.tsx";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 
 const KEY = ["novo-rh", "periods"];
@@ -28,7 +28,7 @@ export function PeriodsView() {
       />
       {tab === "periods" && <PeriodsPanel />}
       {tab === "reopenings" && <ReopeningsPanel />}
-      {tab === "exports" && <ExportsPanel />}
+      {tab === "exports" && <TransfersView />}
     </div>
   );
 }
@@ -260,39 +260,3 @@ function ReopeningsPanel() {
   );
 }
 
-/** Centro de transferências: as minhas exportações (links de 24 h). */
-function ExportsPanel() {
-  const { t } = useI18n();
-  const { periods } = useNovoRh();
-  const q = useQuery({ queryKey: [...KEY, "exports"], queryFn: () => periods.exports(), refetchInterval: (query) => (query.state.data?.some((j) => j.status === "queued" || j.status === "running") ? 3000 : false) });
-  const dl = useMutation({
-    mutationFn: async (id: string) => {
-      const job = q.data!.find((j) => j.id === id)!;
-      const f = await periods.download(job);
-      downloadBlob(f.blob, f.fileName);
-    },
-  });
-  return (
-    <section className={`${SURFACE} space-y-3 p-4`}>
-      <p className="text-xs text-stone-500">{t("per.exports.hint")}</p>
-      {q.data?.length === 0 && <p className="text-sm text-stone-500">{t("per.exports.none")}</p>}
-      <ul className="space-y-1 text-sm">
-        {(q.data ?? []).map((j) => (
-          <li key={j.id} className="flex flex-wrap items-center gap-2">
-            <span>{t(`per.export.kind.${j.kind}` as MessageKey)}</span>
-            <span className="text-stone-500">{j.createdAt.slice(0, 16).replace("T", " ")}</span>
-            <StatusBadge tone={j.status === "done" ? "success" : j.status === "failed" ? "danger" : "neutral"}>{t(`per.export.status.${j.status}` as MessageKey)}</StatusBadge>
-            {j.status === "done" && j.expiresAt && <span className="text-xs text-stone-500">{t("per.export.expires", { date: j.expiresAt.slice(0, 16).replace("T", " ") })}</span>}
-            {j.status === "failed" && j.error && <span className="text-xs text-red-700">{j.error}</span>}
-            {j.status === "done" && (
-              <Button size="sm" disabled={dl.isPending} onClick={() => dl.mutate(j.id)}>
-                {t("per.export.download")}
-              </Button>
-            )}
-          </li>
-        ))}
-      </ul>
-      {dl.isError && <p className="text-sm text-red-700">{message(dl.error, t("common.error"))}</p>}
-    </section>
-  );
-}
