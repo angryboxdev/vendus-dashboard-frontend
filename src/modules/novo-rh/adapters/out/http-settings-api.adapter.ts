@@ -14,11 +14,17 @@ import type {
   TargetType,
   VersionedProfile,
 } from "../../domain/entities/settings.ts";
+import type { DataMode } from "../../domain/entities/roadmap.ts";
 import type { Option, SettingsApiPort } from "../../domain/ports/out/settings-api.port.ts";
 
 const BASE = "/api/novo-rh/settings";
 
 export class HttpSettingsApiAdapter implements SettingsApiPort {
+  private readonly mode: () => DataMode;
+  constructor(mode: () => DataMode = () => "real") {
+    this.mode = mode;
+  }
+
   listDefinitions() {
     return apiGet<SettingDefinition[]>(`${BASE}/definitions`);
   }
@@ -53,12 +59,17 @@ export class HttpSettingsApiAdapter implements SettingsApiPort {
   downloadHistoryCsv() {
     return apiGetBlob(`${BASE}/history.csv`);
   }
+  // Em Demonstração lê-se do Novo RH (organização fictícia); as rotas antigas são sempre da organização real.
   async listEmployees(): Promise<Option[]> {
+    if (this.mode() === "demo") {
+      const rows = await apiGet<{ id: string; fullName: string }[]>("/api/novo-rh/people?status=active");
+      return rows.map((e) => ({ id: e.id, label: e.fullName }));
+    }
     const res = await apiGet<{ items: { id: string; fullName: string }[] }>("/api/hr/people?status=active&page=1&pageSize=500");
     return res.items.map((e) => ({ id: e.id, label: e.fullName }));
   }
   async listLocations(): Promise<Option[]> {
-    const rows = await apiGet<{ id: string; name: string }[]>("/api/locations");
+    const rows = await apiGet<{ id: string; name: string }[]>(this.mode() === "demo" ? "/api/novo-rh/catalog/locations" : "/api/locations");
     return rows.map((l) => ({ id: l.id, label: l.name }));
   }
 }

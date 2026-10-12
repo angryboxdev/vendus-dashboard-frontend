@@ -4,6 +4,17 @@ import { supabase } from "./supabase";
 export const API_BASE =
   import.meta.env.VITE_API_BASE_URL ?? import.meta.env.VITE_API_URL ?? "";
 
+/**
+ * Cabeçalhos extra por pedido, definidos por um módulo (ex.: o Novo RH em modo
+ * Demonstração junta `X-Novo-RH-Mode: demo` aos seus pedidos). Um de cada vez.
+ */
+type HeaderProvider = (path: string) => Record<string, string>;
+let headerProvider: HeaderProvider | null = null;
+export function setRequestHeaderProvider(provider: HeaderProvider | null): void {
+  headerProvider = provider;
+}
+const extraHeaders = (path: string): Record<string, string> => headerProvider?.(path) ?? {};
+
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
   const token = data.session?.access_token;
@@ -42,7 +53,7 @@ async function request(
 ): Promise<Response> {
   const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
   const authHeaders = await getAuthHeaders();
-  const headers: Record<string, string> = { ...authHeaders, ...options.headers };
+  const headers: Record<string, string> = { ...authHeaders, ...extraHeaders(path), ...options.headers };
   if (options.body != null) headers["Content-Type"] = "application/json";
   const res = await fetch(url, {
     method: options.method,
@@ -146,7 +157,7 @@ export async function apiPostFormData<T>(
   const authHeaders = await getAuthHeaders();
   const res = await fetch(url, {
     method: "POST",
-    headers: authHeaders,
+    headers: { ...authHeaders, ...extraHeaders(path) },
     body: formData,
   });
   if (!res.ok) {
@@ -166,7 +177,7 @@ export async function apiPostFormDataFile(
 ): Promise<{ blob: Blob; fileName: string | null }> {
   const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
   const authHeaders = await getAuthHeaders();
-  const res = await fetch(url, { method: "POST", headers: authHeaders, body: formData });
+  const res = await fetch(url, { method: "POST", headers: { ...authHeaders, ...extraHeaders(path) }, body: formData });
   if (!res.ok) {
     const { message, data } = await readErrorBody(res);
     throw new ApiError(message, res.status, data);

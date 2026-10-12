@@ -1,5 +1,11 @@
-import { createContext, useContext, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { QueryClientContext } from "@tanstack/react-query";
 import { Route, Routes } from "react-router-dom";
+import { setRequestHeaderProvider } from "../../lib/api.ts";
+import { HttpDemoApiAdapter, LocalStorageDataModeStore, novoRhModeHeaders } from "./adapters/out/http-demo-api.adapter.ts";
+import { DemoModeBanner, DemoAccessNotice } from "./adapters/in/DemoMode.tsx";
+import type { DataMode } from "./domain/entities/roadmap.ts";
+import type { DataModeStorePort, DemoApiPort } from "./domain/ports/out/demo-api.port.ts";
 import { I18nProvider } from "../../i18n/I18nProvider.tsx";
 import { HttpSettingsApiAdapter } from "./adapters/out/http-settings-api.adapter.ts";
 import { SupabaseMfaAdapter } from "./adapters/out/supabase-mfa.adapter.ts";
@@ -46,6 +52,7 @@ import { SettingsView } from "./adapters/in/settings/SettingsView.tsx";
 import type { SettingsApiPort } from "./domain/ports/out/settings-api.port.ts";
 
 export interface NovoRhModule {
+  demo: DemoApiPort;
   settings: SettingsApiPort;
   mfa: MfaPort;
   structure: StructureApiPort;
@@ -70,15 +77,54 @@ export interface NovoRhModule {
 
 const NovoRhContext = createContext<NovoRhModule | null>(null);
 
+interface DataModeValue {
+  mode: DataMode;
+  setMode: (mode: DataMode) => void;
+}
+const DataModeContext = createContext<DataModeValue>({ mode: "real", setMode: () => {} });
+
+/** Modo de dados do Novo RH: Real (organização real) ou Demonstração (organização fictícia, ADR-0034). */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useDataMode(): DataModeValue {
+  return useContext(DataModeContext);
+}
+
 /**
  * Composition root do Novo RH: o único sítio que conhece os adapters
  * concretos. Nos testes passa-se `module` com fakes.
+ *
+ * Modo Demonstração: os pedidos a /api/novo-rh/* levam `X-Novo-RH-Mode: demo`
+ * (o backend troca para a organização fictícia). O cabeçalho é ligado já
+ * aqui, de forma síncrona, para que nenhum pedido dos ecrãs saia sem ele.
  */
-export function NovoRhProvider({ children, module: mod }: { children: ReactNode; module?: NovoRhModule }) {
+export function NovoRhProvider({ children, module: mod, modeStore }: { children: ReactNode; module?: NovoRhModule; modeStore?: DataModeStorePort }) {
+  const qc = useContext(QueryClientContext);
+  const [store] = useState<DataModeStorePort>(() => modeStore ?? new LocalStorageDataModeStore());
+  const [mode, setModeState] = useState<DataMode>(() => {
+    const initial = store.load();
+    setRequestHeaderProvider(novoRhModeHeaders(initial));
+    return initial;
+  });
+  useEffect(() => {
+    setRequestHeaderProvider(novoRhModeHeaders(mode));
+    return () => setRequestHeaderProvider(null);
+  }, [mode]);
+  const setMode = useCallback(
+    (next: DataMode) => {
+      store.save(next);
+      setRequestHeaderProvider(novoRhModeHeaders(next));
+      // Nada do outro modo fica em cache: os ecrãs voltam a montar e a pedir.
+      qc?.removeQueries({ queryKey: ["novo-rh"] });
+      setModeState(next);
+    },
+    [store, qc],
+  );
+  const modeValue = useMemo(() => ({ mode, setMode }), [mode, setMode]);
   const [value] = useState<NovoRhModule>(
     () =>
       mod ?? {
-        settings: new HttpSettingsApiAdapter(),
+        demo: new HttpDemoApiAdapter(),
+        settings: new HttpSettingsApiAdapter(() => store.load()),
         mfa: new SupabaseMfaAdapter(),
         structure: new HttpStructureApiAdapter(),
         access: new HttpAccessGovernanceApiAdapter(),
@@ -100,7 +146,11 @@ export function NovoRhProvider({ children, module: mod }: { children: ReactNode;
         reports: new HttpReportsApiAdapter(),
       },
   );
-  return <NovoRhContext.Provider value={value}>{children}</NovoRhContext.Provider>;
+  return (
+    <NovoRhContext.Provider value={value}>
+      <DataModeContext.Provider value={modeValue}>{children}</DataModeContext.Provider>
+    </NovoRhContext.Provider>
+  );
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
@@ -117,28 +167,39 @@ export function NovoRhPage() {
       <NovoRhProvider>
         <NovoRhLayout extraActions={<NotificationsBell />}>
           <MfaGate>
-            <Routes>
-              <Route index element={<NovoRhHomeView />} />
-              <Route path="pessoas" element={<PeopleListView />} />
-              <Route path="pessoas/:id" element={<PersonView />} />
-              <Route path="tempo" element={<TimeView />} />
-              <Route path="assiduidade" element={<AttendanceView />} />
-              <Route path="ausencias" element={<AbsencesView />} />
-              <Route path="banco-de-horas" element={<TimeBankView />} />
-              <Route path="escalas" element={<RostersView />} />
-              <Route path="fecho" element={<PeriodsView />} />
-              <Route path="comunicados" element={<AnnouncementsView />} />
-              <Route path="alertas" element={<AlertsView />} />
-              <Route path="tarefas" element={<WorkspaceView />} />
-              <Route path="relatorios" element={<ReportsView />} />
-              <Route path="configuracoes" element={<SettingsView />} />
-              <Route path="estrutura" element={<StructureView />} />
-              <Route path="acessos" element={<AccessView />} />
-              <Route path="auditoria" element={<AuditView />} />
-            </Routes>
+            <NovoRhRoutes />
           </MfaGate>
         </NovoRhLayout>
       </NovoRhProvider>
     </I18nProvider>
+  );
+}
+
+/** Rotas do Novo RH; voltam a montar ao trocar de modo (sem estado do outro modo). */
+function NovoRhRoutes() {
+  const { mode } = useDataMode();
+  return (
+    <div key={mode} className="space-y-4">
+      <DemoModeBanner />
+      <Routes>
+        <Route index element={<NovoRhHomeView />} />
+        <Route path="pessoas" element={<PeopleListView />} />
+        <Route path="pessoas/:id" element={<PersonView />} />
+        <Route path="tempo" element={<TimeView />} />
+        <Route path="assiduidade" element={<AttendanceView />} />
+        <Route path="ausencias" element={<AbsencesView />} />
+        <Route path="banco-de-horas" element={<TimeBankView />} />
+        <Route path="escalas" element={<RostersView />} />
+        <Route path="fecho" element={<PeriodsView />} />
+        <Route path="comunicados" element={<AnnouncementsView />} />
+        <Route path="alertas" element={<AlertsView />} />
+        <Route path="tarefas" element={<WorkspaceView />} />
+        <Route path="relatorios" element={<ReportsView />} />
+        <Route path="configuracoes" element={<SettingsView />} />
+        <Route path="estrutura" element={<StructureView />} />
+        <Route path="acessos" element={mode === "demo" ? <DemoAccessNotice /> : <AccessView />} />
+        <Route path="auditoria" element={<AuditView />} />
+      </Routes>
+    </div>
   );
 }

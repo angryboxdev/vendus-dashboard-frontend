@@ -17,7 +17,7 @@ Acompanhar e testar o desenvolvimento novo sem arriscar o RH que está em uso.
 
 **Key concepts for the business:**
 
-- **Modo Real / Demonstração** — Real usa a organização verdadeira; Demonstração usa uma organização só com dados fictícios (disponível depois da Fase 1).
+- **Modo Real / Demonstração** — Real usa a organização verdadeira; Demonstração usa uma organização fictícia na mesma base de dados (criada por um Admin no próprio ecrã, alterável à vontade), que nunca aparece no modo Real nem nas outras áreas.
 - **Fase** — etapa da task; só avança depois de aprovada.
 
 ---
@@ -39,7 +39,8 @@ módulo a usar a base de i18n (`src/i18n`).
 
 ### Output
 
-- `SettingsApiPort` — `/api/novo-rh/settings` (+ listas de colaboradores e locais para os alvos).
+- `SettingsApiPort` — `/api/novo-rh/settings` (+ listas de colaboradores e locais para os alvos; em Demonstração vêm de `/api/novo-rh/people` e `/api/novo-rh/catalog/locations`).
+- `DemoApiPort` — `GET/POST /api/novo-rh/demo` (estado / criar a organização fictícia); `DataModeStorePort` — modo escolhido.
 - `MfaPort` — MFA TOTP do Supabase (estado, ativar, confirmar).
 - `StructureApiPort`, `AccessGovernanceApiPort`, `AuditApiPort`, `NotificationsApiPort` (`governance-api.port.ts`).
 - `PeopleApiPort` — `/api/novo-rh/people` e `/api/novo-rh/catalog` (Fase 2).
@@ -55,7 +56,8 @@ módulo a usar a base de i18n (`src/i18n`).
 
 ### Input
 
-- `NovoRhLayout` + `NovoRhHomeView` → `/hr/novo`.
+- `NovoRhLayout` + `NovoRhHomeView` → `/hr/novo` (com `DataModeSwitch`: Real/Demonstração, criar com confirmação).
+- `DemoModeBanner` (faixa em todo o Novo RH em Demonstração, com "Voltar ao modo Real"); `DemoAccessNotice` substitui Acessos em Demonstração.
 - `MfaGate` — só abre o Novo RH com sessão `aal2` (TK-3).
 - `engagement/AnnouncementsView` → `/hr/novo/comunicados` (gerir: criar, publicar, versão nova, leituras por versão; os meus: ler/confirmar); `engagement/AlertsView` → `/hr/novo/alertas` (lista com tratar/fechar com nota, avaliar agora; regras com dono, prazo e escalonamento); `engagement/WorkspaceView` → `/hr/novo/tarefas` (tarefas com checklist, solicitações personalizadas, quem está); `engagement/ReportsView` → `/hr/novo/relatorios` (ver e CSV).
 - `periods/PeriodsView` → `/hr/novo/fecho`: Períodos (criar por organização/centro, verificar pendentes, fechar com exceção explícita, fechos com diferenças, exportar salários/faturação, pedir reabertura), Reaberturas (dupla aprovação), Transferências (ficheiros de 24 h).
@@ -76,6 +78,7 @@ módulo a usar a base de i18n (`src/i18n`).
 - `HttpRostersApiAdapter`.
 - `HttpPeriodsApiAdapter` (o download pede primeiro o link com token).
 - `http-engagement-api.adapters.ts` (comunicados, alertas, espaço de trabalho, relatórios).
+- `HttpDemoApiAdapter`, `LocalStorageDataModeStore`, `novoRhModeHeaders` (cabeçalho `X-Novo-RH-Mode: demo` só nos pedidos `/api/novo-rh/*`, ligado em `src/lib/api.ts` via `setRequestHeaderProvider`).
 - `HttpAttendanceApiAdapter`, `HttpMyClockApiAdapter` (a marcação usa o `clientEventId` como Idempotency-Key), `LocalStoragePunchQueue` (só ids e tipo; em memória se o navegador não deixar guardar).
 
 ## Design decisions (ADR summary)
@@ -83,6 +86,7 @@ módulo a usar a base de i18n (`src/i18n`).
 - Área separada em vez de mexer nos ecrãs atuais (pedido do utilizador, 2026-10-11; ADR-0018 do backend).
 - Visível só para Admin enquanto está em desenvolvimento.
 - Textos via `t()` desde o início (pt-PT agora, es-ES depois — ADR-0023 do backend).
+- Modo Demonstração (ADR-0034 do backend): o browser só envia o cabeçalho; o backend decide a organização fictícia (só Admin). O cabeçalho liga-se de forma síncrona no `NovoRhProvider` e, ao trocar, apagam-se as queries `["novo-rh", …]` e os ecrãs voltam a montar — nada de um modo aparece no outro. Acessos, notificações e "O meu ponto" usam sempre a conta real.
 
 ## How to test
 
@@ -91,4 +95,4 @@ módulo a usar a base de i18n (`src/i18n`).
 ## Known gaps / open debt
 
 - Alvos de configuração por departamento/grupo ainda desligados no seletor (o backend já os aceita).
-- Seletor de modo ainda só informativo (a organização de demonstração chega depois da Fase 1).
+- Não há "recomeçar" a demonstração (registos append-only no backend).

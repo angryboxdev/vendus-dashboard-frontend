@@ -20,6 +20,7 @@ export function memoryQueue(): PunchQueueStoragePort & { items: QueuedPunch[] } 
 export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule {
   const none = () => vi.fn(async () => []);
   return {
+    demo: { status: vi.fn(async () => ({ exists: false, name: null })), create: vi.fn(async () => ({ exists: true, name: "Demo" })) },
     settings: {} as NovoRhModule["settings"],
     mfa: { status: vi.fn(async () => ({ level: "aal2" as const, factorId: "f" })), enroll: vi.fn(), verify: vi.fn() },
     structure: {
