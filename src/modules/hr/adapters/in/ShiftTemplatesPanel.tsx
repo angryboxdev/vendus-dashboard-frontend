@@ -28,8 +28,8 @@ import { useManageShiftTemplates, useShiftTemplates } from "./use-shift-template
 import { ApplyTemplateModal } from "./ApplyTemplateModal.tsx";
 
 const inputCls =
-  "w-full rounded-xl border border-line px-3 py-2 text-sm text-ink outline-none transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30";
-const labelCls = "mb-1.5 block text-sm font-medium text-ink";
+  "w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30";
+const labelCls = "mb-1.5 block text-sm font-medium text-stone-700";
 
 function saveErrorMessage(error: unknown): string | null {
   if (!error) return null;
@@ -48,7 +48,7 @@ function TimelinePreview({ form }: { form: ShiftTemplateForm }) {
   const periods: [string, string][] = [[form.startTime, form.endTime]];
   if (form.kind === "split") periods.push([form.secondStartTime, form.secondEndTime]);
   return (
-    <div className="relative mt-2 h-8 rounded-xl bg-surface-soft" aria-hidden="true">
+    <div className="relative mt-2 h-8 rounded-md bg-stone-100" aria-hidden="true">
       {periods.map(([s, e], i) => {
         const left = toPct(s);
         const end = e <= s ? 100 : toPct(e);
@@ -102,14 +102,14 @@ function ShiftTemplateModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-labelledby="shift-template-title">
       <form onSubmit={handleSubmit} className="flex max-h-[92vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-line-subtle px-6 py-4">
+        <div className="flex items-center justify-between border-b border-stone-100 px-6 py-4">
           <div>
-            <h2 id="shift-template-title" className="text-base font-semibold text-navy-900">
+            <h2 id="shift-template-title" className="text-base font-semibold text-stone-900">
               {title}
             </h2>
-            <p className="text-xs text-ink-secondary">Horário utilizado nas escalas e automatizações.</p>
+            <p className="text-xs text-stone-500">Horário utilizado nas escalas e automatizações.</p>
           </div>
-          <button type="button" onClick={onClose} aria-label="Fechar janela" className="rounded-xl px-2 py-1 text-ink-muted hover:text-ink">
+          <button type="button" onClick={onClose} aria-label="Fechar janela" className="rounded-md px-2 py-1 text-stone-400 hover:text-stone-700">
             ✕
           </button>
         </div>
@@ -132,7 +132,7 @@ function ShiftTemplateModal({
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-ink-secondary">Só organiza a biblioteca — não altera horários nem a geração de turnos.</p>
+            <p className="mt-1 text-xs text-stone-500">Só organiza a biblioteca — não altera horários nem a geração de turnos.</p>
           </div>
           <div>
             <label htmlFor="template-description" className={labelCls}>
@@ -147,11 +147,11 @@ function ShiftTemplateModal({
               {(["direct", "split"] as const).map((kind) => (
                 <label
                   key={kind}
-                  className={`cursor-pointer rounded-xl border px-3 py-2 text-sm ${form.kind === kind ? "border-brand-600 bg-orange-50" : "border-line"}`}
+                  className={`cursor-pointer rounded-lg border px-3 py-2 text-sm ${form.kind === kind ? "border-[#ED5C32] bg-orange-50" : "border-stone-200"}`}
                 >
                   <input type="radio" name="kind" className="mr-2" checked={form.kind === kind} onChange={() => set({ kind })} />
-                  <span className="font-medium text-ink">{SHIFT_TEMPLATE_KIND_LABELS[kind]}</span>
-                  <span className="block pl-5 text-xs text-ink-secondary">{kind === "direct" ? "Um único período de trabalho" : "Dois períodos de trabalho"}</span>
+                  <span className="font-medium text-stone-800">{SHIFT_TEMPLATE_KIND_LABELS[kind]}</span>
+                  <span className="block pl-5 text-xs text-stone-500">{kind === "direct" ? "Um único período de trabalho" : "Dois períodos de trabalho"}</span>
                 </label>
               ))}
             </div>
@@ -212,13 +212,13 @@ function ShiftTemplateModal({
                 className={inputCls}
               />
             </div>
-            <div className="rounded-xl bg-surface-soft px-3 py-2">
-              <p className="text-xs text-ink-secondary">Duração de trabalho</p>
-              <p className="text-sm font-semibold text-ink">{work === null ? "—" : formatMinutes(work)}</p>
+            <div className="rounded-lg bg-stone-50 px-3 py-2">
+              <p className="text-xs text-stone-500">Duração de trabalho</p>
+              <p className="text-sm font-semibold text-stone-800">{work === null ? "—" : formatMinutes(work)}</p>
             </div>
           </div>
           {form.kind === "direct" && form.endTime <= form.startTime && (
-            <p className="text-xs text-ink-secondary">Termina no dia seguinte (turno noturno).</p>
+            <p className="text-xs text-stone-500">Termina no dia seguinte (turno noturno).</p>
           )}
 
           <div>
@@ -233,7 +233,7 @@ function ShiftTemplateModal({
                 </option>
               ))}
             </select>
-            <p className="mt-1 text-xs text-ink-secondary">Se definido, é o local sugerido nas aplicações deste modelo.</p>
+            <p className="mt-1 text-xs text-stone-500">Se definido, é o local sugerido nas aplicações deste modelo.</p>
           </div>
 
           <div>
@@ -253,26 +253,26 @@ function ShiftTemplateModal({
             </div>
           </div>
 
-          <div className="rounded-xl border border-line p-3">
-            <p className="text-xs font-medium text-ink-secondary">Pré-visualização</p>
+          <div className="rounded-xl border border-stone-200 p-3">
+            <p className="text-xs font-medium text-stone-600">Pré-visualização</p>
             <TimelinePreview form={form} />
           </div>
 
-          <p className="rounded-xl bg-sky-50 px-3 py-2 text-xs text-sky-800">
+          <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">
             Alterações futuras neste modelo não modificam os turnos já criados — cada turno guarda uma cópia do horário e do local.
           </p>
 
           {(formError ?? saveErrorMessage(error)) && <p className="text-sm text-red-600">{formError ?? saveErrorMessage(error)}</p>}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-line-subtle px-6 py-3">
-          <button type="button" onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-surface-soft">
+        <div className="flex justify-end gap-2 border-t border-stone-100 px-6 py-3">
+          <button type="button" onClick={onClose} className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">
             Cancelar
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="rounded-xl bg-brand-600 hover:bg-brand-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+            className="rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90 disabled:opacity-50"
           >
             {saving ? "A guardar…" : "Guardar modelo"}
           </button>
@@ -302,7 +302,7 @@ function RowMenu({ template, onEdit, onDuplicate, onToggle }: { template: ShiftT
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
   }, [open]);
-  const item = (label: string, action: () => void, tone = "text-ink") => (
+  const item = (label: string, action: () => void, tone = "text-stone-700") => (
     <button
       type="button"
       role="menuitem"
@@ -310,7 +310,7 @@ function RowMenu({ template, onEdit, onDuplicate, onToggle }: { template: ShiftT
         setOpen(false);
         action();
       }}
-      className={`block w-full px-3 py-2 text-left text-sm hover:bg-surface-soft ${tone}`}
+      className={`block w-full px-3 py-2 text-left text-sm hover:bg-stone-50 ${tone}`}
     >
       {label}
     </button>
@@ -323,12 +323,12 @@ function RowMenu({ template, onEdit, onDuplicate, onToggle }: { template: ShiftT
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="rounded-xl px-2 py-1 text-ink-secondary hover:bg-surface-soft hover:text-ink"
+        className="rounded-md px-2 py-1 text-stone-500 hover:bg-stone-100 hover:text-stone-800"
       >
         ⋮
       </button>
       {open && (
-        <div role="menu" className="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-xl border border-line bg-white py-1 shadow-lg">
+        <div role="menu" className="absolute right-0 z-20 mt-1 w-40 overflow-hidden rounded-lg border border-stone-200 bg-white py-1 shadow-lg">
           {item("Editar", onEdit)}
           {item("Duplicar", onDuplicate)}
           {item(template.active ? "Inativar" : "Ativar", onToggle, template.active ? "text-red-600" : "text-emerald-700")}
@@ -383,21 +383,21 @@ export function ShiftTemplatesPanel({ onReviewDrafts }: { onReviewDrafts?: (rang
   }
 
   const chip = (active: boolean) =>
-    `rounded-full px-3 py-1 text-xs font-medium transition-colors ${active ? "bg-stone-800 text-white" : "bg-surface-soft text-ink-secondary hover:bg-stone-200"}`;
+    `rounded-full px-3 py-1 text-xs font-medium transition-colors ${active ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"}`;
 
   return (
-    <section className="rounded-xl border border-line bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-4 py-3">
+    <section className="rounded-xl border border-[#F5C992]/40 bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-100 px-4 py-3">
         <div>
-          <h2 className="text-base font-semibold text-navy-900">Modelos de turno</h2>
-          <p className="text-xs text-ink-secondary">Horários reutilizáveis, aplicados manualmente ou por automatizações.</p>
+          <h2 className="text-base font-semibold text-stone-900">Modelos de turno</h2>
+          <p className="text-xs text-stone-500">Horários reutilizáveis, aplicados manualmente ou por automatizações.</p>
         </div>
         <div className="flex gap-2">
           {canEdit && templates.some((t) => t.active) && (
             <button
               type="button"
               onClick={() => setApplying(null)}
-              className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-surface-soft"
+              className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
             >
               Aplicar modelo
             </button>
@@ -406,7 +406,7 @@ export function ShiftTemplatesPanel({ onReviewDrafts }: { onReviewDrafts?: (rang
             <button
               type="button"
               onClick={() => open("Novo modelo de turno", null, emptyShiftTemplateForm(group ?? "OTHER"))}
-              className="rounded-xl bg-brand-600 hover:bg-brand-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90"
+              className="rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90"
             >
               Novo modelo
             </button>
@@ -414,7 +414,7 @@ export function ShiftTemplatesPanel({ onReviewDrafts }: { onReviewDrafts?: (rang
         </div>
       </div>
 
-      <div className="space-y-2 border-b border-line-subtle px-4 py-3">
+      <div className="space-y-2 border-b border-stone-100 px-4 py-3">
         <div className="flex flex-wrap items-center gap-2">
           <input
             type="search"
@@ -422,16 +422,16 @@ export function ShiftTemplatesPanel({ onReviewDrafts }: { onReviewDrafts?: (rang
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Pesquisar modelos…"
             aria-label="Pesquisar modelos"
-            className="w-64 rounded-xl border border-line px-3 py-1.5 text-sm outline-none focus:border-brand-500"
+            className="w-64 rounded-lg border border-stone-200 px-3 py-1.5 text-sm outline-none focus:border-[#ED5C32]"
           />
-          <select aria-label="Tipo" value={kind ?? ""} onChange={(e) => setKind((e.target.value || null) as ShiftTemplateKind | null)} className="rounded-xl border border-line px-2 py-1.5 text-sm">
+          <select aria-label="Tipo" value={kind ?? ""} onChange={(e) => setKind((e.target.value || null) as ShiftTemplateKind | null)} className="rounded-lg border border-stone-200 px-2 py-1.5 text-sm">
             {KIND_FILTERS.map(([v, l]) => (
               <option key={l} value={v ?? ""}>
                 Tipo: {l}
               </option>
             ))}
           </select>
-          <select aria-label="Estado" value={status} onChange={(e) => setStatus(e.target.value as "active" | "inactive" | "all")} className="rounded-xl border border-line px-2 py-1.5 text-sm">
+          <select aria-label="Estado" value={status} onChange={(e) => setStatus(e.target.value as "active" | "inactive" | "all")} className="rounded-lg border border-stone-200 px-2 py-1.5 text-sm">
             <option value="active">Estado: Ativos</option>
             <option value="inactive">Estado: Inativos</option>
             <option value="all">Estado: Todos</option>
@@ -449,14 +449,14 @@ export function ShiftTemplatesPanel({ onReviewDrafts }: { onReviewDrafts?: (rang
         </div>
       </div>
 
-      {isLoading && <p className="px-4 py-6 text-sm text-ink-secondary">A carregar…</p>}
+      {isLoading && <p className="px-4 py-6 text-sm text-stone-500">A carregar…</p>}
       {isError && <p className="px-4 py-6 text-sm text-red-600">Não foi possível carregar os modelos.</p>}
       {setActiveMutation.isError && <p className="px-4 pt-2 text-sm text-red-600">Não foi possível alterar o estado do modelo.</p>}
 
       {!isLoading && !isError && (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-brand-50 text-left text-xs font-semibold uppercase tracking-wide text-ink-secondary">
+            <thead className="bg-[#FDF8F5] text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
               <tr>
                 <th className="px-4 py-2">Modelo</th>
                 <th className="px-4 py-2">Horário</th>
@@ -470,7 +470,7 @@ export function ShiftTemplatesPanel({ onReviewDrafts }: { onReviewDrafts?: (rang
             {visible.length === 0 && (
               <tbody>
                 <tr>
-                  <td colSpan={columns} className="px-4 py-6 text-center text-ink-secondary">
+                  <td colSpan={columns} className="px-4 py-6 text-center text-stone-500">
                     {templates.length === 0 ? "Ainda não há modelos de turno." : "Nenhum modelo corresponde aos filtros."}
                   </td>
                 </tr>
@@ -480,15 +480,15 @@ export function ShiftTemplatesPanel({ onReviewDrafts }: { onReviewDrafts?: (rang
               // Com pesquisa, os resultados aparecem sempre (não ficam escondidos em grupos recolhidos).
               const isCollapsed = group === null && search.trim() === "" && collapsed.has(section.group);
               return (
-                <tbody key={section.group} className="divide-y divide-line-subtle">
+                <tbody key={section.group} className="divide-y divide-[#F5C992]/30">
                   {group === null && (
-                    <tr className="bg-surface-soft/60">
+                    <tr className="bg-stone-50/60">
                       <td colSpan={columns} className="px-4 py-1.5">
                         <button
                           type="button"
                           onClick={() => toggleSection(section.group)}
                           aria-expanded={!isCollapsed}
-                          className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-secondary"
+                          className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-stone-600"
                         >
                           <span aria-hidden="true">{isCollapsed ? "▸" : "▾"}</span>
                           {section.label} · {section.templates.length}
@@ -498,22 +498,22 @@ export function ShiftTemplatesPanel({ onReviewDrafts }: { onReviewDrafts?: (rang
                   )}
                   {!isCollapsed &&
                     section.templates.map((t: ShiftTemplate) => (
-                      <tr key={t.id} className={t.active ? "" : "text-ink-muted"}>
+                      <tr key={t.id} className={t.active ? "" : "text-stone-400"}>
                         <td className="px-4 py-2">
                           <div className="flex items-center gap-2">
                             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: t.color ?? "#94A3B8" }} />
                             <div>
-                              <p className="font-medium text-ink">{t.name}</p>
-                              {t.description && <p className="text-xs text-ink-secondary">{t.description}</p>}
+                              <p className="font-medium text-stone-800">{t.name}</p>
+                              {t.description && <p className="text-xs text-stone-500">{t.description}</p>}
                             </div>
                           </div>
                         </td>
                         <td className="whitespace-nowrap px-4 py-2">{templateTimeLabel(t)}</td>
-                        <td className="whitespace-nowrap px-4 py-2 text-ink-secondary">{templateDurationLabel(t)}</td>
-                        <td className="px-4 py-2 text-ink-secondary">{SHIFT_TEMPLATE_KIND_LABELS[t.kind]}</td>
-                        <td className="px-4 py-2 text-ink-secondary">{t.locationId ? (locationName.get(t.locationId) ?? "—") : "—"}</td>
+                        <td className="whitespace-nowrap px-4 py-2 text-stone-600">{templateDurationLabel(t)}</td>
+                        <td className="px-4 py-2 text-stone-600">{SHIFT_TEMPLATE_KIND_LABELS[t.kind]}</td>
+                        <td className="px-4 py-2 text-stone-600">{t.locationId ? (locationName.get(t.locationId) ?? "—") : "—"}</td>
                         <td className="px-4 py-2">
-                          <span className={`text-xs font-medium ${t.active ? "text-emerald-700" : "text-ink-secondary"}`}>{t.active ? "Ativo" : "Inativo"}</span>
+                          <span className={`text-xs font-medium ${t.active ? "text-emerald-700" : "text-stone-500"}`}>{t.active ? "Ativo" : "Inativo"}</span>
                         </td>
                         <td className="whitespace-nowrap px-4 py-2 text-right">
                           {canEdit && (
@@ -523,7 +523,7 @@ export function ShiftTemplatesPanel({ onReviewDrafts }: { onReviewDrafts?: (rang
                                   type="button"
                                   onClick={() => setApplying(t.id)}
                                   aria-label={`Aplicar ${t.name}`}
-                                  className="rounded-xl border border-brand-500/40 px-3 py-1 text-xs font-medium text-brand-600 hover:bg-brand-50"
+                                  className="rounded-md border border-[#ED5C32]/40 px-3 py-1 text-xs font-medium text-[#ED5C32] hover:bg-[#FEF3EC]"
                                 >
                                   Aplicar
                                 </button>

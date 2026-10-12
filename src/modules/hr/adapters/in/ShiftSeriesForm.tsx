@@ -13,7 +13,7 @@ import {
 } from "../../domain/entities/schedule.ts";
 
 const inputCls =
-  "w-full rounded-xl border border-line px-2.5 py-1.5 text-sm text-ink outline-none transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30";
+  "w-full rounded-lg border border-stone-200 px-2.5 py-1.5 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30";
 
 const WEEKDAYS: Weekday[] = [0, 1, 2, 3, 4, 5, 6];
 
@@ -228,14 +228,14 @@ export function ShiftSeriesForm({
   const submitting = createMutation.isPending;
 
   return (
-    <div className="space-y-4 rounded-xl border border-line bg-brand-50/60 p-3">
+    <div className="space-y-4 rounded-lg border border-[#F5C992]/50 bg-[#FFFBF6] p-3">
       <div>
-        <p className="mb-2 text-sm font-medium text-ink">Horários da semana</p>
+        <p className="mb-2 text-sm font-medium text-stone-700">Horários da semana</p>
         <div className="space-y-3">
           {rules.map((r, idx) => {
             const usedElsewhere = ruleWeekdaysUsedElsewhere(rules, r.id);
             return (
-              <div key={r.id} className="rounded-xl border border-line bg-white p-2.5">
+              <div key={r.id} className="rounded-md border border-stone-200 bg-white p-2.5">
                 <div className="mb-2 flex flex-wrap gap-1">
                   {WEEKDAYS.map((w) => {
                     const active = r.weekdays.includes(w);
@@ -249,10 +249,10 @@ export function ShiftSeriesForm({
                         title={disabled ? "Já usado noutro horário desta semana" : undefined}
                         className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
                           active
-                            ? "border-brand-600 bg-brand-600 text-white"
+                            ? "border-[#ED5C32] bg-[#ED5C32] text-white"
                             : disabled
-                              ? "border-line-subtle bg-surface-soft text-stone-300"
-                              : "border-line text-ink-secondary hover:bg-surface-soft"
+                              ? "border-stone-100 bg-stone-50 text-stone-300"
+                              : "border-stone-300 text-stone-600 hover:bg-stone-50"
                         }`}
                       >
                         {WEEKDAY_LABELS[w]}
@@ -263,7 +263,7 @@ export function ShiftSeriesForm({
                     <button
                       type="button"
                       onClick={() => removeRule(r.id)}
-                      className="ml-auto text-xs text-ink-muted hover:text-red-600"
+                      className="ml-auto text-xs text-stone-400 hover:text-red-600"
                     >
                       Remover
                     </button>
@@ -271,23 +271,23 @@ export function ShiftSeriesForm({
                 </div>
 
                 <div className="flex flex-wrap items-center gap-2">
-                  <div className="flex rounded-xl border border-line bg-surface-soft p-0.5 text-xs">
+                  <div className="flex rounded-md border border-stone-200 bg-stone-50 p-0.5 text-xs">
                     <button
                       type="button"
                       onClick={() => updateRule(r.id, { kind: "direct" })}
-                      className={`rounded px-2 py-1 ${r.kind === "direct" ? "bg-white shadow-sm" : "text-ink-secondary"}`}
+                      className={`rounded px-2 py-1 ${r.kind === "direct" ? "bg-white shadow-sm" : "text-stone-500"}`}
                     >
                       Turno direto
                     </button>
                     <button
                       type="button"
                       onClick={() => updateRule(r.id, { kind: "split" })}
-                      className={`rounded px-2 py-1 ${r.kind === "split" ? "bg-white shadow-sm" : "text-ink-secondary"}`}
+                      className={`rounded px-2 py-1 ${r.kind === "split" ? "bg-white shadow-sm" : "text-stone-500"}`}
                     >
                       Turno repartido
                     </button>
                   </div>
-                  {r.endsNextDay && <span className="text-xs text-ink-secondary">Termina no dia seguinte (+1 dia)</span>}
+                  {r.endsNextDay && <span className="text-xs text-stone-500">Termina no dia seguinte (+1 dia)</span>}
                 </div>
 
                 <div className="mt-2 grid grid-cols-2 gap-2">
@@ -303,18 +303,18 @@ export function ShiftSeriesForm({
                 {validateRule(r) && r.weekdays.length > 0 && (
                   <p className="mt-1 text-[11px] text-red-600">{validateRule(r)}</p>
                 )}
-                <p className="mt-1 text-[11px] text-ink-muted">Horário {idx + 1}</p>
+                <p className="mt-1 text-[11px] text-stone-400">Horário {idx + 1}</p>
               </div>
             );
           })}
         </div>
-        <button type="button" onClick={addRule} className="mt-2 text-xs font-medium text-brand-600 hover:underline">
+        <button type="button" onClick={addRule} className="mt-2 text-xs font-medium text-[#ED5C32] hover:underline">
           + Adicionar outro horário
         </button>
       </div>
 
       <div>
-        <p className="mb-1.5 text-sm font-medium text-ink">Repetição</p>
+        <p className="mb-1.5 text-sm font-medium text-stone-700">Repetição</p>
         <div className="flex flex-wrap items-center gap-2">
           <select
             value={repeatKind}
@@ -322,7 +322,7 @@ export function ShiftSeriesForm({
               setRepeatKind(e.target.value as typeof repeatKind);
               markDirty();
             }}
-            className="rounded-xl border border-line px-2 py-1.5 text-sm"
+            className="rounded-md border border-stone-300 px-2 py-1.5 text-sm"
           >
             <option value="none">Só esta semana</option>
             <option value="weeks">Por semanas</option>
@@ -338,8 +338,8 @@ export function ShiftSeriesForm({
                     setWeeksValue(String(n));
                     markDirty();
                   }}
-                  className={`rounded-xl border px-2 py-1 text-xs ${
-                    weeksValue === String(n) ? "border-brand-600 bg-brand-600/10 text-brand-600" : "border-line text-ink-secondary"
+                  className={`rounded-md border px-2 py-1 text-xs ${
+                    weeksValue === String(n) ? "border-[#ED5C32] bg-[#ED5C32]/10 text-[#ED5C32]" : "border-stone-300 text-stone-600"
                   }`}
                 >
                   {n} sem.
@@ -354,7 +354,7 @@ export function ShiftSeriesForm({
                   setWeeksValue(e.target.value);
                   markDirty();
                 }}
-                className="w-16 rounded-xl border border-line px-2 py-1 text-sm"
+                className="w-16 rounded-md border border-stone-300 px-2 py-1 text-sm"
               />
             </>
           )}
@@ -366,14 +366,14 @@ export function ShiftSeriesForm({
                 setUntilDateValue(e.target.value);
                 markDirty();
               }}
-              className="rounded-xl border border-line px-2 py-1.5 text-sm"
+              className="rounded-md border border-stone-300 px-2 py-1.5 text-sm"
             />
           )}
         </div>
       </div>
 
       <div>
-        <label className="mb-1 block text-sm font-medium text-ink">Notas (opcional)</label>
+        <label className="mb-1 block text-sm font-medium text-stone-700">Notas (opcional)</label>
         <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={`${inputCls} resize-none`} />
       </div>
 
@@ -382,12 +382,12 @@ export function ShiftSeriesForm({
           type="button"
           onClick={handlePreview}
           disabled={previewMutation.isPending}
-          className="rounded-xl border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-surface-soft disabled:opacity-50"
+          className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
         >
           {previewMutation.isPending ? "A calcular…" : "Pré-visualizar"}
         </button>
         {preview && (
-          <span className="text-xs text-ink-secondary">
+          <span className="text-xs text-stone-500">
             {preview.availableCount} disponíveis
             {preview.conflictCount > 0 && ` · ${preview.conflictCount} conflito(s)`}
             {preview.skippedCount > 0 && ` · ${preview.skippedCount} ignorado(s) (férias/feriado)`}
@@ -396,17 +396,17 @@ export function ShiftSeriesForm({
       </div>
 
       {preview && (
-        <div className="max-h-48 overflow-y-auto rounded-xl border border-line-subtle">
+        <div className="max-h-48 overflow-y-auto rounded-md border border-stone-100">
           <ul className="divide-y divide-stone-50 text-xs">
             {preview.occurrences.map((o) => (
               <li key={o.workDate} className="flex items-center gap-2 px-2 py-1">
                 <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT[o.status]}`} />
-                <span className="w-24 shrink-0 text-ink-secondary">{o.workDate}</span>
-                <span className="text-ink-secondary">
+                <span className="w-24 shrink-0 text-stone-600">{o.workDate}</span>
+                <span className="text-stone-500">
                   {o.segments.map((s) => `${s.startTime}–${s.endTime}`).join(" + ")}
                   {o.endsNextDay && " (+1 dia)"}
                 </span>
-                <span className="ml-auto text-ink-muted">{STATUS_LABELS[o.status]}</span>
+                <span className="ml-auto text-stone-400">{STATUS_LABELS[o.status]}</span>
               </li>
             ))}
           </ul>
@@ -414,7 +414,7 @@ export function ShiftSeriesForm({
       )}
 
       {preview && preview.conflictCount > 0 && (
-        <label className="flex items-center gap-2 text-xs text-ink-secondary">
+        <label className="flex items-center gap-2 text-xs text-stone-600">
           <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
           Criar também os {preview.conflictCount} turno(s) em conflito
         </label>
@@ -422,11 +422,11 @@ export function ShiftSeriesForm({
 
       {formError && <p className="text-xs text-red-600">{formError}</p>}
 
-      <div className="flex gap-2 border-t border-line-subtle pt-3">
+      <div className="flex gap-2 border-t border-stone-100 pt-3">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink-secondary hover:bg-surface-soft"
+          className="flex-1 rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
         >
           Cancelar
         </button>
@@ -434,7 +434,7 @@ export function ShiftSeriesForm({
           type="button"
           disabled={submitting || !preview}
           onClick={() => handleCreate(false)}
-          className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-surface-soft disabled:opacity-50"
+          className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
         >
           Guardar rascunho
         </button>
@@ -442,7 +442,7 @@ export function ShiftSeriesForm({
           type="button"
           disabled={submitting || !preview || totalToCreate === 0}
           onClick={() => handleCreate(true)}
-          className="flex-1 rounded-xl bg-brand-600 hover:bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+          className="flex-1 rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
         >
           {submitting ? "A criar…" : `Criar ${totalToCreate} turno(s)`}
         </button>

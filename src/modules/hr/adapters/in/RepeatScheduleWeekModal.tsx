@@ -10,7 +10,7 @@ import {
 } from "../../domain/entities/schedule.ts";
 
 const inputCls =
-  "w-full rounded-xl border border-line px-2.5 py-1.5 text-sm text-ink outline-none transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30";
+  "w-full rounded-lg border border-stone-200 px-2.5 py-1.5 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30";
 
 const WEEKDAYS: Weekday[] = [0, 1, 2, 3, 4, 5, 6];
 
@@ -162,29 +162,29 @@ export function RepeatScheduleWeekModal({
     : [];
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/30 p-4 motion-safe:animate-motion-fade" role="dialog" aria-modal="true">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2.5xl border border-line bg-surface-card shadow-pop motion-safe:animate-motion-pop-in">
-        <div className="flex items-center justify-between border-b border-line-subtle px-5 py-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-xl border border-stone-200 bg-white shadow-xl">
+        <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
           <div>
-            <h2 className="text-base font-semibold text-navy-900">{rotate ? "Alternar turnos entre colaboradores" : "Repetir escala"}</h2>
-            <p className="text-sm text-ink-secondary">Semana de origem: {sourceWeekLabel}</p>
+            <h2 className="text-base font-semibold text-stone-900">{rotate ? "Alternar turnos entre colaboradores" : "Repetir escala"}</h2>
+            <p className="text-sm text-stone-500">Semana de origem: {sourceWeekLabel}</p>
           </div>
-          <button onClick={onClose} className="text-ink-muted hover:text-ink-secondary">
+          <button onClick={onClose} className="text-stone-400 hover:text-stone-600">
             ✕
           </button>
         </div>
 
         <div className="space-y-4 px-5 py-4">
           <div>
-            <p className="mb-1.5 text-sm font-medium text-ink">O que repetir</p>
-            <div className="flex rounded-xl border border-line bg-surface-soft p-0.5 text-sm">
+            <p className="mb-1.5 text-sm font-medium text-stone-700">O que repetir</p>
+            <div className="flex rounded-md border border-stone-200 bg-stone-50 p-0.5 text-sm">
               <button
                 type="button"
                 onClick={() => {
                   setMode("whole_week");
                   markDirty();
                 }}
-                className={`flex-1 rounded px-2 py-1.5 ${mode === "whole_week" ? "bg-white shadow-sm" : "text-ink-secondary"}`}
+                className={`flex-1 rounded px-2 py-1.5 ${mode === "whole_week" ? "bg-white shadow-sm" : "text-stone-500"}`}
               >
                 Semana inteira
               </button>
@@ -194,7 +194,7 @@ export function RepeatScheduleWeekModal({
                   setMode("selected_days");
                   markDirty();
                 }}
-                className={`flex-1 rounded px-2 py-1.5 ${mode === "selected_days" ? "bg-white shadow-sm" : "text-ink-secondary"}`}
+                className={`flex-1 rounded px-2 py-1.5 ${mode === "selected_days" ? "bg-white shadow-sm" : "text-stone-500"}`}
               >
                 Dias selecionados
               </button>
@@ -207,7 +207,7 @@ export function RepeatScheduleWeekModal({
                     type="button"
                     onClick={() => toggleWeekday(w)}
                     className={`rounded-full border px-2 py-0.5 text-[11px] font-medium ${
-                      selectedWeekdays.includes(w) ? "border-brand-600 bg-brand-600 text-white" : "border-line text-ink-secondary hover:bg-surface-soft"
+                      selectedWeekdays.includes(w) ? "border-[#ED5C32] bg-[#ED5C32] text-white" : "border-stone-300 text-stone-600 hover:bg-stone-50"
                     }`}
                   >
                     {WEEKDAY_LABELS[w]}
@@ -218,13 +218,13 @@ export function RepeatScheduleWeekModal({
           </div>
 
           <div>
-            <p className="mb-1.5 text-sm font-medium text-ink">Colaboradores encontrados na semana</p>
+            <p className="mb-1.5 text-sm font-medium text-stone-700">Colaboradores encontrados na semana</p>
             {sourceWeekEmployees.length === 0 ? (
-              <p className="text-xs text-ink-muted">Sem turnos nesta semana para repetir.</p>
+              <p className="text-xs text-stone-400">Sem turnos nesta semana para repetir.</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {sourceWeekEmployees.map((emp) => (
-                  <label key={emp.id} className="flex items-center gap-1.5 rounded-xl border border-line px-2 py-1 text-xs text-ink">
+                  <label key={emp.id} className="flex items-center gap-1.5 rounded-md border border-stone-200 px-2 py-1 text-xs text-stone-700">
                     <input type="checkbox" checked={selectedEmployeeIds.has(emp.id)} onChange={() => toggleEmployee(emp.id)} />
                     {emp.fullName}
                   </label>
@@ -233,8 +233,8 @@ export function RepeatScheduleWeekModal({
             )}
           </div>
 
-          <div className="rounded-xl border border-line bg-surface-soft p-2.5">
-            <label className="flex items-center gap-2 text-sm text-ink">
+          <div className="rounded-md border border-stone-200 bg-stone-50 p-2.5">
+            <label className="flex items-center gap-2 text-sm text-stone-700">
               <input
                 type="checkbox"
                 checked={rotate}
@@ -245,19 +245,19 @@ export function RepeatScheduleWeekModal({
               />
               Alternar turnos entre os colaboradores selecionados
             </label>
-            <p className="mt-1 text-xs text-ink-secondary">
+            <p className="mt-1 text-xs text-stone-500">
               Em vez de cada colaborador repetir o seu próprio horário, cada um passa a receber o horário do seguinte
               na lista (com 2 colaboradores, é uma troca simples).
             </p>
             {rotate && rotationOrder.length >= 2 && (
-              <p className="mt-1 text-xs font-medium text-ink-secondary">
+              <p className="mt-1 text-xs font-medium text-stone-600">
                 Ordem da troca: {rotationOrder.map((id) => nameById.get(id) ?? id).join(" → ")} → {nameById.get(rotationOrder[0]!) ?? rotationOrder[0]}
               </p>
             )}
           </div>
 
           <div>
-            <p className="mb-1.5 text-sm font-medium text-ink">Repetir por</p>
+            <p className="mb-1.5 text-sm font-medium text-stone-700">Repetir por</p>
             <div className="flex flex-wrap items-center gap-2">
               <select
                 value={repeatKind}
@@ -265,7 +265,7 @@ export function RepeatScheduleWeekModal({
                   setRepeatKind(e.target.value as typeof repeatKind);
                   markDirty();
                 }}
-                className="rounded-xl border border-line px-2 py-1.5 text-sm"
+                className="rounded-md border border-stone-300 px-2 py-1.5 text-sm"
               >
                 <option value="weeks">Por semanas</option>
                 <option value="until_date">Até uma data</option>
@@ -280,8 +280,8 @@ export function RepeatScheduleWeekModal({
                         setWeeksValue(String(n));
                         markDirty();
                       }}
-                      className={`rounded-xl border px-2 py-1 text-xs ${
-                        weeksValue === String(n) ? "border-brand-600 bg-brand-600/10 text-brand-600" : "border-line text-ink-secondary"
+                      className={`rounded-md border px-2 py-1 text-xs ${
+                        weeksValue === String(n) ? "border-[#ED5C32] bg-[#ED5C32]/10 text-[#ED5C32]" : "border-stone-300 text-stone-600"
                       }`}
                     >
                       {n} sem.
@@ -296,7 +296,7 @@ export function RepeatScheduleWeekModal({
                       setWeeksValue(e.target.value);
                       markDirty();
                     }}
-                    className="w-16 rounded-xl border border-line px-2 py-1 text-sm"
+                    className="w-16 rounded-md border border-stone-300 px-2 py-1 text-sm"
                   />
                 </>
               )}
@@ -308,14 +308,14 @@ export function RepeatScheduleWeekModal({
                     setUntilDateValue(e.target.value);
                     markDirty();
                   }}
-                  className="rounded-xl border border-line px-2 py-1.5 text-sm"
+                  className="rounded-md border border-stone-300 px-2 py-1.5 text-sm"
                 />
               )}
             </div>
           </div>
 
           <div>
-            <label className="mb-1 block text-sm font-medium text-ink">Notas (opcional)</label>
+            <label className="mb-1 block text-sm font-medium text-stone-700">Notas (opcional)</label>
             <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={2} className={`${inputCls} resize-none`} />
           </div>
 
@@ -324,12 +324,12 @@ export function RepeatScheduleWeekModal({
               type="button"
               onClick={handlePreview}
               disabled={previewMutation.isPending}
-              className="rounded-xl border border-line px-3 py-1.5 text-sm font-medium text-ink hover:bg-surface-soft disabled:opacity-50"
+              className="rounded-md border border-stone-300 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
             >
               {previewMutation.isPending ? "A calcular…" : "Pré-visualizar"}
             </button>
             {preview && (
-              <span className="text-xs text-ink-secondary">
+              <span className="text-xs text-stone-500">
                 Destino: {preview.targetStartDate} → {preview.targetEndDate} · {preview.totalAvailable} previstos
                 {preview.totalConflicts > 0 && ` · ${preview.totalConflicts} conflito(s)`}
                 {preview.totalSkipped > 0 && ` · ${preview.totalSkipped} ignorado(s) (férias/feriado)`}
@@ -341,24 +341,24 @@ export function RepeatScheduleWeekModal({
             <div className="space-y-2">
               <div className="flex flex-wrap gap-2">
                 {preview.employees.map((emp) => (
-                  <span key={emp.employeeId} className="rounded-xl border border-line bg-surface-soft px-2 py-1 text-xs text-ink-secondary">
+                  <span key={emp.employeeId} className="rounded-md border border-stone-200 bg-stone-50 px-2 py-1 text-xs text-stone-600">
                     {emp.employeeName}: {emp.availableCount} disponível(eis)
                     {emp.conflictCount > 0 && ` · ${emp.conflictCount} conflito(s)`}
                   </span>
                 ))}
               </div>
-              <div className="max-h-48 overflow-y-auto rounded-xl border border-line-subtle">
+              <div className="max-h-48 overflow-y-auto rounded-md border border-stone-100">
                 <ul className="divide-y divide-stone-50 text-xs">
                   {allOccurrences.map((o, i) => (
                     <li key={i} className="flex items-center gap-2 px-2 py-1">
                       <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${STATUS_DOT[o.status]}`} />
-                      <span className="w-24 shrink-0 text-ink-secondary">{o.workDate}</span>
-                      <span className="w-28 shrink-0 truncate text-ink-secondary">{o.employeeName}</span>
-                      <span className="text-ink-secondary">
+                      <span className="w-24 shrink-0 text-stone-600">{o.workDate}</span>
+                      <span className="w-28 shrink-0 truncate text-stone-600">{o.employeeName}</span>
+                      <span className="text-stone-500">
                         {o.segments.map((s) => `${s.startTime}–${s.endTime}`).join(" + ")}
                         {o.endsNextDay && " (+1 dia)"}
                       </span>
-                      <span className="ml-auto shrink-0 text-ink-muted">{STATUS_LABELS[o.status]}</span>
+                      <span className="ml-auto shrink-0 text-stone-400">{STATUS_LABELS[o.status]}</span>
                     </li>
                   ))}
                 </ul>
@@ -367,7 +367,7 @@ export function RepeatScheduleWeekModal({
           )}
 
           {preview && preview.totalConflicts > 0 && (
-            <label className="flex items-center gap-2 text-xs text-ink-secondary">
+            <label className="flex items-center gap-2 text-xs text-stone-600">
               <input type="checkbox" checked={force} onChange={(e) => setForce(e.target.checked)} />
               Criar também os {preview.totalConflicts} turno(s) em conflito
             </label>
@@ -376,24 +376,24 @@ export function RepeatScheduleWeekModal({
           {formError && <p className="text-xs text-red-600">{formError}</p>}
         </div>
 
-        <div className="flex gap-2 border-t border-line-subtle px-5 py-4">
+        <div className="flex gap-2 border-t border-stone-100 px-5 py-4">
           <button
             onClick={onClose}
-            className="flex-1 rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink-secondary hover:bg-surface-soft"
+            className="flex-1 rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
           >
             Cancelar
           </button>
           <button
             onClick={() => handleCreate(false)}
             disabled={submitting || !preview}
-            className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-surface-soft disabled:opacity-50"
+            className="rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
           >
             Guardar rascunho
           </button>
           <button
             onClick={() => handleCreate(true)}
             disabled={submitting || !preview || totalToCreate === 0}
-            className="flex-1 rounded-xl bg-brand-600 hover:bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            className="flex-1 rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
           >
             {submitting ? "A criar…" : `Criar ${totalToCreate} turno(s)`}
           </button>

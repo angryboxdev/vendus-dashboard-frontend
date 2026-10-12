@@ -11,9 +11,6 @@ import { ShiftRotationsPanel } from "./ShiftRotationsPanel.tsx";
 import { ShiftTemplatesPanel } from "./ShiftTemplatesPanel.tsx";
 import { ShiftAutomationsPanel } from "./ShiftAutomationsPanel.tsx";
 import { useManageShiftAutomations } from "./use-shift-automations.ts";
-import { useShiftTemplates } from "./use-shift-templates.ts";
-import { usePositions } from "./use-positions.ts";
-import { ApplyTemplateModal } from "./ApplyTemplateModal.tsx";
 import { OCCURRENCE_STATUS_LABELS } from "../../domain/entities/shift-template.ts";
 import { ClearShiftsModal } from "./ClearShiftsModal.tsx";
 import { PublishReviewModal } from "./PublishReviewModal.tsx";
@@ -21,20 +18,22 @@ import { draftSummary } from "../../domain/services/publish-review.service.ts";
 import { RepeatScheduleWeekModal } from "./RepeatScheduleWeekModal.tsx";
 import { DaySummaryPanel } from "./DaySummaryPanel.tsx";
 import { exportGeneralSchedulePdf } from "../../../../utils/schedulePdf.ts";
-import type { HrEmployee, HrLeaveRequest, HrWorkShift } from "../../../../pages/hr/hr.types.ts";
+import { LEAVE_TYPE_CALENDAR_COLORS, type HrEmployee, type HrLeaveRequest, type HrWorkShift } from "../../../../pages/hr/hr.types.ts";
 import type { EmployeeListRow } from "../../domain/entities/employee.ts";
-import type { CreateWorkShiftPayload, LeaveOverviewEntry, UpdateWorkShiftPayload, UpdateWorkShiftSeriesScopePayload, WorkShift } from "../../domain/entities/schedule.ts";
-import { boardRows, shiftVisualType, SHIFT_TYPE_LABELS, templateVisualType, weekRangeLabel } from "../../domain/services/schedule-board.service.ts";
-import { Button, IconCalendar, IconChevronLeft, IconClose, IconCopy, IconLayers, IconPlus, IconRepeat, IconStore, IconTrash, IconUserPlus, IconUsers, PageHeader, SearchableSelect } from "../../../../components/ui/index.ts";
-import { ScheduleToolbar, type ViewMode, type VisualMode } from "./schedules/ScheduleToolbar.tsx";
-import { WeekBoard, type BoardMode } from "./schedules/WeekBoard.tsx";
-import { MonthBoard } from "./schedules/MonthBoard.tsx";
-import { AssignShiftsPanel } from "./schedules/AssignShiftsPanel.tsx";
+import {
+  LEAVE_TYPE_LABELS,
+  type CreateWorkShiftPayload,
+  type LeaveOverviewEntry,
+  type UpdateWorkShiftPayload,
+  type UpdateWorkShiftSeriesScopePayload,
+  type WorkShift,
+} from "../../domain/entities/schedule.ts";
 
+type ViewMode = "month" | "week";
 type Tab = "calendar" | "templates";
+type VisualMode = "detailed" | "compact";
 
 const VISUAL_MODE_STORAGE_PREFIX = "hr-schedules-visual-mode-";
-const VIEW_MODE_STORAGE_KEY = "hr-schedules-view-mode";
 
 /** Preferência de visualização (Detalhada/Compacta) guardada separadamente por Mês/Semana. */
 function loadVisualMode(viewMode: ViewMode): VisualMode {
@@ -53,50 +52,41 @@ function saveVisualMode(viewMode: ViewMode, visualMode: VisualMode): void {
   }
 }
 
-/** Vista Semana (por omissão, como no Design System) ou Mês — a última escolha fica guardada. */
-function loadViewMode(): ViewMode {
-  try {
-    return localStorage.getItem(VIEW_MODE_STORAGE_KEY) === "month" ? "month" : "week";
-  } catch {
-    return "week";
-  }
-}
+const ATTENDANCE_DOT: Record<string, string> = {
+  worked_as_planned: "bg-emerald-500",
+  late: "bg-amber-500",
+  left_early: "bg-amber-500",
+  cancelled: "bg-stone-400",
+};
 
-function saveViewMode(mode: ViewMode): void {
-  try {
-    localStorage.setItem(VIEW_MODE_STORAGE_KEY, mode);
-  } catch {
-    // sem persistência — não faz mal.
-  }
-}
+const LEAVE_DOT: Record<string, string> = {
+  vacation: "bg-sky-400",
+  sick_leave: "bg-red-400",
+  justified: "bg-violet-400",
+  unjustified: "bg-red-600",
+  compensatory: "bg-teal-400",
+};
 
-const BOARD_MODE_STORAGE_KEY = "hr-schedules-board-mode";
+/** Mesma paleta pastel do calendário legacy (`src/pages/hr/HrCalendarPage.tsx`) — mantém a identificação visual por colaborador ao migrar para este módulo. */
+const PALETTE = [
+  { bg: "bg-indigo-100", border: "border-indigo-200", text: "text-indigo-900" },
+  { bg: "bg-violet-100", border: "border-violet-200", text: "text-violet-900" },
+  { bg: "bg-pink-100", border: "border-pink-200", text: "text-pink-900" },
+  { bg: "bg-teal-100", border: "border-teal-200", text: "text-teal-900" },
+  { bg: "bg-orange-100", border: "border-orange-200", text: "text-orange-900" },
+  { bg: "bg-sky-100", border: "border-sky-200", text: "text-sky-900" },
+  { bg: "bg-rose-100", border: "border-rose-200", text: "text-rose-900" },
+  { bg: "bg-lime-100", border: "border-lime-200", text: "text-lime-900" },
+] as const;
+type PaletteEntry = (typeof PALETTE)[number];
 
-/** Agrupamento da grelha (Funcionários, Turnos, Cargos) — lembrado entre visitas. */
-function loadBoardMode(): BoardMode {
-  try {
-    const v = localStorage.getItem(BOARD_MODE_STORAGE_KEY);
-    return v === "shifts" || v === "positions" ? v : "employees";
-  } catch {
-    return "employees";
-  }
-}
-
-function saveBoardMode(mode: BoardMode): void {
-  try {
-    localStorage.setItem(BOARD_MODE_STORAGE_KEY, mode);
-  } catch {
-    // sem persistência — não faz mal.
-  }
+/** Primeiro + segundo nome (ex: "Carlos Andrés Silva Pereira" → "Carlos Andrés") — cabe sempre no retângulo, ao contrário do nome completo. */
+function shortName(fullName: string): string {
+  return fullName.split(" ").slice(0, 2).join(" ");
 }
 
 function toYmd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-}
-
-/** Primeiro + segundo nome (ex: "Carlos Andrés Silva Pereira" → "Carlos Andrés"). */
-function shortName(fullName: string): string {
-  return fullName.split(" ").slice(0, 2).join(" ");
 }
 
 // ── Adaptação mínima para reutilizar o export PDF legacy (src/utils/schedulePdf.ts)
@@ -177,11 +167,16 @@ function mondayOf(d: Date): Date {
   return copy;
 }
 
-/**
- * Escalas & Turnos (Design System Mezza): cabeçalho, local, barra única,
- * grelha semanal por colaborador (ou mês) e o painel "Atribuir turnos".
- * Mesmas funções de antes — só muda a apresentação.
- */
+function formatDayHeader(d: Date): string {
+  return d.toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit" });
+}
+
+/** Bolinha de estado: presença conferida (verde/âmbar) tem prioridade; sem conferência, laranja = pendente (mesmo com o turno publicado; é a mesma semântica "Pendente"/"Conferido" do calendário legacy). */
+function shiftDotClass(shift: WorkShift): string {
+  if (shift.attendanceStatus) return ATTENDANCE_DOT[shift.attendanceStatus] ?? "bg-stone-400";
+  return "bg-amber-500";
+}
+
 export function SchedulesView() {
   const { api } = useHrModule();
   const qc = useQueryClient();
@@ -190,14 +185,8 @@ export function SchedulesView() {
   const [searchParams] = useSearchParams();
 
   const [tab, setTab] = useState<Tab>("calendar");
-  const [viewMode, setViewMode] = useState<ViewMode>(loadViewMode);
-  const [visualMode, setVisualMode] = useState<VisualMode>(() => loadVisualMode(loadViewMode()));
-  const [boardMode, setBoardMode] = useState<BoardMode>(loadBoardMode);
-  const [sort, setSort] = useState<"asc" | "desc">("asc");
-  const [search, setSearch] = useState("");
-  const [showUnassigned, setShowUnassigned] = useState(false);
-  const [assignOpen, setAssignOpen] = useState(() => typeof window === "undefined" || !window.matchMedia || window.matchMedia("(min-width: 1280px)").matches);
-  const [applyTemplate, setApplyTemplate] = useState<{ templateId: string | null } | null>(null);
+  const [viewMode, setViewMode] = useState<ViewMode>("month");
+  const [visualMode, setVisualMode] = useState<VisualMode>(() => loadVisualMode("month"));
   const [selectedSummaryDate, setSelectedSummaryDate] = useState<string | null>(null);
   const [anchorDate, setAnchorDate] = useState(() => {
     const dateParam = searchParams.get("date");
@@ -208,12 +197,13 @@ export function SchedulesView() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [editingShift, setEditingShift] = useState<WorkShift | null>(null);
   const [newShiftDate, setNewShiftDate] = useState<string | null>(null);
-  const [newShiftEmployee, setNewShiftEmployee] = useState<string | null>(null);
   const [showBaseSchedule, setShowBaseSchedule] = useState(false);
   const [showClearShifts, setShowClearShifts] = useState(false);
   /** "Rever e publicar": revisão dos rascunhos antes de publicar (nunca publica direto). null = fechado. */
   const [review, setReview] = useState<{ from: string; to: string } | null>(null);
   const [publishedCount, setPublishedCount] = useState<number | null>(null);
+  /** Faixa "Alertas da escala" (faltas, sobreposições, automatizações) — recolhida por omissão. */
+  const [alertsOpen, setAlertsOpen] = useState(false);
   /** Aviso logo a seguir a criar turnos em rascunho (ainda não visíveis para os colaboradores). */
   const [draftNotice, setDraftNotice] = useState<{ count: number; range: { from: string; to: string } } | null>(null);
   function noticeDrafts(created: Pick<WorkShift, "status" | "workDate">[]) {
@@ -227,26 +217,37 @@ export function SchedulesView() {
     setPublishedCount(null);
     setReview(range);
   }
+  const [showWeekActionsMenu, setShowWeekActionsMenu] = useState(false);
   const [repeatModalWeeks, setRepeatModalWeeks] = useState<number | null>(null);
   const [repeatModalRotate, setRepeatModalRotate] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
-  const rangeStart = useMemo(() => (viewMode === "month" ? startOfMonthGrid(anchorDate.getFullYear(), anchorDate.getMonth()) : mondayOf(anchorDate)), [anchorDate, viewMode]);
+  const rangeStart = useMemo(
+    () =>
+      viewMode === "month"
+        ? startOfMonthGrid(anchorDate.getFullYear(), anchorDate.getMonth())
+        : mondayOf(anchorDate),
+    [anchorDate, viewMode],
+  );
   const gridDays = viewMode === "month" ? 42 : 7;
-  const days = useMemo(() => Array.from({ length: gridDays }, (_, i) => new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + i)), [rangeStart, gridDays]);
+  const days = useMemo(
+    () => Array.from({ length: gridDays }, (_, i) => new Date(rangeStart.getFullYear(), rangeStart.getMonth(), rangeStart.getDate() + i)),
+    [rangeStart, gridDays],
+  );
   const from = toYmd(days[0]!);
   const to = toYmd(days[days.length - 1]!);
-  const todayYmd = toYmd(new Date());
 
   const { data: employeesResult } = useQuery({
     queryKey: ["hr-people-list", { status: "active", page: 1, pageSize: 200 }],
     queryFn: () => api.listEmployees({ status: "active", page: 1, pageSize: 200 }),
   });
   const employees = useMemo(() => employeesResult?.items ?? [], [employeesResult]);
-  const { data: positions = [] } = usePositions();
-  const positionNameById = useMemo(() => new Map(positions.map((p) => [p.id, p.name])), [positions]);
-  const { data: templates = [], isLoading: templatesLoading } = useShiftTemplates();
-  const templateById = useMemo(() => new Map(templates.map((t) => [t.id, t])), [templates]);
+
+  const colorById = useMemo(() => {
+    const map = new Map<string, PaletteEntry>();
+    employees.forEach((e, i) => map.set(e.id, PALETTE[i % PALETTE.length]!));
+    return map;
+  }, [employees]);
 
   const { data: shifts = [], isLoading } = useQuery({
     queryKey: ["hr-work-shifts", from, to, employeeFilter, locationFilter],
@@ -321,25 +322,16 @@ export function SchedulesView() {
   });
   const [undoToast, setUndoToast] = useState<UndoToastState | null>(null);
   const closeUndoToast = useCallback(() => setUndoToast(null), []);
-  /** Último "desfazer" disponível (fica para o botão da barra mesmo depois de o aviso fechar). */
-  const [lastUndoToken, setLastUndoToken] = useState<string | null>(null);
   const offerUndo = (count: number, undoToken: string | null) => {
-    if (undoToken && count > 0) {
-      setUndoToast({ message: `${count} turno(s) apagado(s).`, undoToken });
-      setLastUndoToken(undoToken);
-    }
+    if (undoToken && count > 0) setUndoToast({ message: `${count} turno(s) apagado(s).`, undoToken });
   };
   const undoMutation = useMutation({
     mutationFn: (token: string) => api.undoDeleteWorkShifts(token),
     onSuccess: ({ restoredCount }) => {
       invalidate();
-      setLastUndoToken(null);
       setUndoToast({ message: `${restoredCount} turno(s) reposto(s).`, undoToken: null });
     },
-    onError: (e: unknown) => {
-      setLastUndoToken(null);
-      setUndoToast({ message: e instanceof Error ? e.message : "Não foi possível desfazer.", undoToken: null });
-    },
+    onError: (e: unknown) => setUndoToast({ message: e instanceof Error ? e.message : "Não foi possível desfazer.", undoToken: null }),
   });
   const deleteMutation = useMutation({
     mutationFn: (id: string) => api.deleteWorkShift(id),
@@ -352,7 +344,8 @@ export function SchedulesView() {
   });
   const { dismissMutation } = useManageShiftAutomations();
   const updateSeriesScopeMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: string; payload: UpdateWorkShiftSeriesScopePayload }) => api.updateWorkShiftSeriesScope(id, payload),
+    mutationFn: ({ id, payload }: { id: string; payload: UpdateWorkShiftSeriesScopePayload }) =>
+      api.updateWorkShiftSeriesScope(id, payload),
     onSuccess: () => {
       invalidate();
       setDrawerOpen(false);
@@ -378,7 +371,11 @@ export function SchedulesView() {
 
   const shiftsByDate = useMemo(() => {
     const map = new Map<string, WorkShift[]>();
-    for (const s of shifts) map.set(s.workDate, [...(map.get(s.workDate) ?? []), s]);
+    for (const s of shifts) {
+      const list = map.get(s.workDate) ?? [];
+      list.push(s);
+      map.set(s.workDate, list);
+    }
     return map;
   }, [shifts]);
 
@@ -389,7 +386,9 @@ export function SchedulesView() {
       const end = new Date(l.endDate + "T00:00:00");
       while (d <= end) {
         const key = toYmd(d);
-        map.set(key, [...(map.get(key) ?? []), l]);
+        const list = map.get(key) ?? [];
+        list.push(l);
+        map.set(key, list);
         d = new Date(d.getFullYear(), d.getMonth(), d.getDate() + 1);
       }
     }
@@ -406,30 +405,8 @@ export function SchedulesView() {
   }, [alerts]);
   const locationNameById = useMemo(() => new Map(locations.map((l) => [l.id, l.name])), [locations]);
 
-  /** Rótulo do cartão: nome do modelo quando o turno veio de um; senão o tipo (Manhã, Tarde, Noturno, Partido). */
-  const shiftLabel = useCallback(
-    (s: WorkShift) => {
-      const t = s.templateId ? templateById.get(s.templateId) : undefined;
-      if (t) return { title: t.name, tone: templateVisualType(t) };
-      const tone = shiftVisualType(s);
-      return { title: SHIFT_TYPE_LABELS[tone], tone };
-    },
-    [templateById],
-  );
-
-  const board = useMemo(
-    () =>
-      boardRows(
-        employees.filter((e) => !employeeFilter || e.id === employeeFilter),
-        shifts,
-        { search, showUnassigned, sort, locationId: locationFilter },
-      ),
-    [employees, employeeFilter, shifts, search, showUnassigned, sort, locationFilter],
-  );
-
   function switchViewMode(mode: ViewMode) {
     setViewMode(mode);
-    saveViewMode(mode);
     setVisualMode(loadVisualMode(mode));
     setSelectedSummaryDate(null);
   }
@@ -464,10 +441,9 @@ export function SchedulesView() {
     });
   }
 
-  function openNewShift(dateYmd?: string, employeeId: string | null = null) {
+  function openNewShift(dateYmd?: string) {
     setEditingShift(null);
-    setNewShiftDate(dateYmd ?? todayYmd);
-    setNewShiftEmployee(employeeId);
+    setNewShiftDate(dateYmd ?? toYmd(new Date()));
     setFormError(null);
     setDrawerOpen(true);
   }
@@ -478,322 +454,504 @@ export function SchedulesView() {
     setDrawerOpen(true);
   }
 
-  const periodLabel = viewMode === "month" ? anchorDate.toLocaleDateString("pt-PT", { month: "long", year: "numeric" }) : weekRangeLabel(days[0]!, days[6]!);
-  const weekOnlyHint = "Disponível na vista Semana";
-  const needEmployeeHint = "Escolha um colaborador nos filtros";
+  const periodLabel =
+    viewMode === "month"
+      ? anchorDate.toLocaleDateString("pt-PT", { month: "long", year: "numeric" })
+      : `Semana ${formatDayHeader(days[0]!)}–${formatDayHeader(days[6]!)}`;
 
-  const alertsContent =
-    alerts && otherAlertsCount > 0 ? (
-      <div className="max-h-96 space-y-2 overflow-y-auto p-1.5">
-        <p className="px-1 text-xs font-medium text-ink-secondary">
-          {[
-            alerts.coverageGaps.length > 0 && `${alerts.coverageGaps.length} sem cobertura`,
-            alerts.overlaps.length > 0 && `${alerts.overlaps.length} ${alerts.overlaps.length === 1 ? "sobreposição" : "sobreposições"}`,
-            (alerts.automationIssues ?? []).length > 0 && `${(alerts.automationIssues ?? []).length} das automatizações`,
-          ]
-            .filter(Boolean)
-            .join(" · ")}
-        </p>
-        {alerts.coverageGaps.map((g, i) => (
-          <div key={`gap-${i}`} className="rounded-xl border border-red-100 bg-red-50/50 p-2.5 text-xs">
-            <p className="font-semibold text-red-700">Falta cobertura</p>
-            <p className="text-ink">
-              {g.employeeName} · {g.workDate}
-            </p>
-            <button onClick={() => openNewShift(g.workDate)} className="mt-1 font-medium text-brand-600 hover:underline">
-              Atribuir turno →
-            </button>
-          </div>
-        ))}
-        {alerts.overlaps.map((o, i) => (
-          <div key={`overlap-${i}`} className="rounded-xl border border-amber-100 bg-amber-50/50 p-2.5 text-xs">
-            <p className="font-semibold text-amber-800">Conflito de sobreposição</p>
-            <p className="text-ink">
-              {o.employeeName} · {o.workDate}
-            </p>
-          </div>
-        ))}
-        {(alerts.automationIssues ?? []).map((issue) => (
-          <div key={issue.id} className="rounded-xl border border-line bg-surface-soft/60 p-2.5 text-xs">
-            <p className="font-semibold text-navy-900">Automatização não criou o turno</p>
-            <p className="text-ink">
-              {issue.employeeName} · {issue.workDate}
-            </p>
-            <p className="text-ink-secondary">
-              {issue.automationName} — {issue.status === "inactive_template" ? "Modelo inativo" : OCCURRENCE_STATUS_LABELS[issue.status].label}
-            </p>
-            <div className="mt-1 flex gap-3">
-              <button onClick={() => openNewShift(issue.workDate)} className="font-medium text-brand-600 hover:underline">
-                Resolver na escala →
-              </button>
-              <button onClick={() => dismissMutation.mutate(issue.id)} disabled={dismissMutation.isPending} className="text-ink-secondary hover:underline disabled:opacity-50">
-                Dispensar
-              </button>
-            </div>
-          </div>
-        ))}
-      </div>
-    ) : (
-      <p className="px-3 py-4 text-sm text-ink-secondary">Sem alertas nesta {viewMode === "week" ? "semana" : "vista"}.</p>
-    );
-
-  const pending = alerts?.pendingPublishCount ?? 0;
-  const summary = (
-    <>
-      <span className="flex items-center gap-2">
-        <IconUsers size={16} className="text-brand-600" />
-        {viewMode === "week" ? (
-          <>
-            <span>{board.assigned} pessoas atribuídas</span>
-            <span aria-hidden="true">•</span>
-            <button type="button" onClick={() => setShowUnassigned((v) => !v)} className="hover:text-navy-900 hover:underline" aria-pressed={showUnassigned}>
-              {board.hidden} {showUnassigned ? "sem turnos (visíveis)" : "ocultos"}
-            </button>
-          </>
-        ) : (
-          <span>{new Set(shifts.map((s) => s.employeeId)).size} pessoas com turnos neste mês</span>
-        )}
-      </span>
-      <span className="flex flex-wrap items-center gap-3">
-        {draftNotice && (
-          <span role="status" className="flex items-center gap-2 text-sm text-navy-900 motion-safe:animate-motion-fade">
-            {draftNotice.count} turno(s) criado(s) em rascunho
-            <button type="button" onClick={() => openReview(draftNotice.range)} className="font-medium text-brand-600 hover:underline">
-              Rever e publicar
-            </button>
-            <button type="button" onClick={() => setDraftNotice(null)} aria-label="Fechar aviso" className="text-ink-muted hover:text-navy-900">
-              <IconClose size={14} />
-            </button>
-          </span>
-        )}
-        {publishedCount !== null && (
-          <span role="status" className="text-sm text-emerald-700 motion-safe:animate-motion-fade">
-            {publishedCount} turno(s) publicado(s) — já visíveis para os colaboradores.
-          </span>
-        )}
-        {pending > 0 && alerts?.pendingPublishRange ? (
-          <button
-            type="button"
-            onClick={() => openReview(alerts.pendingPublishRange!)}
-            aria-label={`${pending} turnos em rascunho — rever e publicar`}
-            className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-100"
-          >
-            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" /> {pending} {pending === 1 ? "turno por publicar" : "turnos por publicar"}
-          </button>
-        ) : shifts.length > 0 ? (
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-800">
-            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" /> Planeamento publicado
-          </span>
-        ) : null}
-      </span>
-    </>
-  );
-
-  if (tab === "templates") {
-    return (
-      <div className="min-h-screen bg-surface-app">
-        <div className="mx-auto max-w-[1600px] space-y-6 px-4 py-6 sm:px-8">
-          <PageHeader breadcrumb={["RH", "Escalas", "Modelos & Automatizações"]} title="Modelos & Automatizações" description="Modelos de turno reutilizáveis e automatizações da escala." />
-          <Button icon={<IconChevronLeft size={16} />} onClick={() => setTab("calendar")}>
-            Voltar à escala
-          </Button>
-          <div className="space-y-4 motion-safe:animate-motion-fade-up">
-            {/* RH 2.0: Modelos de turno (ticket 01); as rotações passam a automatizações no ticket 04. */}
-            <ShiftTemplatesPanel onReviewDrafts={(range) => openReview(range)} />
-            <ShiftAutomationsPanel />
-            <ShiftRotationsPanel />
-          </div>
-        </div>
-        {review && (
-          <PublishReviewModal
-            range={review}
-            locationId={locationFilter || undefined}
-            locationName={(id) => locationNameById.get(id) ?? "—"}
-            onClose={() => setReview(null)}
-            onPublished={(count) => {
-              invalidate();
-              setReview(null);
-              setDraftNotice(null);
-              setPublishedCount(count);
-              setTab("calendar");
-            }}
-          />
-        )}
-        <PageFooter />
-      </div>
-    );
-  }
-
-  const locationOptions = locations.filter((l) => l.isActive !== false).map((l) => ({ id: l.id, label: l.name }));
 
   return (
-    <div className="min-h-screen bg-surface-app">
-      <div className="mx-auto max-w-[1920px] space-y-6 px-4 py-6 sm:pl-6 sm:pr-4">
-          <PageHeader breadcrumb={["RH", "Escalas"]} title="Escalas & Turnos" description="Planeie e acompanhe os turnos da equipa." />
-
-          <div className="motion-safe:animate-motion-fade-up [animation-delay:30ms]">
-            <SearchableSelect
-              label="Local"
-              icon={<IconStore size={20} />}
-              // Com um só local, mostra-o (o filtro fica vazio = esse local).
-              value={hasMultipleLocations ? locationFilter : (locationOptions[0]?.id ?? "")}
-              options={locationOptions}
-              onChange={setLocationFilter}
-              allLabel={hasMultipleLocations ? "Todas as lojas" : undefined}
-              disabled={!hasMultipleLocations}
-              triggerClassName="h-12 min-w-[246px]"
-            />
+    <div className="min-h-screen bg-[#FAF6F3]">
+      <div className="border-b border-[#F5C992]/40 bg-white px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-xl font-bold text-stone-900">Escalas & Turnos</h1>
+            <p className="mt-0.5 text-sm text-stone-500">Planeamento, edição e rotações de turnos</p>
           </div>
-
-          <ScheduleToolbar
-            mode={boardMode}
-            onMode={(m) => {
-              setBoardMode(m);
-              saveBoardMode(m);
-            }}
-            viewMode={viewMode}
-            onViewMode={switchViewMode}
-            visualMode={visualMode}
-            onVisualMode={(mode) => {
-              setVisualMode(mode);
-              saveVisualMode(viewMode, mode);
-              if (mode === "detailed") setSelectedSummaryDate(null);
-            }}
-            periodLabel={periodLabel}
-            onToday={goToday}
-            onPrev={goPrev}
-            onNext={goNext}
-            search={search}
-            onSearch={setSearch}
-            employees={employees.map((e) => ({ id: e.id, label: e.fullName }))}
-            employeeFilter={employeeFilter}
-            onEmployeeFilter={setEmployeeFilter}
-            canUndo={lastUndoToken !== null}
-            undoing={undoMutation.isPending}
-            onUndo={() => lastUndoToken && undoMutation.mutate(lastUndoToken)}
-            onApplyTemplate={() => setApplyTemplate({ templateId: null })}
-            onExportPdf={handleExportPdf}
-            weekActions={[
-              {
-                label: "Repetir escala",
-                icon: <IconRepeat size={16} />,
-                disabled: viewMode !== "week",
-                hint: weekOnlyHint,
-                onSelect: () => {
-                  setRepeatModalRotate(false);
-                  setRepeatModalWeeks(4);
-                },
-              },
-              {
-                label: "Copiar semana (alternar turnos)",
-                icon: <IconCopy size={16} />,
-                disabled: viewMode !== "week",
-                hint: weekOnlyHint,
-                onSelect: () => {
-                  setRepeatModalRotate(true);
-                  setRepeatModalWeeks(1);
-                },
-              },
-              { label: "Limpar semana", icon: <IconTrash size={16} />, danger: true, onSelect: () => setShowClearShifts(true) },
-            ]}
-            showUnassigned={showUnassigned}
-            onToggleUnassigned={() => setShowUnassigned((v) => !v)}
-            alertsCount={otherAlertsCount}
-            alerts={alertsContent}
-            addItems={[
-              { label: "Novo turno", icon: <IconPlus size={16} />, onSelect: () => openNewShift(undefined, employeeFilter || null) },
-              { label: "Atribuir turnos", icon: <IconLayers size={16} />, onSelect: () => setAssignOpen(true) },
-              { label: "Aplicar modelo a vários colaboradores", icon: <IconUserPlus size={16} />, onSelect: () => setApplyTemplate({ templateId: null }) },
-              "separator",
-              { label: "Escala base", icon: <IconCalendar size={16} />, disabled: !employeeFilter, hint: needEmployeeHint, onSelect: () => setShowBaseSchedule(true) },
-              { label: "Limpar turnos", icon: <IconTrash size={16} />, disabled: !employeeFilter, hint: needEmployeeHint, danger: true, onSelect: () => setShowClearShifts(true) },
-              "separator",
-              { label: "Modelos & Automatizações", icon: <IconLayers size={16} />, onSelect: () => setTab("templates") },
-            ]}
-            onPublish={() => openReview({ from, to })}
-          />
-
-        <div className="flex items-start">
-          <div className={`grid min-w-0 flex-1 grid-cols-1 gap-4 ${viewMode === "month" && visualMode === "compact" && selectedSummaryDate ? "xl:grid-cols-[1fr_320px]" : ""}`}>
-            {viewMode === "week" ? (
-              <WeekBoard
-                mode={boardMode}
-                days={days}
-                todayYmd={todayYmd}
-                rows={board.rows}
-                shifts={shifts}
-                loading={isLoading}
-                sort={sort}
-                onToggleSort={() => setSort((s) => (s === "asc" ? "desc" : "asc"))}
-                positionName={(id) => (id ? (positionNameById.get(id) ?? null) : null)}
-                shiftLabel={shiftLabel}
-                leavesByDate={leavesByDate}
-                holidaysByDate={holidaysByDate}
-                onOpenShift={openEditShift}
-                onNewShift={(employeeId, ymd) => openNewShift(ymd, employeeId)}
-                summary={summary}
-                toYmd={toYmd}
-              />
-            ) : (
-              <div className="space-y-3">
-                <div className="flex flex-wrap items-center justify-between gap-2 px-1 text-sm text-ink-secondary">{summary}</div>
-                <MonthBoard
-                  days={days}
-                  month={anchorDate.getMonth()}
-                  todayYmd={todayYmd}
-                  visualMode={visualMode}
-                  loading={isLoading}
-                  toYmd={toYmd}
-                  shiftsByDate={shiftsByDate}
-                  leavesByDate={leavesByDate}
-                  holidaysByDate={holidaysByDate}
-                  conflictsByDate={conflictsByDate}
-                  employeeName={(id) => employees.find((e) => e.id === id)?.fullName ?? id}
-                  shiftLabel={shiftLabel}
-                  onOpenShift={openEditShift}
-                  onNewShift={(ymd) => openNewShift(ymd, employeeFilter || null)}
-                  onSelectDay={setSelectedSummaryDate}
-                />
-              </div>
-            )}
-
-            {viewMode === "month" && visualMode === "compact" && selectedSummaryDate && (
-              <DaySummaryPanel
-                date={selectedSummaryDate}
-                dayShifts={shiftsByDate.get(selectedSummaryDate) ?? []}
-                dayLeaves={leavesByDate.get(selectedSummaryDate) ?? []}
-                conflictCount={conflictsByDate.get(selectedSummaryDate) ?? 0}
-                employeeColorClass={() => "bg-surface-soft border-line"}
-                locationName={(locationId) => locationNameById.get(locationId) ?? "—"}
-                shortName={shortName}
-                onClose={() => setSelectedSummaryDate(null)}
-                onOpenShift={(shift) => openEditShift(shift)}
-                onOpenDay={() => {
-                  setAnchorDate(new Date(`${selectedSummaryDate}T00:00:00`));
-                  switchViewMode("week");
-                }}
-                onEditSchedule={() => openNewShift(selectedSummaryDate)}
-              />
-            )}
-          </div>
-
-        {assignOpen && (
-          <AssignShiftsPanel
-            templates={templates}
-            loading={templatesLoading}
-            onPick={(templateId) => setApplyTemplate({ templateId })}
-            onCreateCustom={() => openNewShift(undefined, employeeFilter || null)}
-            onOpenSettings={() => setTab("templates")}
-            onClose={() => setAssignOpen(false)}
-          />
-        )}
+          <button
+            onClick={() => openNewShift()}
+            className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          >
+            + Novo turno
+          </button>
+        </div>
+        <div className="mt-3 flex border-b border-stone-100">
+          {([
+            { key: "calendar", label: "Calendário" },
+            { key: "templates", label: "Modelos & Automatizações" },
+          ] as const).map(({ key, label }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`-mb-px border-b-2 px-4 py-2 text-sm font-medium ${
+                tab === key ? "border-[#ED5C32] text-[#ED5C32]" : "border-transparent text-stone-500 hover:text-stone-700"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
+
+      {(draftNotice || publishedCount !== null || (alerts?.pendingPublishCount ?? 0) > 0 || otherAlertsCount > 0) && (
+        <div className="space-y-2 px-4 pt-4">
+          {draftNotice && (
+            <div role="status" className="flex flex-wrap items-center gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm text-sky-900">
+              <span>
+                ✓ {draftNotice.count} turno(s) criado(s) <strong>em rascunho</strong> — ainda não visíveis para os colaboradores.
+              </span>
+              <button type="button" onClick={() => openReview(draftNotice.range)} className="font-medium text-[#ED5C32] hover:underline">
+                Rever e publicar agora
+              </button>
+              <button type="button" onClick={() => setDraftNotice(null)} aria-label="Fechar aviso" className="ml-auto text-sky-700 hover:text-sky-900">
+                ✕
+              </button>
+            </div>
+          )}
+          {publishedCount !== null && (
+            <p role="status" className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm text-emerald-800">
+              ✓ {publishedCount} turno(s) publicado(s) — já visíveis para os colaboradores.
+            </p>
+          )}
+          {alerts && alerts.pendingPublishCount > 0 && alerts.pendingPublishRange && (
+            <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900" aria-label="Turnos em rascunho">
+              <span>
+                ⚠ <strong>{alerts.pendingPublishCount} turno(s) em rascunho</strong> neste período — os colaboradores ainda não os veem.
+              </span>
+              <button type="button" onClick={() => openReview(alerts.pendingPublishRange!)} className="font-medium text-[#ED5C32] hover:underline">
+                Rever e publicar
+              </button>
+            </div>
+          )}
+          {alerts && otherAlertsCount > 0 && (
+            <div className="rounded-xl border border-stone-200 bg-white" aria-label="Alertas da escala">
+              <button
+                type="button"
+                onClick={() => setAlertsOpen((o) => !o)}
+                aria-expanded={alertsOpen}
+                className="flex w-full flex-wrap items-center gap-2 px-4 py-2.5 text-left text-sm text-stone-800"
+              >
+                <span aria-hidden="true" className="text-stone-400">
+                  {alertsOpen ? "▾" : "▸"}
+                </span>
+                <strong>
+                  {otherAlertsCount} {otherAlertsCount === 1 ? "alerta" : "alertas"} na escala
+                </strong>
+                <span className="text-stone-500">
+                  {[
+                    alerts.coverageGaps.length > 0 && `${alerts.coverageGaps.length} sem cobertura`,
+                    alerts.overlaps.length > 0 && `${alerts.overlaps.length} ${alerts.overlaps.length === 1 ? "sobreposição" : "sobreposições"}`,
+                    (alerts.automationIssues ?? []).length > 0 && `${(alerts.automationIssues ?? []).length} das automatizações`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")}
+                </span>
+                <span className="ml-auto text-xs font-medium text-[#ED5C32]">{alertsOpen ? "Esconder" : "Ver"}</span>
+              </button>
+              {alertsOpen && (
+                <div className="grid grid-cols-1 gap-2 border-t border-stone-100 p-3 sm:grid-cols-2 lg:grid-cols-3">
+              {alerts.coverageGaps.map((g, i) => (
+                <div key={`gap-${i}`} className="rounded-lg border border-red-100 bg-red-50/40 p-2 text-xs">
+                  <p className="font-semibold text-red-700">Falta cobertura</p>
+                  <p className="text-stone-600">{g.employeeName}</p>
+                  <p className="text-stone-400">{g.workDate}</p>
+                  <button
+                    onClick={() => {
+                      setTab("calendar");
+                      openNewShift(g.workDate);
+                    }}
+                    className="mt-1 font-medium text-[#ED5C32] hover:underline"
+                  >
+                    Atribuir turno →
+                  </button>
+                </div>
+              ))}
+              {alerts.overlaps.map((o, i) => (
+                <div key={`overlap-${i}`} className="rounded-lg border border-amber-100 bg-amber-50/40 p-2 text-xs">
+                  <p className="font-semibold text-amber-700">Conflito de sobreposição</p>
+                  <p className="text-stone-600">{o.employeeName}</p>
+                  <p className="text-stone-400">{o.workDate}</p>
+                </div>
+              ))}
+              {(alerts.automationIssues ?? []).map((issue) => (
+                <div key={issue.id} className="rounded-lg border border-violet-100 bg-violet-50/40 p-2 text-xs">
+                  <p className="font-semibold text-violet-700">Automatização não criou o turno</p>
+                  <p className="text-stone-600">
+                    {issue.employeeName} · {issue.workDate}
+                  </p>
+                  <p className="text-stone-500">
+                    {issue.automationName} — {issue.status === "inactive_template" ? "Modelo inativo" : OCCURRENCE_STATUS_LABELS[issue.status].label}
+                  </p>
+                  <div className="mt-1 flex gap-3">
+                    <button
+                      onClick={() => {
+                        openNewShift(issue.workDate);
+                      }}
+                      className="font-medium text-[#ED5C32] hover:underline"
+                    >
+                      Resolver na escala →
+                    </button>
+                    <button
+                      onClick={() => dismissMutation.mutate(issue.id)}
+                      disabled={dismissMutation.isPending}
+                      className="text-stone-500 hover:underline disabled:opacity-50"
+                    >
+                      Dispensar
+                    </button>
+                  </div>
+                </div>
+              ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "templates" ? (
+        // RH 2.0: Modelos de turno (ticket 01); as rotações passam a automatizações no ticket 04.
+        <div className="space-y-4 p-4">
+          <ShiftTemplatesPanel onReviewDrafts={(range) => openReview(range)} />
+          <ShiftAutomationsPanel />
+          <ShiftRotationsPanel />
+        </div>
+      ) : (
+        <div className="p-4">
+          <div
+            className={`grid grid-cols-1 gap-4 ${
+              visualMode === "compact" && selectedSummaryDate ? "xl:grid-cols-[1fr_320px]" : ""
+            }`}
+          >
+          <div className="space-y-3">
+            {/* Filters */}
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-1">
+                <button onClick={goPrev} className="rounded-md p-1.5 text-stone-400 hover:bg-stone-100">
+                  ←
+                </button>
+                <button onClick={goToday} className="rounded-md border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-50">
+                  Hoje
+                </button>
+                <button onClick={goNext} className="rounded-md p-1.5 text-stone-400 hover:bg-stone-100">
+                  →
+                </button>
+              </div>
+              <span className="text-sm font-semibold capitalize text-stone-700">{periodLabel}</span>
+              <div className="ml-auto flex items-center gap-2">
+                <div className="flex rounded-md border border-stone-200 bg-stone-50 p-0.5">
+                  {(["month", "week"] as const).map((mode) => (
+                    <button
+                      key={mode}
+                      onClick={() => switchViewMode(mode)}
+                      className={`rounded px-3 py-1 text-xs font-medium ${
+                        viewMode === mode ? "bg-white text-stone-800 shadow-sm" : "text-stone-500"
+                      }`}
+                    >
+                      {mode === "month" ? "Mês" : "Semana"}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-stone-500">
+                  <span>Visualização:</span>
+                  <div className="flex rounded-md border border-stone-200 bg-stone-50 p-0.5">
+                    {(["detailed", "compact"] as const).map((mode) => (
+                      <button
+                        key={mode}
+                        onClick={() => {
+                          setVisualMode(mode);
+                          saveVisualMode(viewMode, mode);
+                          if (mode === "detailed") setSelectedSummaryDate(null);
+                        }}
+                        className={`rounded px-3 py-1 text-xs font-medium ${
+                          visualMode === mode ? "bg-white text-stone-800 shadow-sm" : "text-stone-500"
+                        }`}
+                      >
+                        {mode === "detailed" ? "Detalhada" : "Compacta"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                {hasMultipleLocations && (
+                  <select
+                    value={locationFilter}
+                    onChange={(e) => setLocationFilter(e.target.value)}
+                    className="rounded-md border border-stone-300 bg-white px-2 py-1.5 text-sm"
+                  >
+                    <option value="">Todas as lojas</option>
+                    {locations.map((loc) => (
+                      <option key={loc.id} value={loc.id}>
+                        {loc.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                {employeeFilter && (
+                  <button
+                    onClick={() => setShowBaseSchedule(true)}
+                    className="rounded-md border border-stone-300 px-3 py-1.5 text-sm hover:bg-stone-50"
+                  >
+                    Escala base
+                  </button>
+                )}
+                {employeeFilter && (
+                  <button
+                    onClick={() => setShowClearShifts(true)}
+                    className="rounded-md border border-stone-300 px-3 py-1.5 text-sm text-stone-700 hover:bg-stone-50"
+                  >
+                    Limpar turnos
+                  </button>
+                )}
+                {viewMode === "week" && (
+                  <div className="relative">
+                    <button
+                      onClick={() => setShowWeekActionsMenu((v) => !v)}
+                      className="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-50"
+                    >
+                      Ações da semana ▾
+                    </button>
+                    {showWeekActionsMenu && (
+                      <>
+                        <div className="fixed inset-0 z-10" onClick={() => setShowWeekActionsMenu(false)} />
+                        <div className="absolute right-0 z-20 mt-1 w-48 rounded-md border border-stone-200 bg-white py-1 text-sm shadow-lg">
+                          <button
+                            onClick={() => {
+                              setShowWeekActionsMenu(false);
+                              setRepeatModalRotate(false);
+                              setRepeatModalWeeks(4);
+                            }}
+                            className="block w-full px-3 py-1.5 text-left text-stone-700 hover:bg-stone-50"
+                          >
+                            Repetir escala
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowWeekActionsMenu(false);
+                              setRepeatModalRotate(true);
+                              setRepeatModalWeeks(1);
+                            }}
+                            className="block w-full px-3 py-1.5 text-left text-stone-700 hover:bg-stone-50"
+                            title="Alterna o horário entre os colaboradores selecionados, em vez de duplicar às cegas"
+                          >
+                            Copiar semana (alternar turnos)
+                          </button>
+                          <button
+                            onClick={() => {
+                              setShowWeekActionsMenu(false);
+                              setShowClearShifts(true);
+                            }}
+                            className="block w-full px-3 py-1.5 text-left text-red-600 hover:bg-red-50"
+                          >
+                            Limpar semana
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                )}
+                <button
+                  onClick={handleExportPdf}
+                  className="rounded-md border border-stone-300 bg-white px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-50"
+                >
+                  Exportar PDF
+                </button>
+              </div>
+            </div>
+
+            {/* Employee filter badges */}
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setEmployeeFilter("")}
+                className={`rounded-full border px-3 py-0.5 text-xs font-medium transition-colors ${
+                  employeeFilter === ""
+                    ? "border-stone-700 bg-stone-700 text-white"
+                    : "border-stone-300 bg-white text-stone-600 hover:bg-stone-50"
+                }`}
+              >
+                Todos
+              </button>
+              {employees.map((emp) => {
+                const c = colorById.get(emp.id) ?? PALETTE[0];
+                const active = employeeFilter === emp.id;
+                return (
+                  <button
+                    key={emp.id}
+                    onClick={() => setEmployeeFilter(active ? "" : emp.id)}
+                    className={`rounded-full border px-3 py-0.5 text-xs font-medium uppercase transition-all ${
+                      active ? `${c!.bg} ${c!.border} ${c!.text} ring-2 ring-offset-1 ring-current` : `${c!.bg} ${c!.border} ${c!.text} opacity-70 hover:opacity-100`
+                    }`}
+                  >
+                    {shortName(emp.fullName)}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Legend */}
+            <div className="flex flex-wrap items-center gap-3 text-xs text-stone-500">
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-stone-300" /> Pendente</span>
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Conferido</span>
+              {Object.entries(LEAVE_TYPE_LABELS).map(([type, label]) => (
+                <span key={type} className="flex items-center gap-1">
+                  <span className={`h-2 w-2 rounded-full ${LEAVE_DOT[type]}`} /> {label}
+                </span>
+              ))}
+              <span className="flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-600" /> Feriado</span>
+            </div>
+
+            {/* Grid */}
+            <div className="overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white">
+              {isLoading ? (
+                <div className="py-16 text-center text-sm text-stone-400">A carregar…</div>
+              ) : (
+                <div className="grid grid-cols-7 gap-px bg-stone-100">
+                  {["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"].map((d) => (
+                    <div key={d} className="bg-stone-50 px-2 py-1.5 text-center text-xs font-semibold uppercase text-stone-500">
+                      {d}
+                    </div>
+                  ))}
+                  {days.map((day) => {
+                    const ymd = toYmd(day);
+                    const inMonth = viewMode === "week" || day.getMonth() === anchorDate.getMonth();
+                    const dayShifts = shiftsByDate.get(ymd) ?? [];
+                    const dayLeaves = leavesByDate.get(ymd) ?? [];
+                    const holiday = holidaysByDate.get(ymd);
+                    const dayConflicts = conflictsByDate.get(ymd) ?? 0;
+
+                    if (visualMode === "compact") {
+                      const scheduledCount = new Set(dayShifts.map((s) => s.employeeId)).size;
+                      const visibleShifts = dayShifts.slice(0, 2);
+                      const extraCount = dayShifts.length - visibleShifts.length;
+                      return (
+                        <button
+                          key={ymd}
+                          onClick={() => setSelectedSummaryDate(ymd)}
+                          className={`min-h-[104px] bg-white p-1.5 text-left ${inMonth ? "" : "opacity-40"} ${holiday ? "bg-amber-50/60" : ""} hover:bg-stone-50`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-stone-400">{day.getDate()}</span>
+                            {dayConflicts > 0 && <span title={`${dayConflicts} conflito(s)`}>⚠️</span>}
+                          </div>
+                          {holiday && <p className="truncate text-[10px] font-medium text-amber-700">{holiday.name}</p>}
+                          {(scheduledCount > 0 || dayLeaves.length > 0) && (
+                            <p className="mt-0.5 truncate text-[10px] text-stone-500">
+                              {scheduledCount} escalado(s)
+                              {dayLeaves.length > 0 && ` · ${dayLeaves.length} ausência(s)`}
+                              {dayConflicts > 0 && ` · ${dayConflicts} conflito(s)`}
+                            </p>
+                          )}
+                          <div className="mt-1 space-y-0.5">
+                            {visibleShifts.map((s) => {
+                              const hasSecond = s.secondStartTime && s.secondEndTime;
+                              return (
+                                <p key={s.id} className="truncate text-[10px] text-stone-600">
+                                  {shortName(s.employeeName)} · {s.startTime}–{s.endTime}
+                                  {hasSecond && ` | ${s.secondStartTime}–${s.secondEndTime}`}
+                                </p>
+                              );
+                            })}
+                            {extraCount > 0 && <p className="text-[10px] font-medium text-[#ED5C32]">+{extraCount} mais</p>}
+                          </div>
+                        </button>
+                      );
+                    }
+
+                    return (
+                      <div
+                        key={ymd}
+                        className={`min-h-[130px] bg-white p-1.5 ${inMonth ? "" : "opacity-40"} ${holiday ? "bg-amber-50/60" : ""}`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-stone-400">{day.getDate()}</span>
+                          <button
+                            onClick={() => openNewShift(ymd)}
+                            className="rounded px-1 text-xs text-stone-300 hover:bg-stone-100 hover:text-[#ED5C32]"
+                            title="Novo turno"
+                          >
+                            +
+                          </button>
+                        </div>
+                        {holiday && <p className="truncate text-[10px] font-medium text-amber-700">{holiday.name}</p>}
+                        <div className="mt-0.5 space-y-1">
+                          {dayShifts.map((s) => {
+                            const c = colorById.get(s.employeeId) ?? PALETTE[0]!;
+                            const hasSecond = s.secondStartTime && s.secondEndTime;
+                            return (
+                              <button
+                                key={s.id}
+                                onClick={() => openEditShift(s)}
+                                title={`${s.employeeName} · ${s.startTime}–${s.endTime}${hasSecond ? ` | ${s.secondStartTime}–${s.secondEndTime}` : ""}${s.endsNextDay ? " (+1 dia)" : ""}${s.status === "draft" ? " (rascunho)" : ""}`}
+                                className={`block w-full rounded border px-1.5 py-0.5 text-left text-[11px] leading-snug ${c.bg} ${c.border} ${c.text}`}
+                              >
+                                <div className="font-medium">{shortName(s.employeeName)}</div>
+                                <div className="mt-0.5 flex items-center gap-1 text-[10px] opacity-70">
+                                  <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${shiftDotClass(s)}`} />
+                                  <span>
+                                    {s.startTime}–{s.endTime}
+                                    {s.endsNextDay && " (+1 dia)"}
+                                  </span>
+                                  {hasSecond && (
+                                    <>
+                                      <span className="opacity-60">|</span>
+                                      <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${shiftDotClass(s)}`} />
+                                      <span>
+                                        {s.secondStartTime}–{s.secondEndTime}
+                                      </span>
+                                    </>
+                                  )}
+                                </div>
+                              </button>
+                            );
+                          })}
+                          {dayLeaves.map((l) => (
+                            <div
+                              key={l.id}
+                              title={LEAVE_TYPE_LABELS[l.type]}
+                              className={`rounded border px-1.5 py-0.5 text-[11px] leading-snug ${LEAVE_TYPE_CALENDAR_COLORS[l.type]}`}
+                            >
+                              <div className="truncate font-medium">
+                                {shortName(employees.find((e) => e.id === l.employeeId)?.fullName ?? l.employeeId)}
+                              </div>
+                              <div className="mt-0.5 text-[10px] opacity-70">{LEAVE_TYPE_LABELS[l.type]}</div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {visualMode === "compact" && selectedSummaryDate && (
+            <DaySummaryPanel
+              date={selectedSummaryDate}
+              dayShifts={shiftsByDate.get(selectedSummaryDate) ?? []}
+              dayLeaves={leavesByDate.get(selectedSummaryDate) ?? []}
+              conflictCount={conflictsByDate.get(selectedSummaryDate) ?? 0}
+              employeeColorClass={(employeeId) => {
+                const c = colorById.get(employeeId) ?? PALETTE[0]!;
+                return `${c.bg} ${c.border}`;
+              }}
+              locationName={(locationId) => locationNameById.get(locationId) ?? "—"}
+              shortName={shortName}
+              onClose={() => setSelectedSummaryDate(null)}
+              onOpenShift={(shift) => openEditShift(shift)}
+              onOpenDay={() => {
+                setAnchorDate(new Date(`${selectedSummaryDate}T00:00:00`));
+                switchViewMode("week");
+              }}
+              onEditSchedule={() => openNewShift(selectedSummaryDate)}
+            />
+          )}
+          </div>
+        </div>
+      )}
 
       <ShiftDrawer
         open={drawerOpen}
         editing={editingShift}
-        defaultEmployeeId={newShiftEmployee ?? (employeeFilter || null)}
+        defaultEmployeeId={employeeFilter || null}
         defaultWorkDate={newShiftDate}
         onClose={() => setDrawerOpen(false)}
         onCreate={(payload) => createMutation.mutate(payload)}
@@ -806,22 +964,6 @@ export function SchedulesView() {
         saving={createMutation.isPending || updateMutation.isPending || updateSeriesScopeMutation.isPending}
         error={formError}
       />
-
-      {applyTemplate && (
-        <ApplyTemplateModal
-          templates={templates}
-          initialTemplateId={applyTemplate.templateId}
-          onClose={() => {
-            setApplyTemplate(null);
-            invalidate();
-          }}
-          onReviewDrafts={(range) => {
-            setApplyTemplate(null);
-            invalidate();
-            openReview(range);
-          }}
-        />
-      )}
 
       {showBaseSchedule && employeeFilter && (
         <BaseScheduleModal

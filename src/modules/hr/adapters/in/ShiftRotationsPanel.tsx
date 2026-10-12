@@ -64,44 +64,44 @@ export function ShiftRotationsPanel() {
   if (rotations.length === 0) return null;
 
   return (
-    <section className="space-y-3 rounded-xl border border-line bg-white p-4 shadow-sm" aria-label="Rotações antigas">
+    <section className="space-y-3 rounded-xl border border-[#F5C992]/40 bg-white p-4 shadow-sm" aria-label="Rotações antigas">
       <div>
-        <h2 className="text-base font-semibold text-navy-900">Rotações antigas (A/B)</h2>
-        <p className="text-xs text-ink-secondary">Já não se criam rotações novas — use as Automatizações. Pode apagar as que existem; os turnos já criados ficam na escala.</p>
+        <h2 className="text-base font-semibold text-stone-900">Rotações antigas (A/B)</h2>
+        <p className="text-xs text-stone-500">Já não se criam rotações novas — use as Automatizações. Pode apagar as que existem; os turnos já criados ficam na escala.</p>
       </div>
 
-      <div className="overflow-hidden rounded-xl border border-line">
+      <div className="overflow-hidden rounded-xl border border-[#F5C992]/40">
         <table className="min-w-full text-sm">
-          <thead className="border-b border-line bg-surface-soft/60">
+          <thead className="border-b border-[#F5C992]/40 bg-stone-50/60">
             <tr>
               {["Colaboradores", "Turno A", "Turno B", "Início", "Estado", ""].map((h) => (
-                <th key={h} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-ink-secondary">
+                <th key={h} className="px-3 py-2 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
                   {h}
                 </th>
               ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-line-subtle">
+          <tbody className="divide-y divide-[#F5C992]/30">
             {rotations.map((r: ShiftRotation) => (
               <tr key={r.id} className={MOTION_ROW_HOVER}>
                 <td className="px-3 py-2">{r.participantNames.join(" / ")}</td>
-                <td className="px-3 py-2 text-ink-secondary">{formatPattern(r.patternA)}</td>
-                <td className="px-3 py-2 text-ink-secondary">{formatPattern(r.patternB)}</td>
-                <td className="px-3 py-2 text-ink-secondary">{r.anchorDate}</td>
+                <td className="px-3 py-2 text-stone-500">{formatPattern(r.patternA)}</td>
+                <td className="px-3 py-2 text-stone-500">{formatPattern(r.patternB)}</td>
+                <td className="px-3 py-2 text-stone-500">{r.anchorDate}</td>
                 <td className="px-3 py-2">{r.active ? "Ativa" : "Pausada"}</td>
                 <td className="px-3 py-2 text-right">
                   <div className="flex justify-end gap-3 text-xs font-medium">
-                    <button onClick={() => setPreviewingId(r.id)} className="text-ink-secondary hover:underline">
+                    <button onClick={() => setPreviewingId(r.id)} className="text-stone-500 hover:underline">
                       Pré-visualizar
                     </button>
                     <button
                       onClick={() => applyMutation.mutate(r.id)}
                       disabled={applyMutation.isPending || !r.active}
-                      className="text-brand-600 hover:underline disabled:opacity-40"
+                      className="text-[#ED5C32] hover:underline disabled:opacity-40"
                     >
                       Aplicar
                     </button>
-                    <button onClick={() => setActiveMutation.mutate({ id: r.id, active: !r.active })} className="text-ink-secondary hover:underline">
+                    <button onClick={() => setActiveMutation.mutate({ id: r.id, active: !r.active })} className="text-stone-500 hover:underline">
                       {r.active ? "Pausar" : "Retomar"}
                     </button>
                     <button
@@ -124,24 +124,24 @@ export function ShiftRotationsPanel() {
       {applyResult && <p className="text-sm text-emerald-700">{applyResult}</p>}
 
       {previewingId && preview.length > 0 && (
-        <div className="rounded-xl border border-line bg-white p-4">
+        <div className="rounded-xl border border-[#F5C992]/40 bg-white p-4">
           <div className="mb-2 flex items-center justify-between">
-            <h3 className="text-sm font-semibold text-ink">Pré-visualização (2 semanas)</h3>
-            <button onClick={() => setPreviewingId(null)} className="text-xs text-ink-muted hover:text-ink-secondary">
+            <h3 className="text-sm font-semibold text-stone-800">Pré-visualização (2 semanas)</h3>
+            <button onClick={() => setPreviewingId(null)} className="text-xs text-stone-400 hover:text-stone-600">
               Fechar
             </button>
           </div>
           <div className="grid grid-cols-2 gap-4">
             {preview.map((week, i) => (
-              <div key={week.weekStartDate} className="rounded-xl border border-line-subtle p-3 text-sm">
-                <p className="mb-2 font-semibold text-ink">
+              <div key={week.weekStartDate} className="rounded-lg border border-stone-100 p-3 text-sm">
+                <p className="mb-2 font-semibold text-stone-700">
                   Semana {i + 1} — {week.weekStartDate}
                 </p>
-                <p className="text-ink-secondary">
-                  Turno A: {week.patternAEmployeeName} <span className="text-ink-muted">· {formatPattern(week.patternA)}</span>
+                <p className="text-stone-600">
+                  Turno A: {week.patternAEmployeeName} <span className="text-stone-400">· {formatPattern(week.patternA)}</span>
                 </p>
-                <p className="text-ink-secondary">
-                  Turno B: {week.patternBEmployeeName} <span className="text-ink-muted">· {formatPattern(week.patternB)}</span>
+                <p className="text-stone-600">
+                  Turno B: {week.patternBEmployeeName} <span className="text-stone-400">· {formatPattern(week.patternB)}</span>
                 </p>
               </div>
             ))}
