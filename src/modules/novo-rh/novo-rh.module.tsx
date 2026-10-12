@@ -53,7 +53,7 @@ import { WorkspaceView } from "./adapters/in/engagement/WorkspaceView.tsx";
 import { ReportsView } from "./adapters/in/engagement/ReportsView.tsx";
 import { NovoRhHomeView } from "./adapters/in/NovoRhHomeView.tsx";
 import { NovoRhLayout } from "./adapters/in/NovoRhLayout.tsx";
-import { SettingsView } from "./adapters/in/settings/SettingsView.tsx";
+import { SettingsHubView } from "./adapters/in/settings/SettingsHubView.tsx";
 import type { SettingsApiPort } from "./domain/ports/out/settings-api.port.ts";
 
 export interface NovoRhModule {
@@ -205,7 +205,7 @@ function NovoRhRoutes() {
         <Route path="alertas" element={<AlertsView />} />
         <Route path="tarefas" element={<WorkspaceView />} />
         <Route path="relatorios" element={<ReportsView />} />
-        <Route path="configuracoes" element={<SettingsView />} />
+        <Route path="configuracoes" element={<SettingsHubView />} />
         <Route path="estrutura" element={<StructureView />} />
         <Route path="acessos" element={mode === "demo" ? <DemoAccessNotice /> : <AccessView />} />
         <Route path="auditoria" element={<AuditView />} />
