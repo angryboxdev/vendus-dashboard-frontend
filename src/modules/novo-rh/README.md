@@ -44,6 +44,7 @@ módulo a usar a base de i18n (`src/i18n`).
 - `StructureApiPort`, `AccessGovernanceApiPort`, `AuditApiPort`, `NotificationsApiPort` (`governance-api.port.ts`).
 - `PeopleApiPort` — `/api/novo-rh/people` e `/api/novo-rh/catalog` (Fase 2).
 - `TimeApiPort` — `/api/novo-rh/time` (Fase 3).
+- `AnnouncementsApiPort`, `AlertsApiPort`, `WorkspaceApiPort`, `ReportsApiPort` (`engagement-api.port.ts`, Fase 9).
 - `PeriodsApiPort` — `/api/novo-rh/periods` (Fase 8).
 - `RostersApiPort` — `/api/novo-rh/rosters` e `/api/me/roster` (Fase 7).
 - `TimeBankApiPort` — `/api/novo-rh/time-bank` (Fase 6).
@@ -56,6 +57,7 @@ módulo a usar a base de i18n (`src/i18n`).
 
 - `NovoRhLayout` + `NovoRhHomeView` → `/hr/novo`.
 - `MfaGate` — só abre o Novo RH com sessão `aal2` (TK-3).
+- `engagement/AnnouncementsView` → `/hr/novo/comunicados` (gerir: criar, publicar, versão nova, leituras por versão; os meus: ler/confirmar); `engagement/AlertsView` → `/hr/novo/alertas` (lista com tratar/fechar com nota, avaliar agora; regras com dono, prazo e escalonamento); `engagement/WorkspaceView` → `/hr/novo/tarefas` (tarefas com checklist, solicitações personalizadas, quem está); `engagement/ReportsView` → `/hr/novo/relatorios` (ver e CSV).
 - `periods/PeriodsView` → `/hr/novo/fecho`: Períodos (criar por organização/centro, verificar pendentes, fechar com exceção explícita, fechos com diferenças, exportar salários/faturação, pedir reabertura), Reaberturas (dupla aprovação), Transferências (ficheiros de 24 h).
 - `rosters/RostersView` → `/hr/novo/escalas`: Escala (grelha de 2 semanas, clicar para pôr o modelo, rascunho tracejado, alterar/retirar publicado com motivo, publicar com avisos a confirmar ou bloqueios, em massa, histórico de versões), Modelos de turno, Trocas (gestão), O meu horário (turnos publicados, propor/aceitar trocas).
 - `time-bank/TimeBankView` → `/hr/novo/banco-de-horas`: saldo e histórico (KPIs, corte, ledger com acumulado ao segundo, ajustes lançados hoje), excedente por validar, compensar (limitado ao máximo — RE-28), ajustar, sincronizar; horas categorizadas com fator.
@@ -73,6 +75,7 @@ módulo a usar a base de i18n (`src/i18n`).
 - `HttpTimeBankApiAdapter`.
 - `HttpRostersApiAdapter`.
 - `HttpPeriodsApiAdapter` (o download pede primeiro o link com token).
+- `http-engagement-api.adapters.ts` (comunicados, alertas, espaço de trabalho, relatórios).
 - `HttpAttendanceApiAdapter`, `HttpMyClockApiAdapter` (a marcação usa o `clientEventId` como Idempotency-Key), `LocalStoragePunchQueue` (só ids e tipo; em memória se o navegador não deixar guardar).
 
 ## Design decisions (ADR summary)

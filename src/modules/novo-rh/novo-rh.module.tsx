@@ -34,6 +34,12 @@ import { RostersView } from "./adapters/in/rosters/RostersView.tsx";
 import type { PeriodsApiPort } from "./domain/ports/out/periods-api.port.ts";
 import { HttpPeriodsApiAdapter } from "./adapters/out/http-periods-api.adapter.ts";
 import { PeriodsView } from "./adapters/in/periods/PeriodsView.tsx";
+import type { AlertsApiPort, AnnouncementsApiPort, ReportsApiPort, WorkspaceApiPort } from "./domain/ports/out/engagement-api.port.ts";
+import { HttpAlertsApiAdapter, HttpAnnouncementsApiAdapter, HttpReportsApiAdapter, HttpWorkspaceApiAdapter } from "./adapters/out/http-engagement-api.adapters.ts";
+import { AnnouncementsView } from "./adapters/in/engagement/AnnouncementsView.tsx";
+import { AlertsView } from "./adapters/in/engagement/AlertsView.tsx";
+import { WorkspaceView } from "./adapters/in/engagement/WorkspaceView.tsx";
+import { ReportsView } from "./adapters/in/engagement/ReportsView.tsx";
 import { NovoRhHomeView } from "./adapters/in/NovoRhHomeView.tsx";
 import { NovoRhLayout } from "./adapters/in/NovoRhLayout.tsx";
 import { SettingsView } from "./adapters/in/settings/SettingsView.tsx";
@@ -56,6 +62,10 @@ export interface NovoRhModule {
   timeBank: TimeBankApiPort;
   rosters: RostersApiPort;
   periods: PeriodsApiPort;
+  announcements: AnnouncementsApiPort;
+  alerts: AlertsApiPort;
+  workspace: WorkspaceApiPort;
+  reports: ReportsApiPort;
 }
 
 const NovoRhContext = createContext<NovoRhModule | null>(null);
@@ -84,6 +94,10 @@ export function NovoRhProvider({ children, module: mod }: { children: ReactNode;
         timeBank: new HttpTimeBankApiAdapter(),
         rosters: new HttpRostersApiAdapter(),
         periods: new HttpPeriodsApiAdapter(),
+        announcements: new HttpAnnouncementsApiAdapter(),
+        alerts: new HttpAlertsApiAdapter(),
+        workspace: new HttpWorkspaceApiAdapter(),
+        reports: new HttpReportsApiAdapter(),
       },
   );
   return <NovoRhContext.Provider value={value}>{children}</NovoRhContext.Provider>;
@@ -113,6 +127,10 @@ export function NovoRhPage() {
               <Route path="banco-de-horas" element={<TimeBankView />} />
               <Route path="escalas" element={<RostersView />} />
               <Route path="fecho" element={<PeriodsView />} />
+              <Route path="comunicados" element={<AnnouncementsView />} />
+              <Route path="alertas" element={<AlertsView />} />
+              <Route path="tarefas" element={<WorkspaceView />} />
+              <Route path="relatorios" element={<ReportsView />} />
               <Route path="configuracoes" element={<SettingsView />} />
               <Route path="estrutura" element={<StructureView />} />
               <Route path="acessos" element={<AccessView />} />
