@@ -37,6 +37,7 @@ describe("Tempo — editor de horários", () => {
     m.time.createSchedule = vi.fn(async () => ({ id: "s1", name: "Loja", kind: "fixed" as const, archived: false, versions: [] }));
     renderWith(m);
     const user = userEvent.setup();
+    await user.click(screen.getByRole("tab", { name: "Horários" }));
     const box = screen.getByRole("region", { name: "Novo horário" });
     await user.type(within(box).getByLabelText("Nome"), "Loja");
     await user.click(within(box).getByRole("button", { name: "Adicionar" }));

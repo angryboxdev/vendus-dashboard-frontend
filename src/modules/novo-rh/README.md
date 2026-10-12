@@ -40,6 +40,8 @@ módulo a usar a base de i18n (`src/i18n`).
 ### Output
 
 - `SettingsApiPort` — `/api/novo-rh/settings` (+ listas de colaboradores e locais para os alvos; em Demonstração vêm de `/api/novo-rh/people` e `/api/novo-rh/catalog/locations`).
+- `InboxApiPort` — `GET /api/novo-rh/inbox`, `POST /api/novo-rh/inbox/decide` (caixa de pedidos, FE-050).
+- `OverviewApiPort` — `GET /api/novo-rh/overview/plan?from&to` (planeado da equipa) e `GET /api/novo-rh/overview?date=` (Painel do dia: KPIs, pessoas com estado e atraso, por centro, 7 dias, pendentes, feriados).
 - `DemoApiPort` — `GET/POST /api/novo-rh/demo` (estado / criar a organização fictícia); `DataModeStorePort` — modo escolhido.
 - `MfaPort` — MFA TOTP do Supabase (estado, ativar, confirmar).
 - `StructureApiPort`, `AccessGovernanceApiPort`, `AuditApiPort`, `NotificationsApiPort` (`governance-api.port.ts`).
@@ -56,6 +58,12 @@ módulo a usar a base de i18n (`src/i18n`).
 
 ### Input
 
+- `inbox/InboxView` → `/hr/novo/pedidos` (FE-050): tipos com contadores, segmentos (a minha decisão / outras / todas), procurar, antiguidade destacada a partir de 7 dias, pedido próprio sem botões (RE-22), aprovar/recusar um ou vários (recusa com motivo ≥ 5 caracteres) e resultado por pedido.
+- `attendance/TeamDayPanel` (Assiduidade → Dia da equipa, separador inicial; FE-030): linha 0–24 h por pessoa com o planeado tracejado, só faltas e atrasos, detalhe no `PersonDayDrawer`. `attendance/IncidentsPanel`: filtro por tipo e resolução em lote (FE-033).
+- `time/TeamPlanPanel` (Tempo → Planeado da equipa, separador inicial; FE-031): 1 ou 2 semanas, horário/feriado/ausência por dia, quem não tem planeamento primeiro.
+- `time-bank/TimeBankView` → separador Todos (FE-034): saldos de todos, ordenar, total; clicar abre o histórico.
+- `absences/CalendarPanel` (Ausências → Calendário, separador inicial; FE-035): mês com aprovadas e pendentes, feriados e ausentes por dia; atribuir a mesma ausência a vários (em dias) com resultado por pessoa.
+- `overview/OverviewDashboard` (topo da Visão geral): números do dia clicáveis como filtro, lista de colaboradores (faltas e atrasos primeiro; procurar, filtrar por centro), pendentes com ligação à caixa certa, por centro, últimos 7 dias, próximos feriados; atualiza a cada minuto e permite escolher um dia passado. `overview/PersonDayDrawer`: horário vs. entrada, marcações do dia, últimos 7 dias, ligações à ficha e à assiduidade (`/hr/novo/assiduidade?employeeId=` abre já essa pessoa).
 - `NovoRhLayout` + `NovoRhHomeView` → `/hr/novo` (com `DataModeSwitch`: Real/Demonstração, criar com confirmação).
 - `DemoModeBanner` (faixa em todo o Novo RH em Demonstração, com "Voltar ao modo Real"); `DemoAccessNotice` substitui Acessos em Demonstração.
 - `MfaGate` — só abre o Novo RH com sessão `aal2` (TK-3).
@@ -78,6 +86,7 @@ módulo a usar a base de i18n (`src/i18n`).
 - `HttpRostersApiAdapter`.
 - `HttpPeriodsApiAdapter` (o download pede primeiro o link com token).
 - `http-engagement-api.adapters.ts` (comunicados, alertas, espaço de trabalho, relatórios).
+- `HttpOverviewApiAdapter`, `HttpInboxApiAdapter`.
 - `HttpDemoApiAdapter`, `LocalStorageDataModeStore`, `novoRhModeHeaders` (cabeçalho `X-Novo-RH-Mode: demo` só nos pedidos `/api/novo-rh/*`, ligado em `src/lib/api.ts` via `setRequestHeaderProvider`).
 - `HttpAttendanceApiAdapter`, `HttpMyClockApiAdapter` (a marcação usa o `clientEventId` como Idempotency-Key), `LocalStoragePunchQueue` (só ids e tipo; em memória se o navegador não deixar guardar).
 
@@ -96,3 +105,4 @@ módulo a usar a base de i18n (`src/i18n`).
 
 - Alvos de configuração por departamento/grupo ainda desligados no seletor (o backend já os aceita).
 - Não há "recomeçar" a demonstração (registos append-only no backend).
+- Onda 1 do pacote FE: falta aprovação parcial de excedente (FE-053), anular ausências em lote e atribuir em lote tipos em horas (FE-035), barra de pré-visualização do recálculo do banco de horas (FE-034).

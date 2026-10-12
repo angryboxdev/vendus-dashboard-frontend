@@ -82,6 +82,7 @@ describe("Assiduidade — gestão", () => {
     m.attendance.revise = vi.fn(async () => ({}) as never);
     renderWith(m);
     const user = userEvent.setup();
+    await user.click(screen.getByRole("tab", { name: "Dias" }));
     await screen.findByRole("option", { name: "Ana Teste" });
     await user.selectOptions(screen.getByLabelText("Colaborador"), "e1");
     expect(await screen.findByText("8h 59min")).toBeInTheDocument();
@@ -108,7 +109,7 @@ describe("Assiduidade — gestão", () => {
     renderWith(m);
     const user = userEvent.setup();
     await user.click(screen.getByRole("tab", { name: "Incidentes" }));
-    const row = (await screen.findByText("Saída esquecida")).closest("tr")!;
+    const row = (await screen.findByRole("cell", { name: "Saída esquecida" })).closest("tr")!;
     const validate = within(row).getByRole("button", { name: "Validar horas" });
     expect(validate).toBeDisabled();
     await user.type(within(row).getByLabelText(/Comentário/), "Confirmado");

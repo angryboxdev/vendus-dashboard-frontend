@@ -13,27 +13,101 @@ const message = (e: unknown, fallback: string) => (e instanceof Error ? e.messag
 /** Novo RH → Banco de horas (Fase 6). */
 export function TimeBankView() {
   const { t } = useI18n();
-  const [tab, setTab] = useState<"ledger" | "categories">("ledger");
+  const [tab, setTab] = useState<"all" | "ledger" | "categories">("all");
+  const [picked, setPicked] = useState("");
   return (
     <div className="space-y-4">
       <Tabs
         value={tab}
         onChange={setTab}
         items={[
+          { key: "all", label: t("tb.tab.all") },
           { key: "ledger", label: t("tb.tab.ledger") },
           { key: "categories", label: t("tb.tab.categories") },
         ]}
       />
-      {tab === "ledger" ? <LedgerPanel /> : <CategoriesPanel />}
+      {tab === "all" && <BalancesPanel onOpen={(id) => (setPicked(id), setTab("ledger"))} />}
+      {tab === "ledger" && <LedgerPanel key={picked} initialEmployeeId={picked} />}
+      {tab === "categories" && <CategoriesPanel />}
     </div>
   );
 }
 
-function LedgerPanel() {
+/** Saldos de todos os colaboradores (FE-034), até ao último apuramento; abrir a pessoa sincroniza. */
+function BalancesPanel({ onOpen }: { onOpen: (employeeId: string) => void }) {
+  const { t } = useI18n();
+  const { timeBank } = useNovoRh();
+  const [search, setSearch] = useState("");
+  const [location, setLocation] = useState("");
+  const [sort, setSort] = useState<"name" | "balance_desc" | "balance_asc">("balance_desc");
+  const q = useQuery({ queryKey: [...KEY, "balances"], queryFn: () => timeBank.balances() });
+  const all = q.data ?? [];
+  const locations = [...new Set(all.map((b) => b.locationName).filter((x): x is string => !!x))].sort();
+  const rows = all
+    .filter((b) => (!search || b.name.toLowerCase().includes(search.toLowerCase())) && (!location || b.locationName === location))
+    .sort((a, b) => (sort === "name" ? a.name.localeCompare(b.name, "pt") : sort === "balance_desc" ? b.balance - a.balance : a.balance - b.balance));
+  const total = rows.reduce((s, b) => s + b.balance, 0);
+  return (
+    <section className={`${SURFACE} space-y-3 p-4`}>
+      <div className="flex flex-wrap items-center gap-2">
+        <input aria-label={t("tb.all.search")} placeholder={t("tb.all.search")} className={FIELD} value={search} onChange={(e) => setSearch(e.target.value)} />
+        <select aria-label={t("ovw.location")} className={FIELD} value={location} onChange={(e) => setLocation(e.target.value)}>
+          <option value="">{t("ovw.allLocations")}</option>
+          {locations.map((l) => (
+            <option key={l} value={l}>
+              {l}
+            </option>
+          ))}
+        </select>
+        <select aria-label={t("tb.all.sort")} className={FIELD} value={sort} onChange={(e) => setSort(e.target.value as typeof sort)}>
+          <option value="balance_desc">{t("tb.all.sort.desc")}</option>
+          <option value="balance_asc">{t("tb.all.sort.asc")}</option>
+          <option value="name">{t("tb.all.sort.name")}</option>
+        </select>
+        <span className="ml-auto text-sm text-stone-700">{t("tb.all.total", { total: formatBank(total) })}</span>
+      </div>
+      <p className="text-xs text-stone-500">{t("tb.all.hint")}</p>
+      {q.isError && <p className="text-sm text-red-700">{message(q.error, t("common.loadError"))}</p>}
+      {q.isLoading && <p className="text-sm text-stone-400">{t("common.loading")}</p>}
+      {rows.length > 0 && (
+        <table className={TABLE}>
+          <thead className={THEAD}>
+            <tr>
+              <th className={TH}>{t("common.employee")}</th>
+              <th className={TH}>{t("ovw.location")}</th>
+              <th className={TH}>{t("tb.all.generated")}</th>
+              <th className={TH}>{t("tb.all.rest")}</th>
+              <th className={TH}>{t("tb.all.paid")}</th>
+              <th className={TH}>{t("tb.all.balance")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((b) => (
+              <tr key={b.employeeId} className={`${TR} cursor-pointer hover:bg-[#FDF8F5]`} onClick={() => onOpen(b.employeeId)}>
+                <td className={TD}>
+                  <button type="button" className="font-medium text-stone-900 hover:underline" onClick={() => onOpen(b.employeeId)}>
+                    {b.name}
+                  </button>
+                </td>
+                <td className={TD}>{b.locationName ?? "—"}</td>
+                <td className={TD}>{formatBank(b.generated)}</td>
+                <td className={TD}>{formatBank(b.compensatedRest)}</td>
+                <td className={TD}>{formatBank(b.compensatedPaid)}</td>
+                <td className={`${TD} font-semibold ${b.balance < 0 ? "text-red-700" : b.balance > 0 ? "text-emerald-700" : "text-stone-700"}`}>{formatBank(b.balance)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
+function LedgerPanel({ initialEmployeeId = "" }: { initialEmployeeId?: string }) {
   const { t } = useI18n();
   const { timeBank, settings } = useNovoRh();
   const qc = useQueryClient();
-  const [employeeId, setEmployeeId] = useState("");
+  const [employeeId, setEmployeeId] = useState(initialEmployeeId);
   const employees = useQuery({ queryKey: ["novo-rh", "settings", "employees"], queryFn: () => settings.listEmployees() });
   const q = useQuery({ queryKey: [...KEY, employeeId], queryFn: () => timeBank.ledger(employeeId), enabled: !!employeeId });
   const sync = useMutation({ mutationFn: () => timeBank.sync(employeeId), onSuccess: () => qc.invalidateQueries({ queryKey: KEY }) });

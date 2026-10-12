@@ -1,10 +1,13 @@
 import { apiGet, apiWrite } from "../../../../lib/api.ts";
-import type { HourCategory, TimeBankLedger } from "../../domain/entities/time-bank.ts";
+import type { BalanceRow, HourCategory, TimeBankLedger } from "../../domain/entities/time-bank.ts";
 import type { TimeBankApiPort } from "../../domain/ports/out/time-bank-api.port.ts";
 
 const B = "/api/novo-rh/time-bank";
 
 export class HttpTimeBankApiAdapter implements TimeBankApiPort {
+  balances() {
+    return apiGet<BalanceRow[]>(`${B}/balances`);
+  }
   ledger(employeeId: string) {
     return apiGet<TimeBankLedger>(`${B}/employees/${employeeId}`);
   }

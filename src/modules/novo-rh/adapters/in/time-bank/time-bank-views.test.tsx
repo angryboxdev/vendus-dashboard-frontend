@@ -45,6 +45,7 @@ const mod = () => {
 
 async function openLedger() {
   const user = userEvent.setup();
+  await user.click(screen.getByRole("tab", { name: "Saldo e histórico" }));
   await screen.findByRole("option", { name: "Ana Teste" });
   await user.selectOptions(screen.getByLabelText("Colaborador"), "e1");
   await screen.findByText("+4h02m49s", { selector: "dd" });

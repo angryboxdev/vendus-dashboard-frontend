@@ -13,7 +13,8 @@ import { ReviseDrawer, type ReviseTarget } from "./ReviseDrawer.tsx";
 export function DaysPanel() {
   const { t } = useI18n();
   const { attendance, settings } = useNovoRh();
-  const [employeeId, setEmployeeId] = useState("");
+  // Vindo do Painel: /hr/novo/assiduidade?employeeId=… abre já essa pessoa.
+  const [employeeId, setEmployeeId] = useState(() => new URLSearchParams(window.location.search).get("employeeId") ?? "");
   const [range, setRange] = useState(() => weekOf(todayIn()));
   const [open, setOpen] = useState<string | null>(null);
   const [revise, setRevise] = useState<ReviseTarget | null>(null);

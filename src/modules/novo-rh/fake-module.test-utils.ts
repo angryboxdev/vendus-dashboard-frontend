@@ -20,6 +20,8 @@ export function memoryQueue(): PunchQueueStoragePort & { items: QueuedPunch[] } 
 export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule {
   const none = () => vi.fn(async () => []);
   return {
+    overview: { get: vi.fn(async () => { throw new Error("sem painel no teste"); }), plan: vi.fn(async () => ({ from: "", to: "", people: [] })) },
+    inbox: { list: vi.fn(async () => ({ types: [], counters: {}, items: [] })), decide: vi.fn(async () => []) },
     demo: { status: vi.fn(async () => ({ exists: false, name: null })), create: vi.fn(async () => ({ exists: true, name: "Demo" })) },
     settings: {} as NovoRhModule["settings"],
     mfa: { status: vi.fn(async () => ({ level: "aal2" as const, factorId: "f" })), enroll: vi.fn(), verify: vi.fn() },
@@ -131,7 +133,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       holidayCompensation: vi.fn(),
     },
     myAbsences: { requests: vi.fn(async () => ({ employeeId: "e1", requests: [] })), types: none(), balances: none(), request: vi.fn(), cancel: vi.fn(), approvals: none(), decide: vi.fn() },
-    timeBank: { ledger: vi.fn(), sync: vi.fn(), compensate: vi.fn(), adjust: vi.fn(), decideValidation: vi.fn(), listCategories: none(), createCategory: vi.fn(), archiveCategory: vi.fn() },
+    timeBank: { balances: none(), ledger: vi.fn(), sync: vi.fn(), compensate: vi.fn(), adjust: vi.fn(), decideValidation: vi.fn(), listCategories: none(), createCategory: vi.fn(), archiveCategory: vi.fn() },
     rosters: {
       listTemplates: none(),
       createTemplate: vi.fn(),

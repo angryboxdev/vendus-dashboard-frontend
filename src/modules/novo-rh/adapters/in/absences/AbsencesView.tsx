@@ -3,8 +3,9 @@ import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import { Tabs } from "../../../../../components/ui/index.ts";
 import { FlowsPanel, TypesPanel } from "./ConfigPanels.tsx";
 import { ApprovalsPanel, BalancesPanel, MyAbsencesPanel, RequestsPanel } from "./RequestPanels.tsx";
+import { CalendarPanel } from "./CalendarPanel.tsx";
 
-type Tab = "approvals" | "requests" | "balances" | "types" | "flows" | "mine";
+type Tab = "calendar" | "approvals" | "requests" | "balances" | "types" | "flows" | "mine";
 
 /** Novo RH → Ausências (Fase 5). */
 export function AbsencesView() {
@@ -16,6 +17,7 @@ export function AbsencesView() {
         value={tab}
         onChange={setTab}
         items={[
+          { key: "calendar", label: t("abs.tab.calendar") },
           { key: "approvals", label: t("abs.tab.approvals") },
           { key: "requests", label: t("abs.tab.requests") },
           { key: "balances", label: t("abs.tab.balances") },
@@ -24,6 +26,7 @@ export function AbsencesView() {
           { key: "mine", label: t("abs.tab.mine") },
         ]}
       />
+      {tab === "calendar" && <CalendarPanel />}
       {tab === "approvals" && <ApprovalsPanel />}
       {tab === "requests" && <RequestsPanel />}
       {tab === "balances" && <BalancesPanel />}
