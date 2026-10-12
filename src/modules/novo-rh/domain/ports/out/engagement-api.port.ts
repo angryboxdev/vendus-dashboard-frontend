@@ -8,6 +8,8 @@ import type {
   MyAnnouncement,
   OpsTask,
   ReportDefinition,
+  ReportParams,
+  ReportResult,
   RequestForm,
   WhosIn,
 } from "../../entities/engagement.ts";
@@ -59,6 +61,6 @@ export interface WorkspaceApiPort {
 /** Relatórios (`/api/novo-rh/reports`). */
 export interface ReportsApiPort {
   catalog(): Promise<ReportDefinition[]>;
-  run(key: string, period: { from: string; to: string } | null): Promise<{ definition: ReportDefinition; rows: Record<string, string | number>[] }>;
-  csv(key: string, period: { from: string; to: string } | null): Promise<Blob>;
+  run(key: string, params: ReportParams): Promise<ReportResult>;
+  csv(key: string, params: ReportParams): Promise<Blob>;
 }

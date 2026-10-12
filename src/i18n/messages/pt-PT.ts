@@ -1247,6 +1247,20 @@ export const ptPT = {
   "rep.csv": "Descarregar CSV",
   "rep.none": "Sem linhas para mostrar.",
   "rep.rows": "{count} linha(s)",
+  "rep.search": "Pesquisar relatórios",
+  "rep.emptyCatalog": "Não há relatórios disponíveis para o seu perfil. Fale com o administrador.",
+  "rep.noOptions": "Sem opções.",
+  "rep.back": "← Relatórios",
+  "rep.filters": "Filtros do relatório",
+  "rep.badPeriod": "O início tem de ser antes do fim.",
+  "rep.locations": "Centros",
+  "rep.people": "Colaboradores",
+  "rep.scopeNote": "Sem seleção = todos os que pode ver. Os filtros nunca mostram pessoas fora do seu âmbito.",
+  "rep.columns": "Colunas",
+  "rep.noColumns": "Escolha pelo menos uma coluna.",
+  "rep.preview": "Pré-visualização",
+  "rep.previewHint": "Escolha os filtros e carregue em Ver.",
+  "rep.previewFirst": "a mostrar as primeiras {count}",
 } as const;
 
 export type MessageKey = keyof typeof ptPT;
