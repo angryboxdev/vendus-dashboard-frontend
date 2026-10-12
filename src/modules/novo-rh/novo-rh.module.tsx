@@ -60,6 +60,14 @@ import type { InvitationsApiPort } from "./domain/ports/out/invitations-api.port
 import { HttpInvitationsApiAdapter, HttpJoinApiAdapter } from "./adapters/out/http-invitations-api.adapter.ts";
 import { InvitationsView } from "./adapters/in/people/InvitationsView.tsx";
 import { JoinView } from "./adapters/in/people/JoinView.tsx";
+import { NovoRhSlotsContext, type NovoRhSlots } from "./adapters/in/slots.ts";
+import { CompanyDocumentsSlot, PersonDocumentsSlot } from "./novo-rh.slots.tsx";
+
+/** Ecrãs de outros módulos encaixados no Novo RH (ver `slots.ts`). */
+const SLOTS: NovoRhSlots = {
+  personDocuments: (personId) => <PersonDocumentsSlot personId={personId} />,
+  companyDocuments: () => <CompanyDocumentsSlot />,
+};
 import { NotificationsView } from "./adapters/in/NotificationsView.tsx";
 import { TransfersView } from "./adapters/in/TransfersView.tsx";
 import { NotFoundView } from "./adapters/in/common/NotFoundView.tsx";
@@ -209,11 +217,13 @@ export function NovoRhPage() {
   return (
     <I18nProvider locale="pt-PT">
       <NovoRhProvider>
-        <NovoRhLayout extraActions={<NotificationsBell />}>
-          <MfaGate>
-            <NovoRhRoutes />
-          </MfaGate>
-        </NovoRhLayout>
+        <NovoRhSlotsContext.Provider value={SLOTS}>
+          <NovoRhLayout extraActions={<NotificationsBell />}>
+            <MfaGate>
+              <NovoRhRoutes />
+            </MfaGate>
+          </NovoRhLayout>
+        </NovoRhSlotsContext.Provider>
       </NovoRhProvider>
     </I18nProvider>
   );

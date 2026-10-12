@@ -167,7 +167,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
     },
     periods: { list: none(), create: vi.fn(), precheck: vi.fn(), close: vi.fn(), closures: none(), requestReopen: vi.fn(), reopenings: none(), approveReopen: vi.fn(), rejectReopen: vi.fn(), requestExport: vi.fn(), exports: none(), download: vi.fn() },
     announcements: { list: none(), create: vi.fn(), update: vi.fn(), publish: vi.fn(), report: vi.fn(), archive: vi.fn(), duplicate: vi.fn(), deleteDraft: vi.fn(), previewAudience: vi.fn(async () => ({ recipients: 0, withoutAccount: 0 })), remind: vi.fn(), proofCsv: vi.fn(), mine: none(), markRead: vi.fn(), confirm: vi.fn() },
-    distributions: { list: none(), previewAudience: vi.fn(async () => ({ recipients: 0, withoutAccount: 0 })), send: vi.fn(), report: vi.fn(), remind: vi.fn(), archive: vi.fn(), downloadUrl: vi.fn(), proofCsv: vi.fn() },
+    distributions: { list: none(), previewAudience: vi.fn(async () => ({ recipients: 0, withoutAccount: 0 })), send: vi.fn(), report: vi.fn(), remind: vi.fn(), archive: vi.fn(), downloadUrl: vi.fn(), proofCsv: vi.fn(), forEmployee: none() },
     legalEntities: { catalog: none(), list: none(), create: vi.fn(), update: vi.fn(), usage: vi.fn(async () => ({ locations: 0, contracts: 0 })), archive: vi.fn(), restore: vi.fn(), locations: none(), setLocationEntity: none() },
     invitations: { list: none(), create: vi.fn(), revoke: vi.fn(), requests: none(), accept: vi.fn(), complete: vi.fn(), reject: vi.fn() },
     alerts: { list: none(), run: vi.fn(), take: vi.fn(), close: vi.fn(), rules: none(), createRule: vi.fn() },

@@ -7,13 +7,35 @@ import { DISTRIBUTION_MAX_BYTES, DISTRIBUTION_MIME, type Distribution, type Dist
 import { shortDateTime } from "../../../domain/services/engagement.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { downloadBlob } from "../download.ts";
+import { useNovoRhSlots } from "../slots.ts";
 
 const KEY = ["novo-rh", "document-distributions"];
 const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 const sizeLabel = (bytes: number) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toLocaleString("pt-PT", { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
 
-/** Novo RH → Documentos: enviar um documento a vários colaboradores, com confirmação de leitura (FE-065). */
+/** Novo RH → Documentos: documentos da empresa (motor existente, encaixado pela raiz) e envio a colaboradores (FE-065). */
 export function DocumentsView() {
+  const { t } = useI18n();
+  const slots = useNovoRhSlots();
+  const [tab, setTab] = useState<"company" | "distributions">(slots.companyDocuments ? "company" : "distributions");
+  return (
+    <div className="space-y-4">
+      {slots.companyDocuments && (
+        <Tabs
+          value={tab}
+          onChange={setTab}
+          items={[
+            { key: "company", label: t("docs.tab.company") },
+            { key: "distributions", label: t("docs.tab.distributions") },
+          ]}
+        />
+      )}
+      {tab === "company" && slots.companyDocuments ? slots.companyDocuments() : <DistributionsPanel />}
+    </div>
+  );
+}
+
+function DistributionsPanel() {
   const { t } = useI18n();
   const { distributions } = useNovoRh();
   const list = useQuery({ queryKey: KEY, queryFn: () => distributions.list() });

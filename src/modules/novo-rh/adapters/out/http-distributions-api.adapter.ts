@@ -1,5 +1,5 @@
 import { apiGet, apiGetBlob, apiPostFormData, apiWrite } from "../../../../lib/api.ts";
-import type { Distribution, DistributionAudience, DistributionReport } from "../../domain/entities/distributions.ts";
+import type { Distribution, DistributionAudience, DistributionReport, ReceivedDistribution } from "../../domain/entities/distributions.ts";
 import type { DistributionsApiPort } from "../../domain/ports/out/distributions-api.port.ts";
 
 export class HttpDistributionsApiAdapter implements DistributionsApiPort {
@@ -32,5 +32,8 @@ export class HttpDistributionsApiAdapter implements DistributionsApiPort {
   }
   proofCsv(id: string) {
     return apiGetBlob(`${this.D}/${id}/proof.csv`);
+  }
+  forEmployee(employeeId: string) {
+    return apiGet<ReceivedDistribution[]>(`${this.D}/by-employee/${employeeId}`);
   }
 }

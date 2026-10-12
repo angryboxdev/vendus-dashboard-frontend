@@ -1149,6 +1149,10 @@ export const ptPT = {
 
   // Fase 9 — Comunicação, alertas, tarefas e relatórios
   "novoRh.tab.announcements": "Comunicados",
+  "docs.tab.company": "Documentos da empresa",
+  "docs.tab.distributions": "Enviar a colaboradores",
+  "people.documents.received": "Documentos enviados pela empresa",
+  "people.documents.receivedNone": "Ainda não recebeu documentos enviados a vários colaboradores.",
   "inv.tab.requests": "Pedidos de adesão",
   "inv.tab.invitations": "Convites",
   "inv.new": "Novo convite",

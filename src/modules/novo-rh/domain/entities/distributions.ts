@@ -27,6 +27,9 @@ export interface DistributionReport {
   rows: { employeeId: string; name: string; deliveredAt: string; readAt: string | null; confirmedAt: string | null; status: "delivered" | "read" | "confirmed"; hasAccount: boolean }[];
 }
 
+/** Envio recebido por uma pessoa (ficha, FE-022). */
+export type ReceivedDistribution = Omit<Distribution, "stats"> & { readAt: string | null; confirmedAt: string | null };
+
 /** Os mesmos tipos e limite do backend. */
 export const DISTRIBUTION_MIME = ["application/pdf", "image/jpeg", "image/png"];
 export const DISTRIBUTION_MAX_BYTES = 20 * 1024 * 1024;
