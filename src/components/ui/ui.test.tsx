@@ -4,9 +4,9 @@ import { describe, expect, it, vi } from "vitest";
 import { AlertBanner, Button, Drawer, PageShell, StatusBadge, Tabs, buttonClass } from "./index.ts";
 
 describe("components/ui — identidade visual Mezza ERP", () => {
-  it("botão primário usa o gradiente da marca; secundário tem borda", () => {
-    expect(buttonClass("primary")).toContain("bg-gradient-to-r from-[#ED5C32] to-[#EF8935]");
-    expect(buttonClass("secondary")).toContain("border border-stone-300 bg-white");
+  it("botão primário é cobre preenchido; secundário tem contorno navy", () => {
+    expect(buttonClass("primary")).toContain("bg-brand-600 text-white");
+    expect(buttonClass("secondary")).toContain("border border-navy-900/20");
   });
 
   it("página: título, descrição, ação e tabs", () => {

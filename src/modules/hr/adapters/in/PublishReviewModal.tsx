@@ -109,28 +109,28 @@ export function PublishReviewModal({
   const loading = drafts.isLoading;
   const visibleDays = onlyAlerts ? days.filter((d) => d.alertCount > 0) : days;
   const notPublished = allIds.length - selectedIds.length;
-  const tab = (active: boolean) => `rounded-full px-3 py-1 text-xs font-medium ${active ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"}`;
+  const tab = (active: boolean) => `rounded-full px-3 py-1 text-xs font-medium ${active ? "bg-stone-800 text-white" : "bg-surface-soft text-ink-secondary hover:bg-stone-200"}`;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-2 sm:p-4" role="dialog" aria-modal="true" aria-label="Rever e publicar turnos">
-      <div className="flex max-h-[92vh] w-full max-w-3xl flex-col rounded-2xl bg-white shadow-xl">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/30 p-2 sm:p-4 motion-safe:animate-motion-fade" role="dialog" aria-modal="true" aria-label="Rever e publicar turnos">
+      <div className="flex max-h-[92vh] w-full max-w-3xl flex-col rounded-2.5xl bg-surface-card shadow-pop motion-safe:animate-motion-pop-in">
         {/* Cabeçalho fixo */}
-        <div className="space-y-3 border-b border-stone-100 px-5 py-4">
+        <div className="space-y-3 border-b border-line-subtle px-5 py-4">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h2 className="text-base font-semibold text-stone-900">Rever e publicar turnos</h2>
-              <p className="text-xs text-stone-500" data-testid="review-summary">
+              <h2 className="text-base font-semibold text-navy-900">Rever e publicar turnos</h2>
+              <p className="text-xs text-ink-secondary" data-testid="review-summary">
                 {summary.shifts} turnos · {summary.days} dias · {summary.employees} colaboradores
                 {summary.alerts > 0 && <span className="font-medium text-amber-700"> · {summary.alerts} {summary.alerts === 1 ? "alerta" : "alertas"}</span>}
               </p>
             </div>
-            <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-md px-2 py-1 text-stone-400 hover:text-stone-700">
+            <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-xl px-2 py-1 text-ink-muted hover:text-ink">
               ✕
             </button>
           </div>
           {allIds.length > 0 && (
             <div className="flex flex-wrap items-center justify-between gap-2">
-              <label className="flex items-center gap-2 text-sm font-medium text-stone-700">
+              <label className="flex items-center gap-2 text-sm font-medium text-ink">
                 <TriCheckbox state={selectionState(allIds, excluded)} onChange={(on) => setChecked(allIds, on)} label="Selecionar todos" />
                 Selecionar todos
               </label>
@@ -148,10 +148,10 @@ export function PublishReviewModal({
 
         {/* Lista por dia */}
         <div className="flex-1 overflow-y-auto px-5 py-3">
-          {loading && <p className="text-sm text-stone-500">A carregar…</p>}
+          {loading && <p className="text-sm text-ink-secondary">A carregar…</p>}
           {drafts.isError && <p className="text-sm text-red-600">Não foi possível carregar os turnos por publicar.</p>}
-          {!loading && !drafts.isError && days.length === 0 && <p className="text-sm text-stone-500">Não há turnos por publicar neste período.</p>}
-          {onlyAlerts && visibleDays.length === 0 && days.length > 0 && <p className="text-sm text-stone-500">Nenhum turno com alertas.</p>}
+          {!loading && !drafts.isError && days.length === 0 && <p className="text-sm text-ink-secondary">Não há turnos por publicar neste período.</p>}
+          {onlyAlerts && visibleDays.length === 0 && days.length > 0 && <p className="text-sm text-ink-secondary">Nenhum turno com alertas.</p>}
 
           <div className="divide-y divide-stone-100">
             {visibleDays.map((day) => {
@@ -160,20 +160,20 @@ export function PublishReviewModal({
               const rows = onlyAlerts ? day.shifts.filter((s) => s.alerts.length > 0) : day.shifts;
               return (
                 <section key={day.workDate} aria-label={day.header} className="py-2">
-                  <div className={`flex items-center gap-2 rounded-md px-1 py-1 ${day.alertCount > 0 ? "bg-amber-50" : ""}`}>
+                  <div className={`flex items-center gap-2 rounded-xl px-1 py-1 ${day.alertCount > 0 ? "bg-amber-50" : ""}`}>
                     <button
                       type="button"
                       onClick={() => toggleDay(day.workDate)}
                       aria-expanded={!isCollapsed}
                       aria-label={`${isCollapsed ? "Expandir" : "Recolher"} ${day.header}`}
-                      className="w-5 text-stone-500"
+                      className="w-5 text-ink-secondary"
                     >
                       {isCollapsed ? "▶" : "▼"}
                     </button>
                     <TriCheckbox state={selectionState(ids, excluded)} onChange={(on) => setChecked(ids, on)} label={`Selecionar ${day.header}`} />
-                    <span className="text-xs font-semibold tracking-wide text-stone-700">{day.header}</span>
+                    <span className="text-xs font-semibold tracking-wide text-ink">{day.header}</span>
                     <span className="ml-auto text-xs font-medium">
-                      <span className="text-stone-500">
+                      <span className="text-ink-secondary">
                         {day.shifts.length} {day.shifts.length === 1 ? "TURNO" : "TURNOS"} ·{" "}
                       </span>
                       {day.alertCount > 0 ? (
@@ -187,7 +187,7 @@ export function PublishReviewModal({
                   </div>
                   {!isCollapsed && (
                     <>
-                      {day.commonLocationId && <p className="pl-14 text-xs text-stone-500">{locationName(day.commonLocationId)}</p>}
+                      {day.commonLocationId && <p className="pl-14 text-xs text-ink-secondary">{locationName(day.commonLocationId)}</p>}
                       <ul className="mt-1">
                         {rows.map((r) => (
                           <li key={r.shift.id}>
@@ -199,11 +199,11 @@ export function PublishReviewModal({
                                 onChange={(e) => setChecked([r.shift.id], e.target.checked)}
                                 aria-label={`${r.shortName} ${day.header}`}
                               />
-                              <span className="min-w-[9rem] flex-1 font-medium text-stone-800">{r.shortName}</span>
+                              <span className="min-w-[9rem] flex-1 font-medium text-ink">{r.shortName}</span>
                               <span className="text-right">
-                                <span className="whitespace-nowrap text-stone-700">{r.hours}</span>
-                                {r.split && <span className="block text-xs text-stone-500">Repartido</span>}
-                                {r.showLocation && <span className="block text-xs text-stone-500">{locationName(r.shift.locationId)}</span>}
+                                <span className="whitespace-nowrap text-ink">{r.hours}</span>
+                                {r.split && <span className="block text-xs text-ink-secondary">Repartido</span>}
+                                {r.showLocation && <span className="block text-xs text-ink-secondary">{locationName(r.shift.locationId)}</span>}
                                 {r.alerts.map((a) => (
                                   <span key={a} className="block text-xs font-medium text-amber-700">
                                     ⚠ {a}
@@ -224,22 +224,22 @@ export function PublishReviewModal({
         </div>
 
         {/* Rodapé fixo */}
-        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-stone-100 px-5 py-3">
-          <div className="text-xs text-stone-600" aria-live="polite">
-            <p className="font-medium text-stone-800">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-line-subtle px-5 py-3">
+          <div className="text-xs text-ink-secondary" aria-live="polite">
+            <p className="font-medium text-ink">
               {selectedIds.length} de {allIds.length} turnos selecionados
             </p>
             {notPublished > 0 && <p>{notPublished} não {notPublished === 1 ? "será publicado" : "serão publicados"} (ficam em rascunho)</p>}
           </div>
           <div className="flex gap-2">
-            <button type="button" onClick={onClose} className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">
+            <button type="button" onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink hover:bg-surface-soft">
               Cancelar
             </button>
             <button
               type="button"
               onClick={confirm}
               disabled={selectedIds.length === 0 || publish.isPending}
-              className="rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90 disabled:opacity-50"
+              className="rounded-xl bg-brand-600 hover:bg-brand-500 px-4 py-2 text-sm font-medium text-white shadow-sm hover:opacity-90 disabled:opacity-50"
             >
               {publish.isPending ? "A publicar…" : `Publicar ${selectedIds.length} ${selectedIds.length === 1 ? "turno" : "turnos"}`}
             </button>

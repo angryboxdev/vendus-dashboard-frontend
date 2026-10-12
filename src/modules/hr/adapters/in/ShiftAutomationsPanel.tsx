@@ -11,8 +11,8 @@ import { MOTION_ROW_HOVER, MotionLayer, MotionPresence, useRetained } from "../.
 import { useManageShiftAutomations, useShiftAutomations } from "./use-shift-automations.ts";
 import { usePositions } from "./use-positions.ts";
 
-const inputCls = "w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none focus:border-[#ED5C32]";
-const labelCls = "mb-1 block text-sm font-medium text-stone-700";
+const inputCls = "w-full rounded-xl border border-line px-3 py-2 text-sm text-ink outline-none focus:border-brand-500";
+const labelCls = "mb-1 block text-sm font-medium text-ink";
 
 function formatDate(ymd: string): string {
   return `${ymd.slice(8, 10)}/${ymd.slice(5, 7)}/${ymd.slice(0, 4)}`;
@@ -39,7 +39,7 @@ function EditAutomationModal({ automation, onClose }: { automation: ShiftAutomat
   return (
     <MotionLayer kind="overlay" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Editar automatização">
       <MotionLayer as="form" kind="modal" onSubmit={submit} className="w-full max-w-md space-y-4 rounded-2xl bg-white p-5 shadow-xl">
-        <h2 className="text-base font-semibold text-stone-900">Editar automatização</h2>
+        <h2 className="text-base font-semibold text-navy-900">Editar automatização</h2>
         <div>
           <label htmlFor="automation-name" className={labelCls}>
             Nome
@@ -55,7 +55,7 @@ function EditAutomationModal({ automation, onClose }: { automation: ShiftAutomat
                 type="button"
                 aria-pressed={weekdays.includes(i as Weekday)}
                 onClick={() => setWeekdays((d) => (d.includes(i as Weekday) ? d.filter((x) => x !== i) : [...d, i as Weekday]))}
-                className={`rounded-md border px-2 py-1 text-xs ${weekdays.includes(i as Weekday) ? "border-[#ED5C32] bg-orange-50" : "border-stone-200"}`}
+                className={`rounded-xl border px-2 py-1 text-xs ${weekdays.includes(i as Weekday) ? "border-brand-600 bg-orange-50" : "border-line"}`}
               >
                 {label}
               </button>
@@ -97,16 +97,16 @@ function EditAutomationModal({ automation, onClose }: { automation: ShiftAutomat
               ))}
           </select>
         </div>
-        <p className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">
+        <p className="rounded-xl bg-sky-50 px-3 py-2 text-xs text-sky-800">
           As alterações só valem para as próximas gerações — os turnos já gerados não mudam. Para mudar o modelo ou o público, crie uma nova
           automatização e pause esta.
         </p>
         {updateMutation.error && <p className="text-sm text-red-600">{(updateMutation.error as Error).message}</p>}
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-lg border border-stone-200 px-4 py-2 text-sm text-stone-700">
+          <button type="button" onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-sm text-ink">
             Cancelar
           </button>
-          <button type="submit" disabled={updateMutation.isPending} className="rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+          <button type="submit" disabled={updateMutation.isPending} className="rounded-xl bg-brand-600 hover:bg-brand-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
             {updateMutation.isPending ? "A guardar…" : "Guardar"}
           </button>
         </div>
@@ -124,9 +124,9 @@ function GenerateModal({ automation, onClose }: { automation: ShiftAutomation; o
   return (
     <MotionLayer kind="overlay" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true" aria-label="Gerar turnos">
       <MotionLayer kind="modal" className="w-full max-w-sm space-y-4 rounded-2xl bg-white p-5 shadow-xl">
-        <h2 className="text-base font-semibold text-stone-900">Gerar turnos — {automation.name}</h2>
+        <h2 className="text-base font-semibold text-navy-900">Gerar turnos — {automation.name}</h2>
         {result ? (
-          <p className="text-sm text-stone-700">{generationSummary(result)}</p>
+          <p className="text-sm text-ink">{generationSummary(result)}</p>
         ) : (
           <>
             <label htmlFor="generate-weeks" className={labelCls}>
@@ -139,14 +139,14 @@ function GenerateModal({ automation, onClose }: { automation: ShiftAutomation; o
                 </option>
               ))}
             </select>
-            <p className="text-xs text-stone-500">
+            <p className="text-xs text-ink-secondary">
               Só são geradas datas ainda não geradas{automation.generatedUntil ? ` (já gerada até ${formatDate(automation.generatedUntil)})` : ""}. Os turnos ficam em rascunho.
             </p>
           </>
         )}
         {generateMutation.error && <p className="text-sm text-red-600">{(generateMutation.error as Error).message}</p>}
         <div className="flex justify-end gap-2">
-          <button type="button" onClick={onClose} className="rounded-lg border border-stone-200 px-4 py-2 text-sm text-stone-700">
+          <button type="button" onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-sm text-ink">
             {result ? "Fechar" : "Cancelar"}
           </button>
           {!result && (
@@ -154,7 +154,7 @@ function GenerateModal({ automation, onClose }: { automation: ShiftAutomation; o
               type="button"
               disabled={generateMutation.isPending}
               onClick={() => generateMutation.mutate({ id: automation.id, weeks }, { onSuccess: setResult })}
-              className="rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+              className="rounded-xl bg-brand-600 hover:bg-brand-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
             >
               {generateMutation.isPending ? "A gerar…" : "Gerar"}
             </button>
@@ -199,11 +199,11 @@ export function ShiftAutomationsPanel() {
   if (!isLoading && !isError && automations.length === 0) return null;
 
   return (
-    <section className="rounded-xl border border-[#F5C992]/40 bg-white shadow-sm">
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-stone-100 px-4 py-3">
+    <section className="rounded-xl border border-line bg-white shadow-sm">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line-subtle px-4 py-3">
         <div>
-          <h2 className="text-base font-semibold text-stone-900">Automatizações de turnos</h2>
-          <p className="text-xs text-stone-500">Aplicação de modelos a colaboradores, por cargo, local ou todos, com regras de recorrência.</p>
+          <h2 className="text-base font-semibold text-navy-900">Automatizações de turnos</h2>
+          <p className="text-xs text-ink-secondary">Aplicação de modelos a colaboradores, por cargo, local ou todos, com regras de recorrência.</p>
         </div>
         <div className="flex gap-2">
           <input
@@ -211,19 +211,19 @@ export function ShiftAutomationsPanel() {
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Pesquisar automatizações…"
             aria-label="Pesquisar automatizações"
-            className="w-56 rounded-lg border border-stone-200 px-3 py-2 text-sm outline-none focus:border-[#ED5C32]"
+            className="w-56 rounded-xl border border-line px-3 py-2 text-sm outline-none focus:border-brand-500"
           />
         </div>
       </div>
 
-      {isLoading && <p className="px-4 py-6 text-sm text-stone-500">A carregar…</p>}
+      {isLoading && <p className="px-4 py-6 text-sm text-ink-secondary">A carregar…</p>}
       {isError && <p className="px-4 py-6 text-sm text-red-600">Não foi possível carregar as automatizações.</p>}
       {statusMutation.isError && <p className="px-4 pt-2 text-sm text-red-600">{(statusMutation.error as Error).message}</p>}
 
       {!isLoading && !isError && (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-[#FDF8F5] text-left text-xs font-semibold uppercase tracking-wide text-stone-500">
+            <thead className="bg-brand-50 text-left text-xs font-semibold uppercase tracking-wide text-ink-secondary">
               <tr>
                 <th className="px-4 py-2">Nome</th>
                 <th className="px-4 py-2">Modelo</th>
@@ -235,10 +235,10 @@ export function ShiftAutomationsPanel() {
                 {canEdit && <th className="px-4 py-2" />}
               </tr>
             </thead>
-            <tbody className="divide-y divide-[#F5C992]/30">
+            <tbody className="divide-y divide-line-subtle">
               {visible.length === 0 && (
                 <tr>
-                  <td colSpan={canEdit ? 8 : 7} className="px-4 py-6 text-center text-stone-500">
+                  <td colSpan={canEdit ? 8 : 7} className="px-4 py-6 text-center text-ink-secondary">
                     {automations.length === 0 ? "Ainda não há automatizações — crie uma em Modelos de turno → Aplicar modelo → \"Guardar como automatização\"." : "Nenhuma automatização corresponde à pesquisa."}
                   </td>
                 </tr>
@@ -246,21 +246,21 @@ export function ShiftAutomationsPanel() {
               {visible.map((a) => (
                 <tr key={a.id} className={MOTION_ROW_HOVER}>
                   <td className="px-4 py-2.5">
-                    <p className="font-medium text-stone-800">{a.name}</p>
-                    <p className="text-xs text-stone-500">
+                    <p className="font-medium text-ink">{a.name}</p>
+                    <p className="text-xs text-ink-secondary">
                       {a.generatedUntil ? `Gerada até ${formatDate(a.generatedUntil)}` : "Ainda não gerada"}
                       {a.openIssues > 0 && <span className="text-amber-700"> · {a.openIssues} por resolver</span>}
                     </p>
                   </td>
                   <td className="px-4 py-2.5">{a.templateName}</td>
                   <td className="px-4 py-2.5">{audienceLabel(a.audience, names)}</td>
-                  <td className="px-4 py-2.5 text-stone-600">{a.locationId ? names.location(a.locationId) : "Padrão"}</td>
+                  <td className="px-4 py-2.5 text-ink-secondary">{a.locationId ? names.location(a.locationId) : "Padrão"}</td>
                   <td className="px-4 py-2.5">
                     {a.endDate ? `${formatDate(a.startDate)} – ${formatDate(a.endDate)}` : weekdaysLabel(a.weekdays)}
-                    {a.endDate && <p className="text-xs text-stone-500">{weekdaysLabel(a.weekdays)}</p>}
+                    {a.endDate && <p className="text-xs text-ink-secondary">{weekdaysLabel(a.weekdays)}</p>}
                   </td>
                   <td className="px-4 py-2.5">
-                    <span className="rounded-md bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">{recurrenceLabel(a)}</span>
+                    <span className="rounded-xl bg-sky-50 px-2 py-0.5 text-xs font-medium text-sky-700">{recurrenceLabel(a)}</span>
                   </td>
                   <td className="px-4 py-2.5">
                     <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${a.status === "active" ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-700"}`}>
@@ -270,11 +270,11 @@ export function ShiftAutomationsPanel() {
                   {canEdit && (
                     <td className="space-x-3 whitespace-nowrap px-4 py-2.5 text-right">
                       {a.status === "active" && (
-                        <button type="button" onClick={() => setDialog({ kind: "generate", automation: a })} className="text-sm font-medium text-stone-800 hover:underline" aria-label={`Gerar ${a.name}`}>
+                        <button type="button" onClick={() => setDialog({ kind: "generate", automation: a })} className="text-sm font-medium text-ink hover:underline" aria-label={`Gerar ${a.name}`}>
                           Gerar
                         </button>
                       )}
-                      <button type="button" onClick={() => setDialog({ kind: "edit", automation: a })} className="text-sm font-medium text-[#ED5C32] hover:underline">
+                      <button type="button" onClick={() => setDialog({ kind: "edit", automation: a })} className="text-sm font-medium text-brand-600 hover:underline">
                         Editar
                       </button>
                       <button

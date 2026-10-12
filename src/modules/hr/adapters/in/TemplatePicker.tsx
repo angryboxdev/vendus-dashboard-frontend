@@ -36,7 +36,7 @@ export function TemplatePicker({ templates, value, onChange }: { templates: Shif
     return () => document.removeEventListener("mousedown", close);
   }, [open]);
 
-  const chip = (active: boolean) => `rounded-full px-2.5 py-0.5 text-xs font-medium ${active ? "bg-stone-800 text-white" : "bg-stone-100 text-stone-600 hover:bg-stone-200"}`;
+  const chip = (active: boolean) => `rounded-full px-2.5 py-0.5 text-xs font-medium ${active ? "bg-stone-800 text-white" : "bg-surface-soft text-ink-secondary hover:bg-stone-200"}`;
 
   return (
     <div ref={ref} className="relative">
@@ -46,17 +46,17 @@ export function TemplatePicker({ templates, value, onChange }: { templates: Shif
         aria-haspopup="listbox"
         aria-expanded={open}
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between rounded-lg border border-stone-200 px-3 py-2 text-left text-sm text-stone-800 outline-none focus:border-[#ED5C32]"
+        className="flex w-full items-center justify-between rounded-xl border border-line px-3 py-2 text-left text-sm text-ink outline-none focus:border-brand-500"
       >
         <span>{selected ? `${selected.name} — ${templateTimeLabel(selected)}` : "Escolher modelo…"}</span>
-        <span aria-hidden="true" className="text-stone-400">
+        <span aria-hidden="true" className="text-ink-muted">
           ▾
         </span>
       </button>
 
       {open && (
-        <div className="absolute z-30 mt-1 w-full rounded-xl border border-stone-200 bg-white shadow-xl">
-          <div className="space-y-2 border-b border-stone-100 p-3">
+        <div className="absolute z-30 mt-1 w-full rounded-xl border border-line bg-white shadow-xl">
+          <div className="space-y-2 border-b border-line-subtle p-3">
             <input
               autoFocus
               type="search"
@@ -64,7 +64,7 @@ export function TemplatePicker({ templates, value, onChange }: { templates: Shif
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Pesquisar modelo ou horário…"
               aria-label="Pesquisar modelo ou horário"
-              className="w-full rounded-lg border border-stone-200 px-3 py-1.5 text-sm outline-none focus:border-[#ED5C32]"
+              className="w-full rounded-xl border border-line px-3 py-1.5 text-sm outline-none focus:border-brand-500"
             />
             <div className="flex flex-wrap gap-1" role="group" aria-label="Grupo do modelo">
               <button type="button" aria-pressed={group === null} onClick={() => setGroup(null)} className={chip(group === null)}>
@@ -85,7 +85,7 @@ export function TemplatePicker({ templates, value, onChange }: { templates: Shif
             </div>
           </div>
           <ul role="listbox" aria-label="Modelos" className="max-h-64 overflow-y-auto py-1">
-            {results.length === 0 && <li className="px-3 py-3 text-sm text-stone-500">Nenhum modelo ativo corresponde.</li>}
+            {results.length === 0 && <li className="px-3 py-3 text-sm text-ink-secondary">Nenhum modelo ativo corresponde.</li>}
             {results.map((t) => (
               <li key={t.id}>
                 <button
@@ -96,10 +96,10 @@ export function TemplatePicker({ templates, value, onChange }: { templates: Shif
                     onChange(t.id);
                     setOpen(false);
                   }}
-                  className={`block w-full px-3 py-2 text-left hover:bg-stone-50 ${t.id === value ? "bg-[#FEF3EC]" : ""}`}
+                  className={`block w-full px-3 py-2 text-left hover:bg-surface-soft ${t.id === value ? "bg-brand-50" : ""}`}
                 >
-                  <span className="block text-sm font-medium text-stone-800">{t.name}</span>
-                  <span className="block text-xs text-stone-500">
+                  <span className="block text-sm font-medium text-ink">{t.name}</span>
+                  <span className="block text-xs text-ink-secondary">
                     {templateTimeLabel(t)} · {formatMinutes(t.workMinutes)} · {SHIFT_TEMPLATE_KIND_LABELS[t.kind]}
                   </span>
                 </button>

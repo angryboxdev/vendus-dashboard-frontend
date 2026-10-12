@@ -13,8 +13,8 @@ import type {
 } from "../../domain/entities/schedule.ts";
 
 const inputCls =
-  "w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30";
-const labelCls = "mb-1.5 block text-sm font-medium text-stone-700";
+  "w-full rounded-xl border border-line px-3 py-2 text-sm text-ink outline-none transition focus:border-brand-500 focus:ring-1 focus:ring-brand-500/30";
+const labelCls = "mb-1.5 block text-sm font-medium text-ink";
 
 const SCOPE_OPTIONS: Array<{ value: SeriesEditScope; label: string }> = [
   { value: "only_this", label: "Somente este turno" },
@@ -163,15 +163,15 @@ export function ShiftDrawer({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-navy-950/25 motion-safe:animate-motion-fade" onClick={onClose} />
       <aside
-        className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col overflow-y-auto bg-white shadow-2xl ${
+        className={`fixed inset-y-0 right-0 z-50 flex w-full flex-col overflow-y-auto bg-surface-card shadow-pop motion-safe:animate-motion-slide-in-right ${
           showSeriesForm ? "max-w-xl" : "max-w-md"
         }`}
       >
-        <div className="flex items-center justify-between border-b border-[#F5C992]/40 px-5 py-4">
-          <h2 className="text-base font-semibold text-stone-900">{isEdit ? "Editar turno" : "Novo turno"}</h2>
-          <button onClick={onClose} className="rounded-md p-1 text-stone-400 hover:bg-stone-100 hover:text-stone-600">
+        <div className="flex items-center justify-between border-b border-line px-5 py-4">
+          <h2 className="text-base font-semibold text-navy-900">{isEdit ? "Editar turno" : "Novo turno"}</h2>
+          <button onClick={onClose} className="rounded-xl p-1 text-ink-muted hover:bg-surface-soft hover:text-ink-secondary">
             ✕
           </button>
         </div>
@@ -199,27 +199,27 @@ export function ShiftDrawer({
               onChange={(e) => setWorkDate(e.target.value)}
               required
               disabled={!!editingScopeAppliesToSeries}
-              className={`${inputCls} disabled:bg-stone-50 disabled:text-stone-400`}
+              className={`${inputCls} disabled:bg-surface-soft disabled:text-ink-muted`}
             />
             {editingScopeAppliesToSeries && (
-              <p className="mt-1 text-[11px] text-stone-400">A data não pode ser alterada ao editar mais do que este turno.</p>
+              <p className="mt-1 text-[11px] text-ink-muted">A data não pode ser alterada ao editar mais do que este turno.</p>
             )}
           </div>
 
           {!showSeriesForm && (
             <>
-              <div className="flex rounded-md border border-stone-200 bg-stone-50 p-0.5 text-sm">
+              <div className="flex rounded-xl border border-line bg-surface-soft p-0.5 text-sm">
                 <button
                   type="button"
                   onClick={() => setKind("direct")}
-                  className={`flex-1 rounded px-2 py-1.5 ${kind === "direct" ? "bg-white shadow-sm" : "text-stone-500"}`}
+                  className={`flex-1 rounded px-2 py-1.5 ${kind === "direct" ? "bg-white shadow-sm" : "text-ink-secondary"}`}
                 >
                   Turno direto
                 </button>
                 <button
                   type="button"
                   onClick={() => setKind("split")}
-                  className={`flex-1 rounded px-2 py-1.5 ${kind === "split" ? "bg-white shadow-sm" : "text-stone-500"}`}
+                  className={`flex-1 rounded px-2 py-1.5 ${kind === "split" ? "bg-white shadow-sm" : "text-ink-secondary"}`}
                 >
                   Turno repartido
                 </button>
@@ -236,7 +236,7 @@ export function ShiftDrawer({
                 </div>
               </div>
               {endsNextDay && (
-                <p className="-mt-2 text-xs text-stone-500">Termina no dia seguinte (+1 dia) — conta como um só turno, no dia em que começa.</p>
+                <p className="-mt-2 text-xs text-ink-secondary">Termina no dia seguinte (+1 dia) — conta como um só turno, no dia em que começa.</p>
               )}
               {!timeOrderValid && (
                 <p className="-mt-2 text-xs text-red-600">
@@ -291,7 +291,7 @@ export function ShiftDrawer({
           )}
 
           {!isEdit && (
-            <label className="flex items-center gap-2 text-sm text-stone-600">
+            <label className="flex items-center gap-2 text-sm text-ink-secondary">
               <input type="checkbox" checked={repeatEnabled} onChange={(e) => setRepeatEnabled(e.target.checked)} />
               Repetir este horário
             </label>
@@ -310,18 +310,18 @@ export function ShiftDrawer({
           )}
 
           {!showSeriesForm && (
-            <label className="flex items-center gap-2 text-sm text-stone-600">
+            <label className="flex items-center gap-2 text-sm text-ink-secondary">
               <input type="checkbox" checked={publishAfterSave} onChange={(e) => setPublishAfterSave(e.target.checked)} />
               Publicar após guardar
             </label>
           )}
 
           {isEdit && editingSeriesId && (
-            <div className="rounded-md border border-stone-200 bg-stone-50 p-2.5">
+            <div className="rounded-xl border border-line bg-surface-soft p-2.5">
               <p className={labelCls}>Este turno faz parte de uma série. Aplicar a:</p>
               <div className="space-y-1">
                 {SCOPE_OPTIONS.map((opt) => (
-                  <label key={opt.value} className="flex items-center gap-2 text-sm text-stone-600">
+                  <label key={opt.value} className="flex items-center gap-2 text-sm text-ink-secondary">
                     <input
                       type="radio"
                       name="series-scope"
@@ -338,20 +338,20 @@ export function ShiftDrawer({
           {error && <p className="text-xs text-red-600">{error}</p>}
 
           {!showSeriesForm && (
-            <div className="mt-auto flex flex-col gap-2 border-t border-stone-100 pt-4">
+            <div className="mt-auto flex flex-col gap-2 border-t border-line-subtle pt-4">
               {isEdit && (
                 <div className="flex items-center gap-2">
                   <input
                     type="date"
                     value={duplicateDate}
                     onChange={(e) => setDuplicateDate(e.target.value)}
-                    className="flex-1 rounded-md border border-stone-300 px-2 py-1.5 text-xs"
+                    className="flex-1 rounded-xl border border-line px-2 py-1.5 text-xs"
                   />
                   <button
                     type="button"
                     disabled={!duplicateDate}
                     onClick={() => duplicateDate && onDuplicate(editing!.id, duplicateDate)}
-                    className="rounded-md border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50"
+                    className="rounded-xl border border-line px-3 py-1.5 text-xs font-medium text-ink-secondary hover:bg-surface-soft disabled:opacity-50"
                   >
                     Duplicar para…
                   </button>
@@ -364,14 +364,14 @@ export function ShiftDrawer({
                       <button
                         type="button"
                         onClick={() => onClearSeries(editingSeriesId)}
-                        className="flex-1 rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
+                        className="flex-1 rounded-xl bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700"
                       >
                         Confirmar: limpar toda a série
                       </button>
                       <button
                         type="button"
                         onClick={() => setShowClearSeriesConfirm(false)}
-                        className="rounded-md border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50"
+                        className="rounded-xl border border-line px-3 py-1.5 text-xs font-medium text-ink-secondary hover:bg-surface-soft"
                       >
                         Cancelar
                       </button>
@@ -380,7 +380,7 @@ export function ShiftDrawer({
                     <button
                       type="button"
                       onClick={() => setShowClearSeriesConfirm(true)}
-                      className="rounded-md border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+                      className="rounded-xl border border-red-200 px-3 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
                     >
                       Limpar toda a série
                     </button>
@@ -394,14 +394,14 @@ export function ShiftDrawer({
                       <button
                         type="button"
                         onClick={() => onDelete(editing!.id)}
-                        className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                        className="flex-1 rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
                       >
                         Confirmar exclusão
                       </button>
                       <button
                         type="button"
                         onClick={() => setShowDeleteConfirm(false)}
-                        className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
+                        className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink-secondary hover:bg-surface-soft"
                       >
                         Cancelar
                       </button>
@@ -410,7 +410,7 @@ export function ShiftDrawer({
                     <button
                       type="button"
                       onClick={() => setShowDeleteConfirm(true)}
-                      className="rounded-lg border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
+                      className="rounded-xl border border-red-200 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50"
                     >
                       Apagar turno
                     </button>
@@ -420,14 +420,14 @@ export function ShiftDrawer({
                     <button
                       type="button"
                       onClick={onClose}
-                      className="flex-1 rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
+                      className="flex-1 rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink-secondary hover:bg-surface-soft"
                     >
                       Cancelar
                     </button>
                     <button
                       type="submit"
                       disabled={saving || !formValid}
-                      className="flex-1 rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                      className="flex-1 rounded-xl bg-brand-600 hover:bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
                     >
                       {saving ? "A guardar…" : "Guardar turno"}
                     </button>

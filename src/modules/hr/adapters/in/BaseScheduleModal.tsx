@@ -80,14 +80,14 @@ export function BaseScheduleModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" role="dialog" aria-modal="true">
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-xl border border-stone-200 bg-white shadow-xl">
-        <div className="flex items-center justify-between border-b border-stone-100 px-5 py-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-navy-950/30 p-4 motion-safe:animate-motion-fade" role="dialog" aria-modal="true">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-auto rounded-2.5xl border border-line bg-surface-card shadow-pop motion-safe:animate-motion-pop-in">
+        <div className="flex items-center justify-between border-b border-line-subtle px-5 py-4">
           <div>
-            <h2 className="text-base font-semibold text-stone-900">Escala base — {employeeName}</h2>
-            <p className="text-sm text-stone-500">Modelo semanal aplicável a qualquer semana</p>
+            <h2 className="text-base font-semibold text-navy-900">Escala base — {employeeName}</h2>
+            <p className="text-sm text-ink-secondary">Modelo semanal aplicável a qualquer semana</p>
           </div>
-          <button onClick={onClose} className="text-stone-400 hover:text-stone-600">
+          <button onClick={onClose} className="text-ink-muted hover:text-ink-secondary">
             ✕
           </button>
         </div>
@@ -97,8 +97,8 @@ export function BaseScheduleModal({
             const cell = cellByWeekday.get(weekday);
             const isEditing = editingWeekday === weekday;
             return (
-              <div key={weekday} className="rounded-lg border border-stone-200 p-2 text-center text-xs">
-                <p className="mb-1 font-semibold text-stone-600">{WEEKDAY_LABELS[weekday]}</p>
+              <div key={weekday} className="rounded-xl border border-line p-2 text-center text-xs">
+                <p className="mb-1 font-semibold text-ink-secondary">{WEEKDAY_LABELS[weekday]}</p>
                 {isEditing ? (
                   <div className="space-y-1 text-left">
                     <label className="flex items-center gap-1">
@@ -115,13 +115,13 @@ export function BaseScheduleModal({
                           type="time"
                           value={form.startTime}
                           onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
-                          className="w-full rounded border border-stone-300 px-1 py-0.5 text-xs"
+                          className="w-full rounded border border-line px-1 py-0.5 text-xs"
                         />
                         <input
                           type="time"
                           value={form.endTime}
                           onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))}
-                          className="w-full rounded border border-stone-300 px-1 py-0.5 text-xs"
+                          className="w-full rounded border border-line px-1 py-0.5 text-xs"
                         />
                         <LocationSelect value={form.locationId} onChange={(id) => setForm((f) => ({ ...f, locationId: id }))} />
                       </>
@@ -130,23 +130,23 @@ export function BaseScheduleModal({
                       <button
                         onClick={saveCell}
                         disabled={upsertMutation.isPending}
-                        className="flex-1 rounded bg-[#ED5C32] px-1 py-0.5 text-white"
+                        className="flex-1 rounded bg-brand-600 px-1 py-0.5 text-white"
                       >
                         Ok
                       </button>
-                      <button onClick={() => setEditingWeekday(null)} className="flex-1 rounded border border-stone-300">
+                      <button onClick={() => setEditingWeekday(null)} className="flex-1 rounded border border-line">
                         X
                       </button>
                     </div>
                   </div>
                 ) : (
-                  <button onClick={() => startEdit(weekday)} className="block w-full rounded p-1 hover:bg-stone-50">
+                  <button onClick={() => startEdit(weekday)} className="block w-full rounded p-1 hover:bg-surface-soft">
                     {!cell ? (
                       <span className="text-stone-300">—</span>
                     ) : cell.isDayOff ? (
-                      <span className="text-stone-400">Folga</span>
+                      <span className="text-ink-muted">Folga</span>
                     ) : (
-                      <span className="text-stone-700">
+                      <span className="text-ink">
                         {cell.startTime}
                         <br />
                         {cell.endTime}
@@ -159,20 +159,20 @@ export function BaseScheduleModal({
           })}
         </div>
 
-        <div className="space-y-2 border-t border-stone-100 px-5 py-4">
-          <label className="flex items-center gap-2 text-xs text-stone-600">
+        <div className="space-y-2 border-t border-line-subtle px-5 py-4">
+          <label className="flex items-center gap-2 text-xs text-ink-secondary">
             <input type="checkbox" checked={overrideExceptions} onChange={(e) => setOverrideExceptions(e.target.checked)} />
             Sobrepor turnos já editados manualmente nesta semana
           </label>
           {applyResult && <p className="text-xs text-emerald-700">{applyResult}</p>}
           <div className="flex justify-end gap-2">
-            <button onClick={onClose} className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50">
+            <button onClick={onClose} className="rounded-xl border border-line px-4 py-2 text-sm font-medium text-ink-secondary hover:bg-surface-soft">
               Fechar
             </button>
             <button
               onClick={() => applyMutation.mutate()}
               disabled={applyMutation.isPending}
-              className="rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              className="rounded-xl bg-brand-600 hover:bg-brand-500 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
             >
               {applyMutation.isPending ? "A aplicar…" : "Aplicar esta escala à semana"}
             </button>

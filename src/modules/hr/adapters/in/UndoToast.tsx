@@ -21,11 +21,11 @@ export function UndoToast({ state, busy, onUndo, onClose }: { state: UndoToastSt
     <div role="status" className="fixed bottom-6 left-1/2 z-50 flex -translate-x-1/2 items-center gap-4 rounded-xl bg-stone-900 px-4 py-3 text-sm text-white shadow-lg">
       <span>{state.message}</span>
       {state.undoToken && (
-        <button type="button" disabled={busy} onClick={() => onUndo(state.undoToken!)} className="font-semibold text-[#F5C992] hover:underline disabled:opacity-60">
+        <button type="button" disabled={busy} onClick={() => onUndo(state.undoToken!)} className="font-semibold text-line hover:underline disabled:opacity-60">
           {busy ? "A desfazer…" : "Desfazer"}
         </button>
       )}
-      <button type="button" onClick={onClose} aria-label="Fechar aviso" className="text-stone-400 hover:text-white">
+      <button type="button" onClick={onClose} aria-label="Fechar aviso" className="text-ink-muted hover:text-white">
         ✕
       </button>
     </div>
