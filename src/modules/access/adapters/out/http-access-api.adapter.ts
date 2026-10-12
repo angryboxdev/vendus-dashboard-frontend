@@ -51,6 +51,9 @@ export class HttpAccessApiAdapter implements AccessApiPort {
   resetPassword(userId: string) {
     return call(() => apiPost<{ temporaryPassword: string }>(`/api/users/${enc(userId)}/reset-password`, {}));
   }
+  resetSecondFactor(userId: string, reason: string) {
+    return call(() => apiPost<{ factorsRemoved: number }>(`/api/users/${enc(userId)}/reset-mfa`, { reason }));
+  }
   listProfiles(): Promise<AccessProfile[]> {
     return apiGet<AccessProfile[]>("/api/access-profiles");
   }

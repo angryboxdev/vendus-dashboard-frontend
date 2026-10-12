@@ -20,6 +20,8 @@ export interface AccessApiPort {
   updateUser(userId: string, input: UpdateUserInput): Promise<UserDetail>;
   setUserStatus(userId: string, status: UserStatus, version: number): Promise<UserDetail>;
   resetPassword(userId: string): Promise<{ temporaryPassword: string }>;
+  /** FE-007: remove o segundo fator (a pessoa volta a ativar no próximo acesso). */
+  resetSecondFactor(userId: string, reason: string): Promise<{ factorsRemoved: number }>;
   listProfiles(): Promise<AccessProfile[]>;
   createProfile(input: { name: string; description: string | null; baseProfileId: string | null }): Promise<AccessProfile>;
   updateProfile(profileId: string, input: UpdateProfileInput): Promise<AccessProfile>;
