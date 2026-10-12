@@ -111,6 +111,7 @@ function TopicPage({ topic, onAdvanced }: { topic: Topic; onAdvanced: () => void
           </button>
         </p>
       </div>
+      {topic.key === "notifications" && <RunReminders />}
       {global ? (
         <ProfilePanel profileId={global.id} definitions={defs} />
       ) : (
@@ -127,6 +128,23 @@ function TopicPage({ topic, onAdvanced }: { topic: Topic; onAdvanced: () => void
         </AlertBanner>
       )}
       {create.isError && <p className="text-sm text-red-700">{create.error.message}</p>}
+    </div>
+  );
+}
+
+/** Notificações: verificar já os avisos devidos (o servidor faz o mesmo de 10 em 10 minutos). */
+function RunReminders() {
+  const { t } = useI18n();
+  const { reminders } = useNovoRh();
+  const run = useMutation({ mutationFn: () => reminders.run() });
+  return (
+    <div className={`${SURFACE} flex flex-wrap items-center gap-3 p-4`}>
+      <p className="flex-1 text-sm text-stone-600">{t("cfg.reminders.hint")}</p>
+      <Button size="sm" disabled={run.isPending} onClick={() => run.mutate()}>
+        {t("cfg.reminders.run")}
+      </Button>
+      {run.data && <span className="text-xs text-stone-600">{t("cfg.reminders.done", { count: run.data.notices })}</span>}
+      {run.isError && <span className="text-xs text-red-700">{run.error.message}</span>}
     </div>
   );
 }

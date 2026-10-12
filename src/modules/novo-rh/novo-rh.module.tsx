@@ -8,6 +8,8 @@ import type { DataMode } from "./domain/entities/roadmap.ts";
 import type { DataModeStorePort, DemoApiPort } from "./domain/ports/out/demo-api.port.ts";
 import type { OverviewApiPort } from "./domain/ports/out/overview-api.port.ts";
 import { HttpOverviewApiAdapter } from "./adapters/out/http-overview-api.adapter.ts";
+import type { RemindersApiPort } from "./domain/ports/out/reminders-api.port.ts";
+import { HttpRemindersApiAdapter } from "./adapters/out/http-reminders-api.adapter.ts";
 import type { InboxApiPort } from "./domain/ports/out/inbox-api.port.ts";
 import { HttpInboxApiAdapter } from "./adapters/out/http-inbox-api.adapter.ts";
 import { InboxView } from "./adapters/in/inbox/InboxView.tsx";
@@ -58,6 +60,7 @@ import type { SettingsApiPort } from "./domain/ports/out/settings-api.port.ts";
 
 export interface NovoRhModule {
   overview: OverviewApiPort;
+  reminders: RemindersApiPort;
   inbox: InboxApiPort;
   demo: DemoApiPort;
   settings: SettingsApiPort;
@@ -131,6 +134,7 @@ export function NovoRhProvider({ children, module: mod, modeStore }: { children:
     () =>
       mod ?? {
         overview: new HttpOverviewApiAdapter(),
+        reminders: new HttpRemindersApiAdapter(),
         inbox: new HttpInboxApiAdapter(),
         demo: new HttpDemoApiAdapter(),
         settings: new HttpSettingsApiAdapter(() => store.load()),
