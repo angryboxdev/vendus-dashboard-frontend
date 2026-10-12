@@ -108,6 +108,10 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       theoretical: vi.fn(),
     },
     attendance: {
+      listBreakTypes: none(),
+      createBreakType: vi.fn(),
+      updateBreakType: vi.fn(),
+      archiveBreakType: vi.fn(),
       days: vi.fn(),
       revise: vi.fn(),
       corrections: none(),
@@ -117,7 +121,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       adjustments: none(),
       recalculate: vi.fn(),
     },
-    myClock: { status: vi.fn(), punch: vi.fn(), days: vi.fn(), refuse: vi.fn(), corrections: none(), requestCorrection: vi.fn() },
+    myClock: { status: vi.fn(), punch: vi.fn(), breakTypes: none(), days: vi.fn(), refuse: vi.fn(), corrections: none(), requestCorrection: vi.fn() },
     punchQueue: new PunchQueue(memoryQueue(), () => `id-${Math.random().toString(36).slice(2)}`),
     absences: {
       listTypes: none(),

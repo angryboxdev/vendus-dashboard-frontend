@@ -125,4 +125,24 @@ export interface QueuedPunch {
   clientEventId: string;
   segmentType: SegmentType;
   createdAt: string;
+  /** FE-103: tipo de pausa escolhido. */
+  breakTypeId?: string | null;
 }
+
+/** Tipo de pausa do catálogo (FE-103). */
+export interface BreakType {
+  id: string;
+  name: string;
+  color: string | null;
+  remuneration: "paid" | "unpaid" | "hybrid";
+  hybridPaidMinutes: number | null;
+  maxMinutes: number | null;
+  windowStart: string | null;
+  windowEnd: string | null;
+  maxUsesPerDay: number | null;
+  weekdays: number[] | null;
+  archived: boolean;
+  version: number;
+}
+
+export type BreakTypeInput = Omit<BreakType, "id" | "archived" | "version">;

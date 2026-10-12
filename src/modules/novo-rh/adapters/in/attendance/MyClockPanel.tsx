@@ -21,13 +21,15 @@ export function MyClockPanel() {
   const qc = useQueryClient();
   const status = useQuery({ queryKey: ["novo-rh", "my-clock"], queryFn: () => myClock.status(), retry: false });
   const [pending, setPending] = useState(() => punchQueue.pending().length);
+  const breakTypes = useQuery({ queryKey: ["novo-rh", "my-clock", "break-types"], queryFn: () => myClock.breakTypes() });
+  const breaks = breakTypes.data ?? [];
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const flush = useCallback(async () => {
     const r = await punchQueue.flush(
       async (p) => {
-        await myClock.punch({ segmentType: p.segmentType, clientEventId: p.clientEventId, occurredAt: p.createdAt });
+        await myClock.punch({ segmentType: p.segmentType, clientEventId: p.clientEventId, occurredAt: p.createdAt, breakTypeId: p.breakTypeId ?? null });
       },
       (e) => !(e instanceof ApiError),
     );
@@ -43,10 +45,10 @@ export function MyClockPanel() {
     return () => window.removeEventListener("online", online);
   }, [flush]);
 
-  const punch = async (segmentType: SegmentType) => {
+  const punch = async (segmentType: SegmentType, breakTypeId: string | null = null) => {
     setError(null);
     setBusy(true);
-    punchQueue.add(segmentType, new Date().toISOString());
+    punchQueue.add(segmentType, new Date().toISOString(), breakTypeId);
     setPending(punchQueue.pending().length);
     try {
       await flush();
@@ -70,11 +72,21 @@ export function MyClockPanel() {
         </div>
         <p className="text-sm font-semibold text-stone-900">{t("att.today", { worked: formatDuration(s.today.workedSeconds), theoretical: formatDuration(s.today.theoreticalSeconds) })}</p>
         <div className="flex flex-wrap gap-2">
-          {nextActions(s.state).map((a, i) => (
-            <Button key={a} variant={i === 0 ? "primary" : "secondary"} disabled={busy} onClick={() => void punch(a)}>
-              {t(`att.action.${a}` as MessageKey)}
-            </Button>
-          ))}
+          {nextActions(s.state)
+            // FE-103: com catálogo de pausas, escolhe-se a pausa pelo nome (o servidor decide se é paga).
+            .filter((a) => !(breaks.length && (a === "break_paid" || a === "break_unpaid")))
+            .map((a, i) => (
+              <Button key={a} variant={i === 0 ? "primary" : "secondary"} disabled={busy} onClick={() => void punch(a)}>
+                {t(`att.action.${a}` as MessageKey)}
+              </Button>
+            ))}
+          {breaks.length > 0 &&
+            nextActions(s.state).some((a) => a === "break_paid" || a === "break_unpaid") &&
+            breaks.map((b) => (
+              <Button key={b.id} disabled={busy} onClick={() => void punch(b.remuneration === "unpaid" ? "break_unpaid" : "break_paid", b.id)}>
+                {t("att.action.breakOf", { name: b.name })}
+              </Button>
+            ))}
         </div>
         {pending > 0 && <AlertBanner tone="info" title={t("att.queue.pending", { count: pending })} />}
         {error && <AlertBanner tone="danger" title={error} />}

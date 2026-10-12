@@ -2,6 +2,8 @@ import { apiGet, apiWrite } from "../../../../lib/api.ts";
 import type {
   Adjustment,
   AttendanceDays,
+  BreakType,
+  BreakTypeInput,
   ChangeInput,
   ClockEvent,
   ClockRevision,
@@ -22,7 +24,10 @@ export class HttpMyClockApiAdapter implements MyClockApiPort {
   status() {
     return apiGet<MyClockStatus>(M);
   }
-  async punch(input: { segmentType: SegmentType; clientEventId: string; occurredAt?: string }) {
+  breakTypes() {
+    return apiGet<BreakType[]>(`${M}/break-types`);
+  }
+  async punch(input: { segmentType: SegmentType; clientEventId: string; occurredAt?: string; breakTypeId?: string | null }) {
     // A mesma chave em todas as tentativas: o servidor grava uma só vez (RE-9).
     return (await apiWrite<{ event: ClockEvent; duplicate: boolean }>(M, { body: { ...input, source: "pwa" }, idempotencyKey: input.clientEventId })).data;
   }
@@ -64,6 +69,18 @@ export class HttpAttendanceApiAdapter implements AttendanceApiPort {
   }
   async recalculate(employeeId: string, from: string, to: string) {
     return (await apiWrite<{ queued: number }>(`${A}/recalculate`, { body: { employeeId, from, to } })).data;
+  }
+  listBreakTypes() {
+    return apiGet<BreakType[]>(`${A}/break-types`);
+  }
+  async createBreakType(input: BreakTypeInput) {
+    return (await apiWrite<BreakType>(`${A}/break-types`, { body: input })).data;
+  }
+  async updateBreakType(id: string, input: BreakTypeInput, version: number, reason: string) {
+    return (await apiWrite<BreakType>(`${A}/break-types/${id}`, { method: "PUT", body: { ...input, version, reason } })).data;
+  }
+  async archiveBreakType(id: string) {
+    await apiWrite(`${A}/break-types/${id}/archive`, {});
   }
 }
 

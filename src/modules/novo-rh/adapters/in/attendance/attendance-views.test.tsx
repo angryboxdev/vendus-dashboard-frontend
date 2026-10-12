@@ -150,6 +150,44 @@ describe("Assiduidade — o meu ponto", () => {
     expect(await screen.findByText(/1 marcação\(ões\) por enviar/)).toBeInTheDocument();
   });
 
+  it("pausas do catálogo (FE-103): escolhe-se pelo nome e vai o tipo na marcação", async () => {
+    const m = mod();
+    m.myClock.status = vi.fn(async () => ({ ...STATUS, state: "work" as const, since: "2026-10-12T08:00:00Z" }));
+    m.myClock.breakTypes = vi.fn(async () => [{ id: "b1", name: "Almoço", color: null, remuneration: "unpaid" as const, hybridPaidMinutes: null, maxMinutes: 60, windowStart: null, windowEnd: null, maxUsesPerDay: 1, weekdays: null, archived: false, version: 1 }]);
+    m.myClock.punch = vi.fn(async () => ({ event: {} as never, duplicate: false }));
+    renderWith(m);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("tab", { name: "O meu ponto" }));
+    await user.click(await screen.findByRole("button", { name: "Pausa: Almoço" }));
+    expect(screen.queryByRole("button", { name: "Pausa" })).not.toBeInTheDocument();
+    await waitFor(() => expect(m.myClock.punch).toHaveBeenCalledWith(expect.objectContaining({ segmentType: "break_unpaid", breakTypeId: "b1" })));
+  });
+
+  it("catálogo de pausas: remuneração obrigatória ao criar; alterar exige motivo", async () => {
+    const m = mod();
+    const b = { id: "b1", name: "Café", color: "#0EA5E9", remuneration: "hybrid" as const, hybridPaidMinutes: 15, maxMinutes: null, windowStart: null, windowEnd: null, maxUsesPerDay: null, weekdays: null, archived: false, version: 2 };
+    m.attendance.listBreakTypes = vi.fn(async () => [b]);
+    m.attendance.createBreakType = vi.fn(async () => b);
+    m.attendance.updateBreakType = vi.fn(async () => b);
+    renderWith(m);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("tab", { name: "Pausas" }));
+    expect(await screen.findByText("Primeiros 15 min pagos")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Nova pausa" }));
+    let dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByLabelText("Nome"), "Almoço");
+    expect(within(dialog).getByRole("button", { name: "Guardar" })).toBeDisabled();
+    await user.click(within(dialog).getByRole("radio", { name: /^Não paga/ }));
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+    expect(m.attendance.createBreakType).toHaveBeenCalledWith(expect.objectContaining({ name: "Almoço", remuneration: "unpaid", hybridPaidMinutes: null }));
+    await user.click(await screen.findByRole("button", { name: "Alterar" }));
+    dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Guardar" })).toBeDisabled();
+    await user.type(within(dialog).getByLabelText(/^Motivo da alteração/), "Acordo de empresa");
+    await user.click(within(dialog).getByRole("button", { name: "Guardar" }));
+    expect(m.attendance.updateBreakType).toHaveBeenCalledWith("b1", expect.objectContaining({ remuneration: "hybrid", hybridPaidMinutes: 15 }), 2, "Acordo de empresa");
+  });
+
   it("RE_11_correcao_recusavel_aparece_com_o_prazo_e_recusa", async () => {
     const m = mod();
     m.myClock.status = vi.fn(async () => ({

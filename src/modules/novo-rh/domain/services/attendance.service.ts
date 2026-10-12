@@ -76,8 +76,8 @@ export class PunchQueue {
     return this.storage.load();
   }
 
-  add(segmentType: SegmentType, now: string): QueuedPunch {
-    const item = { clientEventId: this.newId(), segmentType, createdAt: now };
+  add(segmentType: SegmentType, now: string, breakTypeId: string | null = null): QueuedPunch {
+    const item = { clientEventId: this.newId(), segmentType, createdAt: now, ...(breakTypeId ? { breakTypeId } : {}) };
     this.storage.save([...this.storage.load(), item]);
     return item;
   }
