@@ -120,6 +120,9 @@ export function PeopleListView() {
           <Button size="sm" icon={<IconDownload />} onClick={() => void people.exportCsv().then((b) => downloadBlob(b, "colaboradores.csv"))}>
             {t("people.export")}
           </Button>
+          <Link to="/hr/novo/convites" className="self-center text-sm font-medium text-[#C2410C] hover:underline">
+            {t("people.invitations")}
+          </Link>
           <Button size="sm" variant="primary" icon={<IconPlus />} onClick={() => setCreating(true)}>
             {t("people.new")}
           </Button>

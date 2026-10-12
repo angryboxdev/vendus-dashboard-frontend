@@ -28,7 +28,7 @@ import { ShiftsToReviewView } from "./modules/hr/adapters/in/ShiftsToReviewView.
 import { SchedulesView } from "./modules/hr/adapters/in/SchedulesView.tsx";
 import { HrRequestsView } from "./modules/hr/adapters/in/HrRequestsView.tsx";
 import { LeaveView } from "./modules/hr/adapters/in/LeaveView.tsx";
-import { NovoRhPage } from "./modules/novo-rh/novo-rh.module.tsx";
+import { NovoRhJoinPage, NovoRhPage } from "./modules/novo-rh/novo-rh.module.tsx";
 import { KioskDisplayPage } from "./pages/kiosk/KioskDisplayPage";
 import { KioskCheckinPage } from "./pages/kiosk/KioskCheckinPage";
 import { CashClosingPage } from "./pages/cashClosing/CashClosingPage";
@@ -112,6 +112,8 @@ export default function App() {
     <Routes>
       {/* Página de login (pública) */}
       <Route path="/login" element={<LoginPage />} />
+      {/* Pedido de adesão por convite (FE-054) — público, sem sessão */}
+      <Route path="/aderir/:code" element={<NovoRhJoinPage />} />
 
       {/* Páginas standalone sem sidebar (kiosk) */}
       <Route

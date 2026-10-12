@@ -19,13 +19,27 @@ const CONTRACT_TYPES: ContractInput["contractType"][] = ["permanent", "fixed_ter
  * parecidas), trabalho (local, cargo, admissão — mínimo legal D4), contrato e
  * horário opcionais, resumo. O servidor valida tudo de novo (NIF único, RE-2).
  */
-export function NewPersonDrawer({ open, onClose, locations }: { open: boolean; onClose: () => void; locations: Option[] }) {
+export function NewPersonDrawer({
+  open,
+  onClose,
+  locations,
+  initial,
+  onCreated,
+}: {
+  open: boolean;
+  onClose: () => void;
+  locations: Option[];
+  /** Dados para pré-preencher (ex.: pedido de adesão, FE-054). */
+  initial?: Record<string, string>;
+  /** Depois de criar a ficha (ex.: marcar o pedido de adesão como aceite). */
+  onCreated?: (employeeId: string) => Promise<void>;
+}) {
   const { t } = useI18n();
   const { people, time } = useNovoRh();
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [step, setStep] = useState<Step>("identity");
-  const [form, setForm] = useState<Record<string, string>>({});
+  const [form, setForm] = useState<Record<string, string>>(initial ?? {});
   const [contract, setContract] = useState<{ on: boolean; type: ContractInput["contractType"]; hours: string; end: string }>({ on: true, type: "permanent", hours: "40", end: "" });
   const [scheduleId, setScheduleId] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
@@ -36,7 +50,7 @@ export function NewPersonDrawer({ open, onClose, locations }: { open: boolean; o
 
   const reset = () => {
     setStep("identity");
-    setForm({});
+    setForm(initial ?? {});
     setContract({ on: true, type: "permanent", hours: "40", end: "" });
     setScheduleId("");
     setWarnings([]);
@@ -50,6 +64,13 @@ export function NewPersonDrawer({ open, onClose, locations }: { open: boolean; o
       const p = await people.create(Object.fromEntries(Object.entries(form).filter(([, v]) => v.trim())));
       // Contrato e horário: a ficha já existe; se algum falhar, fica o aviso e completa-se na ficha.
       const issues: string[] = [];
+      if (onCreated) {
+        try {
+          await onCreated(p.id);
+        } catch (e) {
+          issues.push(e instanceof Error ? e.message : String(e));
+        }
+      }
       if (contract.on) {
         try {
           await people.createContract(p.id, { contractType: contract.type, code: null, startDate: form.hireDate!, endDate: contract.end || null, seniorityDate: null, probationEnd: null, weeklyHours: Number(contract.hours.replace(",", ".")) || 40, fte: 1, agreementId: null, remote: false, comment: null });

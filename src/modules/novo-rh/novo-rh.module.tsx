@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { QueryClientContext } from "@tanstack/react-query";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useParams } from "react-router-dom";
 import { setRequestHeaderProvider } from "../../lib/api.ts";
 import { HttpDemoApiAdapter, LocalStorageDataModeStore, novoRhModeHeaders } from "./adapters/out/http-demo-api.adapter.ts";
 import { DemoModeBanner, DemoAccessNotice } from "./adapters/in/DemoMode.tsx";
@@ -56,6 +56,10 @@ import { DocumentsView } from "./adapters/in/documents/DocumentsView.tsx";
 import type { LegalEntitiesApiPort } from "./domain/ports/out/legal-entities-api.port.ts";
 import { HttpLegalEntitiesApiAdapter } from "./adapters/out/http-legal-entities-api.adapter.ts";
 import { LegalEntitiesView } from "./adapters/in/structure/LegalEntitiesView.tsx";
+import type { InvitationsApiPort } from "./domain/ports/out/invitations-api.port.ts";
+import { HttpInvitationsApiAdapter, HttpJoinApiAdapter } from "./adapters/out/http-invitations-api.adapter.ts";
+import { InvitationsView } from "./adapters/in/people/InvitationsView.tsx";
+import { JoinView } from "./adapters/in/people/JoinView.tsx";
 import { NotificationsView } from "./adapters/in/NotificationsView.tsx";
 import { TransfersView } from "./adapters/in/TransfersView.tsx";
 import { NotFoundView } from "./adapters/in/common/NotFoundView.tsx";
@@ -92,6 +96,7 @@ export interface NovoRhModule {
   announcements: AnnouncementsApiPort;
   distributions: DistributionsApiPort;
   legalEntities: LegalEntitiesApiPort;
+  invitations: InvitationsApiPort;
   alerts: AlertsApiPort;
   workspace: WorkspaceApiPort;
   reports: ReportsApiPort;
@@ -168,6 +173,7 @@ export function NovoRhProvider({ children, module: mod, modeStore }: { children:
         announcements: new HttpAnnouncementsApiAdapter(),
         distributions: new HttpDistributionsApiAdapter(),
         legalEntities: new HttpLegalEntitiesApiAdapter(),
+        invitations: new HttpInvitationsApiAdapter(),
         alerts: new HttpAlertsApiAdapter(),
         workspace: new HttpWorkspaceApiAdapter(),
         reports: new HttpReportsApiAdapter(),
@@ -185,6 +191,17 @@ export function useNovoRh(): NovoRhModule {
   const ctx = useContext(NovoRhContext);
   if (!ctx) throw new Error("useNovoRh fora de NovoRhProvider");
   return ctx;
+}
+
+/** Rota pública `/aderir/:code` (FE-054): pedido de adesão sem sessão. */
+export function NovoRhJoinPage() {
+  const { code = "" } = useParams();
+  const api = useMemo(() => new HttpJoinApiAdapter(), []);
+  return (
+    <I18nProvider locale="pt-PT">
+      <JoinView code={code} api={api} />
+    </I18nProvider>
+  );
 }
 
 /** Rota `/hr/novo/*`: Visão geral | Configurações | Estrutura | Acessos | Auditoria. Só Admin e com MFA (TK-3). */
@@ -230,6 +247,7 @@ function NovoRhRoutes() {
         <Route path="configuracoes" element={<SettingsHubView />} />
         <Route path="estrutura" element={<StructureView />} />
         <Route path="entidades" element={<LegalEntitiesView />} />
+        <Route path="convites" element={<InvitationsView />} />
         <Route path="acessos" element={mode === "demo" ? <DemoAccessNotice /> : <AccessView />} />
         <Route path="auditoria" element={<AuditView />} />
         <Route path="*" element={<NotFoundView />} />
