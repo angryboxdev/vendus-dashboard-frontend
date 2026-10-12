@@ -14,6 +14,18 @@ export interface LedgerRow {
   running: number;
 }
 
+/** Saldo de um colaborador na lista da gestão (FE-034), até ao último apuramento. */
+export interface BalanceRow {
+  employeeId: string;
+  name: string;
+  locationName: string | null;
+  balance: number;
+  generated: number;
+  compensatedRest: number;
+  compensatedPaid: number;
+  expired: number;
+}
+
 export interface TimeBankLedger {
   employeeId: string;
   cutoff: string;

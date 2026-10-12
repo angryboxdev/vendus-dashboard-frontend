@@ -27,6 +27,7 @@ const person = (id: string, name: string, loc: string, today: Partial<PersonDayV
   locationId: loc,
   locationName: loc === "l1" ? "Porto" : "Braga",
   week: [dayOf("2026-10-11"), dayOf("2026-10-12", today)],
+  segments: [],
 });
 
 const OVERVIEW: Overview = {
@@ -53,7 +54,7 @@ const OVERVIEW: Overview = {
 };
 
 function renderDashboard() {
-  const mod = fakeNovoRhModule({ overview: { get: vi.fn(async () => OVERVIEW) } });
+  const mod = fakeNovoRhModule({ overview: { get: vi.fn(async () => OVERVIEW), plan: vi.fn() } });
   mod.attendance.days = vi.fn(async () => ({
     employeeId: "e-ana",
     timeZone: "Europe/Lisbon",

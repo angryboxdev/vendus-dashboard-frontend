@@ -14,6 +14,7 @@ export interface OverviewDay {
   lateMinutes: number;
   startPassed: boolean;
   openType: "work" | "remote" | "break_paid" | "break_unpaid" | null;
+  segments: { start: string; end: string; type: "work" | "remote" | "break_paid" | "break_unpaid" }[];
 }
 
 export interface OverviewAbsence {
@@ -53,6 +54,24 @@ export interface PersonOverview extends PersonDayView {
   locationName: string | null;
   /** Últimos 7 dias, do mais antigo até ao dia escolhido. */
   week: PersonDayView[];
+  /** Faixas do dia escolhido (linha do tempo 0–24 h). */
+  segments: OverviewDay["segments"];
+}
+
+/** Horários planeados da equipa (FE-031): um dia de uma pessoa. */
+export interface PlanCell {
+  date: string;
+  plannedStart: string | null;
+  plannedEnd: string | null;
+  theoreticalSeconds: number;
+  absenceType: string | null;
+  holiday: boolean;
+}
+
+export interface TeamPlan {
+  from: string;
+  to: string;
+  people: { employeeId: string; name: string; locationId: string | null; locationName: string | null; days: PlanCell[]; unplanned: boolean }[];
 }
 
 export interface OverviewKpis {

@@ -20,6 +20,7 @@ export function NovoRhLayout({ children, extraActions }: { children: ReactNode; 
           label={t("novoRh.title")}
           items={[
             { to: "/hr/novo", label: t("novoRh.tab.overview"), end: true },
+            { to: "/hr/novo/pedidos", label: t("novoRh.tab.inbox") },
             { to: "/hr/novo/pessoas", label: t("novoRh.tab.people") },
             { to: "/hr/novo/tempo", label: t("novoRh.tab.time") },
             { to: "/hr/novo/assiduidade", label: t("novoRh.tab.attendance") },

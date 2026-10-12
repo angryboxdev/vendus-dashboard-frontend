@@ -8,6 +8,9 @@ import type { DataMode } from "./domain/entities/roadmap.ts";
 import type { DataModeStorePort, DemoApiPort } from "./domain/ports/out/demo-api.port.ts";
 import type { OverviewApiPort } from "./domain/ports/out/overview-api.port.ts";
 import { HttpOverviewApiAdapter } from "./adapters/out/http-overview-api.adapter.ts";
+import type { InboxApiPort } from "./domain/ports/out/inbox-api.port.ts";
+import { HttpInboxApiAdapter } from "./adapters/out/http-inbox-api.adapter.ts";
+import { InboxView } from "./adapters/in/inbox/InboxView.tsx";
 import { I18nProvider } from "../../i18n/I18nProvider.tsx";
 import { HttpSettingsApiAdapter } from "./adapters/out/http-settings-api.adapter.ts";
 import { SupabaseMfaAdapter } from "./adapters/out/supabase-mfa.adapter.ts";
@@ -55,6 +58,7 @@ import type { SettingsApiPort } from "./domain/ports/out/settings-api.port.ts";
 
 export interface NovoRhModule {
   overview: OverviewApiPort;
+  inbox: InboxApiPort;
   demo: DemoApiPort;
   settings: SettingsApiPort;
   mfa: MfaPort;
@@ -127,6 +131,7 @@ export function NovoRhProvider({ children, module: mod, modeStore }: { children:
     () =>
       mod ?? {
         overview: new HttpOverviewApiAdapter(),
+        inbox: new HttpInboxApiAdapter(),
         demo: new HttpDemoApiAdapter(),
         settings: new HttpSettingsApiAdapter(() => store.load()),
         mfa: new SupabaseMfaAdapter(),
@@ -187,6 +192,7 @@ function NovoRhRoutes() {
       <DemoModeBanner />
       <Routes>
         <Route index element={<NovoRhHomeView />} />
+        <Route path="pedidos" element={<InboxView />} />
         <Route path="pessoas" element={<PeopleListView />} />
         <Route path="pessoas/:id" element={<PersonView />} />
         <Route path="tempo" element={<TimeView />} />
