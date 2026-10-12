@@ -3,6 +3,7 @@ import type { MessageKey } from "../../../../i18n/i18n.ts";
 import { AlertBanner, StatusBadge, SURFACE, type StatusTone } from "../../../../components/ui/index.ts";
 import type { PhaseStatus } from "../../domain/entities/roadmap.ts";
 import { ROADMAP, roadmapProgress } from "../../domain/services/roadmap.service.ts";
+import { DataModeSwitch } from "./DemoMode.tsx";
 
 const STATUS: Record<PhaseStatus, { tone: StatusTone; key: MessageKey }> = {
   done: { tone: "success", key: "common.done" },
@@ -28,15 +29,7 @@ export function NovoRhHomeView() {
         <h2 id="novo-rh-mode" className="text-sm font-semibold text-stone-800">
           {t("novoRh.mode.label")}
         </h2>
-        <div className="mt-2 flex flex-wrap items-center gap-2" role="radiogroup" aria-labelledby="novo-rh-mode">
-          <span role="radio" aria-checked="true" className="rounded-full border border-[#ED5C32] bg-[#FDF8F5] px-3 py-1 text-sm font-medium text-[#C2410C]">
-            {t("novoRh.mode.real")}
-          </span>
-          <span role="radio" aria-checked="false" aria-disabled="true" className="rounded-full border border-stone-200 px-3 py-1 text-sm text-stone-400">
-            {t("novoRh.mode.demo")}
-          </span>
-          <p className="text-xs text-stone-500">{t("novoRh.mode.demoHint")}</p>
-        </div>
+        <DataModeSwitch />
       </section>
 
       <section className={`${SURFACE} p-4`} aria-labelledby="novo-rh-roadmap">

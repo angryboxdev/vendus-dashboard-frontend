@@ -7,5 +7,5 @@ export interface RoadmapPhase {
   status: PhaseStatus;
 }
 
-/** Modo de dados: organização real ou de demonstração (ADR-0021 do backend). */
+/** Modo de dados: organização real ou de demonstração (ADR-0034 do backend). */
 export type DataMode = "real" | "demo";
