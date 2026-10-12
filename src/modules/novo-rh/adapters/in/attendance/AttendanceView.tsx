@@ -15,7 +15,12 @@ type Tab = "team" | "days" | "incidents" | "corrections" | "breaks" | "clockType
 export function AttendanceView() {
   const { t } = useI18n();
   // Vindo do Painel com ?employeeId=… abre já os dias dessa pessoa; senão, o dia da equipa.
-  const [tab, setTab] = useState<Tab>(() => (new URLSearchParams(window.location.search).get("employeeId") ? "days" : "team"));
+  const [tab, setTab] = useState<Tab>(() => {
+    const q = new URLSearchParams(window.location.search);
+    // FE-003: o widget do cabeçalho abre direto "O meu ponto".
+    if (q.get("tab") === "myClock") return "myClock";
+    return q.get("employeeId") ? "days" : "team";
+  });
   return (
     <div className="space-y-4">
       <Tabs

@@ -47,6 +47,8 @@ export interface PortalEngagementPort {
   /** Recusa no cliente se faltar um campo obrigatório (`PortalRequestError`). */
   submitCustomRequest(form: RequestForm, answers: Record<string, string | string[]>): Promise<MyCustomRequest>;
   whosIn(): Promise<WhosIn>;
+  /** Secções visíveis (FE-116): o menu esconde as desligadas; a API recusa na mesma. */
+  visibility(): Promise<{ whosIn: boolean }>;
   timeBank(): Promise<MyTimeBank>;
   /** Quantas coisas pedem ação (para o separador "Mais"). */
   pendingCount(): Promise<number>;

@@ -31,9 +31,10 @@ function renderWith(ui: ReactNode, engagement: Partial<PortalEngagementPort>) {
 }
 
 describe("Portal — onda 6", () => {
-  it("Mais: mostra quantas coisas pedem ação", async () => {
-    renderWith(<PortalMoreView />, { pendingCount: vi.fn(async () => 3) });
+  it("Mais: mostra quantas coisas pedem ação; esconde Quem está se a empresa o desligou (FE-116)", async () => {
+    renderWith(<PortalMoreView />, { pendingCount: vi.fn(async () => 3), visibility: vi.fn(async () => ({ whosIn: false })) });
     expect(await screen.findByLabelText("3 por tratar")).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Quem está/ })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: /Banco de horas/ })).toHaveAttribute("href", "/portal/banco-de-horas");
   });
 

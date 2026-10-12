@@ -74,6 +74,9 @@ export class HttpPortalEngagementApiAdapter implements PortalEngagementApiPort {
   whosIn() {
     return get<WhosIn>("/api/me/whos-in");
   }
+  visibility() {
+    return get<{ whosIn: boolean }>("/api/me/visibility");
+  }
   timeBank() {
     return get<MyTimeBank>("/api/me/time-bank");
   }

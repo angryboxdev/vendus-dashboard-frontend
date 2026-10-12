@@ -67,6 +67,10 @@ export class PortalEngagementUseCase implements PortalEngagementPort {
     return this.api.whosIn();
   }
 
+  visibility() {
+    return this.api.visibility();
+  }
+
   timeBank() {
     return this.api.timeBank();
   }

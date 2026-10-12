@@ -1,6 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { ApiError } from "../../../../../lib/api.ts";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
 import { AlertBanner, Button, FIELD, LABEL, SECTION_TITLE, StatusBadge, SURFACE } from "../../../../../components/ui/index.ts";
@@ -8,6 +7,7 @@ import type { SegmentType } from "../../../domain/entities/attendance.ts";
 import { formatDuration, nextActions, SEGMENTS, timeIn, zonedToUtc } from "../../../domain/services/attendance.service.ts";
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
+import { useMyClockPunch } from "./use-my-clock-punch.ts";
 
 const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 
@@ -17,47 +17,13 @@ const message = (e: unknown, fallback: string) => (e instanceof Error ? e.messag
  */
 export function MyClockPanel() {
   const { t } = useI18n();
-  const { myClock, punchQueue } = useNovoRh();
-  const qc = useQueryClient();
+  const { myClock } = useNovoRh();
   const status = useQuery({ queryKey: ["novo-rh", "my-clock"], queryFn: () => myClock.status(), retry: false });
-  const [pending, setPending] = useState(() => punchQueue.pending().length);
   const breakTypes = useQuery({ queryKey: ["novo-rh", "my-clock", "break-types"], queryFn: () => myClock.breakTypes() });
   const breaks = breakTypes.data ?? [];
   const clockTypes = useQuery({ queryKey: ["novo-rh", "my-clock", "clock-types"], queryFn: () => myClock.clockTypes() });
   const types = clockTypes.data ?? [];
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const flush = useCallback(async () => {
-    const r = await punchQueue.flush(
-      async (p) => {
-        await myClock.punch({ segmentType: p.segmentType, clientEventId: p.clientEventId, occurredAt: p.createdAt, breakTypeId: p.breakTypeId ?? null, clockTypeId: p.clockTypeId ?? null });
-      },
-      (e) => !(e instanceof ApiError),
-    );
-    setPending(punchQueue.pending().length);
-    if (r.refused.length) setError(t("att.queue.refused", { message: message(r.refused[0]!.error, t("common.error")) }));
-    if (r.sent || r.refused.length) await qc.invalidateQueries({ queryKey: ["novo-rh", "my-clock"] });
-  }, [myClock, punchQueue, qc, t]);
-
-  useEffect(() => {
-    void flush();
-    const online = () => void flush();
-    window.addEventListener("online", online);
-    return () => window.removeEventListener("online", online);
-  }, [flush]);
-
-  const punch = async (segmentType: SegmentType, breakTypeId: string | null = null, clockTypeId: string | null = null) => {
-    setError(null);
-    setBusy(true);
-    punchQueue.add(segmentType, new Date().toISOString(), breakTypeId, clockTypeId);
-    setPending(punchQueue.pending().length);
-    try {
-      await flush();
-    } finally {
-      setBusy(false);
-    }
-  };
+  const { punch, pending, error, busy } = useMyClockPunch();
 
   if (status.isError) return <AlertBanner tone="warning" title={message(status.error, t("common.loadError"))} />;
   if (!status.data) return <p className="text-sm text-stone-500">{t("common.loading")}</p>;

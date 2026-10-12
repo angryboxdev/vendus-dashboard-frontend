@@ -183,9 +183,11 @@ const STATE = { work: "A trabalhar", remote: "Remoto", break_paid: "Em pausa", b
 /** Quem está a trabalhar agora, no âmbito que a empresa definiu. */
 export function PortalTeamView() {
   const { engagement } = useEmployeePortalModule();
-  const { data, isLoading, isError } = useQuery({ queryKey: ["portal-whos-in"], queryFn: () => engagement.whosIn(), retry: false, refetchInterval: 60_000 });
+  const { data, isLoading, error } = useQuery({ queryKey: ["portal-whos-in"], queryFn: () => engagement.whosIn(), retry: false, refetchInterval: 60_000 });
   if (isLoading) return <p className="text-sm text-stone-500">A carregar…</p>;
-  if (isError || !data) return <p className="text-sm text-red-700">Não foi possível carregar quem está.</p>;
+  // FE-116: secção desligada pela empresa → "não disponível", nunca "não encontrada".
+  if (error instanceof PortalRequestError) return <p className="text-sm text-stone-600">Esta secção não está disponível.</p>;
+  if (error || !data) return <p className="text-sm text-red-700">Não foi possível carregar quem está.</p>;
   return (
     <section className={`${CARD} space-y-2`} aria-label="Quem está">
       <p className="text-xs text-stone-500">{data.scope === "own_location" ? "A mostrar só o seu centro." : "A mostrar toda a empresa."}</p>

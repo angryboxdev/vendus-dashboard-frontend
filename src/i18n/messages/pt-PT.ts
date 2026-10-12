@@ -1149,6 +1149,10 @@ export const ptPT = {
 
   // Fase 9 — Comunicação, alertas, tarefas e relatórios
   "novoRh.tab.announcements": "Comunicados",
+  "att.widget.label": "O meu ponto",
+  "att.widget.today": "hoje {worked}",
+  "att.widget.confirming": "A confirmar…",
+  "att.widget.more": "O meu ponto",
   "docs.tab.company": "Documentos da empresa",
   "docs.tab.distributions": "Enviar a colaboradores",
   "people.documents.received": "Documentos enviados pela empresa",

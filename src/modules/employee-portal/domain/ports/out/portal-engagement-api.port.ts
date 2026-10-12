@@ -16,6 +16,8 @@ export interface PortalEngagementApiPort {
   customRequests(): Promise<MyCustomRequest[]>;
   submitCustomRequest(formId: string, answers: Record<string, string | string[]>): Promise<MyCustomRequest>;
   whosIn(): Promise<WhosIn>;
+  /** Secções que a empresa mostra aos colaboradores (FE-116). */
+  visibility(): Promise<{ whosIn: boolean }>;
   /** Lança `PortalRequestError` quando a empresa não mostra o histórico. */
   timeBank(): Promise<MyTimeBank>;
 }

@@ -17,9 +17,12 @@ const ITEMS = [
 export function PortalMoreView() {
   const { engagement } = useEmployeePortalModule();
   const pending = useQuery({ queryKey: ["portal-pending"], queryFn: () => engagement.pendingCount(), retry: false });
+  const visibility = useQuery({ queryKey: ["portal-visibility"], queryFn: () => engagement.visibility(), retry: false });
+  // FE-116: secção desligada pela empresa não aparece (a API recusa-a na mesma).
+  const items = ITEMS.filter((i) => i.to !== "/portal/equipa" || visibility.data?.whosIn !== false);
   return (
     <nav aria-label="Mais" className={`${CARD} divide-y divide-stone-100`}>
-      {ITEMS.map((i) => (
+      {items.map((i) => (
         <Link key={i.to} to={i.to} className="flex items-center justify-between gap-3 px-4 py-3">
           <span>
             <span className="block text-sm font-medium text-stone-900">{i.label}</span>
