@@ -10,8 +10,6 @@ export interface UseSidebarResult {
   isGroupActive: (id: string) => boolean;
   toggleGroup: (id: string) => void;
   userEmail: string;
-  /** Papel do utilizador (para o cartão no rodapé da barra). */
-  userRole: string;
   mobileOpen: boolean;
   openMobile: () => void;
   closeMobile: () => void;
@@ -89,7 +87,6 @@ export function useSidebar(): UseSidebarResult {
     isGroupActive,
     toggleGroup,
     userEmail: state.user?.email ?? "",
-    userRole: state.user?.role ?? "",
     mobileOpen,
     openMobile: () => setMobileOpen(true),
     closeMobile: () => setMobileOpen(false),

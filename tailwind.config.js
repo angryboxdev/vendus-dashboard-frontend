@@ -26,6 +26,8 @@ export default {
       },
       fontFamily: {
         sans: ["Poppins", "Amsi Pro AKS", "ui-sans-serif", "system-ui", "sans-serif"],
+        // Barra lateral mantém a fonte de antes (pedido do utilizador, 2026-10-12).
+        legacy: ["Amsi Pro AKS", "ui-sans-serif", "system-ui", "sans-serif"],
       },
       // UI Motion MVP (src/components/motion) — só opacity/transform; usar
       // sempre com o prefixo `motion-safe:` (prefers-reduced-motion).
