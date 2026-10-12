@@ -6,7 +6,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { AttendanceDays } from "../../../domain/entities/attendance.ts";
 import type { Person } from "../../../domain/entities/people.ts";
-import { auditChangedFields, monthStats } from "../../../domain/services/person-stats.service.ts";
+import { auditChangedFields, fieldHistory, monthStats } from "../../../domain/services/person-stats.service.ts";
 import { fakeNovoRhModule } from "../../../fake-module.test-utils.ts";
 import { NovoRhProvider, type NovoRhModule } from "../../../novo-rh.module.tsx";
 import { PeopleListView } from "./PeopleListView.tsx";
@@ -108,5 +108,63 @@ describe("Lista de colaboradores (FE-011)", () => {
     await user.click(screen.getByRole("button", { name: "Colunas" }));
     await user.click(screen.getByRole("checkbox", { name: "E-mail" }));
     expect(screen.getByRole("columnheader", { name: "E-mail" })).toBeInTheDocument();
+  });
+});
+
+describe("Assistente de criação, acesso e históricos (FE-012, FE-015, FE-016, FE-018)", () => {
+  it("histórico de um campo a partir da auditoria (camelCase ou snake_case), mais recente primeiro", () => {
+    const ev = (id: string, at: string, before: unknown, after: unknown) => ({ id, occurredAt: at, actor: "rh@demo.invalid", reason: null, before, after });
+    const h = fieldHistory([ev("1", "2026-01-01T10:00:00Z", { base_salary: 900 }, { base_salary: 950 }), ev("2", "2026-06-01T10:00:00Z", { baseSalary: 950 }, { baseSalary: 1000 }), ev("3", "2026-07-01T10:00:00Z", { email: "a" }, { email: "b" })], "baseSalary");
+    expect(h.map((x) => [x.from, x.to])).toEqual([
+      [950, 1000],
+      [900, 950],
+    ]);
+  });
+
+  it("assistente: passos, aviso de ficha parecida e cria ficha + contrato + horário", async () => {
+    const m = mod();
+    m.people.list = vi.fn(async () => [{ ...PERSON, id: "e9", fullName: "Rui Demo", nif: "999999990" }]);
+    m.people.create = vi.fn(async () => ({ ...PERSON, id: "new1" }));
+    m.people.createContract = vi.fn(async () => ({}) as never);
+    m.time.listSchedules = vi.fn(async () => [{ id: "s1", name: "Manhã", kind: "fixed" as const, archived: false, versions: [] }]);
+    m.time.assign = vi.fn(async () => ({}) as never);
+    renderAt("/hr/novo/pessoas", <PeopleListView />, m);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Novo colaborador" }));
+    const dialog = screen.getByRole("dialog");
+    await user.type(within(dialog).getByLabelText(/^Nome/), "Rui");
+    await user.type(within(dialog).getByLabelText(/^Apelido/), "Demo");
+    await user.type(within(dialog).getByLabelText(/^NIF/), "999999990");
+    expect(await within(dialog).findByText("Já existe uma ficha parecida")).toBeInTheDocument();
+    await user.clear(within(dialog).getByLabelText(/^NIF/));
+    await user.type(within(dialog).getByLabelText(/^NIF/), "123123123");
+    await user.clear(within(dialog).getByLabelText(/^Nome/));
+    await user.type(within(dialog).getByLabelText(/^Nome/), "Ana");
+    await user.click(within(dialog).getByRole("button", { name: "Seguinte" }));
+    expect(within(dialog).getByRole("button", { name: "Seguinte" })).toBeDisabled();
+    await user.type(within(dialog).getByLabelText(/^Data de admissão|^Admissão/), "2026-11-02");
+    await user.selectOptions(within(dialog).getByLabelText(/^Centro|^Local/), "loc-1");
+    await user.click(within(dialog).getByRole("button", { name: "Seguinte" }));
+    await user.selectOptions(await within(dialog).findByLabelText("Horário"), "s1");
+    await user.click(within(dialog).getByRole("button", { name: "Seguinte" }));
+    expect(within(dialog).getByText("Ana Demo")).toBeInTheDocument();
+    await user.click(within(dialog).getByRole("button", { name: "Criar colaborador" }));
+    await vi.waitFor(() => expect(m.time.assign).toHaveBeenCalled());
+    expect(m.people.create).toHaveBeenCalledWith(expect.objectContaining({ firstName: "Ana", lastName: "Demo", nif: "123123123", hireDate: "2026-11-02", primaryLocationId: "loc-1" }));
+    expect(m.people.createContract).toHaveBeenCalledWith("new1", expect.objectContaining({ contractType: "permanent", startDate: "2026-11-02", weeklyHours: 40 }));
+    expect(m.time.assign).toHaveBeenCalledWith({ resourceType: "schedule", resourceId: "s1", targetType: "employee", targetId: "new1", validFrom: "2026-11-02", validTo: null });
+  });
+
+  it("acesso: sem conta mostra onde criar; com conta mostra perfil e âmbitos", async () => {
+    const m = mod();
+    m.people.get = vi.fn(async () => ({ person: { ...PERSON, userId: "u1" }, etag: '"3"' }));
+    m.access.listUsers = vi.fn(async () => [{ userId: "u1", label: "Carla (carla@demo.invalid)", profileId: "p1" }]);
+    m.access.listProfiles = vi.fn(async () => [{ id: "p1", name: "Gestor de loja", systemKey: null }]);
+    m.access.listScopes = vi.fn(async () => [{ id: "sc1", userId: "u1", scopeType: "location" as const, scopeId: "loc-1", validFrom: "2026-01-01", validTo: null }]);
+    renderAt("/hr/novo/pessoas/e1", <PersonView />, m);
+    await userEvent.click(await screen.findByRole("tab", { name: "Acesso" }));
+    expect(await screen.findByText("Gestor de loja")).toBeInTheDocument();
+    expect(screen.getByText("Centro · 2026-01-01")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Editar utilizador →" })).toHaveAttribute("href", "/admin/users/u1");
   });
 });

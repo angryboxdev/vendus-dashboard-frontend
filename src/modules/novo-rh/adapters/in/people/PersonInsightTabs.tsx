@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
+import type { MessageKey } from "../../../../../i18n/i18n.ts";
 import {
   Button,
   IconChevronLeft,
@@ -16,10 +18,13 @@ import {
 import { formatDuration } from "../../../domain/services/attendance.service.ts";
 import {
   auditChangedFields,
+  fieldHistory,
   monthStats,
 } from "../../../domain/services/person-stats.service.ts";
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
-import { useNovoRh } from "../../../novo-rh.module.tsx";
+import type { Person } from "../../../domain/entities/people.ts";
+import { useDataMode, useNovoRh } from "../../../novo-rh.module.tsx";
+import { DemoAccessNotice } from "../DemoMode.tsx";
 
 const shiftMonth = (month: string, n: number) => {
   const [y, m] = month.split("-").map(Number);
@@ -231,6 +236,113 @@ export function PersonHistoryTab({ personId }: { personId: string }) {
                 </tr>
               );
             })}
+          </tbody>
+        </table>
+      )}
+    </section>
+  );
+}
+
+/** Ficha → Acesso (FE-016): conta ligada, perfil e âmbitos. Gerir faz-se em Utilizadores/Acessos (contas reais). */
+export function PersonAccessTab({ person }: { person: Person }) {
+  const { t } = useI18n();
+  const { access } = useNovoRh();
+  const { mode } = useDataMode();
+  const users = useQuery({ queryKey: ["novo-rh", "access", "users"], queryFn: () => access.listUsers(), enabled: mode === "real" && !!person.userId });
+  const profiles = useQuery({ queryKey: ["novo-rh", "access", "profiles"], queryFn: () => access.listProfiles(), enabled: mode === "real" && !!person.userId });
+  const scopes = useQuery({ queryKey: ["novo-rh", "access", "scopes", person.userId], queryFn: () => access.listScopes(person.userId!), enabled: mode === "real" && !!person.userId });
+  if (mode === "demo") return <DemoAccessNotice />;
+  const user = users.data?.find((u) => u.userId === person.userId);
+  const profile = profiles.data?.find((p) => p.id === user?.profileId);
+  return (
+    <section className={`${SURFACE} space-y-3 p-4`}>
+      {!person.userId ? (
+        <>
+          <p className="text-sm text-stone-700">{t("people.access.none")}</p>
+          <Link to="/admin/users" className="text-sm font-medium text-[#C2410C] hover:underline">
+            {t("people.access.manage")} →
+          </Link>
+        </>
+      ) : (
+        <>
+          <dl className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <dt className="text-xs text-stone-500">{t("people.access.account")}</dt>
+              <dd className="font-medium text-stone-900">{user?.label ?? "—"}</dd>
+            </div>
+            <div>
+              <dt className="text-xs text-stone-500">{t("people.access.profile")}</dt>
+              <dd className="font-medium text-stone-900">{profile?.name ?? "—"}</dd>
+            </div>
+          </dl>
+          <div>
+            <h4 className={SECTION_TITLE}>{t("people.access.scopes")}</h4>
+            {(scopes.data ?? []).length === 0 ? (
+              <p className="mt-1 text-sm text-stone-500">{t("people.access.noScopes")}</p>
+            ) : (
+              <ul className="mt-1 space-y-1 text-sm text-stone-700">
+                {scopes.data!.map((s) => (
+                  <li key={s.id}>
+                    {t(`people.access.scope.${s.scopeType}` as MessageKey)} · {s.validFrom}
+                    {s.validTo ? ` → ${s.validTo}` : ""}
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-3 text-sm">
+            <Link to={`/admin/users/${person.userId}`} className="font-medium text-[#C2410C] hover:underline">
+              {t("people.access.editUser")} →
+            </Link>
+            <Link to="/hr/novo/acessos" className="font-medium text-[#C2410C] hover:underline">
+              {t("people.access.openAccess")} →
+            </Link>
+          </div>
+        </>
+      )}
+    </section>
+  );
+}
+
+/**
+ * Históricos de cargo e de salário (FE-015, FE-018) a partir da auditoria da
+ * ficha — só os campos que a pessoa que vê pode ver (privacidade por campo).
+ */
+export function PersonFieldHistory({ person, field, title }: { person: Person; field: "positionId" | "baseSalary"; title: string }) {
+  const { t } = useI18n();
+  const { audit, people } = useNovoRh();
+  const q = useQuery({ queryKey: ["novo-rh", "audit", "person", person.id], queryFn: () => audit.list({ resourceId: person.id }) });
+  const positions = useQuery({ queryKey: ["novo-rh", "catalog", "positions"], queryFn: () => people.listPositions(), enabled: field === "positionId" });
+  // Sem acesso à auditoria (ou campo escondido) não se mostra o histórico.
+  if (person.hidden.includes(field) || q.isError) return null;
+  const rows = fieldHistory(q.data ?? [], field);
+  const show = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : field === "positionId" ? (positions.data?.find((p) => p.id === v)?.name ?? String(v)) : `${String(v)} ${person.currency}`);
+  return (
+    <section className={`${SURFACE} space-y-2 p-4`}>
+      <h4 className={SECTION_TITLE}>{title}</h4>
+      {rows.length === 0 ? (
+        <p className="text-sm text-stone-500">{t("people.history.noChanges")}</p>
+      ) : (
+        <table className={TABLE}>
+          <thead className={THEAD}>
+            <tr>
+              <th className={TH}>{t("people.history.when")}</th>
+              <th className={TH}>{t("people.history.from")}</th>
+              <th className={TH}>{t("people.history.to")}</th>
+              <th className={TH}>{t("people.history.who")}</th>
+              <th className={TH}>{t("people.history.reason")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} className={TR}>
+                <td className={`${TD} whitespace-nowrap`}>{new Date(r.at).toLocaleDateString("pt-PT")}</td>
+                <td className={TD}>{show(r.from)}</td>
+                <td className={`${TD} font-medium`}>{show(r.to)}</td>
+                <td className={TD}>{r.actor}</td>
+                <td className={TD}>{r.reason ?? "—"}</td>
+              </tr>
+            ))}
           </tbody>
         </table>
       )}

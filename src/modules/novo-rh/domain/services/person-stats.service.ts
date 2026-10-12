@@ -71,3 +71,17 @@ export function auditChangedFields(before: unknown, after: unknown): string[] {
     (k) => !skip.has(k) && JSON.stringify(a[k]) !== JSON.stringify(b[k]),
   );
 }
+
+/** Mudanças de um campo ao longo da auditoria (mais recentes primeiro). Aceita camelCase e snake_case. */
+export function fieldHistory(events: { id: string; occurredAt: string; actor: string; reason: string | null; before: unknown; after: unknown }[], field: string) {
+  const snake = field.replace(/[A-Z]/g, (c) => `_${c.toLowerCase()}`);
+  const pick = (o: unknown) => {
+    const r = (o && typeof o === "object" ? o : {}) as Record<string, unknown>;
+    return field in r ? { has: true, v: r[field] } : snake in r ? { has: true, v: r[snake] } : { has: false, v: undefined };
+  };
+  return events
+    .map((e) => ({ e, b: pick(e.before), a: pick(e.after) }))
+    .filter((x) => x.a.has && JSON.stringify(x.a.v) !== JSON.stringify(x.b.v))
+    .map((x) => ({ id: x.e.id, at: x.e.occurredAt, actor: x.e.actor, reason: x.e.reason, from: x.b.v, to: x.a.v }))
+    .sort((a, b) => b.at.localeCompare(a.at));
+}

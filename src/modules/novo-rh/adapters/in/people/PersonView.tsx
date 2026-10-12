@@ -22,7 +22,7 @@ import {
   PayTab,
   PersonalRulesTab,
 } from "./PersonTabs.tsx";
-import { PersonHistoryTab, PersonStatsTab } from "./PersonInsightTabs.tsx";
+import { PersonAccessTab, PersonFieldHistory, PersonHistoryTab, PersonStatsTab } from "./PersonInsightTabs.tsx";
 import { DaysPanel } from "../attendance/DaysPanel.tsx";
 import { BalancesPanel, RequestsPanel } from "../absences/RequestPanels.tsx";
 import { TheoreticalPanel } from "../time/TheoreticalPanel.tsx";
@@ -44,6 +44,7 @@ const TABS = [
   "custom",
   "rules",
   "documents",
+  "access",
   "history",
 ] as const;
 const initials = (name: string) =>
@@ -188,7 +189,10 @@ export function PersonView() {
       )}
       {tab === "contracts" && <ContractsTab personId={id} />}
       {tab === "organization" && (
-        <OrganizationTab personId={id} locations={locations.data ?? []} />
+        <div className="space-y-4">
+          <OrganizationTab personId={id} locations={locations.data ?? []} />
+          <PersonFieldHistory person={p} field="positionId" title={t("people.history.position")} />
+        </div>
       )}
       {tab === "managers" && (
         <ManagersTab
@@ -199,7 +203,12 @@ export function PersonView() {
           }))}
         />
       )}
-      {tab === "pay" && <PayTab personId={id} />}
+      {tab === "pay" && (
+        <div className="space-y-4">
+          <PayTab personId={id} />
+          <PersonFieldHistory person={p} field="baseSalary" title={t("people.history.salary")} />
+        </div>
+      )}
       {tab === "custom" && <CustomFieldsTab personId={id} />}
       {tab === "rules" && <PersonalRulesTab personId={id} />}
       {tab === "documents" && <DocumentsTab personId={id} />}
@@ -214,6 +223,7 @@ export function PersonView() {
       {tab === "timeBank" && <LedgerPanel fixedEmployeeId={id} />}
       {tab === "stats" && <PersonStatsTab personId={id} />}
       {tab === "history" && <PersonHistoryTab personId={id} />}
+      {tab === "access" && <PersonAccessTab person={p} />}
     </div>
   );
 }
