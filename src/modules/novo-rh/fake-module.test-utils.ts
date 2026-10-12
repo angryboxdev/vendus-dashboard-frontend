@@ -75,6 +75,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       endCompensation: vi.fn(),
       getCustomValues: none(),
       setCustomValues: vi.fn(),
+      listPositions: none(),
       listAgreements: none(),
       createAgreement: vi.fn(),
       archiveAgreement: vi.fn(),

@@ -54,13 +54,13 @@ function Decide({ request, label }: { request: AbsenceRequest; label: string }) 
 }
 
 /** Pedidos da organização (no âmbito): filtrar, atribuir e cancelar. */
-export function RequestsPanel() {
+export function RequestsPanel({ fixedEmployeeId }: { fixedEmployeeId?: string } = {}) {
   const { t } = useI18n();
   const { absences } = useNovoRh();
   const qc = useQueryClient();
   const employees = useEmployees();
   const [status, setStatus] = useState<RequestStatus | "">("pending");
-  const [employeeId, setEmployeeId] = useState("");
+  const [employeeId, setEmployeeId] = useState(fixedEmployeeId ?? "");
   const types = useQuery({ queryKey: [...KEY, "types"], queryFn: () => absences.listTypes() });
   const q = useQuery({
     queryKey: [...KEY, "requests", status, employeeId],
@@ -74,14 +74,16 @@ export function RequestsPanel() {
     <div className="space-y-4">
       <section className={`${SURFACE} space-y-3 p-4`}>
         <div className="flex flex-wrap gap-2">
-          <select aria-label={t("common.employee")} className={`${FIELD} min-w-[220px]`} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
-            <option value="">{t("common.employee")}…</option>
-            {employees.list.map((o) => (
-              <option key={o.id} value={o.id}>
-                {o.label}
-              </option>
-            ))}
-          </select>
+          {!fixedEmployeeId && (
+            <select aria-label={t("common.employee")} className={`${FIELD} min-w-[220px]`} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+              <option value="">{t("common.employee")}…</option>
+              {employees.list.map((o) => (
+                <option key={o.id} value={o.id}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          )}
           <select aria-label={t("abs.col.status")} className={FIELD} value={status} onChange={(e) => setStatus(e.target.value as RequestStatus | "")}>
             <option value="">{t("common.none")}</option>
             {(["pending", "approved", "rejected", "cancelled"] as const).map((s) => (
@@ -126,12 +128,12 @@ function CancelRequest({ request }: { request: AbsenceRequest }) {
 }
 
 /** Saldos de um colaborador (ledger), ajustes e compensação de feriados trabalhados (CF-9). */
-export function BalancesPanel() {
+export function BalancesPanel({ fixedEmployeeId }: { fixedEmployeeId?: string } = {}) {
   const { t } = useI18n();
   const { absences } = useNovoRh();
   const qc = useQueryClient();
   const employees = useEmployees();
-  const [employeeId, setEmployeeId] = useState("");
+  const [employeeId, setEmployeeId] = useState(fixedEmployeeId ?? "");
   const [adjust, setAdjust] = useState({ typeId: "", amount: "", reason: "" });
   const [range, setRange] = useState({ from: "", to: "" });
   const q = useQuery({ queryKey: [...KEY, "balances", employeeId], queryFn: () => absences.balances(employeeId), enabled: !!employeeId });
@@ -148,14 +150,16 @@ export function BalancesPanel() {
   const comp = useMutation({ mutationFn: () => absences.holidayCompensation(employeeId, range.from, range.to), onSuccess: () => qc.invalidateQueries({ queryKey: KEY }) });
   return (
     <section className={`${SURFACE} space-y-3 p-4`}>
-      <select aria-label={t("common.employee")} className={`${FIELD} min-w-[220px]`} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
-        <option value="">{t("common.employee")}…</option>
-        {employees.list.map((o) => (
-          <option key={o.id} value={o.id}>
-            {o.label}
-          </option>
-        ))}
-      </select>
+      {!fixedEmployeeId && (
+        <select aria-label={t("common.employee")} className={`${FIELD} min-w-[220px]`} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+          <option value="">{t("common.employee")}…</option>
+          {employees.list.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      )}
       {q.isError && <p className="text-sm text-red-700">{message(q.error, t("common.loadError"))}</p>}
       {q.data && <BalanceList balances={q.data} />}
       {q.data && q.data.length > 0 && (

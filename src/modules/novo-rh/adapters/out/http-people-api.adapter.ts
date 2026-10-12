@@ -90,6 +90,9 @@ export class HttpPeopleApiAdapter implements PeopleApiPort {
     return (await apiWrite<CustomValue[]>(`${P}/${id}/custom-fields`, { method: "PUT", body: { values } })).data;
   }
 
+  listPositions() {
+    return apiGet<{ id: string; name: string }[]>("/api/novo-rh/catalog/positions");
+  }
   listAgreements() {
     return apiGet<Agreement[]>(`${C}/agreements`);
   }

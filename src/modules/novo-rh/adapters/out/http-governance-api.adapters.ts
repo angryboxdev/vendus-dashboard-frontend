@@ -105,7 +105,7 @@ export class HttpAccessGovernanceApiAdapter implements AccessGovernanceApiPort {
 }
 
 export class HttpAuditApiAdapter implements AuditApiPort {
-  list(filter: { resourceType?: string; from?: string; to?: string }) {
+  list(filter: { resourceType?: string; resourceId?: string; from?: string; to?: string }) {
     return apiGet<AuditEvent[]>(`/api/novo-rh/audit/events${qs({ ...filter, limit: "200" })}`);
   }
   downloadCsv(filter: { resourceType?: string; from?: string; to?: string }) {

@@ -103,11 +103,11 @@ function BalancesPanel({ onOpen }: { onOpen: (employeeId: string) => void }) {
   );
 }
 
-function LedgerPanel({ initialEmployeeId = "" }: { initialEmployeeId?: string }) {
+export function LedgerPanel({ initialEmployeeId = "", fixedEmployeeId }: { initialEmployeeId?: string; fixedEmployeeId?: string }) {
   const { t } = useI18n();
   const { timeBank, settings } = useNovoRh();
   const qc = useQueryClient();
-  const [employeeId, setEmployeeId] = useState(initialEmployeeId);
+  const [employeeId, setEmployeeId] = useState(fixedEmployeeId ?? initialEmployeeId);
   const employees = useQuery({ queryKey: ["novo-rh", "settings", "employees"], queryFn: () => settings.listEmployees() });
   const q = useQuery({ queryKey: [...KEY, employeeId], queryFn: () => timeBank.ledger(employeeId), enabled: !!employeeId });
   const sync = useMutation({ mutationFn: () => timeBank.sync(employeeId), onSuccess: () => qc.invalidateQueries({ queryKey: KEY }) });
@@ -116,14 +116,16 @@ function LedgerPanel({ initialEmployeeId = "" }: { initialEmployeeId?: string })
     <section className={`${SURFACE} space-y-3 p-4`}>
       <p className="text-xs text-stone-500">{t("tb.hint")}</p>
       <div className="flex flex-wrap items-center gap-2">
-        <select aria-label={t("common.employee")} className={`${FIELD} min-w-[220px]`} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
-          <option value="">{t("common.employee")}…</option>
-          {(employees.data ?? []).map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        {!fixedEmployeeId && (
+          <select aria-label={t("common.employee")} className={`${FIELD} min-w-[220px]`} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+            <option value="">{t("common.employee")}…</option>
+            {(employees.data ?? []).map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        )}
         {employeeId && (
           <Button size="sm" disabled={sync.isPending} onClick={() => sync.mutate()}>
             {t("tb.sync")}
