@@ -50,6 +50,9 @@ import { PeriodsView } from "./adapters/in/periods/PeriodsView.tsx";
 import type { AlertsApiPort, AnnouncementsApiPort, ReportsApiPort, WorkspaceApiPort } from "./domain/ports/out/engagement-api.port.ts";
 import { HttpAlertsApiAdapter, HttpAnnouncementsApiAdapter, HttpReportsApiAdapter, HttpWorkspaceApiAdapter } from "./adapters/out/http-engagement-api.adapters.ts";
 import { AnnouncementsView } from "./adapters/in/engagement/AnnouncementsView.tsx";
+import type { DistributionsApiPort } from "./domain/ports/out/distributions-api.port.ts";
+import { HttpDistributionsApiAdapter } from "./adapters/out/http-distributions-api.adapter.ts";
+import { DocumentsView } from "./adapters/in/documents/DocumentsView.tsx";
 import { AlertsView } from "./adapters/in/engagement/AlertsView.tsx";
 import { WorkspaceView } from "./adapters/in/engagement/WorkspaceView.tsx";
 import { ReportsView } from "./adapters/in/engagement/ReportsView.tsx";
@@ -80,6 +83,7 @@ export interface NovoRhModule {
   rosters: RostersApiPort;
   periods: PeriodsApiPort;
   announcements: AnnouncementsApiPort;
+  distributions: DistributionsApiPort;
   alerts: AlertsApiPort;
   workspace: WorkspaceApiPort;
   reports: ReportsApiPort;
@@ -154,6 +158,7 @@ export function NovoRhProvider({ children, module: mod, modeStore }: { children:
         rosters: new HttpRostersApiAdapter(),
         periods: new HttpPeriodsApiAdapter(),
         announcements: new HttpAnnouncementsApiAdapter(),
+        distributions: new HttpDistributionsApiAdapter(),
         alerts: new HttpAlertsApiAdapter(),
         workspace: new HttpWorkspaceApiAdapter(),
         reports: new HttpReportsApiAdapter(),
@@ -206,6 +211,7 @@ function NovoRhRoutes() {
         <Route path="escalas" element={<RostersView />} />
         <Route path="fecho" element={<PeriodsView />} />
         <Route path="comunicados" element={<AnnouncementsView />} />
+        <Route path="documentos" element={<DocumentsView />} />
         <Route path="alertas" element={<AlertsView />} />
         <Route path="tarefas" element={<WorkspaceView />} />
         <Route path="relatorios" element={<ReportsView />} />

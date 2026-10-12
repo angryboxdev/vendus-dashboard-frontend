@@ -29,6 +29,7 @@ export function NovoRhLayout({ children, extraActions }: { children: ReactNode; 
             { to: "/hr/novo/escalas", label: t("novoRh.tab.rosters") },
             { to: "/hr/novo/fecho", label: t("novoRh.tab.periods") },
             { to: "/hr/novo/comunicados", label: t("novoRh.tab.announcements") },
+            { to: "/hr/novo/documentos", label: t("novoRh.tab.documents") },
             { to: "/hr/novo/alertas", label: t("novoRh.tab.alerts") },
             { to: "/hr/novo/tarefas", label: t("novoRh.tab.workspace") },
             { to: "/hr/novo/relatorios", label: t("novoRh.tab.reports") },
