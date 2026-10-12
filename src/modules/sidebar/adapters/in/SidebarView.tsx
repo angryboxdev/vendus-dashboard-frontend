@@ -1,72 +1,96 @@
+import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
+import {
+  IconActivity,
+  IconBox,
+  IconBriefcase,
+  IconBuilding,
+  IconCalendar,
+  IconCash,
+  IconChart,
+  IconChevronDown,
+  IconClock,
+  IconHeart,
+  IconHistory,
+  IconInbox,
+  IconKey,
+  IconLogout,
+  IconMenu,
+  IconReceipt,
+  IconSettings,
+  IconSparkle,
+  IconStore,
+  IconSun,
+  IconUser,
+  IconUsers,
+  IconUtensils,
+  IconWallet,
+} from "../../../../components/ui/index.ts";
 import { useSidebar } from "./use-sidebar.ts";
 import type { NavGroup, NavItem, SidebarNavEntry } from "../../domain/entities/nav-item.ts";
 import type { UseSidebarResult } from "./use-sidebar.ts";
 
-// ── helpers ───────────────────────────────────────────────────────────────────
+// ── aspeto (Design System Mezza) ─────────────────────────────────────────────
 
-/** Barra lateral escura (teste de 2026-10-06, inspirado no mockup de Utilizadores) — destaques no laranja da marca. */
-const SIDEBAR_BG = "bg-[#141B2D]";
+/** Barra lateral navy; o item ativo em cobre preenchido, como no mockup. */
+const SIDEBAR_BG = "bg-navy-900";
 
-function navLinkClass({ isActive }: { isActive: boolean }) {
-  return `block rounded-lg px-3 py-2 text-sm transition-colors ${
-    isActive
-      ? "bg-white/10 font-semibold text-white shadow-[inset_3px_0_0_#ED5C32]"
-      : "font-medium text-slate-300 hover:bg-white/5 hover:text-white"
-  }`;
+/** Ícone de cada entrada (só aspeto — os itens e as rotas não mudam). */
+const GROUP_ICON: Record<string, ReactNode> = {
+  dre: <IconChart size={20} />,
+  stock: <IconBox size={20} />,
+  hr: <IconBriefcase size={20} />,
+  crm: <IconHeart size={20} />,
+  financial: <IconWallet size={20} />,
+};
+const ITEM_ICON: [RegExp, ReactNode][] = [
+  [/^\/cash-closings/, <IconCash size={20} />],
+  [/^\/air-menu/, <IconUtensils size={20} />],
+  [/^\/vendus/, <IconReceipt size={20} />],
+  [/^\/empresa/, <IconBuilding size={20} />],
+  [/^\/admin\/users/, <IconSettings size={20} />],
+  [/^\/admin\/location-tokens/, <IconKey size={20} />],
+  // Sub-itens (ícone mais pequeno).
+  [/^\/hr\/overview/, <IconActivity size={17} />],
+  [/^\/hr\/people/, <IconUser size={17} />],
+  [/^\/hr\/schedules/, <IconCalendar size={17} />],
+  [/^\/hr\/ferias/, <IconSun size={17} />],
+  [/^\/hr\/assiduidade/, <IconClock size={17} />],
+  [/^\/hr\/pedidos/, <IconInbox size={17} />],
+  [/^\/hr\/historico/, <IconHistory size={17} />],
+  [/^\/hr\/novo/, <IconSparkle size={17} />],
+  [/^\/crm\/customers/, <IconUsers size={17} />],
+];
+const iconFor = (path: string) => ITEM_ICON.find(([re]) => re.test(path))?.[1] ?? null;
+
+const ROLE_LABEL: Record<string, string> = { admin: "Administrador", manager: "Gestor", hr_viewer: "RH (consulta)", employee: "Colaborador" };
+
+function navLinkClass(sub: boolean) {
+  return ({ isActive }: { isActive: boolean }) =>
+    `flex items-center gap-3 rounded-xl transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 ${
+      sub ? "px-3 py-2 text-[13px]" : "px-3 py-2.5 text-sm"
+    } ${isActive ? "bg-brand-600 font-medium text-white shadow-card" : "font-medium text-white/75 hover:bg-white/5 hover:text-white"}`;
 }
 
-// ── icons ─────────────────────────────────────────────────────────────────────
-
-function ChevronIcon({ open, active }: { open: boolean; active: boolean }) {
-  return (
-    <svg
-      className={`h-4 w-4 transition-all duration-200 ${open ? "rotate-180" : ""} ${
-        active ? "text-[#ED5C32]" : "text-slate-500"
-      }`}
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path
-        fillRule="evenodd"
-        d="M5.23 7.21a.75.75 0 011.06.02L10 10.94l3.71-3.71a.75.75 0 111.06 1.06l-4.24 4.24a.75.75 0 01-1.06 0L5.21 8.29a.75.75 0 01.02-1.08z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
-}
-
-function HamburgerIcon() {
-  return (
-    <svg
-      className="h-5 w-5 text-slate-200"
-      viewBox="0 0 20 20"
-      fill="currentColor"
-      aria-hidden="true"
-    >
-      <path
-        fillRule="evenodd"
-        d="M2 4.75A.75.75 0 012.75 4h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 4.75zm0 5A.75.75 0 012.75 9h14.5a.75.75 0 010 1.5H2.75A.75.75 0 012 9.75zm0 5a.75.75 0 01.75-.75h14.5a.75.75 0 010 1.5H2.75a.75.75 0 01-.75-.75z"
-        clipRule="evenodd"
-      />
-    </svg>
-  );
+function initials(email: string): string {
+  const name = email.split("@")[0] ?? "";
+  const parts = name.split(/[._-]+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? "") + (parts[1]?.[0] ?? parts[0]?.[1] ?? "")).toUpperCase() || "?";
 }
 
 // ── NavItemLink ───────────────────────────────────────────────────────────────
 
-function NavItemLink({ item, onClick, badge = 0 }: { item: NavItem; onClick: () => void; badge?: number }) {
+function NavItemLink({ item, onClick, badge = 0, sub = false }: { item: NavItem; onClick: () => void; badge?: number; sub?: boolean }) {
+  const icon = iconFor(item.path);
   return (
-    <NavLink to={item.path} end={item.end} className={navLinkClass} onClick={onClick}>
-      <span className="flex items-center justify-between gap-2">
-        <span>{item.label}</span>
-        {badge > 0 && (
-          <span className="rounded-full bg-[#ED5C32] px-1.5 text-[10px] font-semibold leading-4 text-white" aria-label={`${badge} por decidir`}>
-            {badge}
-          </span>
-        )}
-      </span>
+    <NavLink to={item.path} end={item.end} className={navLinkClass(sub)} onClick={onClick}>
+      <span className={`flex shrink-0 items-center justify-center ${sub ? "w-[18px]" : "w-5"}`}>{icon ?? (sub ? <span className="h-1 w-1 rounded-full bg-current opacity-60" /> : null)}</span>
+      <span className="min-w-0 flex-1 leading-snug">{item.label}</span>
+      {badge > 0 && (
+        <span className="rounded-full bg-brand-500 px-1.5 text-[10px] font-semibold leading-4 text-white" aria-label={`${badge} por decidir`}>
+          {badge}
+        </span>
+      )}
     </NavLink>
   );
 }
@@ -89,23 +113,23 @@ function NavGroupSection({
   onNavClick: () => void;
 }) {
   return (
-    <div className="mt-0.5">
+    <div>
       <button
         type="button"
         onClick={onToggle}
-        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${
-          active
-            ? "font-semibold text-white"
-            : "font-medium text-slate-300 hover:bg-white/5 hover:text-white"
+        aria-expanded={expanded}
+        className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60 ${
+          active ? "bg-white/5 text-white" : "text-white/75 hover:bg-white/5 hover:text-white"
         }`}
       >
-        <span>{group.label}</span>
-        <ChevronIcon open={expanded} active={active} />
+        <span className={`flex w-5 shrink-0 items-center justify-center ${active ? "text-brand-500" : ""}`}>{GROUP_ICON[group.id]}</span>
+        <span className="min-w-0 flex-1 leading-snug">{group.label}</span>
+        <IconChevronDown size={16} className={`shrink-0 transition-transform duration-200 ${expanded ? "rotate-180" : ""} ${active ? "text-white/80" : "text-white/40"}`} />
       </button>
       {expanded && (
-        <div className="mb-1 ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-white/10 pl-2">
+        <div className="mt-1 flex flex-col gap-0.5 pl-3 motion-safe:animate-motion-fade">
           {group.items.map((item) => (
-            <NavItemLink key={item.path} item={item} onClick={onNavClick} badge={item.badgeKey ? badges[item.badgeKey] : 0} />
+            <NavItemLink key={item.path} item={item} onClick={onNavClick} badge={item.badgeKey ? badges[item.badgeKey] : 0} sub />
           ))}
         </div>
       )}
@@ -121,40 +145,25 @@ interface SidebarBodyProps {
   isGroupActive: (id: string) => boolean;
   toggleGroup: (id: string) => void;
   userEmail: string;
+  userRole: string;
   onNavClick: () => void;
   onSignOut: () => void;
   badges: UseSidebarResult["badges"];
 }
 
-function SidebarBody({
-  tree,
-  isGroupExpanded,
-  isGroupActive,
-  toggleGroup,
-  userEmail,
-  onNavClick,
-  onSignOut,
-  badges,
-}: SidebarBodyProps) {
+function SidebarBody({ tree, isGroupExpanded, isGroupActive, toggleGroup, userEmail, userRole, onNavClick, onSignOut, badges }: SidebarBodyProps) {
   return (
     <>
-      {/* Brand */}
-      <div className="px-4 pb-3 pt-4">
-        <div className="flex items-center gap-2.5">
-          <div className="h-2 w-2 flex-shrink-0 rounded-full bg-gradient-to-br from-[#ED5C32] to-[#EF8935]" />
-          <h1 className="text-base font-bold tracking-tight text-white">
-            Angry Box Hub
-          </h1>
-        </div>
+      {/* Marca */}
+      <div className="px-6 pb-6 pt-7">
+        <img src="/mezza-erp.png" alt="Mezza ERP" className="h-9 w-auto" />
       </div>
 
-      {/* Nav */}
-      <nav className="flex flex-1 flex-col gap-0.5 px-3 pb-4">
+      {/* Navegação */}
+      <nav aria-label="Principal" className="flex flex-1 flex-col gap-1 overflow-y-auto px-3 pb-4">
         {tree.map((entry) => {
           if (entry.kind === "item") {
-            return (
-              <NavItemLink key={entry.path} item={entry} onClick={onNavClick} badge={entry.badgeKey ? badges[entry.badgeKey] : 0} />
-            );
+            return <NavItemLink key={entry.path} item={entry} onClick={onNavClick} badge={entry.badgeKey ? badges[entry.badgeKey] : 0} />;
           }
           return (
             <NavGroupSection
@@ -170,20 +179,24 @@ function SidebarBody({
         })}
       </nav>
 
-      {/* Footer */}
-      <div className="border-t border-white/10 px-3 py-3">
-        <p className="truncate px-3 text-xs text-slate-400">{userEmail}</p>
-        <button
-          type="button"
-          onClick={onSignOut}
-          className="mt-1 w-full rounded-lg px-3 py-1.5 text-left text-sm font-medium text-slate-300 transition-colors hover:bg-white/5 hover:text-white"
-        >
-          Sair
-        </button>
-        <p className="mt-3 flex items-end justify-end gap-1.5 px-3 text-[11px] text-slate-400 opacity-80" aria-label="Desenvolvido por Mezza ERP">
-          <span className="leading-none">by</span>
-          <img src="/mezza-erp.png" alt="Mezza ERP" className="h-[18px] w-auto" />
-        </p>
+      {/* Organização e utilizador */}
+      <div className="space-y-3 px-3 pb-4">
+        <div className="flex items-center gap-2.5 rounded-xl border border-white/10 px-3 py-2.5 text-[13px] font-medium text-white/85">
+          <IconStore size={18} className="shrink-0 text-brand-500" />
+          <span className="truncate">Angry Box Hub</span>
+        </div>
+        <div className="flex items-center gap-3 border-t border-white/10 px-1 pt-4">
+          <span aria-hidden="true" className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-100 text-sm font-semibold text-brand-600">
+            {initials(userEmail)}
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-[13px] font-medium text-white">{userEmail}</span>
+            <span className="block truncate text-xs text-white/55">{ROLE_LABEL[userRole] ?? userRole}</span>
+          </span>
+          <button type="button" onClick={onSignOut} aria-label="Sair" title="Sair" className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white/60 transition-colors duration-150 hover:bg-white/10 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/60">
+            <IconLogout size={18} />
+          </button>
+        </div>
       </div>
     </>
   );
@@ -192,18 +205,7 @@ function SidebarBody({
 // ── Sidebar (public export) ───────────────────────────────────────────────────
 
 export function Sidebar() {
-  const {
-    tree,
-    isGroupExpanded,
-    isGroupActive,
-    toggleGroup,
-    userEmail,
-    mobileOpen,
-    openMobile,
-    closeMobile,
-    signOut,
-    badges,
-  }: UseSidebarResult = useSidebar();
+  const { tree, isGroupExpanded, isGroupActive, toggleGroup, userEmail, userRole, mobileOpen, openMobile, closeMobile, signOut, badges }: UseSidebarResult = useSidebar();
 
   const bodyProps: SidebarBodyProps = {
     tree,
@@ -211,6 +213,7 @@ export function Sidebar() {
     isGroupActive,
     toggleGroup,
     userEmail,
+    userRole,
     onNavClick: closeMobile,
     onSignOut: signOut,
     badges,
@@ -218,43 +221,25 @@ export function Sidebar() {
 
   return (
     <>
-      {/* Desktop sidebar */}
-      <aside className={`hidden w-56 flex-shrink-0 flex-col ${SIDEBAR_BG} md:flex`}>
+      {/* Desktop */}
+      <aside className={`sticky top-0 hidden h-screen w-[208px] flex-shrink-0 flex-col ${SIDEBAR_BG} md:flex`}>
         <SidebarBody {...bodyProps} onNavClick={() => {}} />
       </aside>
 
-      {/* Mobile top bar */}
+      {/* Telemóvel: barra de topo */}
       <div className={`fixed inset-x-0 top-0 z-30 flex h-12 items-center gap-3 ${SIDEBAR_BG} px-4 md:hidden`}>
-        <button
-          type="button"
-          onClick={openMobile}
-          className="rounded-lg p-1 transition-colors hover:bg-white/10"
-          aria-label="Abrir menu"
-        >
-          <HamburgerIcon />
+        <button type="button" onClick={openMobile} className="rounded-lg p-1 text-white/90 transition-colors hover:bg-white/10" aria-label="Abrir menu">
+          <IconMenu size={20} />
         </button>
-        <div className="flex items-center gap-2">
-          <div className="h-1.5 w-1.5 rounded-full bg-gradient-to-br from-[#ED5C32] to-[#EF8935]" />
-          <span className="text-sm font-bold tracking-tight text-white">
-            Angry Box Hub
-          </span>
-        </div>
+        <img src="/mezza-erp.png" alt="Mezza ERP" className="h-6 w-auto" />
       </div>
 
-      {/* Mobile overlay */}
-      {mobileOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black/25 backdrop-blur-sm md:hidden"
-          onClick={closeMobile}
-          aria-hidden="true"
-        />
-      )}
+      {/* Telemóvel: fundo */}
+      {mobileOpen && <div className="fixed inset-0 z-40 bg-navy-950/40 motion-safe:animate-motion-fade md:hidden" onClick={closeMobile} aria-hidden="true" />}
 
-      {/* Mobile drawer */}
+      {/* Telemóvel: gaveta */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-56 flex-col ${SIDEBAR_BG} shadow-xl transition-transform duration-200 md:hidden ${
-          mobileOpen ? "translate-x-0" : "-translate-x-full"
-        }`}
+        className={`fixed inset-y-0 left-0 z-50 flex w-64 flex-col ${SIDEBAR_BG} shadow-pop transition-transform duration-200 md:hidden ${mobileOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         <SidebarBody {...bodyProps} />
       </aside>

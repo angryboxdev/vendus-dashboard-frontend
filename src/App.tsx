@@ -190,7 +190,7 @@ export default function App() {
         element={
           <ProtectedRoute>
             <SidebarProvider>
-            <div className="flex min-h-screen bg-[#FAF6F3]">
+            <div className="flex min-h-screen bg-surface-app">
               <Sidebar />
               <main className="min-w-0 flex-1 overflow-auto pt-12 md:pt-0">
                 <Routes>
