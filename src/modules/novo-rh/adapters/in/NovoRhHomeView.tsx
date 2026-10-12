@@ -4,6 +4,7 @@ import { AlertBanner, StatusBadge, SURFACE, type StatusTone } from "../../../../
 import type { PhaseStatus } from "../../domain/entities/roadmap.ts";
 import { ROADMAP, roadmapProgress } from "../../domain/services/roadmap.service.ts";
 import { DataModeSwitch } from "./DemoMode.tsx";
+import { OverviewDashboard } from "./overview/OverviewDashboard.tsx";
 
 const STATUS: Record<PhaseStatus, { tone: StatusTone; key: MessageKey }> = {
   done: { tone: "success", key: "common.done" },
@@ -12,8 +13,8 @@ const STATUS: Record<PhaseStatus, { tone: StatusTone; key: MessageKey }> = {
 };
 
 /**
- * Novo RH → Visão geral: área separada do RH atual onde se vê o novo modelo
- * a ser construído, fase a fase. Por agora só o Admin a vê.
+ * Novo RH → Visão geral: o Painel do dia (quem está, faltas, atrasos,
+ * pendentes) e, por baixo, o modo de dados e o plano por fases.
  */
 export function NovoRhHomeView() {
   const { t } = useI18n();
@@ -21,6 +22,8 @@ export function NovoRhHomeView() {
 
   return (
     <div className="space-y-4">
+      <OverviewDashboard />
+
       <AlertBanner tone="info" title={t("novoRh.banner.title")}>
         {t("novoRh.banner.body")}
       </AlertBanner>

@@ -40,6 +40,7 @@ módulo a usar a base de i18n (`src/i18n`).
 ### Output
 
 - `SettingsApiPort` — `/api/novo-rh/settings` (+ listas de colaboradores e locais para os alvos; em Demonstração vêm de `/api/novo-rh/people` e `/api/novo-rh/catalog/locations`).
+- `OverviewApiPort` — `GET /api/novo-rh/overview?date=` (Painel do dia: KPIs, pessoas com estado e atraso, por centro, 7 dias, pendentes, feriados).
 - `DemoApiPort` — `GET/POST /api/novo-rh/demo` (estado / criar a organização fictícia); `DataModeStorePort` — modo escolhido.
 - `MfaPort` — MFA TOTP do Supabase (estado, ativar, confirmar).
 - `StructureApiPort`, `AccessGovernanceApiPort`, `AuditApiPort`, `NotificationsApiPort` (`governance-api.port.ts`).
@@ -56,6 +57,7 @@ módulo a usar a base de i18n (`src/i18n`).
 
 ### Input
 
+- `overview/OverviewDashboard` (topo da Visão geral): números do dia clicáveis como filtro, lista de colaboradores (faltas e atrasos primeiro; procurar, filtrar por centro), pendentes com ligação à caixa certa, por centro, últimos 7 dias, próximos feriados; atualiza a cada minuto e permite escolher um dia passado. `overview/PersonDayDrawer`: horário vs. entrada, marcações do dia, últimos 7 dias, ligações à ficha e à assiduidade (`/hr/novo/assiduidade?employeeId=` abre já essa pessoa).
 - `NovoRhLayout` + `NovoRhHomeView` → `/hr/novo` (com `DataModeSwitch`: Real/Demonstração, criar com confirmação).
 - `DemoModeBanner` (faixa em todo o Novo RH em Demonstração, com "Voltar ao modo Real"); `DemoAccessNotice` substitui Acessos em Demonstração.
 - `MfaGate` — só abre o Novo RH com sessão `aal2` (TK-3).
@@ -78,6 +80,7 @@ módulo a usar a base de i18n (`src/i18n`).
 - `HttpRostersApiAdapter`.
 - `HttpPeriodsApiAdapter` (o download pede primeiro o link com token).
 - `http-engagement-api.adapters.ts` (comunicados, alertas, espaço de trabalho, relatórios).
+- `HttpOverviewApiAdapter`.
 - `HttpDemoApiAdapter`, `LocalStorageDataModeStore`, `novoRhModeHeaders` (cabeçalho `X-Novo-RH-Mode: demo` só nos pedidos `/api/novo-rh/*`, ligado em `src/lib/api.ts` via `setRequestHeaderProvider`).
 - `HttpAttendanceApiAdapter`, `HttpMyClockApiAdapter` (a marcação usa o `clientEventId` como Idempotency-Key), `LocalStoragePunchQueue` (só ids e tipo; em memória se o navegador não deixar guardar).
 
