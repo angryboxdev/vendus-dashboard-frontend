@@ -88,6 +88,22 @@ describe("Ausências — ecrãs", () => {
     expect(m.absences.createFlow).toHaveBeenCalledWith({ name: "Férias", scope: "absences", isDefault: true, levels: [{ people: [], roles: ["managers"] }], fallbackUserIds: [] });
   });
 
+  it("fluxo para correções de ponto (FE-113)", async () => {
+    const m = mod();
+    m.access.listUsers = vi.fn(async () => []);
+    m.access.listProfiles = vi.fn(async () => []);
+    m.absences.createFlow = vi.fn();
+    renderWith(m);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("tab", { name: "Fluxos de aprovação" }));
+    await user.click(screen.getByRole("button", { name: "Novo fluxo" }));
+    await user.type(screen.getByLabelText("Nome"), "Correções");
+    await user.selectOptions(screen.getByLabelText("Para"), "clock");
+    expect(screen.getByText(/Os pedidos de correção passam a seguir estes níveis/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Guardar" }));
+    expect(m.absences.createFlow).toHaveBeenCalledWith(expect.objectContaining({ name: "Correções", scope: "clock" }));
+  });
+
   it("pedido por horas envia horas e um só dia (RE-21)", async () => {
     const m = mod();
     m.myAbsences.types = vi.fn(async () => [TYPE]);

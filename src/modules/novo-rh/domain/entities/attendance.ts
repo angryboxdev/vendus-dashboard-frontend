@@ -76,6 +76,9 @@ export interface CorrectionRequest {
   decidedAt: string | null;
   decisionComment: string | null;
   createdAt: string;
+  /** FE-113: níveis do fluxo de correções de ponto ([] = sem fluxo). */
+  levels?: { approvers: string[]; escalated: boolean }[];
+  currentLevel?: number;
 }
 
 export interface Adjustment {

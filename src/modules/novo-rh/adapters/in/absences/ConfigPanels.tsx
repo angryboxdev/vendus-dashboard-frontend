@@ -180,6 +180,7 @@ export function FlowsPanel() {
         {flows.map((f) => (
           <li key={f.id} className="flex flex-wrap items-center gap-2 text-sm">
             <span className="font-medium text-stone-900">{f.name}</span>
+            <StatusBadge tone="neutral">{t(f.scope === "clock" ? "abs.flow.scope.clock" : "abs.flow.scope.absences")}</StatusBadge>
             <span className="text-stone-500">{t("abs.flow.levels", { count: f.levels.length })}</span>
             {f.isDefault && <StatusBadge tone="success">{t("abs.flow.default")}</StatusBadge>}
             <Button size="sm" variant="tertiary" aria-label={`${t("abs.archive")} ${f.name}`} disabled={archive.isPending} onClick={() => archive.mutate(f.id)}>
@@ -202,11 +203,13 @@ function FlowDrawer({ onClose }: { onClose: () => void }) {
   const profiles = useQuery({ queryKey: ["novo-rh", "access", "profiles"], queryFn: () => access.listProfiles() });
   const [name, setName] = useState("");
   const [isDefault, setDefault] = useState(true);
+  // FE-113: o mesmo motor de fluxos serve as ausências e as correções de ponto.
+  const [scope, setScope] = useState<"absences" | "clock">("absences");
   const [levels, setLevels] = useState<FlowLevel[]>([{ people: [], roles: ["managers"] }]);
   const [fallback, setFallback] = useState<string[]>([]);
   const problems = flowProblems(levels);
   const save = useMutation({
-    mutationFn: () => absences.createFlow({ name, scope: "absences", isDefault, levels, fallbackUserIds: fallback }),
+    mutationFn: () => absences.createFlow({ name, scope, isDefault, levels, fallbackUserIds: fallback }),
     onSuccess: async () => {
       await qc.invalidateQueries({ queryKey: KEY });
       onClose();
@@ -234,6 +237,14 @@ function FlowDrawer({ onClose }: { onClose: () => void }) {
         <label className="block">
           <span className={LABEL}>{t("abs.field.name")}</span>
           <input className={`${FIELD} w-full`} maxLength={80} value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label className="block">
+          <span className={LABEL}>{t("abs.flow.scope")}</span>
+          <select className={`${FIELD} w-full`} value={scope} onChange={(e) => setScope(e.target.value as "absences" | "clock")}>
+            <option value="absences">{t("abs.flow.scope.absences")}</option>
+            <option value="clock">{t("abs.flow.scope.clock")}</option>
+          </select>
+          {scope === "clock" && <span className="mt-1 block text-xs text-stone-500">{t("abs.flow.scope.clockHint")}</span>}
         </label>
         <label className="flex items-center gap-2 text-sm text-stone-700">
           <input type="checkbox" checked={isDefault} onChange={(e) => setDefault(e.target.checked)} />
