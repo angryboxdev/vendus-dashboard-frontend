@@ -26,6 +26,7 @@ export function NovoRhLayout({ children, extraActions }: { children: ReactNode; 
             { to: "/hr/novo/ausencias", label: t("novoRh.tab.absences") },
             { to: "/hr/novo/banco-de-horas", label: t("novoRh.tab.timeBank") },
             { to: "/hr/novo/escalas", label: t("novoRh.tab.rosters") },
+            { to: "/hr/novo/fecho", label: t("novoRh.tab.periods") },
             { to: "/hr/novo/configuracoes", label: t("novoRh.tab.settings") },
             { to: "/hr/novo/estrutura", label: t("novoRh.tab.structure") },
             { to: "/hr/novo/acessos", label: t("novoRh.tab.access") },

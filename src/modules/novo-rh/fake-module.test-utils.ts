@@ -152,6 +152,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       requestSwap: vi.fn(),
       respondSwap: vi.fn(),
     },
+    periods: { list: none(), create: vi.fn(), precheck: vi.fn(), close: vi.fn(), closures: none(), requestReopen: vi.fn(), reopenings: none(), approveReopen: vi.fn(), rejectReopen: vi.fn(), requestExport: vi.fn(), exports: none(), download: vi.fn() },
     ...over,
   };
 }

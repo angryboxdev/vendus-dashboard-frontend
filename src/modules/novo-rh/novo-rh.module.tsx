@@ -31,6 +31,9 @@ import { TimeBankView } from "./adapters/in/time-bank/TimeBankView.tsx";
 import type { RostersApiPort } from "./domain/ports/out/rosters-api.port.ts";
 import { HttpRostersApiAdapter } from "./adapters/out/http-rosters-api.adapter.ts";
 import { RostersView } from "./adapters/in/rosters/RostersView.tsx";
+import type { PeriodsApiPort } from "./domain/ports/out/periods-api.port.ts";
+import { HttpPeriodsApiAdapter } from "./adapters/out/http-periods-api.adapter.ts";
+import { PeriodsView } from "./adapters/in/periods/PeriodsView.tsx";
 import { NovoRhHomeView } from "./adapters/in/NovoRhHomeView.tsx";
 import { NovoRhLayout } from "./adapters/in/NovoRhLayout.tsx";
 import { SettingsView } from "./adapters/in/settings/SettingsView.tsx";
@@ -52,6 +55,7 @@ export interface NovoRhModule {
   myAbsences: MyAbsencesApiPort;
   timeBank: TimeBankApiPort;
   rosters: RostersApiPort;
+  periods: PeriodsApiPort;
 }
 
 const NovoRhContext = createContext<NovoRhModule | null>(null);
@@ -79,6 +83,7 @@ export function NovoRhProvider({ children, module: mod }: { children: ReactNode;
         myAbsences: new HttpMyAbsencesApiAdapter(),
         timeBank: new HttpTimeBankApiAdapter(),
         rosters: new HttpRostersApiAdapter(),
+        periods: new HttpPeriodsApiAdapter(),
       },
   );
   return <NovoRhContext.Provider value={value}>{children}</NovoRhContext.Provider>;
@@ -107,6 +112,7 @@ export function NovoRhPage() {
               <Route path="ausencias" element={<AbsencesView />} />
               <Route path="banco-de-horas" element={<TimeBankView />} />
               <Route path="escalas" element={<RostersView />} />
+              <Route path="fecho" element={<PeriodsView />} />
               <Route path="configuracoes" element={<SettingsView />} />
               <Route path="estrutura" element={<StructureView />} />
               <Route path="acessos" element={<AccessView />} />
