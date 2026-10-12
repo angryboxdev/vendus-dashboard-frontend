@@ -23,13 +23,15 @@ export function MyClockPanel() {
   const [pending, setPending] = useState(() => punchQueue.pending().length);
   const breakTypes = useQuery({ queryKey: ["novo-rh", "my-clock", "break-types"], queryFn: () => myClock.breakTypes() });
   const breaks = breakTypes.data ?? [];
+  const clockTypes = useQuery({ queryKey: ["novo-rh", "my-clock", "clock-types"], queryFn: () => myClock.clockTypes() });
+  const types = clockTypes.data ?? [];
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
   const flush = useCallback(async () => {
     const r = await punchQueue.flush(
       async (p) => {
-        await myClock.punch({ segmentType: p.segmentType, clientEventId: p.clientEventId, occurredAt: p.createdAt, breakTypeId: p.breakTypeId ?? null });
+        await myClock.punch({ segmentType: p.segmentType, clientEventId: p.clientEventId, occurredAt: p.createdAt, breakTypeId: p.breakTypeId ?? null, clockTypeId: p.clockTypeId ?? null });
       },
       (e) => !(e instanceof ApiError),
     );
@@ -45,10 +47,10 @@ export function MyClockPanel() {
     return () => window.removeEventListener("online", online);
   }, [flush]);
 
-  const punch = async (segmentType: SegmentType, breakTypeId: string | null = null) => {
+  const punch = async (segmentType: SegmentType, breakTypeId: string | null = null, clockTypeId: string | null = null) => {
     setError(null);
     setBusy(true);
-    punchQueue.add(segmentType, new Date().toISOString(), breakTypeId);
+    punchQueue.add(segmentType, new Date().toISOString(), breakTypeId, clockTypeId);
     setPending(punchQueue.pending().length);
     try {
       await flush();
@@ -87,6 +89,12 @@ export function MyClockPanel() {
                 {t("att.action.breakOf", { name: b.name })}
               </Button>
             ))}
+          {/* FE-105: começar um tipo de registo (formação, deslocação…); o servidor verifica bloqueios e o máximo do dia. */}
+          {types.map((c) => (
+            <Button key={c.id} disabled={busy} onClick={() => void punch(c.remote ? "remote" : "work", null, c.id)}>
+              {t("att.action.startType", { name: c.name })}
+            </Button>
+          ))}
         </div>
         {pending > 0 && <AlertBanner tone="info" title={t("att.queue.pending", { count: pending })} />}
         {error && <AlertBanner tone="danger" title={error} />}

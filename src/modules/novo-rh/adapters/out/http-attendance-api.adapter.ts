@@ -4,6 +4,8 @@ import type {
   AttendanceDays,
   BreakType,
   BreakTypeInput,
+  ClockType,
+  ClockTypeInput,
   ChangeInput,
   ClockEvent,
   ClockRevision,
@@ -27,7 +29,10 @@ export class HttpMyClockApiAdapter implements MyClockApiPort {
   breakTypes() {
     return apiGet<BreakType[]>(`${M}/break-types`);
   }
-  async punch(input: { segmentType: SegmentType; clientEventId: string; occurredAt?: string; breakTypeId?: string | null }) {
+  clockTypes() {
+    return apiGet<ClockType[]>(`${M}/clock-types`);
+  }
+  async punch(input: { segmentType: SegmentType; clientEventId: string; occurredAt?: string; breakTypeId?: string | null; clockTypeId?: string | null }) {
     // A mesma chave em todas as tentativas: o servidor grava uma só vez (RE-9).
     return (await apiWrite<{ event: ClockEvent; duplicate: boolean }>(M, { body: { ...input, source: "pwa" }, idempotencyKey: input.clientEventId })).data;
   }
@@ -81,6 +86,18 @@ export class HttpAttendanceApiAdapter implements AttendanceApiPort {
   }
   async archiveBreakType(id: string) {
     await apiWrite(`${A}/break-types/${id}/archive`, {});
+  }
+  listClockTypes() {
+    return apiGet<ClockType[]>(`${A}/clock-types`);
+  }
+  async createClockType(input: ClockTypeInput) {
+    return (await apiWrite<ClockType>(`${A}/clock-types`, { body: input })).data;
+  }
+  async updateClockType(id: string, input: ClockTypeInput, version: number, reason: string) {
+    return (await apiWrite<ClockType>(`${A}/clock-types/${id}`, { method: "PUT", body: { ...input, version, reason } })).data;
+  }
+  async archiveClockType(id: string) {
+    await apiWrite(`${A}/clock-types/${id}/archive`, {});
   }
 }
 

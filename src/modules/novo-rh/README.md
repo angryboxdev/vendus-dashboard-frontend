@@ -59,6 +59,7 @@ módulo a usar a base de i18n (`src/i18n`).
 ### Input
 
 - `inbox/InboxView` → `/hr/novo/pedidos` (FE-050): tipos com contadores, segmentos (a minha decisão / outras / todas), procurar, antiguidade destacada a partir de 7 dias, pedido próprio sem botões (RE-22), aprovar/recusar um ou vários (recusa com motivo ≥ 5 caracteres) e resultado por pedido.
+- `attendance/ClockTypesPanel` (Assiduidade → Tipos de registo, FE-105): formação, deslocação, teletrabalho — remuneração sempre escolhida, máximo por dia, dias e horas bloqueados; o registo normal aparece sempre como primeira linha. Em "O meu ponto", "Começar: <tipo>" envia `clockTypeId` (também pela fila offline).
 - `attendance/BreakTypesPanel` (Assiduidade → Pausas, FE-103): catálogo de pausas — remuneração sempre escolhida (paga / não paga / híbrida com minutos pagos por dia), duração máxima, janela, usos por dia, dias; alterar exige motivo; arquivar. Em "O meu ponto", com catálogo, a pausa escolhe-se pelo nome (`breakTypeId` vai na marcação e na fila offline).
 - `attendance/TeamDayPanel` (Assiduidade → Dia da equipa, separador inicial; FE-030): linha 0–24 h por pessoa com o planeado tracejado, só faltas e atrasos, detalhe no `PersonDayDrawer`. `attendance/IncidentsPanel`: filtro por tipo e resolução em lote (FE-033).
 - `time/TeamPlanPanel` (Tempo → Planeado da equipa, separador inicial; FE-031): 1 ou 2 semanas, horário/feriado/ausência por dia, quem não tem planeamento primeiro.

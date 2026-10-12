@@ -16,6 +16,7 @@ const CATALOGS: { key: MessageKey; hint: MessageKey; to: string }[] = [
   { key: "cfg.catalog.flows", hint: "cfg.catalog.flows.hint", to: "/hr/novo/ausencias" },
   { key: "cfg.catalog.schedules", hint: "cfg.catalog.schedules.hint", to: "/hr/novo/tempo" },
   { key: "cfg.catalog.breaks", hint: "cfg.catalog.breaks.hint", to: "/hr/novo/assiduidade" },
+  { key: "cfg.catalog.clockTypes", hint: "cfg.catalog.clockTypes.hint", to: "/hr/novo/assiduidade" },
   { key: "cfg.catalog.holidays", hint: "cfg.catalog.holidays.hint", to: "/hr/novo/tempo" },
   { key: "cfg.catalog.shiftTemplates", hint: "cfg.catalog.shiftTemplates.hint", to: "/hr/novo/escalas" },
   { key: "cfg.catalog.structure", hint: "cfg.catalog.structure.hint", to: "/hr/novo/estrutura" },

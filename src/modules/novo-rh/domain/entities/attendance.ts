@@ -127,7 +127,26 @@ export interface QueuedPunch {
   createdAt: string;
   /** FE-103: tipo de pausa escolhido. */
   breakTypeId?: string | null;
+  /** FE-105: tipo de registo escolhido. */
+  clockTypeId?: string | null;
 }
+
+/** Tipo de registo (FE-105): formação, deslocação, teletrabalho… */
+export interface ClockType {
+  id: string;
+  name: string;
+  color: string | null;
+  remote: boolean;
+  remuneration: "paid" | "unpaid" | "hybrid";
+  hybridPaidMinutes: number | null;
+  maxMinutesPerDay: number | null;
+  blockedWeekdays: number[] | null;
+  blockedHours: { start: string; end: string }[];
+  archived: boolean;
+  version: number;
+}
+
+export type ClockTypeInput = Omit<ClockType, "id" | "archived" | "version">;
 
 /** Tipo de pausa do catálogo (FE-103). */
 export interface BreakType {

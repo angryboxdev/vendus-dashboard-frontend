@@ -6,9 +6,10 @@ import { DaysPanel } from "./DaysPanel.tsx";
 import { IncidentsPanel } from "./IncidentsPanel.tsx";
 import { MyClockPanel } from "./MyClockPanel.tsx";
 import { BreakTypesPanel } from "./BreakTypesPanel.tsx";
+import { ClockTypesPanel } from "./ClockTypesPanel.tsx";
 import { TeamDayPanel } from "./TeamDayPanel.tsx";
 
-type Tab = "team" | "days" | "incidents" | "corrections" | "breaks" | "myClock";
+type Tab = "team" | "days" | "incidents" | "corrections" | "breaks" | "clockTypes" | "myClock";
 
 /** Novo RH → Assiduidade (Fase 4). */
 export function AttendanceView() {
@@ -26,6 +27,7 @@ export function AttendanceView() {
           { key: "incidents", label: t("att.tab.incidents") },
           { key: "corrections", label: t("att.tab.corrections") },
           { key: "breaks", label: t("att.tab.breaks") },
+          { key: "clockTypes", label: t("att.tab.clockTypes") },
           { key: "myClock", label: t("att.tab.myClock") },
         ]}
       />
@@ -34,6 +36,7 @@ export function AttendanceView() {
       {tab === "incidents" && <IncidentsPanel />}
       {tab === "corrections" && <CorrectionsPanel />}
       {tab === "breaks" && <BreakTypesPanel />}
+      {tab === "clockTypes" && <ClockTypesPanel />}
       {tab === "myClock" && <MyClockPanel />}
     </div>
   );
