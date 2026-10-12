@@ -166,7 +166,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       respondSwap: vi.fn(),
     },
     periods: { list: none(), create: vi.fn(), precheck: vi.fn(), close: vi.fn(), closures: none(), requestReopen: vi.fn(), reopenings: none(), approveReopen: vi.fn(), rejectReopen: vi.fn(), requestExport: vi.fn(), exports: none(), download: vi.fn() },
-    announcements: { list: none(), create: vi.fn(), update: vi.fn(), publish: vi.fn(), report: vi.fn(), mine: none(), markRead: vi.fn(), confirm: vi.fn() },
+    announcements: { list: none(), create: vi.fn(), update: vi.fn(), publish: vi.fn(), report: vi.fn(), archive: vi.fn(), duplicate: vi.fn(), deleteDraft: vi.fn(), previewAudience: vi.fn(async () => ({ recipients: 0, withoutAccount: 0 })), remind: vi.fn(), proofCsv: vi.fn(), mine: none(), markRead: vi.fn(), confirm: vi.fn() },
     alerts: { list: none(), run: vi.fn(), take: vi.fn(), close: vi.fn(), rules: none(), createRule: vi.fn() },
     workspace: { tasks: none(), createTask: vi.fn(), toggleItem: vi.fn(), completeTask: vi.fn(), forms: none(), createForm: vi.fn(), requests: none(), decide: vi.fn(), whosIn: vi.fn() },
     reports: { catalog: none(), run: vi.fn(), csv: vi.fn() },

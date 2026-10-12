@@ -56,6 +56,32 @@ describe("Comunicados", () => {
     expect(within(row).getByText("2026-10-12 11:05")).toBeInTheDocument();
   });
 
+  it("FE-060/062: progresso na lista, filtro por estado, lembrete e prova de leitura; rascunho elimina-se", async () => {
+    const m = mod();
+    const DRAFT = { ...PUBLISHED, id: "a2", status: "draft" as const, title: "Rascunho férias", currentVersion: 1, publishedAt: null, stats: null };
+    m.announcements.list = vi.fn(async () => [{ ...PUBLISHED, stats: { recipients: 4, read: 3, confirmed: 2 } }, DRAFT]);
+    m.announcements.report = vi.fn(async () => ({ announcement: PUBLISHED, versions: [], totals: { recipients: 4, read: 3, confirmed: 2 }, rows: [] }));
+    m.announcements.remind = vi.fn(async () => ({ pending: 2, notified: 1, withoutAccount: 1 }));
+    m.announcements.proofCsv = vi.fn(async () => new Blob(["x"]));
+    m.announcements.deleteDraft = vi.fn(async () => undefined);
+    URL.createObjectURL = vi.fn(() => "blob:x");
+    URL.revokeObjectURL = vi.fn();
+    renderWith(m, <AnnouncementsView />);
+    const user = userEvent.setup();
+    expect(await screen.findByText("2/4 confirmados")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Rascunho" }));
+    expect(screen.queryByText("Fardamento")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Rascunho férias" }));
+    await user.click(screen.getByRole("button", { name: "Eliminar rascunho" }));
+    expect(m.announcements.deleteDraft).toHaveBeenCalledWith("a2");
+    await user.click(screen.getByRole("tab", { name: "Todos" }));
+    await user.click(screen.getByRole("button", { name: "Fardamento" }));
+    await user.click(screen.getByRole("button", { name: "Lembrar quem falta" }));
+    expect(await screen.findByText(/Lembrete enviado a 1 de 2/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Exportar prova de leitura" }));
+    expect(m.announcements.proofCsv).toHaveBeenCalledWith("a1");
+  });
+
   it("o colaborador confirma a leitura", async () => {
     const m = mod();
     m.announcements.mine = vi.fn(async () => [{ id: "a1", title: "Fardamento", body: "Novo fardamento", version: 1, publishedAt: "x", requiresConfirmation: true, readAt: null, confirmedAt: null }]);

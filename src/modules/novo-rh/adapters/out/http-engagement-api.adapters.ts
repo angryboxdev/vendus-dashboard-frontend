@@ -1,4 +1,4 @@
-import { apiGet, apiGetBlob, apiWrite } from "../../../../lib/api.ts";
+import { apiDeleteNoContent, apiGet, apiGetBlob, apiWrite } from "../../../../lib/api.ts";
 import type { Alert, AlertRule, Announcement, AnnouncementReport, Audience, CustomRequest, MyAnnouncement, OpsTask, ReportDefinition, RequestForm, WhosIn } from "../../domain/entities/engagement.ts";
 import type { AlertsApiPort, AnnouncementsApiPort, ReportsApiPort, WorkspaceApiPort } from "../../domain/ports/out/engagement-api.port.ts";
 
@@ -20,6 +20,24 @@ export class HttpAnnouncementsApiAdapter implements AnnouncementsApiPort {
   }
   report(id: string) {
     return apiGet<AnnouncementReport>(`${this.A}/${id}/report`);
+  }
+  async archive(id: string) {
+    await apiWrite(`${this.A}/${id}/archive`, {});
+  }
+  async duplicate(id: string) {
+    return (await apiWrite<Announcement>(`${this.A}/${id}/duplicate`, {})).data;
+  }
+  async deleteDraft(id: string) {
+    await apiDeleteNoContent(`${this.A}/${id}`);
+  }
+  async previewAudience(audience: Audience) {
+    return (await apiWrite<{ recipients: number; withoutAccount: number }>(`${this.A}/audience-preview`, { body: { audience } })).data;
+  }
+  async remind(id: string) {
+    return (await apiWrite<{ pending: number; notified: number; withoutAccount: number }>(`${this.A}/${id}/remind`, {})).data;
+  }
+  proofCsv(id: string) {
+    return apiGetBlob(`${this.A}/${id}/proof.csv`);
   }
   mine() {
     return apiGet<MyAnnouncement[]>("/api/me/announcements");

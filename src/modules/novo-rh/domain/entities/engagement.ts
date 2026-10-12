@@ -1,6 +1,6 @@
 /** Novo RH → Fase 9: comunicados, alertas, tarefas, solicitações, quem está e relatórios. */
 
-export type Audience = { type: "all" } | { type: "locations" | "groups" | "employees"; ids: string[] };
+export type Audience = { type: "all" } | { type: "locations" | "departments" | "groups" | "employees"; ids: string[] };
 
 export interface Announcement {
   id: string;
@@ -11,6 +11,8 @@ export interface Announcement {
   title: string;
   body: string;
   publishedAt: string | null;
+  /** Leituras e confirmações da versão atual (null em rascunho). */
+  stats?: { recipients: number; read: number; confirmed: number } | null;
 }
 
 export interface AnnouncementReport {
