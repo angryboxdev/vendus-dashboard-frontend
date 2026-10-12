@@ -38,11 +38,11 @@ async function readErrorBody(res: Response): Promise<{ message: string; data: un
 
 async function request(
   path: string,
-  options: { method: string; body?: string } = { method: "GET" },
+  options: { method: string; body?: string; headers?: Record<string, string> } = { method: "GET" },
 ): Promise<Response> {
   const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
   const authHeaders = await getAuthHeaders();
-  const headers: Record<string, string> = { ...authHeaders };
+  const headers: Record<string, string> = { ...authHeaders, ...options.headers };
   if (options.body != null) headers["Content-Type"] = "application/json";
   const res = await fetch(url, {
     method: options.method,
@@ -51,9 +51,35 @@ async function request(
   });
   if (!res.ok) {
     const { message, data } = await readErrorBody(res);
+    // Novo RH (TK-4): perfil/estado alterado → as sessões abertas foram revogadas; terminar esta.
+    if (res.status === 401 && (data as { code?: unknown } | undefined)?.code === "SESSION_REVOKED") await supabase.auth.signOut();
     throw new ApiError(message, res.status, data);
   }
   return res;
+}
+
+/**
+ * Padrão novo (ADR-0022 do backend): leitura com a versão do registo (ETag)
+ * e escrita com Idempotency-Key + If-Match. Erros RFC 7807 chegam em
+ * `ApiError.data` (type, detail, campos de extensão).
+ */
+export async function apiGetVersioned<T>(path: string): Promise<{ data: T; etag: string | null }> {
+  const res = await request(path);
+  return { data: (await res.json()) as T, etag: res.headers.get("ETag") };
+}
+
+export async function apiWrite<T>(
+  path: string,
+  options: { method?: "POST" | "PUT" | "PATCH" | "DELETE"; body?: unknown; idempotencyKey?: string; ifMatch?: string | null },
+): Promise<{ data: T; etag: string | null }> {
+  const headers: Record<string, string> = { "Idempotency-Key": options.idempotencyKey ?? crypto.randomUUID() };
+  if (options.ifMatch) headers["If-Match"] = options.ifMatch;
+  const res = await request(path, {
+    method: options.method ?? "POST",
+    ...(options.body !== undefined && { body: JSON.stringify(options.body) }),
+    headers,
+  });
+  return { data: (await res.json()) as T, etag: res.headers.get("ETag") };
 }
 
 export async function apiGet<T>(path: string): Promise<T> {

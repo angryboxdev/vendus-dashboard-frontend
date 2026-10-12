@@ -1,0 +1,144 @@
+import { createContext, useContext, useState, type ReactNode } from "react";
+import { Route, Routes } from "react-router-dom";
+import { I18nProvider } from "../../i18n/I18nProvider.tsx";
+import { HttpSettingsApiAdapter } from "./adapters/out/http-settings-api.adapter.ts";
+import { SupabaseMfaAdapter } from "./adapters/out/supabase-mfa.adapter.ts";
+import { MfaGate } from "./adapters/in/MfaGate.tsx";
+import type { MfaPort } from "./domain/ports/out/mfa.port.ts";
+import type { AccessGovernanceApiPort, AuditApiPort, NotificationsApiPort, StructureApiPort } from "./domain/ports/out/governance-api.port.ts";
+import { HttpAccessGovernanceApiAdapter, HttpAuditApiAdapter, HttpNotificationsApiAdapter, HttpStructureApiAdapter } from "./adapters/out/http-governance-api.adapters.ts";
+import { StructureView } from "./adapters/in/structure/StructureView.tsx";
+import { AccessView } from "./adapters/in/access/AccessView.tsx";
+import { AuditView } from "./adapters/in/audit/AuditView.tsx";
+import { NotificationsBell } from "./adapters/in/NotificationsBell.tsx";
+import type { PeopleApiPort } from "./domain/ports/out/people-api.port.ts";
+import { HttpPeopleApiAdapter } from "./adapters/out/http-people-api.adapter.ts";
+import { PeopleListView } from "./adapters/in/people/PeopleListView.tsx";
+import { PersonView } from "./adapters/in/people/PersonView.tsx";
+import type { TimeApiPort } from "./domain/ports/out/time-api.port.ts";
+import { HttpTimeApiAdapter } from "./adapters/out/http-time-api.adapter.ts";
+import { TimeView } from "./adapters/in/time/TimeView.tsx";
+import type { AttendanceApiPort, MyClockApiPort } from "./domain/ports/out/attendance-api.port.ts";
+import { HttpAttendanceApiAdapter, HttpMyClockApiAdapter, LocalStoragePunchQueue } from "./adapters/out/http-attendance-api.adapter.ts";
+import { PunchQueue } from "./domain/services/attendance.service.ts";
+import { AttendanceView } from "./adapters/in/attendance/AttendanceView.tsx";
+import type { AbsencesApiPort, MyAbsencesApiPort } from "./domain/ports/out/absences-api.port.ts";
+import { HttpAbsencesApiAdapter, HttpMyAbsencesApiAdapter } from "./adapters/out/http-absences-api.adapter.ts";
+import { AbsencesView } from "./adapters/in/absences/AbsencesView.tsx";
+import type { TimeBankApiPort } from "./domain/ports/out/time-bank-api.port.ts";
+import { HttpTimeBankApiAdapter } from "./adapters/out/http-time-bank-api.adapter.ts";
+import { TimeBankView } from "./adapters/in/time-bank/TimeBankView.tsx";
+import type { RostersApiPort } from "./domain/ports/out/rosters-api.port.ts";
+import { HttpRostersApiAdapter } from "./adapters/out/http-rosters-api.adapter.ts";
+import { RostersView } from "./adapters/in/rosters/RostersView.tsx";
+import type { PeriodsApiPort } from "./domain/ports/out/periods-api.port.ts";
+import { HttpPeriodsApiAdapter } from "./adapters/out/http-periods-api.adapter.ts";
+import { PeriodsView } from "./adapters/in/periods/PeriodsView.tsx";
+import type { AlertsApiPort, AnnouncementsApiPort, ReportsApiPort, WorkspaceApiPort } from "./domain/ports/out/engagement-api.port.ts";
+import { HttpAlertsApiAdapter, HttpAnnouncementsApiAdapter, HttpReportsApiAdapter, HttpWorkspaceApiAdapter } from "./adapters/out/http-engagement-api.adapters.ts";
+import { AnnouncementsView } from "./adapters/in/engagement/AnnouncementsView.tsx";
+import { AlertsView } from "./adapters/in/engagement/AlertsView.tsx";
+import { WorkspaceView } from "./adapters/in/engagement/WorkspaceView.tsx";
+import { ReportsView } from "./adapters/in/engagement/ReportsView.tsx";
+import { NovoRhHomeView } from "./adapters/in/NovoRhHomeView.tsx";
+import { NovoRhLayout } from "./adapters/in/NovoRhLayout.tsx";
+import { SettingsView } from "./adapters/in/settings/SettingsView.tsx";
+import type { SettingsApiPort } from "./domain/ports/out/settings-api.port.ts";
+
+export interface NovoRhModule {
+  settings: SettingsApiPort;
+  mfa: MfaPort;
+  structure: StructureApiPort;
+  access: AccessGovernanceApiPort;
+  audit: AuditApiPort;
+  notifications: NotificationsApiPort;
+  people: PeopleApiPort;
+  time: TimeApiPort;
+  attendance: AttendanceApiPort;
+  myClock: MyClockApiPort;
+  punchQueue: PunchQueue;
+  absences: AbsencesApiPort;
+  myAbsences: MyAbsencesApiPort;
+  timeBank: TimeBankApiPort;
+  rosters: RostersApiPort;
+  periods: PeriodsApiPort;
+  announcements: AnnouncementsApiPort;
+  alerts: AlertsApiPort;
+  workspace: WorkspaceApiPort;
+  reports: ReportsApiPort;
+}
+
+const NovoRhContext = createContext<NovoRhModule | null>(null);
+
+/**
+ * Composition root do Novo RH: o único sítio que conhece os adapters
+ * concretos. Nos testes passa-se `module` com fakes.
+ */
+export function NovoRhProvider({ children, module: mod }: { children: ReactNode; module?: NovoRhModule }) {
+  const [value] = useState<NovoRhModule>(
+    () =>
+      mod ?? {
+        settings: new HttpSettingsApiAdapter(),
+        mfa: new SupabaseMfaAdapter(),
+        structure: new HttpStructureApiAdapter(),
+        access: new HttpAccessGovernanceApiAdapter(),
+        audit: new HttpAuditApiAdapter(),
+        notifications: new HttpNotificationsApiAdapter(),
+        people: new HttpPeopleApiAdapter(),
+        time: new HttpTimeApiAdapter(),
+        attendance: new HttpAttendanceApiAdapter(),
+        myClock: new HttpMyClockApiAdapter(),
+        punchQueue: new PunchQueue(new LocalStoragePunchQueue(), () => crypto.randomUUID()),
+        absences: new HttpAbsencesApiAdapter(),
+        myAbsences: new HttpMyAbsencesApiAdapter(),
+        timeBank: new HttpTimeBankApiAdapter(),
+        rosters: new HttpRostersApiAdapter(),
+        periods: new HttpPeriodsApiAdapter(),
+        announcements: new HttpAnnouncementsApiAdapter(),
+        alerts: new HttpAlertsApiAdapter(),
+        workspace: new HttpWorkspaceApiAdapter(),
+        reports: new HttpReportsApiAdapter(),
+      },
+  );
+  return <NovoRhContext.Provider value={value}>{children}</NovoRhContext.Provider>;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useNovoRh(): NovoRhModule {
+  const ctx = useContext(NovoRhContext);
+  if (!ctx) throw new Error("useNovoRh fora de NovoRhProvider");
+  return ctx;
+}
+
+/** Rota `/hr/novo/*`: Visão geral | Configurações | Estrutura | Acessos | Auditoria. Só Admin e com MFA (TK-3). */
+export function NovoRhPage() {
+  return (
+    <I18nProvider locale="pt-PT">
+      <NovoRhProvider>
+        <NovoRhLayout extraActions={<NotificationsBell />}>
+          <MfaGate>
+            <Routes>
+              <Route index element={<NovoRhHomeView />} />
+              <Route path="pessoas" element={<PeopleListView />} />
+              <Route path="pessoas/:id" element={<PersonView />} />
+              <Route path="tempo" element={<TimeView />} />
+              <Route path="assiduidade" element={<AttendanceView />} />
+              <Route path="ausencias" element={<AbsencesView />} />
+              <Route path="banco-de-horas" element={<TimeBankView />} />
+              <Route path="escalas" element={<RostersView />} />
+              <Route path="fecho" element={<PeriodsView />} />
+              <Route path="comunicados" element={<AnnouncementsView />} />
+              <Route path="alertas" element={<AlertsView />} />
+              <Route path="tarefas" element={<WorkspaceView />} />
+              <Route path="relatorios" element={<ReportsView />} />
+              <Route path="configuracoes" element={<SettingsView />} />
+              <Route path="estrutura" element={<StructureView />} />
+              <Route path="acessos" element={<AccessView />} />
+              <Route path="auditoria" element={<AuditView />} />
+            </Routes>
+          </MfaGate>
+        </NovoRhLayout>
+      </NovoRhProvider>
+    </I18nProvider>
+  );
+}

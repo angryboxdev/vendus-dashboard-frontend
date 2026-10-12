@@ -1,0 +1,59 @@
+# CI do frontend (task RH, Fase 0 — TK-1; ADR-0022 do backend).
+# Bloqueantes: typecheck, testes, deteção de segredos.
+# Só relatório (por agora): ESLint (o legado tem erros antigos) e auditoria de dependências.
+# Para o merge ficar bloqueado, um admin do GitHub marca os jobs "checks" e
+# "secrets" como obrigatórios em Settings → Branches → main.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      # Valores fictícios só para os testes carregarem — não são segredos.
+      VITE_SUPABASE_URL: https://ci.example.invalid
+      VITE_SUPABASE_ANON_KEY: ci-placeholder
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npx tsc -p tsconfig.app.json --noEmit
+      - name: Testes
+        run: npm test
+      - name: ESLint (relatório)
+        continue-on-error: true
+        run: npm run lint
+      - name: Auditoria de dependências (relatório)
+        continue-on-error: true
+        run: npm audit --omit=dev --audit-level=high
+
+  secrets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Deteção de segredos (gitleaks, só os commits novos)
+        env:
+          RANGE: ${{ github.event_name == 'pull_request' && format('{0}..{1}', github.event.pull_request.base.sha, github.event.pull_request.head.sha) || format('{0}..{1}', github.event.before, github.sha) }}
+        run: |
+          if [[ "$RANGE" == 0000000000000000000000000000000000000000..* ]]; then RANGE="${GITHUB_SHA}~1..${GITHUB_SHA}"; fi
+          docker run --rm -v "$PWD:/repo" -w /repo zricethezav/gitleaks:v8.18.4 \
+            detect --source /repo --log-opts="$RANGE" --redact --no-banner --exit-code 1

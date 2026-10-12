@@ -30,6 +30,8 @@ const HR_ITEMS: NavItem[] = [
   { kind: "item", path: "/hr/assiduidade", label: "Assiduidade" },
   { kind: "item", path: "/hr/pedidos", label: "Caixa de pedidos", badgeKey: "hr-requests" },
   { kind: "item", path: "/hr/historico", label: "Histórico de alterações" },
+  // Novo modelo de RH em construção (task RH faseada) — separado do atual; só Admin.
+  { kind: "item", path: "/hr/novo", label: "Novo RH" },
 ];
 
 const CRM_ITEMS: NavItem[] = [
