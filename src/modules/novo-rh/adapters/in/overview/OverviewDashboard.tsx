@@ -261,6 +261,8 @@ export function OverviewDashboard() {
             </p>
           </section>
 
+          <AnnouncementsWidget />
+
           {o.holidays.length > 0 && (
             <section className={`${SURFACE} p-4`} aria-labelledby="ovw-holidays">
               <h3 id="ovw-holidays" className={SECTION_TITLE}>
@@ -281,5 +283,45 @@ export function OverviewDashboard() {
 
       {open && <PersonDayDrawer person={open} date={o.date} timeZone={o.timeZone} onClose={() => setOpen(null)} />}
     </div>
+  );
+}
+
+/**
+ * FE-010: últimos 3 comunicados publicados com a taxa de confirmação. Tem a
+ * sua própria consulta: se falhar (ex.: sem permissão), o widget não aparece
+ * e o resto do painel não é afetado.
+ */
+function AnnouncementsWidget() {
+  const { t } = useI18n();
+  const { announcements } = useNovoRh();
+  const q = useQuery({ queryKey: ["novo-rh", "announcements"], queryFn: () => announcements.list() });
+  if (q.isError || !q.data) return null;
+  const recent = q.data
+    .filter((a) => a.status === "published")
+    .sort((a, b) => (b.publishedAt ?? "").localeCompare(a.publishedAt ?? ""))
+    .slice(0, 3);
+  return (
+    <section className={`${SURFACE} p-4`} aria-labelledby="ovw-announcements">
+      <div className="flex items-center justify-between">
+        <h3 id="ovw-announcements" className={SECTION_TITLE}>
+          {t("ovw.ann.title")}
+        </h3>
+        <Link to="/hr/novo/comunicados" className="text-xs font-medium text-[#C2410C] hover:underline">
+          {t("ovw.ann.all")}
+        </Link>
+      </div>
+      {recent.length === 0 && <p className="mt-2 text-sm text-stone-500">{t("ovw.ann.none")}</p>}
+      <ul className="mt-2 space-y-2">
+        {recent.map((a) => (
+          <li key={a.id} className="text-sm">
+            <span className="block truncate font-medium text-stone-800">{a.title}</span>
+            <span className="text-xs text-stone-500">
+              {a.publishedAt ? shortDay(a.publishedAt.slice(0, 10)) : ""}
+              {a.stats && ` · ${a.requiresConfirmation ? t("ovw.ann.confirmed", { done: a.stats.confirmed, total: a.stats.recipients }) : t("ovw.ann.read", { done: a.stats.read, total: a.stats.recipients })}`}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 }

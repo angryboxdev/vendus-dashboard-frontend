@@ -14,10 +14,10 @@ const monthBounds = (today: string) => {
 };
 
 /** Tempo → Tempo teórico por colaborador (TK-11), com o motivo de cada dia. */
-export function TheoreticalPanel() {
+export function TheoreticalPanel({ fixedEmployeeId }: { fixedEmployeeId?: string } = {}) {
   const { t } = useI18n();
   const { time, settings } = useNovoRh();
-  const [employeeId, setEmployeeId] = useState("");
+  const [employeeId, setEmployeeId] = useState(fixedEmployeeId ?? "");
   const [range, setRange] = useState(() => monthBounds(todayIn()));
   const employees = useQuery({ queryKey: ["novo-rh", "settings", "employees"], queryFn: () => settings.listEmployees() });
   const q = useQuery({ queryKey: ["novo-rh", "time", "theoretical", employeeId, range], queryFn: () => time.theoretical(employeeId, range.from, range.to), enabled: !!employeeId });
@@ -26,14 +26,16 @@ export function TheoreticalPanel() {
     <section className={`${SURFACE} space-y-3 p-4`}>
       <p className="text-xs text-stone-500">{t("time.theoretical.hint")}</p>
       <div className="flex flex-wrap gap-2">
-        <select aria-label={t("common.employee")} className={`${FIELD} min-w-[220px]`} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
-          <option value="">{t("common.employee")}…</option>
-          {(employees.data ?? []).map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        {!fixedEmployeeId && (
+          <select aria-label={t("common.employee")} className={`${FIELD} min-w-[220px]`} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+            <option value="">{t("common.employee")}…</option>
+            {(employees.data ?? []).map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        )}
         <input aria-label={t("common.from")} type="date" className={FIELD} value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} />
         <input aria-label={t("common.to")} type="date" className={FIELD} value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} />
       </div>

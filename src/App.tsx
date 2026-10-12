@@ -28,7 +28,7 @@ import { ShiftsToReviewView } from "./modules/hr/adapters/in/ShiftsToReviewView.
 import { SchedulesView } from "./modules/hr/adapters/in/SchedulesView.tsx";
 import { HrRequestsView } from "./modules/hr/adapters/in/HrRequestsView.tsx";
 import { LeaveView } from "./modules/hr/adapters/in/LeaveView.tsx";
-import { NovoRhPage } from "./modules/novo-rh/novo-rh.module.tsx";
+import { NovoRhJoinPage, NovoRhPage } from "./modules/novo-rh/novo-rh.module.tsx";
 import { KioskDisplayPage } from "./pages/kiosk/KioskDisplayPage";
 import { KioskCheckinPage } from "./pages/kiosk/KioskCheckinPage";
 import { CashClosingPage } from "./pages/cashClosing/CashClosingPage";
@@ -103,12 +103,17 @@ import { PortalDocumentsView } from "./modules/employee-portal/adapters/in/Porta
 import { PortalLeaveView } from "./modules/employee-portal/adapters/in/PortalLeaveView.tsx";
 import { PortalHomeView } from "./modules/employee-portal/adapters/in/PortalHomeView.tsx";
 import { PortalProfileView } from "./modules/employee-portal/adapters/in/PortalProfileView.tsx";
+import { PortalMoreView } from "./modules/employee-portal/adapters/in/PortalMoreView.tsx";
+import { PortalNewsView } from "./modules/employee-portal/adapters/in/PortalNewsView.tsx";
+import { PortalCustomRequestsView, PortalTasksView, PortalTeamView, PortalTimeBankView } from "./modules/employee-portal/adapters/in/PortalWorkViews.tsx";
 
 export default function App() {
   return (
     <Routes>
       {/* Página de login (pública) */}
       <Route path="/login" element={<LoginPage />} />
+      {/* Pedido de adesão por convite (FE-054) — público, sem sessão */}
+      <Route path="/aderir/:code" element={<NovoRhJoinPage />} />
 
       {/* Páginas standalone sem sidebar (kiosk) */}
       <Route
@@ -170,6 +175,12 @@ export default function App() {
         <Route path="documentos" element={<PortalDocumentsView />} />
         <Route path="ausencias" element={<PortalLeaveView />} />
         <Route path="perfil" element={<PortalProfileView />} />
+        <Route path="mais" element={<PortalMoreView />} />
+        <Route path="comunicados" element={<PortalNewsView />} />
+        <Route path="tarefas" element={<PortalTasksView />} />
+        <Route path="solicitacoes" element={<PortalCustomRequestsView />} />
+        <Route path="equipa" element={<PortalTeamView />} />
+        <Route path="banco-de-horas" element={<PortalTimeBankView />} />
         <Route path="*" element={<Navigate to="/portal" replace />} />
       </Route>
 

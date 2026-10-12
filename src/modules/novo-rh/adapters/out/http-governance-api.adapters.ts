@@ -105,7 +105,7 @@ export class HttpAccessGovernanceApiAdapter implements AccessGovernanceApiPort {
 }
 
 export class HttpAuditApiAdapter implements AuditApiPort {
-  list(filter: { resourceType?: string; from?: string; to?: string }) {
+  list(filter: { resourceType?: string; resourceId?: string; from?: string; to?: string }) {
     return apiGet<AuditEvent[]>(`/api/novo-rh/audit/events${qs({ ...filter, limit: "200" })}`);
   }
   downloadCsv(filter: { resourceType?: string; from?: string; to?: string }) {
@@ -117,8 +117,8 @@ export class HttpAuditApiAdapter implements AuditApiPort {
 }
 
 export class HttpNotificationsApiAdapter implements NotificationsApiPort {
-  list() {
-    return apiGet<AppNotification[]>("/api/me/notifications?limit=30");
+  list(options: { unreadOnly?: boolean; limit?: number } = {}) {
+    return apiGet<AppNotification[]>(`/api/me/notifications?limit=${options.limit ?? 30}${options.unreadOnly ? "&unread=1" : ""}`);
   }
   async unreadCount() {
     return (await apiGet<{ count: number }>("/api/me/notifications/unread-count")).count;

@@ -8,6 +8,8 @@ import type {
   MyAnnouncement,
   OpsTask,
   ReportDefinition,
+  ReportParams,
+  ReportResult,
   RequestForm,
   WhosIn,
 } from "../../entities/engagement.ts";
@@ -19,6 +21,15 @@ export interface AnnouncementsApiPort {
   update(id: string, patch: { title?: string; body?: string; audience?: Audience }): Promise<Announcement>;
   publish(id: string): Promise<Announcement>;
   report(id: string): Promise<AnnouncementReport>;
+  archive(id: string): Promise<void>;
+  duplicate(id: string): Promise<Announcement>;
+  deleteDraft(id: string): Promise<void>;
+  /** Quantas pessoas o público abrange agora. */
+  previewAudience(audience: Audience): Promise<{ recipients: number; withoutAccount: number }>;
+  /** Lembrete a quem ainda não leu/confirmou (um por dia). */
+  remind(id: string): Promise<{ pending: number; notified: number; withoutAccount: number }>;
+  /** Prova de leitura (CSV). */
+  proofCsv(id: string): Promise<Blob>;
   mine(): Promise<MyAnnouncement[]>;
   markRead(id: string): Promise<void>;
   confirm(id: string): Promise<void>;
@@ -50,6 +61,6 @@ export interface WorkspaceApiPort {
 /** Relatórios (`/api/novo-rh/reports`). */
 export interface ReportsApiPort {
   catalog(): Promise<ReportDefinition[]>;
-  run(key: string, period: { from: string; to: string } | null): Promise<{ definition: ReportDefinition; rows: Record<string, string | number>[] }>;
-  csv(key: string, period: { from: string; to: string } | null): Promise<Blob>;
+  run(key: string, params: ReportParams): Promise<ReportResult>;
+  csv(key: string, params: ReportParams): Promise<Blob>;
 }

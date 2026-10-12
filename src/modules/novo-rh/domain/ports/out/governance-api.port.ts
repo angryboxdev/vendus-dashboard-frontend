@@ -59,14 +59,14 @@ export interface AccessGovernanceApiPort {
 
 /** Novo RH → Auditoria. */
 export interface AuditApiPort {
-  list(filter: { resourceType?: string; from?: string; to?: string }): Promise<AuditEvent[]>;
+  list(filter: { resourceType?: string; resourceId?: string; from?: string; to?: string }): Promise<AuditEvent[]>;
   downloadCsv(filter: { resourceType?: string; from?: string; to?: string }): Promise<Blob>;
   verify(): Promise<{ intact: boolean; brokenAtSeq: number | null }>;
 }
 
 /** As minhas notificações. */
 export interface NotificationsApiPort {
-  list(): Promise<AppNotification[]>;
+  list(options?: { unreadOnly?: boolean; limit?: number }): Promise<AppNotification[]>;
   unreadCount(): Promise<number>;
   markRead(id: string): Promise<void>;
   markAllRead(): Promise<void>;

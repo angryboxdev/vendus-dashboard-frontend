@@ -79,3 +79,12 @@ export function changedFields(p: Person, draft: PersonDraft): Partial<Record<Per
 }
 
 export const needsReason = (changes: object) => SENSITIVE.some((f) => f in changes);
+
+const norm = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").trim().toLowerCase();
+
+/** Fichas parecidas: mesmo NIF ou mesmo nome completo (FE-012). */
+export function similarPeople(all: Person[], form: Record<string, string>): Person[] {
+  const nif = (form.nif ?? "").replace(/\s/g, "");
+  const name = norm(`${form.firstName ?? ""} ${form.lastName ?? ""}`);
+  return all.filter((p) => (nif && p.nif?.replace(/\s/g, "") === nif) || (name.length > 3 && norm(p.fullName) === name));
+}

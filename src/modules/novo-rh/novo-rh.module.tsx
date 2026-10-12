@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { QueryClientContext } from "@tanstack/react-query";
-import { Route, Routes } from "react-router-dom";
+import { Route, Routes, useParams } from "react-router-dom";
 import { setRequestHeaderProvider } from "../../lib/api.ts";
 import { HttpDemoApiAdapter, LocalStorageDataModeStore, novoRhModeHeaders } from "./adapters/out/http-demo-api.adapter.ts";
 import { DemoModeBanner, DemoAccessNotice } from "./adapters/in/DemoMode.tsx";
@@ -8,6 +8,8 @@ import type { DataMode } from "./domain/entities/roadmap.ts";
 import type { DataModeStorePort, DemoApiPort } from "./domain/ports/out/demo-api.port.ts";
 import type { OverviewApiPort } from "./domain/ports/out/overview-api.port.ts";
 import { HttpOverviewApiAdapter } from "./adapters/out/http-overview-api.adapter.ts";
+import type { RemindersApiPort } from "./domain/ports/out/reminders-api.port.ts";
+import { HttpRemindersApiAdapter } from "./adapters/out/http-reminders-api.adapter.ts";
 import type { InboxApiPort } from "./domain/ports/out/inbox-api.port.ts";
 import { HttpInboxApiAdapter } from "./adapters/out/http-inbox-api.adapter.ts";
 import { InboxView } from "./adapters/in/inbox/InboxView.tsx";
@@ -48,16 +50,40 @@ import { PeriodsView } from "./adapters/in/periods/PeriodsView.tsx";
 import type { AlertsApiPort, AnnouncementsApiPort, ReportsApiPort, WorkspaceApiPort } from "./domain/ports/out/engagement-api.port.ts";
 import { HttpAlertsApiAdapter, HttpAnnouncementsApiAdapter, HttpReportsApiAdapter, HttpWorkspaceApiAdapter } from "./adapters/out/http-engagement-api.adapters.ts";
 import { AnnouncementsView } from "./adapters/in/engagement/AnnouncementsView.tsx";
+import type { DistributionsApiPort } from "./domain/ports/out/distributions-api.port.ts";
+import { HttpDistributionsApiAdapter } from "./adapters/out/http-distributions-api.adapter.ts";
+import { DocumentsView } from "./adapters/in/documents/DocumentsView.tsx";
+import type { LegalEntitiesApiPort } from "./domain/ports/out/legal-entities-api.port.ts";
+import { HttpLegalEntitiesApiAdapter } from "./adapters/out/http-legal-entities-api.adapter.ts";
+import { LegalEntitiesView } from "./adapters/in/structure/LegalEntitiesView.tsx";
+import type { InvitationsApiPort } from "./domain/ports/out/invitations-api.port.ts";
+import { HttpInvitationsApiAdapter, HttpJoinApiAdapter } from "./adapters/out/http-invitations-api.adapter.ts";
+import { InvitationsView } from "./adapters/in/people/InvitationsView.tsx";
+import { JoinView } from "./adapters/in/people/JoinView.tsx";
+import { NovoRhSlotsContext, type NovoRhSlots } from "./adapters/in/slots.ts";
+import { ClockWidget } from "./adapters/in/attendance/ClockWidget.tsx";
+import { CompanyDocumentsSlot, PersonDocumentsSlot } from "./novo-rh.slots.tsx";
+
+/** Ecrãs de outros módulos encaixados no Novo RH (ver `slots.ts`). */
+const SLOTS: NovoRhSlots = {
+  personDocuments: (personId) => <PersonDocumentsSlot personId={personId} />,
+  companyDocuments: () => <CompanyDocumentsSlot />,
+};
+import { NotificationsView } from "./adapters/in/NotificationsView.tsx";
+import { TransfersView } from "./adapters/in/TransfersView.tsx";
+import { NotFoundView } from "./adapters/in/common/NotFoundView.tsx";
+import { OfflineBanner } from "./adapters/in/common/OfflineBanner.tsx";
 import { AlertsView } from "./adapters/in/engagement/AlertsView.tsx";
 import { WorkspaceView } from "./adapters/in/engagement/WorkspaceView.tsx";
 import { ReportsView } from "./adapters/in/engagement/ReportsView.tsx";
 import { NovoRhHomeView } from "./adapters/in/NovoRhHomeView.tsx";
 import { NovoRhLayout } from "./adapters/in/NovoRhLayout.tsx";
-import { SettingsView } from "./adapters/in/settings/SettingsView.tsx";
+import { SettingsHubView } from "./adapters/in/settings/SettingsHubView.tsx";
 import type { SettingsApiPort } from "./domain/ports/out/settings-api.port.ts";
 
 export interface NovoRhModule {
   overview: OverviewApiPort;
+  reminders: RemindersApiPort;
   inbox: InboxApiPort;
   demo: DemoApiPort;
   settings: SettingsApiPort;
@@ -77,6 +103,9 @@ export interface NovoRhModule {
   rosters: RostersApiPort;
   periods: PeriodsApiPort;
   announcements: AnnouncementsApiPort;
+  distributions: DistributionsApiPort;
+  legalEntities: LegalEntitiesApiPort;
+  invitations: InvitationsApiPort;
   alerts: AlertsApiPort;
   workspace: WorkspaceApiPort;
   reports: ReportsApiPort;
@@ -131,6 +160,7 @@ export function NovoRhProvider({ children, module: mod, modeStore }: { children:
     () =>
       mod ?? {
         overview: new HttpOverviewApiAdapter(),
+        reminders: new HttpRemindersApiAdapter(),
         inbox: new HttpInboxApiAdapter(),
         demo: new HttpDemoApiAdapter(),
         settings: new HttpSettingsApiAdapter(() => store.load()),
@@ -150,6 +180,9 @@ export function NovoRhProvider({ children, module: mod, modeStore }: { children:
         rosters: new HttpRostersApiAdapter(),
         periods: new HttpPeriodsApiAdapter(),
         announcements: new HttpAnnouncementsApiAdapter(),
+        distributions: new HttpDistributionsApiAdapter(),
+        legalEntities: new HttpLegalEntitiesApiAdapter(),
+        invitations: new HttpInvitationsApiAdapter(),
         alerts: new HttpAlertsApiAdapter(),
         workspace: new HttpWorkspaceApiAdapter(),
         reports: new HttpReportsApiAdapter(),
@@ -169,16 +202,36 @@ export function useNovoRh(): NovoRhModule {
   return ctx;
 }
 
+/** Rota pública `/aderir/:code` (FE-054): pedido de adesão sem sessão. */
+export function NovoRhJoinPage() {
+  const { code = "" } = useParams();
+  const api = useMemo(() => new HttpJoinApiAdapter(), []);
+  return (
+    <I18nProvider locale="pt-PT">
+      <JoinView code={code} api={api} />
+    </I18nProvider>
+  );
+}
+
 /** Rota `/hr/novo/*`: Visão geral | Configurações | Estrutura | Acessos | Auditoria. Só Admin e com MFA (TK-3). */
 export function NovoRhPage() {
   return (
     <I18nProvider locale="pt-PT">
       <NovoRhProvider>
-        <NovoRhLayout extraActions={<NotificationsBell />}>
-          <MfaGate>
-            <NovoRhRoutes />
-          </MfaGate>
-        </NovoRhLayout>
+        <NovoRhSlotsContext.Provider value={SLOTS}>
+          <NovoRhLayout
+            extraActions={
+              <>
+                <ClockWidget />
+                <NotificationsBell />
+              </>
+            }
+          >
+            <MfaGate>
+              <NovoRhRoutes />
+            </MfaGate>
+          </NovoRhLayout>
+        </NovoRhSlotsContext.Provider>
       </NovoRhProvider>
     </I18nProvider>
   );
@@ -190,6 +243,7 @@ function NovoRhRoutes() {
   return (
     <div key={mode} className="space-y-4">
       <DemoModeBanner />
+      <OfflineBanner />
       <Routes>
         <Route index element={<NovoRhHomeView />} />
         <Route path="pedidos" element={<InboxView />} />
@@ -202,13 +256,19 @@ function NovoRhRoutes() {
         <Route path="escalas" element={<RostersView />} />
         <Route path="fecho" element={<PeriodsView />} />
         <Route path="comunicados" element={<AnnouncementsView />} />
+        <Route path="documentos" element={<DocumentsView />} />
+        <Route path="notificacoes" element={<NotificationsView />} />
+        <Route path="transferencias" element={<TransfersView />} />
         <Route path="alertas" element={<AlertsView />} />
         <Route path="tarefas" element={<WorkspaceView />} />
         <Route path="relatorios" element={<ReportsView />} />
-        <Route path="configuracoes" element={<SettingsView />} />
+        <Route path="configuracoes" element={<SettingsHubView />} />
         <Route path="estrutura" element={<StructureView />} />
+        <Route path="entidades" element={<LegalEntitiesView />} />
+        <Route path="convites" element={<InvitationsView />} />
         <Route path="acessos" element={mode === "demo" ? <DemoAccessNotice /> : <AccessView />} />
         <Route path="auditoria" element={<AuditView />} />
+        <Route path="*" element={<NotFoundView />} />
       </Routes>
     </div>
   );

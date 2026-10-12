@@ -39,6 +39,8 @@ export interface PeopleApiPort {
   getCustomValues(id: string): Promise<CustomValue[]>;
   setCustomValues(id: string, values: Record<string, string | null>): Promise<CustomValue[]>;
 
+  /** Cargos ativos (catálogo do Novo RH). */
+  listPositions(): Promise<{ id: string; name: string }[]>;
   listAgreements(): Promise<Agreement[]>;
   createAgreement(input: { name: string; code: string | null }): Promise<Agreement>;
   archiveAgreement(id: string): Promise<void>;

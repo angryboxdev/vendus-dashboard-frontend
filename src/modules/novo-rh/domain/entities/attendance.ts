@@ -76,6 +76,9 @@ export interface CorrectionRequest {
   decidedAt: string | null;
   decisionComment: string | null;
   createdAt: string;
+  /** FE-113: níveis do fluxo de correções de ponto ([] = sem fluxo). */
+  levels?: { approvers: string[]; escalated: boolean }[];
+  currentLevel?: number;
 }
 
 export interface Adjustment {
@@ -122,4 +125,43 @@ export interface QueuedPunch {
   clientEventId: string;
   segmentType: SegmentType;
   createdAt: string;
+  /** FE-103: tipo de pausa escolhido. */
+  breakTypeId?: string | null;
+  /** FE-105: tipo de registo escolhido. */
+  clockTypeId?: string | null;
 }
+
+/** Tipo de registo (FE-105): formação, deslocação, teletrabalho… */
+export interface ClockType {
+  id: string;
+  name: string;
+  color: string | null;
+  remote: boolean;
+  remuneration: "paid" | "unpaid" | "hybrid";
+  hybridPaidMinutes: number | null;
+  maxMinutesPerDay: number | null;
+  blockedWeekdays: number[] | null;
+  blockedHours: { start: string; end: string }[];
+  archived: boolean;
+  version: number;
+}
+
+export type ClockTypeInput = Omit<ClockType, "id" | "archived" | "version">;
+
+/** Tipo de pausa do catálogo (FE-103). */
+export interface BreakType {
+  id: string;
+  name: string;
+  color: string | null;
+  remuneration: "paid" | "unpaid" | "hybrid";
+  hybridPaidMinutes: number | null;
+  maxMinutes: number | null;
+  windowStart: string | null;
+  windowEnd: string | null;
+  maxUsesPerDay: number | null;
+  weekdays: number[] | null;
+  archived: boolean;
+  version: number;
+}
+
+export type BreakTypeInput = Omit<BreakType, "id" | "archived" | "version">;

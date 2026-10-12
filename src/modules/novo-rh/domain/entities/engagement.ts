@@ -1,6 +1,6 @@
 /** Novo RH → Fase 9: comunicados, alertas, tarefas, solicitações, quem está e relatórios. */
 
-export type Audience = { type: "all" } | { type: "locations" | "groups" | "employees"; ids: string[] };
+export type Audience = { type: "all" } | { type: "locations" | "departments" | "groups" | "employees"; ids: string[] };
 
 export interface Announcement {
   id: string;
@@ -11,6 +11,8 @@ export interface Announcement {
   title: string;
   body: string;
   publishedAt: string | null;
+  /** Leituras e confirmações da versão atual (null em rascunho). */
+  stats?: { recipients: number; read: number; confirmed: number } | null;
 }
 
 export interface AnnouncementReport {
@@ -107,10 +109,36 @@ export interface WhosIn {
   people: { employeeId: string; name: string; state: string; since: string }[];
 }
 
+export interface ReportColumn {
+  key: string;
+  label: string;
+  /** Explicação curta da coluna. */
+  hint?: string;
+}
+
 export interface ReportDefinition {
   key: string;
+  /** Grupo do catálogo (FE-063) e o seu nome. */
+  group: string;
+  groupLabel: string;
   label: string;
   description: string;
   needsPeriod: boolean;
-  columns: { key: string; label: string }[];
+  /** Linhas por colaborador: aceita filtros por centro e por pessoa. */
+  perEmployee: boolean;
+  columns: ReportColumn[];
+}
+
+/** Parâmetros do gerador (por identificadores; vazio = sem filtro / todas as colunas). */
+export interface ReportParams {
+  period: { from: string; to: string } | null;
+  locationIds: string[];
+  employeeIds: string[];
+  columns: string[];
+}
+
+export interface ReportResult {
+  definition: ReportDefinition;
+  columns: ReportColumn[];
+  rows: Record<string, string | number>[];
 }

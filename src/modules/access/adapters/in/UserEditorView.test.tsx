@@ -62,6 +62,7 @@ function api(): AccessApiPort {
     updateUser: vi.fn(async () => USER),
     setUserStatus: vi.fn(async () => USER),
     resetPassword: vi.fn(async () => ({ temporaryPassword: "Abc23defGH45" })),
+    resetSecondFactor: vi.fn(async () => ({ factorsRemoved: 1 })),
     listProfiles: vi.fn(async () => [ADMIN, MANAGER]),
     createProfile: vi.fn(async () => ({ ...MANAGER, id: "p-new", name: "Supervisor", systemKey: null })),
     updateProfile: vi.fn(async () => MANAGER),
@@ -105,6 +106,20 @@ describe("Editar utilizador", () => {
 
     expect(a.updateUser).toHaveBeenCalledWith("u1", { version: 3, overrides: { "stock.movements": "NONE" }, employeeId: "e1" });
     expect(await screen.findByText("lista")).toBeInTheDocument();
+  });
+
+  it("FE-007: repor o segundo fator pede o motivo e confirma", async () => {
+    const a = api();
+    renderAt("/admin/users/u1", a);
+    const user = userEvent.setup();
+    const prompt = vi.spyOn(window, "prompt").mockReturnValue("Perdeu o telemóvel");
+    await user.click(await screen.findByRole("button", { name: "Repor segundo fator" }));
+    expect(a.resetSecondFactor).toHaveBeenCalledWith("u1", "Perdeu o telemóvel");
+    expect(await screen.findByText(/Segundo fator reposto/)).toBeInTheDocument();
+    prompt.mockReturnValue(null);
+    await user.click(screen.getByRole("button", { name: "Repor segundo fator" }));
+    expect(a.resetSecondFactor).toHaveBeenCalledTimes(1);
+    prompt.mockRestore();
   });
 
   it("perfil Admin: acesso total, nada se personaliza", async () => {

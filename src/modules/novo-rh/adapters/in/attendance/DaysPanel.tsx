@@ -10,11 +10,11 @@ import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { ReviseDrawer, type ReviseTarget } from "./ReviseDrawer.tsx";
 
 /** Dias de um colaborador: totais do motor, marcações, correções e ajustes (TK-13). */
-export function DaysPanel() {
+export function DaysPanel({ fixedEmployeeId }: { fixedEmployeeId?: string } = {}) {
   const { t } = useI18n();
   const { attendance, settings } = useNovoRh();
   // Vindo do Painel: /hr/novo/assiduidade?employeeId=… abre já essa pessoa.
-  const [employeeId, setEmployeeId] = useState(() => new URLSearchParams(window.location.search).get("employeeId") ?? "");
+  const [employeeId, setEmployeeId] = useState(() => fixedEmployeeId ?? new URLSearchParams(window.location.search).get("employeeId") ?? "");
   const [range, setRange] = useState(() => weekOf(todayIn()));
   const [open, setOpen] = useState<string | null>(null);
   const [revise, setRevise] = useState<ReviseTarget | null>(null);
@@ -27,14 +27,16 @@ export function DaysPanel() {
     <section className={`${SURFACE} space-y-3 p-4`}>
       <p className="text-xs text-stone-500">{t("att.days.hint")}</p>
       <div className="flex flex-wrap items-center gap-2">
-        <select aria-label={t("common.employee")} className={`${FIELD} min-w-[220px]`} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
-          <option value="">{t("common.employee")}…</option>
-          {(employees.data ?? []).map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.label}
-            </option>
-          ))}
-        </select>
+        {!fixedEmployeeId && (
+          <select aria-label={t("common.employee")} className={`${FIELD} min-w-[220px]`} value={employeeId} onChange={(e) => setEmployeeId(e.target.value)}>
+            <option value="">{t("common.employee")}…</option>
+            {(employees.data ?? []).map((o) => (
+              <option key={o.id} value={o.id}>
+                {o.label}
+              </option>
+            ))}
+          </select>
+        )}
         <input aria-label={t("common.from")} type="date" className={FIELD} value={range.from} onChange={(e) => setRange({ ...range, from: e.target.value })} />
         <input aria-label={t("common.to")} type="date" className={FIELD} value={range.to} onChange={(e) => setRange({ ...range, to: e.target.value })} />
         {employeeId && (

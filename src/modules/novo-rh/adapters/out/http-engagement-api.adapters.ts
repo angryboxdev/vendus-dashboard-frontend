@@ -1,5 +1,5 @@
-import { apiGet, apiGetBlob, apiWrite } from "../../../../lib/api.ts";
-import type { Alert, AlertRule, Announcement, AnnouncementReport, Audience, CustomRequest, MyAnnouncement, OpsTask, ReportDefinition, RequestForm, WhosIn } from "../../domain/entities/engagement.ts";
+import { apiDeleteNoContent, apiGet, apiGetBlob, apiWrite } from "../../../../lib/api.ts";
+import type { Alert, AlertRule, Announcement, AnnouncementReport, Audience, CustomRequest, MyAnnouncement, OpsTask, ReportDefinition, ReportParams, ReportResult, RequestForm, WhosIn } from "../../domain/entities/engagement.ts";
 import type { AlertsApiPort, AnnouncementsApiPort, ReportsApiPort, WorkspaceApiPort } from "../../domain/ports/out/engagement-api.port.ts";
 
 const qs = (o: Record<string, string | undefined>) => new URLSearchParams(Object.entries(o).filter((e): e is [string, string] => !!e[1])).toString();
@@ -20,6 +20,24 @@ export class HttpAnnouncementsApiAdapter implements AnnouncementsApiPort {
   }
   report(id: string) {
     return apiGet<AnnouncementReport>(`${this.A}/${id}/report`);
+  }
+  async archive(id: string) {
+    await apiWrite(`${this.A}/${id}/archive`, {});
+  }
+  async duplicate(id: string) {
+    return (await apiWrite<Announcement>(`${this.A}/${id}/duplicate`, {})).data;
+  }
+  async deleteDraft(id: string) {
+    await apiDeleteNoContent(`${this.A}/${id}`);
+  }
+  async previewAudience(audience: Audience) {
+    return (await apiWrite<{ recipients: number; withoutAccount: number }>(`${this.A}/audience-preview`, { body: { audience } })).data;
+  }
+  async remind(id: string) {
+    return (await apiWrite<{ pending: number; notified: number; withoutAccount: number }>(`${this.A}/${id}/remind`, {})).data;
+  }
+  proofCsv(id: string) {
+    return apiGetBlob(`${this.A}/${id}/proof.csv`);
   }
   mine() {
     return apiGet<MyAnnouncement[]>("/api/me/announcements");
@@ -90,10 +108,14 @@ export class HttpReportsApiAdapter implements ReportsApiPort {
   catalog() {
     return apiGet<ReportDefinition[]>(this.R);
   }
-  run(key: string, period: { from: string; to: string } | null) {
-    return apiGet<{ definition: ReportDefinition; rows: Record<string, string | number>[] }>(`${this.R}/${key}?${qs({ from: period?.from, to: period?.to })}`);
+  private query(p: ReportParams) {
+    const list = (v: string[]) => (v.length ? v.join(",") : undefined);
+    return qs({ from: p.period?.from, to: p.period?.to, locations: list(p.locationIds), employees: list(p.employeeIds), columns: list(p.columns) });
   }
-  csv(key: string, period: { from: string; to: string } | null) {
-    return apiGetBlob(`${this.R}/${key}/csv?${qs({ from: period?.from, to: period?.to })}`);
+  run(key: string, params: ReportParams) {
+    return apiGet<ReportResult>(`${this.R}/${key}?${this.query(params)}`);
+  }
+  csv(key: string, params: ReportParams) {
+    return apiGetBlob(`${this.R}/${key}/csv?${this.query(params)}`);
   }
 }

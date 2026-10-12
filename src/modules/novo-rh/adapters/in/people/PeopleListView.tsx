@@ -1,33 +1,112 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
+import type { MessageKey } from "../../../../../i18n/i18n.ts";
 import { Button, FIELD, IconDownload, IconPlus, IconSearch, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR, Tabs } from "../../../../../components/ui/index.ts";
+import type { Person } from "../../../domain/entities/people.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { downloadBlob } from "../download.ts";
 import { ImportPeopleDrawer } from "./ImportPeopleDrawer.tsx";
 import { NewPersonDrawer } from "./NewPersonDrawer.tsx";
 
 type Status = "active" | "inactive" | "all";
+type Column = "nif" | "position" | "location" | "hire" | "email" | "phone" | "status";
+const COLUMNS: Column[] = ["nif", "position", "location", "hire", "email", "phone", "status"];
+const DEFAULT_COLUMNS: Column[] = ["nif", "position", "location", "hire", "status"];
+const COLUMNS_KEY = "novo-rh.people.columns";
 
-/** Novo RH → Pessoas: lista (só o âmbito de quem vê), criar, importar, exportar. */
+function loadColumns(): Column[] {
+  try {
+    const raw = JSON.parse(localStorage.getItem(COLUMNS_KEY) ?? "null") as unknown;
+    if (Array.isArray(raw)) return COLUMNS.filter((c) => raw.includes(c));
+  } catch {
+    // Sem armazenamento: colunas por omissão.
+  }
+  return DEFAULT_COLUMNS;
+}
+
+/**
+ * Novo RH → Pessoas (FE-011): lista no âmbito de quem vê, com números de topo
+ * que filtram, filtros por local/cargo guardados no endereço (partilháveis),
+ * colunas à escolha (por navegador), criar, importar e exportar.
+ */
 export function PeopleListView() {
   const { t } = useI18n();
   const { people, settings } = useNovoRh();
-  const [status, setStatus] = useState<Status>("active");
+  const [params, setParams] = useSearchParams();
+  const status = (["active", "inactive", "all"].includes(params.get("status") ?? "") ? params.get("status") : "active") as Status;
+  const location = params.get("local") ?? "";
+  const position = params.get("cargo") ?? "";
+  const incomplete = params.get("completar") === "1";
+  const set = (k: string, v: string | null) =>
+    setParams(
+      (p) => {
+        const n = new URLSearchParams(p);
+        if (v) n.set(k, v);
+        else n.delete(k);
+        return n;
+      },
+      { replace: true },
+    );
+  // Pesquisa fica no estado local (nomes não vão para o endereço).
   const [q, setQ] = useState("");
   const [creating, setCreating] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [columns, setColumns] = useState<Column[]>(loadColumns);
+  const [choosing, setChoosing] = useState(false);
   const list = useQuery({ queryKey: ["novo-rh", "people", status, q], queryFn: () => people.list({ status, ...(q.trim() && { q: q.trim() }) }) });
   const locations = useQuery({ queryKey: ["novo-rh", "settings", "locations"], queryFn: () => settings.listLocations() });
+  const positions = useQuery({ queryKey: ["novo-rh", "catalog", "positions"], queryFn: () => people.listPositions() });
   const locationName = (id: string | null) => (id ? (locations.data?.find((l) => l.id === id)?.label ?? "—") : "—");
+  const positionName = (id: string | null) => (id ? (positions.data?.find((x) => x.id === id)?.name ?? "—") : "—");
+
+  const all = list.data ?? [];
+  const rows = all.filter((p) => (!location || (location === "none" ? !p.primaryLocationId : p.primaryLocationId === location)) && (!position || p.positionId === position) && (!incomplete || p.missing.length > 0));
+  const kpis = [
+    { key: "total", label: t("people.kpi.total"), value: all.length, active: !location && !incomplete, onClick: () => (set("local", null), set("completar", null)) },
+    { key: "incomplete", label: t("people.kpi.incomplete"), value: all.filter((p) => p.missing.length > 0).length, active: incomplete, onClick: () => set("completar", incomplete ? null : "1") },
+    { key: "noLocation", label: t("people.kpi.noLocation"), value: all.filter((p) => !p.primaryLocationId).length, active: location === "none", onClick: () => set("local", location === "none" ? null : "none") },
+  ];
+  const toggleColumn = (c: Column) => {
+    const next = columns.includes(c) ? columns.filter((x) => x !== c) : COLUMNS.filter((x) => x === c || columns.includes(x));
+    setColumns(next);
+    try {
+      localStorage.setItem(COLUMNS_KEY, JSON.stringify(next));
+    } catch {
+      // Sem armazenamento: vale só nesta página.
+    }
+  };
+  const cell = (p: Person, c: Column) => {
+    switch (c) {
+      case "nif":
+        return p.hidden.includes("nif") ? <span className="text-stone-400">{t("people.hiddenValue")}</span> : (p.nif ?? "—");
+      case "position":
+        return positionName(p.positionId);
+      case "location":
+        return locationName(p.primaryLocationId);
+      case "hire":
+        return p.hireDate ?? "—";
+      case "email":
+        return p.hidden.includes("email") ? <span className="text-stone-400">{t("people.hiddenValue")}</span> : (p.email ?? "—");
+      case "phone":
+        return p.hidden.includes("phone") ? <span className="text-stone-400">{t("people.hiddenValue")}</span> : (p.phone ?? "—");
+      case "status":
+        return (
+          <div className="flex flex-wrap gap-1">
+            <StatusBadge tone={p.status === "active" ? "success" : "neutral"}>{p.status === "active" ? t("people.active") : t("people.inactive")}</StatusBadge>
+            {p.missing.length > 0 && <StatusBadge tone="warning">{t("people.toComplete")}</StatusBadge>}
+          </div>
+        );
+    }
+  };
 
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <Tabs
           value={status}
-          onChange={setStatus}
+          onChange={(v) => set("status", v === "active" ? null : v)}
           items={[
             { key: "active", label: t("people.status.active") },
             { key: "inactive", label: t("people.status.inactive") },
@@ -41,59 +120,105 @@ export function PeopleListView() {
           <Button size="sm" icon={<IconDownload />} onClick={() => void people.exportCsv().then((b) => downloadBlob(b, "colaboradores.csv"))}>
             {t("people.export")}
           </Button>
+          <Link to="/hr/novo/convites" className="self-center text-sm font-medium text-[#C2410C] hover:underline">
+            {t("people.invitations")}
+          </Link>
           <Button size="sm" variant="primary" icon={<IconPlus />} onClick={() => setCreating(true)}>
             {t("people.new")}
           </Button>
         </div>
       </div>
-      <label className="relative block max-w-sm">
-        <span className="pointer-events-none absolute left-2.5 top-2 text-stone-400">
-          <IconSearch />
-        </span>
-        <input aria-label={t("people.search")} placeholder={t("people.search")} className={`${FIELD} w-full pl-8`} value={q} onChange={(e) => setQ(e.target.value)} />
-      </label>
+
+      <div className="grid grid-cols-3 gap-3 md:max-w-xl" role="group" aria-label={t("people.kpis")}>
+        {kpis.map((k) => (
+          <button key={k.key} type="button" aria-pressed={k.active} onClick={k.onClick} className={`${SURFACE} p-3 text-left hover:border-[#ED5C32]/60 ${k.active && k.key !== "total" ? "ring-2 ring-[#ED5C32]/50" : ""}`}>
+            <p className="text-xs text-stone-500">{k.label}</p>
+            <p className="mt-1 text-xl font-semibold text-stone-900">{k.value}</p>
+          </button>
+        ))}
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2">
+        <label className="relative block w-full max-w-sm">
+          <span className="pointer-events-none absolute left-2.5 top-2 text-stone-400">
+            <IconSearch />
+          </span>
+          <input aria-label={t("people.search")} placeholder={t("people.search")} className={`${FIELD} w-full pl-8`} value={q} onChange={(e) => setQ(e.target.value)} />
+        </label>
+        <select aria-label={t("people.col.location")} className={FIELD} value={location} onChange={(e) => set("local", e.target.value || null)}>
+          <option value="">{t("ovw.allLocations")}</option>
+          <option value="none">{t("people.kpi.noLocation")}</option>
+          {(locations.data ?? []).map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.label}
+            </option>
+          ))}
+        </select>
+        <select aria-label={t("people.col.position")} className={FIELD} value={position} onChange={(e) => set("cargo", e.target.value || null)}>
+          <option value="">{t("people.allPositions")}</option>
+          {(positions.data ?? []).map((x) => (
+            <option key={x.id} value={x.id}>
+              {x.name}
+            </option>
+          ))}
+        </select>
+        <div className="relative ml-auto">
+          <Button size="sm" aria-expanded={choosing} onClick={() => setChoosing(!choosing)}>
+            {t("people.columns")}
+          </Button>
+          {choosing && (
+            <fieldset className="absolute right-0 z-20 mt-1 w-52 rounded-lg border border-[#F5C992] bg-white p-3 shadow-md">
+              <legend className="sr-only">{t("people.columns")}</legend>
+              {COLUMNS.map((c) => (
+                <label key={c} className="flex items-center gap-2 py-0.5 text-sm text-stone-700">
+                  <input type="checkbox" checked={columns.includes(c)} onChange={() => toggleColumn(c)} />
+                  {t(`people.column.${c}` as MessageKey)}
+                </label>
+              ))}
+            </fieldset>
+          )}
+        </div>
+      </div>
 
       <section className={`${SURFACE} overflow-x-auto`}>
         {list.isLoading ? (
           <p className="p-4 text-sm text-stone-400">{t("common.loading")}</p>
         ) : list.isError ? (
           <p className="p-4 text-sm text-red-700">{t("common.loadError")}</p>
-        ) : (list.data ?? []).length === 0 ? (
+        ) : rows.length === 0 ? (
           <p className="p-4 text-sm text-stone-500">{t("people.empty")}</p>
         ) : (
           <table className={TABLE}>
             <thead className={THEAD}>
               <tr>
                 <th className={TH}>{t("people.col.name")}</th>
-                <th className={TH}>{t("people.field.nif")}</th>
-                <th className={TH}>{t("people.col.location")}</th>
-                <th className={TH}>{t("people.col.hire")}</th>
-                <th className={TH}>{t("people.col.status")}</th>
+                {columns.map((c) => (
+                  <th key={c} className={TH}>
+                    {t(`people.column.${c}` as MessageKey)}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
-              {list.data!.map((p) => (
+              {rows.map((p) => (
                 <tr key={p.id} className={TR}>
                   <td className={TD}>
                     <Link to={`/hr/novo/pessoas/${p.id}`} className="font-medium text-stone-900 hover:underline">
                       {p.fullName}
                     </Link>
                   </td>
-                  <td className={TD}>{p.hidden.includes("nif") ? <span className="text-stone-400">{t("people.hiddenValue")}</span> : (p.nif ?? "—")}</td>
-                  <td className={TD}>{locationName(p.primaryLocationId)}</td>
-                  <td className={TD}>{p.hireDate ?? "—"}</td>
-                  <td className={TD}>
-                    <div className="flex flex-wrap gap-1">
-                      <StatusBadge tone={p.status === "active" ? "success" : "neutral"}>{p.status === "active" ? t("people.active") : t("people.inactive")}</StatusBadge>
-                      {p.missing.length > 0 && <StatusBadge tone="warning">{t("people.toComplete")}</StatusBadge>}
-                    </div>
-                  </td>
+                  {columns.map((c) => (
+                    <td key={c} className={TD}>
+                      {cell(p, c)}
+                    </td>
+                  ))}
                 </tr>
               ))}
             </tbody>
           </table>
         )}
       </section>
+      <p className="text-xs text-stone-500">{t("people.count", { shown: rows.length, total: all.length })}</p>
 
       <NewPersonDrawer open={creating} onClose={() => setCreating(false)} locations={locations.data ?? []} />
       <ImportPeopleDrawer open={importing} onClose={() => setImporting(false)} />

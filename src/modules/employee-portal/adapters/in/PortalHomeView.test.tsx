@@ -37,6 +37,7 @@ function renderView(opts: { homes: PortalHome[]; punch: (key: string) => Promise
       }),
     },
     selfService: {} as EmployeePortalModule["selfService"],
+    engagement: {} as EmployeePortalModule["engagement"],
     newIdempotencyKey: () => `key-${++seq}`,
   };
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });

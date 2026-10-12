@@ -53,8 +53,9 @@ const OVERVIEW: Overview = {
   holidays: [{ date: "2026-11-01", name: "Dia de Todos os Santos" }],
 };
 
-function renderDashboard() {
+function renderDashboard(setup: (m: ReturnType<typeof fakeNovoRhModule>) => void = () => {}) {
   const mod = fakeNovoRhModule({ overview: { get: vi.fn(async () => OVERVIEW), plan: vi.fn() } });
+  setup(mod);
   mod.attendance.days = vi.fn(async () => ({
     employeeId: "e-ana",
     timeZone: "Europe/Lisbon",
@@ -78,6 +79,30 @@ function renderDashboard() {
 }
 
 describe("Painel do dia", () => {
+  it("FE-010: comunicados recentes com a taxa de confirmação; sem permissão o widget não aparece", async () => {
+    const base = { audience: { type: "all" as const }, body: "", currentVersion: 1 };
+    renderDashboard((m) => {
+      m.announcements.list = vi.fn(async () => [
+        { ...base, id: "a1", status: "published" as const, title: "Fardamento", requiresConfirmation: true, publishedAt: "2026-10-10T09:00:00Z", stats: { recipients: 4, read: 3, confirmed: 2 } },
+        { ...base, id: "a2", status: "draft" as const, title: "Rascunho", requiresConfirmation: false, publishedAt: null, stats: null },
+      ]);
+    });
+    const box = await screen.findByRole("region", { name: "Comunicados recentes" });
+    expect(within(box).getByText("Fardamento")).toBeInTheDocument();
+    expect(within(box).getByText(/2\/4 confirmaram/)).toBeInTheDocument();
+    expect(within(box).queryByText("Rascunho")).not.toBeInTheDocument();
+  });
+
+  it("FE-010: se os comunicados falharem, o resto do painel continua", async () => {
+    renderDashboard((m) => {
+      m.announcements.list = vi.fn(async () => {
+        throw new Error("403");
+      });
+    });
+    expect(await screen.findByRole("group", { name: "Números do dia" })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Comunicados recentes" })).not.toBeInTheDocument();
+  });
+
   it("números do dia, faltas primeiro, atraso em minutos, pendentes com ligação", async () => {
     renderDashboard();
     const kpis = await screen.findByRole("group", { name: "Números do dia" });

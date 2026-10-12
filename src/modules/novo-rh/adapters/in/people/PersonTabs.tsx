@@ -8,6 +8,7 @@ import type { ContractInput, ManagerKind } from "../../../domain/entities/people
 import type { Option } from "../../../domain/ports/out/settings-api.port.ts";
 import { formatSettingValue, LEVEL_KEY, todayIn } from "../../../domain/services/settings-format.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
+import { useNovoRhSlots } from "../slots.ts";
 
 function ErrorBox({ error }: { error: unknown }) {
   const { t } = useI18n();
@@ -427,14 +428,47 @@ export function PersonalRulesTab({ personId }: { personId: string }) {
   );
 }
 
+/** FE-022: documentos da ficha (motor do módulo `hr`, encaixado pela raiz) e os documentos enviados à pessoa. */
 export function DocumentsTab({ personId }: { personId: string }) {
   const { t } = useI18n();
+  const slots = useNovoRhSlots();
   return (
-    <section className={`${SURFACE} space-y-2 p-4`}>
-      <p className="text-sm text-stone-600">{t("people.documents.hint")}</p>
-      <Link to={`/hr/people/${personId}`} className="text-sm font-medium text-[#C2410C] hover:underline">
-        {t("people.documents.open")} →
-      </Link>
+    <div className="space-y-4">
+      {slots.personDocuments ? (
+        slots.personDocuments(personId)
+      ) : (
+        <section className={`${SURFACE} space-y-2 p-4`}>
+          <p className="text-sm text-stone-600">{t("people.documents.hint")}</p>
+          <Link to={`/hr/people/${personId}`} className="text-sm font-medium text-[#C2410C] hover:underline">
+            {t("people.documents.open")} →
+          </Link>
+        </section>
+      )}
+      <ReceivedDistributions personId={personId} />
+    </div>
+  );
+}
+
+/** Documentos enviados a esta pessoa (FE-065) com o estado de leitura. */
+function ReceivedDistributions({ personId }: { personId: string }) {
+  const { t } = useI18n();
+  const { distributions } = useNovoRh();
+  const q = useQuery({ queryKey: ["novo-rh", "document-distributions", "by-employee", personId], queryFn: () => distributions.forEmployee(personId) });
+  if (q.isError) return null;
+  return (
+    <section className={`${SURFACE} space-y-2 p-4`} aria-label={t("people.documents.received")}>
+      <h3 className={SECTION_TITLE}>{t("people.documents.received")}</h3>
+      {q.data && q.data.length === 0 && <p className="text-sm text-stone-500">{t("people.documents.receivedNone")}</p>}
+      <ul className="divide-y divide-stone-100">
+        {(q.data ?? []).map((d) => (
+          <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
+            <span className="text-stone-800">{d.title}</span>
+            <span className="text-xs text-stone-500">
+              {d.createdAt.slice(0, 10)} · {d.confirmedAt ? t("docs.status.confirmed") : d.readAt ? t("docs.status.read") : t("docs.status.delivered")}
+            </span>
+          </li>
+        ))}
+      </ul>
     </section>
   );
 }

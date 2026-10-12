@@ -1,5 +1,9 @@
 import type {
   Adjustment,
+  BreakType,
+  BreakTypeInput,
+  ClockType,
+  ClockTypeInput,
   AttendanceDays,
   ChangeInput,
   ClockEvent,
@@ -16,7 +20,11 @@ import type {
 export interface MyClockApiPort {
   status(): Promise<MyClockStatus>;
   /** `occurredAt`: hora do dispositivo, para marcações feitas sem rede. */
-  punch(input: { segmentType: SegmentType; clientEventId: string; occurredAt?: string }): Promise<{ event: ClockEvent; duplicate: boolean }>;
+  punch(input: { segmentType: SegmentType; clientEventId: string; occurredAt?: string; breakTypeId?: string | null; clockTypeId?: string | null }): Promise<{ event: ClockEvent; duplicate: boolean }>;
+  /** Pausas que se podem escolher (FE-103). */
+  breakTypes(): Promise<BreakType[]>;
+  /** Tipos de registo que se podem escolher (FE-105). */
+  clockTypes(): Promise<ClockType[]>;
   days(from: string, to: string): Promise<AttendanceDays>;
   refuse(revisionId: string, comment: string | null): Promise<ClockRevision>;
   corrections(): Promise<CorrectionRequest[]>;
@@ -33,6 +41,14 @@ export interface AttendanceApiPort {
   resolveIncident(id: string, resolution: "correct" | "validate" | "dismiss", comment: string | null): Promise<Incident>;
   adjustments(employeeId: string, from: string, to: string): Promise<Adjustment[]>;
   recalculate(employeeId: string, from: string, to: string): Promise<{ queued: number }>;
+  listBreakTypes(): Promise<BreakType[]>;
+  createBreakType(input: BreakTypeInput): Promise<BreakType>;
+  updateBreakType(id: string, input: BreakTypeInput, version: number, reason: string): Promise<BreakType>;
+  archiveBreakType(id: string): Promise<void>;
+  listClockTypes(): Promise<ClockType[]>;
+  createClockType(input: ClockTypeInput): Promise<ClockType>;
+  updateClockType(id: string, input: ClockTypeInput, version: number, reason: string): Promise<ClockType>;
+  archiveClockType(id: string): Promise<void>;
 }
 
 /** Onde a fila offline fica guardada (no navegador). */

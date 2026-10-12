@@ -10,6 +10,8 @@ export interface DemoApiPort {
   status(): Promise<DemoStatus>;
   /** Cria a organização de demonstração com dados fictícios (só Admin). */
   create(): Promise<DemoStatus>;
+  /** Acrescentar já as marcações fictícias até agora (e o cenário, se faltar). */
+  refresh(): Promise<{ punches: number; scenario: boolean }>;
 }
 
 /** Onde fica guardado o modo escolhido (por browser). */

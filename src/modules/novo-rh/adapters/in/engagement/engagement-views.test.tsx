@@ -56,6 +56,32 @@ describe("Comunicados", () => {
     expect(within(row).getByText("2026-10-12 11:05")).toBeInTheDocument();
   });
 
+  it("FE-060/062: progresso na lista, filtro por estado, lembrete e prova de leitura; rascunho elimina-se", async () => {
+    const m = mod();
+    const DRAFT = { ...PUBLISHED, id: "a2", status: "draft" as const, title: "Rascunho férias", currentVersion: 1, publishedAt: null, stats: null };
+    m.announcements.list = vi.fn(async () => [{ ...PUBLISHED, stats: { recipients: 4, read: 3, confirmed: 2 } }, DRAFT]);
+    m.announcements.report = vi.fn(async () => ({ announcement: PUBLISHED, versions: [], totals: { recipients: 4, read: 3, confirmed: 2 }, rows: [] }));
+    m.announcements.remind = vi.fn(async () => ({ pending: 2, notified: 1, withoutAccount: 1 }));
+    m.announcements.proofCsv = vi.fn(async () => new Blob(["x"]));
+    m.announcements.deleteDraft = vi.fn(async () => undefined);
+    URL.createObjectURL = vi.fn(() => "blob:x");
+    URL.revokeObjectURL = vi.fn();
+    renderWith(m, <AnnouncementsView />);
+    const user = userEvent.setup();
+    expect(await screen.findByText("2/4 confirmados")).toBeInTheDocument();
+    await user.click(screen.getByRole("tab", { name: "Rascunho" }));
+    expect(screen.queryByText("Fardamento")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Rascunho férias" }));
+    await user.click(screen.getByRole("button", { name: "Eliminar rascunho" }));
+    expect(m.announcements.deleteDraft).toHaveBeenCalledWith("a2");
+    await user.click(screen.getByRole("tab", { name: "Todos" }));
+    await user.click(screen.getByRole("button", { name: "Fardamento" }));
+    await user.click(screen.getByRole("button", { name: "Lembrar quem falta" }));
+    expect(await screen.findByText(/Lembrete enviado a 1 de 2/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Exportar prova de leitura" }));
+    expect(m.announcements.proofCsv).toHaveBeenCalledWith("a1");
+  });
+
   it("o colaborador confirma a leitura", async () => {
     const m = mod();
     m.announcements.mine = vi.fn(async () => [{ id: "a1", title: "Fardamento", body: "Novo fardamento", version: 1, publishedAt: "x", requiresConfirmation: true, readAt: null, confirmedAt: null }]);
@@ -125,22 +151,54 @@ describe("Tarefas e Quem está", () => {
 });
 
 describe("Relatórios", () => {
-  it("escolher, ver e descarregar CSV", async () => {
+  const def = {
+    key: "incomplete_data",
+    group: "people",
+    groupLabel: "Pessoas e contratos",
+    label: "Dados incompletos",
+    description: "Sem NIF, contrato…",
+    needsPeriod: false,
+    perEmployee: true,
+    columns: [
+      { key: "employee", label: "Colaborador" },
+      { key: "missing", label: "Em falta" },
+    ],
+  };
+  const history = { ...def, key: "change_history", group: "history", groupLabel: "Histórico de alterações", label: "Histórico de alterações", description: "Auditoria", needsPeriod: true, perEmployee: false };
+
+  it("FE-063: catálogo por grupos com pesquisa", async () => {
     const m = mod();
-    const def = { key: "incomplete_data", label: "Dados incompletos", description: "…", needsPeriod: false, columns: [{ key: "employee", label: "Colaborador" }, { key: "missing", label: "Em falta" }] };
+    m.reports.catalog = vi.fn(async () => [def, history]);
+    renderWith(m, <ReportsView />);
+    const user = userEvent.setup();
+    expect(await screen.findByText("Pessoas e contratos")).toBeInTheDocument();
+    expect(screen.getByText("Histórico de alterações", { selector: "summary" })).toBeInTheDocument();
+    await user.type(screen.getByLabelText("Pesquisar relatórios"), "auditoria");
+    expect(screen.queryByRole("button", { name: /Dados incompletos/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Histórico de alterações/ })).toBeInTheDocument();
+  });
+
+  it("FE-063: gerador com filtros por centro/pessoa e colunas; ver e descarregar CSV", async () => {
+    const m = mod();
     m.reports.catalog = vi.fn(async () => [def]);
-    m.reports.run = vi.fn(async () => ({ definition: def, rows: [{ employee: "Ana Teste", missing: "NIF" }] }));
+    m.reports.run = vi.fn(async () => ({ definition: def, columns: [def.columns[1]!], rows: [{ missing: "NIF" }] }));
     m.reports.csv = vi.fn(async () => new Blob(["x"]));
     URL.createObjectURL = vi.fn(() => "blob:x");
     URL.revokeObjectURL = vi.fn();
     renderWith(m, <ReportsView />);
     const user = userEvent.setup();
-    await screen.findByRole("option", { name: "Dados incompletos" });
-    await user.selectOptions(screen.getByLabelText("Relatório"), "incomplete_data");
+    await user.click(await screen.findByRole("button", { name: /Dados incompletos/ }));
+    await user.click(await screen.findByRole("checkbox", { name: "Porto" }));
+    await user.click(await screen.findByRole("checkbox", { name: "Ana Teste" }));
+    await user.click(screen.getByRole("checkbox", { name: "Colaborador" }));
     await user.click(screen.getByRole("button", { name: "Ver" }));
     expect(await screen.findByText("NIF")).toBeInTheDocument();
-    expect(m.reports.run).toHaveBeenCalledWith("incomplete_data", null);
+    const params = { period: null, locationIds: ["l1"], employeeIds: ["e1"], columns: ["missing"] };
+    expect(m.reports.run).toHaveBeenCalledWith("incomplete_data", params);
     await user.click(screen.getByRole("button", { name: "Descarregar CSV" }));
-    expect(m.reports.csv).toHaveBeenCalledWith("incomplete_data", null);
+    expect(m.reports.csv).toHaveBeenCalledWith("incomplete_data", params);
+    // Sem colunas não se gera nada.
+    await user.click(screen.getByRole("checkbox", { name: "Em falta" }));
+    expect(screen.getByRole("button", { name: "Ver" })).toBeDisabled();
   });
 });

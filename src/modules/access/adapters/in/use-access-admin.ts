@@ -51,6 +51,7 @@ export function useUserMutations(userId?: string) {
     update: useMutation({ mutationFn: (input: UpdateUserInput) => api.updateUser(userId!, input), onSuccess: refresh }),
     setStatus: useMutation({ mutationFn: (v: { status: UserStatus; version: number }) => api.setUserStatus(userId!, v.status, v.version), onSuccess: refresh }),
     resetPassword: useMutation({ mutationFn: () => api.resetPassword(userId!) }),
+    resetSecondFactor: useMutation({ mutationFn: (reason: string) => api.resetSecondFactor(userId!, reason) }),
   };
 }
 

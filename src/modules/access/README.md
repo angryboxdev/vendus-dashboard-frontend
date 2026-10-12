@@ -40,7 +40,7 @@ efetivo de quem está autenticado. NÃO decide permissões — o backend
   (email + perfil; Colaborador exige ficha; palavra-passe temporária mostrada uma vez).
 - `UserEditorView` (`/admin/users/:userId`) — mockup 3: módulos à esquerda,
   funcionalidades com Origem/Restaurar padrão ao centro, perfil + ficha
-  associada + resumo à direita; desativar/reativar, repor palavra-passe.
+  associada + resumo à direita; desativar/reativar, repor palavra-passe, repor segundo fator (FE-007: pede motivo; `POST /api/users/:id/reset-mfa`).
 - `ProfilesView` (`/admin/access-profiles`) — mockup 4: lista, permissões por
   módulo (expandir/recolher), Novo perfil com base, Duplicar, Desativar.
 - `HomeRedirect` — `/` vai para a primeira área permitida.

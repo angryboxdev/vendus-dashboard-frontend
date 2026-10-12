@@ -15,6 +15,7 @@ function renderWith(ui: ReactNode, selfService: Partial<PortalSelfServicePort>) 
     getHome: { execute: vi.fn() },
     registerPunch: { execute: vi.fn() },
     selfService: selfService as PortalSelfServicePort,
+    engagement: {} as EmployeePortalModule["engagement"],
     newIdempotencyKey: () => "k",
   };
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });

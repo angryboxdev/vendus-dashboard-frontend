@@ -100,8 +100,8 @@ describe("Fecho de período", () => {
     renderWith(m);
     const user = userEvent.setup();
     await user.click(screen.getByRole("tab", { name: "Transferências" }));
-    const row = (await screen.findByText("Pronto")).closest("li")!;
-    expect(within(row).getByText(/disponível até 2026-11-03 10:00/)).toBeInTheDocument();
+    const row = (await screen.findByText("Pronta")).closest("tr")!;
+    expect(within(row).getByText("2026-11-03 10:00")).toBeInTheDocument();
     await user.click(within(row).getByRole("button", { name: "Descarregar" }));
     expect(m.periods.download).toHaveBeenCalled();
   });

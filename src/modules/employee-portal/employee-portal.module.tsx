@@ -2,12 +2,16 @@ import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { HttpPortalApiAdapter } from "./adapters/out/http-portal-api.adapter.ts";
 import { BrowserGeolocationAdapter } from "./adapters/out/browser-geolocation.adapter.ts";
 import { GetPortalHomeUseCase, PortalSelfServiceUseCase, RegisterPunchUseCase } from "./application/use-cases/portal.use-cases.ts";
-import type { GetPortalHomePort, PortalSelfServicePort, RegisterPunchPort } from "./domain/ports/in/portal.ports.ts";
+import type { GetPortalHomePort, PortalEngagementPort, PortalSelfServicePort, RegisterPunchPort } from "./domain/ports/in/portal.ports.ts";
+import { HttpPortalEngagementApiAdapter } from "./adapters/out/http-portal-engagement-api.adapter.ts";
+import { PortalEngagementUseCase } from "./application/use-cases/portal-engagement.use-cases.ts";
 
 export interface EmployeePortalModule {
   getHome: GetPortalHomePort;
   registerPunch: RegisterPunchPort;
   selfService: PortalSelfServicePort;
+  /** Comunicados, documentos enviados, tarefas, solicitações, quem está e banco de horas (Novo RH, onda 6). */
+  engagement: PortalEngagementPort;
   /** Nova chave de idempotência por intenção de picagem. */
   newIdempotencyKey: () => string;
 }
@@ -20,6 +24,7 @@ function buildModule(): EmployeePortalModule {
     getHome: new GetPortalHomeUseCase(api),
     registerPunch: new RegisterPunchUseCase(api, geolocation),
     selfService: new PortalSelfServiceUseCase(api),
+    engagement: new PortalEngagementUseCase(new HttpPortalEngagementApiAdapter()),
     newIdempotencyKey: () => crypto.randomUUID(),
   };
 }

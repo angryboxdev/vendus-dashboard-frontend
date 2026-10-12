@@ -36,12 +36,14 @@ Spec e tickets: backend `.scratch/portal-colaborador/`.
 - `RegisterPunchUseCase` — lê a localização só se a política ≠ `off`, uma vez;
   envia com a chave de idempotência; numa falha de rede repete UMA vez com a
   mesma chave.
+- `PortalEngagementUseCase` (onda 6 do Novo RH) — comunicados e documentos enviados (os que pedem ação primeiro), tarefas (abertas por prazo), solicitações (recusa se faltar resposta obrigatória), quem está, banco de horas e a contagem para "Mais".
 - `PortalSelfServiceUseCase` — escala, colegas, documentos, URL de download e
   ausências do próprio (o servidor filtra pela sessão).
 ### Saída (dependências do domínio)
 - `PortalApiPort` — `GET /api/me`, `POST /api/me/punches`, `GET /api/me/shifts`,
   `/me/shifts/:id/coworkers`, `/me/documents`, `/me/documents/:id/download-url`,
   `/me/leave`.
+- `PortalEngagementApiPort` — `/api/me/announcements`, `/me/document-distributions`, `/me/ops-tasks`, `/me/custom-requests`, `/me/whos-in`, `/me/time-bank` (rotas do Novo RH).
 - `GeolocationPort` — uma leitura (`readOnce`), nunca lança.
 
 ## Adapters
@@ -57,12 +59,16 @@ Spec e tickets: backend `.scratch/portal-colaborador/`.
 - `PortalLeaveView` (separador **Pedidos**) — `PortalRequestsSection` (Justificar falta → RH, com comprovativo opcional; Pedir folga → gerente; lista com estado, motivo da decisão e cancelar enquanto pendente) + ausências do ano (só consulta; sem saldo nem feriados).
 - `DocumentsAlert` (Início) — aviso de documentos vencidos/a vencer que pode substituir.
 - `PortalProfileView`, `SetPasswordView`.
+- Onda 6 (separador **Mais**, `/portal/mais`): `PortalNewsView` (`/portal/comunicados` — documentos enviados e comunicados com "Confirmo que li"), `PortalTasksView` (`/portal/tarefas`), `PortalCustomRequestsView` (`/portal/solicitacoes`), `PortalTeamView` (`/portal/equipa`), `PortalTimeBankView` (`/portal/banco-de-horas`); Perfil passou para dentro de "Mais".
 ### Saída
+- `HttpPortalEngagementApiAdapter` — erros RFC 7807 do Novo RH → `PortalRequestError` com a mensagem do servidor; escritas com `Idempotency-Key`.
 - `HttpPortalApiAdapter` — `lib/api`; traduz 409/403/404/rede para os erros do domínio.
 - `BrowserGeolocationAdapter` — `navigator.geolocation.getCurrentPosition`
   (alta precisão, `maximumAge: 0`, timeout 12 s). Nunca `watchPosition`.
 
 ## Decisões de design (ADR resumido)
+- **Área do colaborador do Novo RH = Portal** (2026-10-12): os colaboradores entram em `/portal`, não em `/hr/novo`; as funções da onda 6 sem equivalente antigo ficam aqui. Ponto, ausências e escala continuam nas rotas antigas até à decisão de arranque do Novo RH (dois sistemas de ponto em paralelo).
+- **Documento enviado: confirmar só depois de abrir** — abrir regista "aberto" no servidor (prova).
 - **Novo pedido + calendário de período** (2026-10-08, mockup): um só cartão "Novo pedido" com Tipo (Folga / Justificar falta). O Período da folga abre `PeriodSheet` (folha de baixo, calendário de intervalo: 1.º toque início, 2.º fim; sem dias passados; máx. 7 dias — `period-picker.service`) em vez de dois campos de data, que no iPhone deixavam o "Até" ficar antes do "De". Lista em "Pedidos recentes".
 - **Substituir documento** (ticket 11): só quando o servidor diz `canReplace` (vencido / a vencer em 30 dias, sem envio pendente). PDF ou foto; depois de enviado fica "Em validação pelo RH" e não há remover; uma rejeição mostra o motivo.
 - **Pedidos** (ticket 12): a aprovação de uma folga não mexe na escala — o gerente ajusta à mão (decisão 2026-10-07).

@@ -27,7 +27,13 @@ function UserEditor({ user, catalog }: { user: UserDetail; catalog: CatalogModul
   const navigate = useNavigate();
   const { data: profiles = [] } = useProfiles();
   const { data: employees = [] } = useEmployeeOptions();
-  const { update, setStatus, resetPassword } = useUserMutations(user.userId);
+  const { update, setStatus, resetPassword, resetSecondFactor } = useUserMutations(user.userId);
+  const [mfaNotice, setMfaNotice] = useState<string | null>(null);
+  const askMfaReset = () => {
+    const reason = window.prompt("Repor o segundo fator (MFA): a pessoa volta a ativá-lo no próximo acesso e as sessões abertas terminam. Indique o motivo:");
+    if (reason === null) return;
+    resetSecondFactor.mutate(reason, { onSuccess: (r) => setMfaNotice(r.factorsRemoved ? "Segundo fator reposto. A pessoa vai ativá-lo de novo no próximo acesso." : "Esta conta não tinha segundo fator ativo.") });
+  };
   const [profileId, setProfileId] = useState(user.profile.id ?? "");
   const [overrides, setOverrides] = useState<PermissionMap>(user.overrides);
   const [employeeId, setEmployeeId] = useState(user.employee?.id ?? "");
@@ -71,7 +77,7 @@ function UserEditor({ user, catalog }: { user: UserDetail; catalog: CatalogModul
     setOverrides((o) => setUserModuleLevel(o, profilePerms, mod, level));
   }
 
-  const error = update.error ?? setStatus.error ?? resetPassword.error;
+  const error = update.error ?? setStatus.error ?? resetPassword.error ?? resetSecondFactor.error;
   const state = moduleStateOf(mod, effective);
 
   return (
@@ -267,6 +273,14 @@ function UserEditor({ user, catalog }: { user: UserDetail; catalog: CatalogModul
           >
             Repor palavra-passe
           </button>
+          <button type="button" onClick={askMfaReset} disabled={resetSecondFactor.isPending} className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">
+            Repor segundo fator
+          </button>
+          {mfaNotice && (
+            <p role="status" className="self-center text-sm text-emerald-700">
+              {mfaNotice}
+            </p>
+          )}
         </div>
         <div className="flex gap-2">
           <Link to="/admin/users" className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-700">

@@ -56,7 +56,7 @@ describe("Novo RH → Pessoas", () => {
     expect(await screen.findByRole("link", { name: "Carla Demo" })).toHaveAttribute("href", "/hr/novo/pessoas/e1");
     expect(screen.getByText("Sem permissão")).toBeInTheDocument();
     expect(screen.getByText("A completar")).toBeInTheDocument();
-    expect(await screen.findByText("Loja Porto")).toBeInTheDocument();
+    expect(await screen.findByRole("cell", { name: "Loja Porto" })).toBeInTheDocument();
   });
 
   it("ficha: alterar NIF pede motivo e envia com a versão lida", async () => {
