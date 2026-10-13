@@ -36,6 +36,9 @@ import { DashboardWidget, WidgetMessage, WidgetSkeleton } from "./DashboardWidge
 import { TeamDrawer, UnitDrawer } from "./DashboardDrawers.tsx";
 import { AttentionBody, BirthdaysBody, CoverageBody, GoogleReviewsBody, HolidaysBody, ReportsBody, RequestsBody, TeamBody, UnitsBody } from "./Widgets.tsx";
 
+/** "A preparar" (503: o cálculo de hoje continua no servidor) ou falha de rede: tenta de novo sozinho. */
+const warming = (e: unknown) => e instanceof ApiError && e.status === 503;
+const retrySnapshot = (count: number, e: unknown) => (warming(e) ? count < 40 : !(e instanceof ApiError) && count < 3);
 const SUMMARY_TONE: Record<SummaryPart["tone"], string> = { neutral: "", critical: "bg-red-500", warning: "bg-amber-500", info: "bg-sky-500" };
 const longDate = (ymd: string) => new Date(`${ymd}T12:00:00Z`).toLocaleDateString("pt-PT", { day: "numeric", month: "long", timeZone: "UTC" });
 
@@ -70,7 +73,7 @@ export function DashboardView() {
   const [overId, setOverId] = useState<string | null>(null);
 
   // Camada 1: o snapshot (polling 60 s só com a aba visível — o TanStack pausa em segundo plano).
-  const org = useQuery({ queryKey: ["novo-rh", "dashboard", "snapshot", null], queryFn: ({ signal }) => dashboard.snapshot(null, signal), staleTime: 30_000, refetchInterval: 60_000 });
+  const org = useQuery({ queryKey: ["novo-rh", "dashboard", "snapshot", null], queryFn: ({ signal }) => dashboard.snapshot(null, signal), staleTime: 30_000, refetchInterval: 60_000, retry: retrySnapshot, retryDelay: 3_000 });
   // Contexto lembrado mas já sem acesso (ou local fechado): vale a organização.
   const locationId = chosenLocation && (!org.data || org.data.locations.some((l) => l.locationId === chosenLocation)) ? chosenLocation : null;
   const local = useQuery({
@@ -79,6 +82,8 @@ export function DashboardView() {
     enabled: !!locationId,
     staleTime: 30_000,
     refetchInterval: 60_000,
+    retry: retrySnapshot,
+    retryDelay: 3_000,
   });
   const layoutQ = useQuery({ queryKey: ["novo-rh", "dashboard", "layout"], queryFn: () => dashboard.layout(), staleTime: Infinity });
   const snap = locationId ? local : org;
@@ -274,7 +279,7 @@ export function DashboardView() {
           </Button>
         </div>
       )}
-      {snap.isLoading && slow && (
+      {snap.isLoading && (slow || warming(snap.failureReason)) && (
         <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           A calcular o estado de hoje para toda a equipa — está a demorar mais do que o normal. Os dados aparecem assim que terminar.
         </p>
