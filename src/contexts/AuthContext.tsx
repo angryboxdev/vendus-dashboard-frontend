@@ -192,6 +192,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   );
 }
 
+/** Como `useAuth`, mas devolve null fora do AuthProvider (ecrãs que também correm isolados, ex.: testes). */
+// eslint-disable-next-line react-refresh/only-export-components
+export function useOptionalAuth(): AuthContextValue | null {
+  return useContext(AuthContext);
+}
+
 export function useAuth(): AuthContextValue {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error("useAuth must be used inside AuthProvider");

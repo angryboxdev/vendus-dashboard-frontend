@@ -333,6 +333,8 @@ export const ptPT = {
   "novoRh.mode.accessTitle": "Acessos indisponíveis em Demonstração",
   "novoRh.mode.accessBody": "Utilizadores e perfis são das contas reais. Mude para o modo Real para os gerir.",
   "novoRh.tab.overview": "Visão geral",
+  "novoRh.previousOverview.title": "Painel anterior",
+  "novoRh.previousOverview.link": "Ver o painel anterior (durante a validação)",
   "novoRh.tab.settings": "Configurações",
 
   "common.yes": "Sim",

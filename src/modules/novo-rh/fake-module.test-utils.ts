@@ -20,6 +20,16 @@ export function memoryQueue(): PunchQueueStoragePort & { items: QueuedPunch[] } 
 export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule {
   const none = () => vi.fn(async () => []);
   return {
+    dashboard: {
+      snapshot: vi.fn(async () => {
+        throw new Error("sem dashboard no teste");
+      }),
+      team: vi.fn(async () => ({ total: 0, page: 1, pageSize: 50, items: [] })),
+      birthdays: none(),
+      layout: vi.fn(async () => ({ layoutVersion: 1, widgets: [], custom: false })),
+      saveLayout: vi.fn(),
+      resetLayout: vi.fn(),
+    },
     overview: { get: vi.fn(async () => { throw new Error("sem painel no teste"); }), plan: vi.fn(async () => ({ from: "", to: "", people: [] })) },
     reminders: { run: vi.fn(async () => ({ people: 0, notices: 0 })) },
     inbox: { list: vi.fn(async () => ({ types: [], counters: {}, items: [] })), decide: vi.fn(async () => []) },

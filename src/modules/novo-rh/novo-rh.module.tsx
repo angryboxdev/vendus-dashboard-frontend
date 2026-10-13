@@ -7,6 +7,8 @@ import { DemoModeBanner, DemoAccessNotice } from "./adapters/in/DemoMode.tsx";
 import type { DataMode } from "./domain/entities/roadmap.ts";
 import type { DataModeStorePort, DemoApiPort } from "./domain/ports/out/demo-api.port.ts";
 import type { OverviewApiPort } from "./domain/ports/out/overview-api.port.ts";
+import type { DashboardApiPort } from "./domain/ports/out/dashboard-api.port.ts";
+import { HttpDashboardApiAdapter } from "./adapters/out/http-dashboard-api.adapter.ts";
 import { HttpOverviewApiAdapter } from "./adapters/out/http-overview-api.adapter.ts";
 import type { RemindersApiPort } from "./domain/ports/out/reminders-api.port.ts";
 import { HttpRemindersApiAdapter } from "./adapters/out/http-reminders-api.adapter.ts";
@@ -76,13 +78,14 @@ import { OfflineBanner } from "./adapters/in/common/OfflineBanner.tsx";
 import { AlertsView } from "./adapters/in/engagement/AlertsView.tsx";
 import { WorkspaceView } from "./adapters/in/engagement/WorkspaceView.tsx";
 import { ReportsView } from "./adapters/in/engagement/ReportsView.tsx";
-import { NovoRhHomeView } from "./adapters/in/NovoRhHomeView.tsx";
+import { NovoRhHomeView, PreviousOverviewView } from "./adapters/in/NovoRhHomeView.tsx";
 import { NovoRhLayout } from "./adapters/in/NovoRhLayout.tsx";
 import { SettingsHubView } from "./adapters/in/settings/SettingsHubView.tsx";
 import type { SettingsApiPort } from "./domain/ports/out/settings-api.port.ts";
 
 export interface NovoRhModule {
   overview: OverviewApiPort;
+  dashboard: DashboardApiPort;
   reminders: RemindersApiPort;
   inbox: InboxApiPort;
   demo: DemoApiPort;
@@ -160,6 +163,7 @@ export function NovoRhProvider({ children, module: mod, modeStore }: { children:
     () =>
       mod ?? {
         overview: new HttpOverviewApiAdapter(),
+        dashboard: new HttpDashboardApiAdapter(),
         reminders: new HttpRemindersApiAdapter(),
         inbox: new HttpInboxApiAdapter(),
         demo: new HttpDemoApiAdapter(),
@@ -249,6 +253,7 @@ function NovoRhRoutes() {
       <OfflineBanner />
       <Routes>
         <Route index element={<NovoRhHomeView />} />
+        <Route path="painel-anterior" element={<PreviousOverviewView />} />
         <Route path="pedidos" element={<InboxView />} />
         <Route path="pessoas" element={<PeopleListView />} />
         <Route path="pessoas/:id" element={<PersonView />} />
