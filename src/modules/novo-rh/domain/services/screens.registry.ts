@@ -14,6 +14,7 @@ export interface Screen {
 
 export const SCREENS: Screen[] = [
   { path: "/hr/novo", label: "novoRh.tab.overview", nav: true, end: true },
+  { path: "/hr/novo/painel-anterior", label: "novoRh.previousOverview.title", nav: false },
   { path: "/hr/novo/pedidos", label: "novoRh.tab.inbox", nav: true },
   { path: "/hr/novo/pessoas", label: "novoRh.tab.people", nav: true },
   { path: "/hr/novo/tempo", label: "novoRh.tab.time", nav: true },

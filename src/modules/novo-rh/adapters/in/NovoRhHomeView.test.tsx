@@ -35,10 +35,11 @@ const inLayout = (ui: ReactNode, mod: NovoRhModule = fakeNovoRhModule(), store =
 afterEach(() => setRequestHeaderProvider(null));
 
 describe("Novo RH — entrada", () => {
-  it("mostra o título, o aviso de área separada e o modo de dados (sem o plano por fases, já concluído)", () => {
+  it("Visão geral = Dashboard executivo + modo de dados; o painel anterior continua acessível", () => {
     render(inLayout(<NovoRhHomeView />));
     expect(screen.getByRole("heading", { level: 1, name: "Novo RH" })).toBeInTheDocument();
-    expect(screen.getByRole("status")).toHaveTextContent("Área separada do RH atual");
+    expect(screen.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Ver o painel anterior (durante a validação)" })).toHaveAttribute("href", "/hr/novo/painel-anterior");
     expect(screen.getByRole("link", { name: "Configurações" })).toHaveAttribute("href", "/hr/novo/configuracoes");
     expect(screen.getByRole("heading", { level: 2, name: "Modo de dados" })).toBeInTheDocument();
     expect(screen.queryByText("Plano por fases")).toBeNull();

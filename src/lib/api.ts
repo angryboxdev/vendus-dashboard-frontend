@@ -49,7 +49,7 @@ async function readErrorBody(res: Response): Promise<{ message: string; data: un
 
 async function request(
   path: string,
-  options: { method: string; body?: string; headers?: Record<string, string> } = { method: "GET" },
+  options: { method: string; body?: string; headers?: Record<string, string>; signal?: AbortSignal } = { method: "GET" },
 ): Promise<Response> {
   const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
   const authHeaders = await getAuthHeaders();
@@ -59,6 +59,7 @@ async function request(
     method: options.method,
     headers,
     body: options.body,
+    ...(options.signal && { signal: options.signal }),
   });
   if (!res.ok) {
     const { message, data } = await readErrorBody(res);
@@ -93,8 +94,9 @@ export async function apiWrite<T>(
   return { data: (await res.json()) as T, etag: res.headers.get("ETag") };
 }
 
-export async function apiGet<T>(path: string): Promise<T> {
-  const res = await request(path);
+/** `signal` (opcional): cancela o pedido quando deixa de interessar (ex.: TanStack Query ao mudar de contexto). */
+export async function apiGet<T>(path: string, signal?: AbortSignal): Promise<T> {
+  const res = await request(path, { method: "GET", ...(signal && { signal }) });
   return res.json() as Promise<T>;
 }
 
