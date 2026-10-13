@@ -15,6 +15,12 @@ export class HttpRostersApiAdapter implements RostersApiPort {
   async archiveTemplate(id: string) {
     await apiWrite(`${R}/templates/${id}/archive`, {});
   }
+  async clearPending(rosterId: string, input: { employeeId: string; from: string; to: string; shiftIds?: string[] }) {
+    return (await apiWrite<{ removed: RosterShift[] }>(`${R}/${rosterId}/clear-pending`, { body: input })).data;
+  }
+  async restoreShifts(rosterId: string, shiftIds: string[]) {
+    return (await apiWrite<{ restored: RosterShift[]; warnings: Violation[] }>(`${R}/${rosterId}/shifts/restore`, { body: { shiftIds } })).data;
+  }
   listRosters() {
     return apiGet<Roster[]>(R);
   }

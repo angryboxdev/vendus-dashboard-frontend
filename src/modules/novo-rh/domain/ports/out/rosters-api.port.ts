@@ -14,6 +14,10 @@ export interface RostersApiPort {
   assignBulk(rosterId: string, input: { employeeIds: string[]; from: string; to: string; weekdays: string[]; kind: "shift" | "day_off"; templateId: string | null }): Promise<{ created: number; warnings: Violation[] }>;
   updateShift(id: string, patch: Partial<ShiftInput>, opts: PublishOptions): Promise<{ shift: RosterShift; warnings: Violation[]; publication: Publication | null }>;
   deleteShift(id: string, opts: PublishOptions): Promise<{ publication: Publication | null }>;
+  /** Limpa numa só operação os turnos nunca publicados de um colaborador no período (opcionalmente só estes ids). */
+  clearPending(rosterId: string, input: { employeeId: string; from: string; to: string; shiftIds?: string[] }): Promise<{ removed: RosterShift[] }>;
+  /** Repõe turnos pendentes retirados (desfazer). */
+  restoreShifts(rosterId: string, shiftIds: string[]): Promise<{ restored: RosterShift[]; warnings: Violation[] }>;
   check(rosterId: string): Promise<{ pending: number; violations: Violation[] }>;
   publish(rosterId: string, opts: PublishOptions): Promise<Publication>;
   history(rosterId: string): Promise<Publication[]>;

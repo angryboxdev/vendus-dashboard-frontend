@@ -166,6 +166,8 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       assignBulk: vi.fn(),
       updateShift: vi.fn(),
       deleteShift: vi.fn(),
+      clearPending: vi.fn(),
+      restoreShifts: vi.fn(),
       check: vi.fn(),
       publish: vi.fn(),
       history: none(),

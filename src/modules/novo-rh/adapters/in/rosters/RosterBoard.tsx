@@ -1,10 +1,13 @@
 import { Fragment, useMemo, useState, type ReactNode } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import {
   AvatarStack,
   EmployeeCell,
   IconButton,
   IconCalendar,
   IconClose,
+  IconMore,
+  DropdownMenu,
   IconPlus,
   IconSort,
   IconUser,
@@ -64,6 +67,12 @@ export interface RosterBoardProps {
   summary: ReactNode;
   /** Edição direta (arrastar, selecionar dias, copiar/colar); sem ela, só cliques. */
   edit?: BoardEdit;
+  /** Menu da linha da pessoa (ver ficha, limpar pendentes do período). */
+  rowActions?: {
+    pending: (employeeId: string) => number;
+    onClearWeek: (employeeId: string) => void;
+    period: "week" | "period";
+  };
 }
 
 function Cell({
@@ -94,10 +103,25 @@ function Cell({
       onFocus={() => e.onShiftHover(s)}
       onBlur={() => e.onShiftHover(null)}
       title="Arraste para outro dia para mover ou copiar · Ctrl+C copia"
-      className={`cursor-grab rounded-lg active:cursor-grabbing ${copied ? "outline-dashed outline-2 outline-offset-1 outline-brand-500" : ""} ${e.draggingId === s.id ? "opacity-50" : ""}`}
+      className={`group/shift relative cursor-grab rounded-lg active:cursor-grabbing ${copied ? "outline-dashed outline-2 outline-offset-1 outline-brand-500" : ""} ${e.draggingId === s.id ? "opacity-50" : ""}`}
     >
       <CellBody s={s} p={p} label={label} index={index} overlap={overlap} />
       {copied && <span className="sr-only"> (copiado)</span>}
+      {s.published === null && (
+        <button
+          type="button"
+          aria-label="Remover turno"
+          title="Remover turno"
+          draggable={false}
+          onClick={(ev) => {
+            ev.stopPropagation();
+            e.onRemove(s);
+          }}
+          className="absolute right-0.5 top-0.5 z-10 flex h-6 w-6 items-center justify-center rounded-md text-ink-secondary opacity-0 transition-opacity duration-100 hover:bg-surface-card hover:text-navy-900 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 group-hover/shift:opacity-100 group-focus-within/shift:opacity-100"
+        >
+          <IconClose size={12} />
+        </button>
+      )}
     </div>
   );
 }
@@ -248,7 +272,7 @@ export function RosterBoard(p: RosterBoardProps) {
               ? "Clique ou arraste para atribuir o turno escolhido"
               : "Clique ou arraste para escolher dias · Ctrl+V cola o turno copiado"
           }
-          className={`flex h-full min-h-[64px] w-full select-none items-center justify-center rounded-lg text-ink-muted transition duration-150 hover:bg-brand-50 hover:text-brand-600 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${on ? "text-brand-600 opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+          className={`flex h-full min-h-[64px] w-full select-none items-center justify-center rounded-lg text-ink-muted transition duration-150 hover:bg-brand-50 hover:text-brand-600 ${p.painting ? "cursor-copy hover:ring-2 hover:ring-inset hover:ring-brand-500/40" : ""} focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${on ? "text-brand-600 opacity-100" : "opacity-0 group-hover:opacity-100"}`}
         >
           <IconPlus size={16} />
         </button>
@@ -283,15 +307,26 @@ export function RosterBoard(p: RosterBoardProps) {
       >
         <div
           role="rowheader"
-          className={`${FIRST_COL} flex items-center border-r border-line-subtle py-3 pl-3.5 pr-3`}
+          className={`${FIRST_COL} group/row relative flex items-center border-r border-line-subtle py-3 pl-3.5 pr-3 focus-within:z-30 has-[[aria-expanded=true]]:z-30`}
         >
-          <EmployeeCell
-            name={r.name}
-            photoUrl={r.photoUrl}
-            subtitle={p.positionName(r.positionId) ?? undefined}
-            size="list"
-            aside={hoursLabel(r.minutes)}
-          />
+          {p.rowActions && <RowMenu p={p} r={r} />}
+          <div className="pointer-events-none relative z-[1] min-w-0 flex-1 pr-4">
+            <EmployeeCell
+              name={r.name}
+              photoUrl={r.photoUrl}
+              subtitle={p.positionName(r.positionId) ?? undefined}
+              size="list"
+              aside={hoursLabel(r.minutes)}
+              renderName={(n) => (
+                <Link
+                  to={`/hr/novo/pessoas/${r.employeeId}`}
+                  className="pointer-events-auto rounded hover:text-brand-600 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+                >
+                  {n}
+                </Link>
+              )}
+            />
+          </div>
         </div>
         {p.days.map((ymd) => {
           const own = r.byDate.get(ymd) ?? [];
@@ -525,6 +560,55 @@ export function RosterBoard(p: RosterBoardProps) {
         </div>
       </div>
     </section>
+  );
+}
+
+/**
+ * Menu da linha da pessoa: clicar na célula (fora do nome) ou no ⋯ abre o
+ * MESMO menu. O nome é um link real para a ficha (por id).
+ */
+function RowMenu({ p, r }: { p: RosterBoardProps; r: RosterRow }) {
+  const a = p.rowActions!;
+  const navigate = useNavigate();
+  const pending = a.pending(r.employeeId);
+  const href = `/hr/novo/pessoas/${r.employeeId}`;
+  return (
+    <DropdownMenu
+      label={`Opções de ${r.name}`}
+      align="left"
+      className="absolute inset-0"
+      items={[
+        { label: "Ver funcionário", onSelect: () => navigate(href) },
+        {
+          label: a.period === "week" ? "Limpar turnos pendentes da semana" : "Limpar turnos pendentes do período",
+          onSelect: () => a.onClearWeek(r.employeeId),
+          disabled: pending === 0,
+          hint: "Sem turnos pendentes neste período",
+          danger: true,
+        },
+      ]}
+      trigger={({ open, toggle }) => (
+        <>
+          <button
+            type="button"
+            tabIndex={-1}
+            aria-hidden="true"
+            onClick={toggle}
+            className="absolute inset-0 z-0 cursor-pointer hover:bg-surface-soft/50"
+          />
+          <button
+            type="button"
+            aria-label={`Opções de ${r.name}`}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            onClick={toggle}
+            className={`absolute right-1 top-1 z-[2] rounded-md p-1 text-ink-secondary transition-opacity hover:bg-surface-card hover:text-navy-900 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${open ? "opacity-100" : "opacity-0 group-hover/row:opacity-100"}`}
+          >
+            <IconMore size={16} />
+          </button>
+        </>
+      )}
+    />
   );
 }
 
