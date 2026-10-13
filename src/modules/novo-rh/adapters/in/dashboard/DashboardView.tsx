@@ -83,6 +83,13 @@ export function DashboardView() {
   const layoutQ = useQuery({ queryKey: ["novo-rh", "dashboard", "layout"], queryFn: () => dashboard.layout(), staleTime: Infinity });
   const snap = locationId ? local : org;
   const s = snap.data;
+  // Carregamento longo (muitas pessoas): avisa em vez de parecer vazio.
+  const [slow, setSlow] = useState(false);
+  useEffect(() => {
+    if (!snap.isLoading) return;
+    const t = setTimeout(() => setSlow(true), 15_000);
+    return () => clearTimeout(t);
+  }, [snap.isLoading]);
   const units = org.data?.locations ?? [];
   const multiUnit = !locationId && units.length > 1;
 
@@ -266,6 +273,11 @@ export function DashboardView() {
             Tentar de novo
           </Button>
         </div>
+      )}
+      {snap.isLoading && slow && (
+        <p role="status" className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          A calcular o estado de hoje para toda a equipa — está a demorar mais do que o normal. Os dados aparecem assim que terminar.
+        </p>
       )}
       {s?.partial?.includes("requests") && <p className="text-xs text-amber-800">Os pedidos pendentes não puderam ser contados agora; o resto do Dashboard está atualizado.</p>}
 
