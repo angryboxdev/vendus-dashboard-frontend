@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import {
   Button,
@@ -21,7 +22,9 @@ const ROSTER_KEY = "novo-rh-roster-id";
  */
 export function RostersView() {
   const { t } = useI18n();
-  const [view, setView] = useState<View>("overview");
+  const [params, setParams] = useSearchParams();
+  // Com ?escala= na URL (ex.: ao voltar da ficha de um colaborador), abre logo a grelha.
+  const [view, setView] = useState<View>(() => (params.get("escala") ? "planner" : "overview"));
   const sub: Record<Exclude<View, "overview" | "planner">, string> = {
     templates: t("ros.tab.templates"),
     swaps: t("ros.tab.swaps"),
@@ -33,10 +36,17 @@ export function RostersView() {
     } catch {
       /* sem armazenamento: o planeamento abre na primeira escala */
     }
+    setParams({ escala: rosterId }, { replace: true });
     setView("planner");
   };
   const back = (to: View, label: string) => (
-    <Button icon={<IconChevronLeft size={16} />} onClick={() => setView(to)}>
+    <Button
+      icon={<IconChevronLeft size={16} />}
+      onClick={() => {
+        if (to === "overview") setParams({}, { replace: true });
+        setView(to);
+      }}
+    >
       {label}
     </Button>
   );

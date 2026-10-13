@@ -46,6 +46,7 @@ export function ShiftCard({
   style,
   indicator,
   ariaLabel,
+  variant = "default",
 }: {
   tone: ShiftTone;
   title: ReactNode;
@@ -62,6 +63,8 @@ export function ShiftCard({
   indicator?: { className: string; label: string };
   /** Nome acessível do botão (por omissão, o texto do cartão). */
   ariaLabel?: string;
+  /** "placement-preview": o turno a colocar, junto ao cursor (leve, sem interação). */
+  variant?: "default" | "placement-preview";
 }) {
   const t = TONE[tone];
   const draft = status === "draft";
@@ -86,7 +89,7 @@ export function ShiftCard({
   );
   const cls = `block w-full rounded-lg px-1.5 py-2 text-left transition duration-150 ${
     draft ? `border border-dashed ${t.line} ${t.soft}` : `border border-transparent ${t.fill}`
-  } ${onClick ? "hover:-translate-y-px hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40" : ""} ${className}`;
+  } ${variant === "placement-preview" ? "w-40 opacity-90 shadow-pop" : ""} ${onClick ? "hover:-translate-y-px hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40" : ""} ${className}`;
   return onClick ? (
     <button type="button" onClick={onClick} title={tooltip} aria-label={ariaLabel} className={cls} style={style}>
       {body}
