@@ -194,3 +194,18 @@ describe("Dashboard — erros e fontes parciais", () => {
     expect(screen.getByRole("img", { name: "26 colaboradores" })).toBeInTheDocument();
   });
 });
+
+describe("Dashboard — a preparar", () => {
+  it("503 'a preparar': tenta de novo sozinho e mostra os dados quando ficam prontos", async () => {
+    const m = mod();
+    let n = 0;
+    m.dashboard.snapshot = vi.fn(async () => {
+      if (++n === 1) throw new ApiError("A preparar os dados de hoje.", 503);
+      return SNAP;
+    });
+    renderWith(m);
+    expect(await screen.findByText(/está a demorar mais do que o normal/)).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: "26 colaboradores" }, { timeout: 6000 })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).toBeNull();
+  }, 10_000);
+});
