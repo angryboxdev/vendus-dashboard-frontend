@@ -7,9 +7,9 @@ describe("i18n", () => {
   it("traduz com parâmetros e cai para pt-PT quando falta a tradução", () => {
     const pt = createTranslator("pt-PT");
     const es = createTranslator("es-ES");
-    expect(pt("novoRh.roadmap.progress", { done: 1, total: 10 })).toBe("1 de 10 fases concluídas");
+    expect(pt("inbox.approveN", { count: 3 })).toBe("Aprovar 3");
     expect(es("common.done")).toBe("Completada");
-    expect(es("novoRh.phase.4")).toBe(ptPT["novoRh.phase.4"]);
+    expect(es("novoRh.mode.label")).toBe(ptPT["novoRh.mode.label"]);
   });
 
   it("es-ES só tem chaves que existem em pt-PT; lista as que faltam", () => {

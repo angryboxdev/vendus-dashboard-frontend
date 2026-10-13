@@ -30,7 +30,7 @@ módulo a usar a base de i18n (`src/i18n`).
 
 ## Domain concepts
 
-- `RoadmapPhase` (`number`, `status`) e `ROADMAP` — estado das fases; atualizar quando uma fase passa o gate.
+- `DataMode` (`real` | `demo`) — modo de dados do Novo RH. O plano por fases saiu da Visão geral (todas as fases concluídas, 2026-10-13).
 - `DataMode` — `real` | `demo`.
 - `settings.ts` — contrato do motor de configurações (definições, perfis, alvos, valores, valor efetivo com origem/herdado, histórico).
 - `settings-format.service.ts` — formatar/converter valores por tipo; chaves de texto por nível e área.

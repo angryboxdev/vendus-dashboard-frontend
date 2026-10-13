@@ -7,7 +7,6 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { I18nProvider } from "../../../../i18n/I18nProvider.tsx";
 import { setRequestHeaderProvider } from "../../../../lib/api.ts";
 import type { DataMode } from "../../domain/entities/roadmap.ts";
-import { ROADMAP, roadmapProgress } from "../../domain/services/roadmap.service.ts";
 import { fakeNovoRhModule } from "../../fake-module.test-utils.ts";
 import { NovoRhProvider, type NovoRhModule } from "../../novo-rh.module.tsx";
 import { novoRhModeHeaders } from "../out/http-demo-api.adapter.ts";
@@ -36,14 +35,13 @@ const inLayout = (ui: ReactNode, mod: NovoRhModule = fakeNovoRhModule(), store =
 afterEach(() => setRequestHeaderProvider(null));
 
 describe("Novo RH — entrada", () => {
-  it("mostra o título, o aviso de área separada e as 10 fases", () => {
+  it("mostra o título, o aviso de área separada e o modo de dados (sem o plano por fases, já concluído)", () => {
     render(inLayout(<NovoRhHomeView />));
     expect(screen.getByRole("heading", { level: 1, name: "Novo RH" })).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Área separada do RH atual");
-    expect(screen.getAllByRole("listitem")).toHaveLength(10);
     expect(screen.getByRole("link", { name: "Configurações" })).toHaveAttribute("href", "/hr/novo/configuracoes");
-    expect(screen.getByText("Preparação")).toBeInTheDocument();
-    expect(screen.getByText("10 de 10 fases concluídas")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Modo de dados" })).toBeInTheDocument();
+    expect(screen.queryByText("Plano por fases")).toBeNull();
   });
 
   it("sem organização fictícia: Demonstração indisponível e oferece criar (com confirmação)", async () => {
@@ -89,11 +87,6 @@ describe("Novo RH — entrada", () => {
       <I18nProvider locale="es-ES">{inLayout(<NovoRhHomeView />)}</I18nProvider>,
     );
     expect(screen.getByRole("heading", { level: 1, name: "Nuevo RR. HH." })).toBeInTheDocument();
-    expect(screen.getByText("Preparação")).toBeInTheDocument();
-  });
-
-  it("progresso: fase atual é a primeira em curso", () => {
-    expect(roadmapProgress(ROADMAP).current).toBeNull();
-    expect(roadmapProgress([{ number: 0, status: "done" }, { number: 1, status: "planned" }])).toEqual({ done: 1, total: 2, current: { number: 1, status: "planned" } });
+    expect(screen.getByText("Modo de dados")).toBeInTheDocument();
   });
 });
