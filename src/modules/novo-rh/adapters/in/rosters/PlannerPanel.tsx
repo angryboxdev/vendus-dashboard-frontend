@@ -929,9 +929,9 @@ export function PlannerPanel({
         )}
       </div>
 
-      {/* Turno largado noutro dia: mover ou copiar (vários dias = copiar para todos). */}
+      {/* Mover um turno já publicado: o motivo é obrigatório (a escolha Mover/Copiar aparece na própria grelha). */}
       <Dialog
-        open={!!editing.prompt}
+        open={editing.askReason && !!editing.prompt}
         title={
           editing.prompt
             ? t("ros.edit.dropTitle", {
@@ -941,13 +941,11 @@ export function PlannerPanel({
             : ""
         }
         description={
-          editing.prompt &&
-          (editing.prompt.targets.length === 1
-            ? t("ros.edit.dropOne", {
-                name: name(editing.prompt.targets[0]!.employeeId),
-                date: editing.prompt.targets[0]!.workDate,
-              })
-            : t("ros.edit.dropMany", { count: editing.prompt.targets.length }))
+          editing.prompt?.targets[0] &&
+          t("ros.edit.moveTo", {
+            name: name(editing.prompt.targets[0].employeeId),
+            date: editing.prompt.targets[0].workDate,
+          })
         }
         onClose={() => {
           editing.closePrompt();
@@ -964,41 +962,27 @@ export function PlannerPanel({
             >
               {t("common.cancel")}
             </Button>
-            {editing.prompt?.targets.length === 1 && (
-              <Button
-                disabled={!!editing.prompt.source.published && !moveReason.trim()}
-                onClick={() => {
-                  void editing.movePrompt(moveReason.trim() || null);
-                  setMoveReason("");
-                }}
-              >
-                {t("ros.edit.move")}
-              </Button>
-            )}
             <Button
               variant="primary"
+              disabled={!moveReason.trim()}
               onClick={() => {
-                void editing.copyPrompt();
+                void editing.movePrompt(moveReason.trim());
                 setMoveReason("");
               }}
             >
-              {editing.prompt && editing.prompt.targets.length > 1
-                ? t("ros.edit.copyMany", { count: editing.prompt.targets.length })
-                : t("ros.edit.copy")}
+              {t("ros.edit.move")}
             </Button>
           </>
         }
       >
-        {editing.prompt?.source.published && editing.prompt.targets.length === 1 && (
-          <label className="block">
-            <span className={LABEL}>{t("ros.edit.moveReason")}</span>
-            <input
-              className={`${FIELD} w-full`}
-              value={moveReason}
-              onChange={(e) => setMoveReason(e.target.value)}
-            />
-          </label>
-        )}
+        <label className="block">
+          <span className={LABEL}>{t("ros.edit.moveReason")}</span>
+          <input
+            className={`${FIELD} w-full`}
+            value={moveReason}
+            onChange={(e) => setMoveReason(e.target.value)}
+          />
+        </label>
       </Dialog>
 
       {/* Turno escolhido: alterar para o modelo selecionado ou remover (motivo se já publicado). */}
@@ -1154,7 +1138,7 @@ export function PlannerPanel({
   );
 }
 
-function NewRosterDrawer({
+export function NewRosterDrawer({
   open,
   onClose,
   onCreated,

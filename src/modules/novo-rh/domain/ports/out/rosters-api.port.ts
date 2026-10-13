@@ -1,4 +1,4 @@
-import type { Publication, PublishOptions, Roster, RosterShift, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation } from "../../entities/rosters.ts";
+import type { Publication, PublishOptions, Roster, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation } from "../../entities/rosters.ts";
 
 /** Escalas (`/api/novo-rh/rosters`) e o meu horário (`/api/me/roster`). */
 export interface RostersApiPort {
@@ -6,6 +6,8 @@ export interface RostersApiPort {
   createTemplate(input: Omit<ShiftTemplate, "id" | "archived">): Promise<ShiftTemplate>;
   archiveTemplate(id: string): Promise<void>;
   listRosters(): Promise<Roster[]>;
+  /** Visão macro: escalas com pessoas, por publicar e última publicação no período. */
+  summary(from: string, to: string): Promise<RosterSummary[]>;
   createRoster(input: Pick<Roster, "name" | "targetType" | "targetId">): Promise<Roster>;
   listShifts(rosterId: string, from: string, to: string): Promise<{ roster: Roster; pending: number; shifts: RosterShift[] }>;
   addShift(rosterId: string, input: ShiftInput): Promise<{ shift: RosterShift; warnings: Violation[] }>;

@@ -266,3 +266,36 @@ export function shiftRows(
           ) || a.label.localeCompare(b.label, "pt"),
   );
 }
+
+/**
+ * Turnos sobrepostos (o mesmo colaborador duas vezes à mesma hora) — a API já
+ * os recusa; isto assinala os que vieram de antes para serem corrigidos.
+ */
+export function overlappingIds(
+  shifts: RosterShift[],
+  templates: ShiftTemplate[],
+): Set<string> {
+  const day = (ymd: string) => Math.round(Date.parse(`${ymd}T00:00:00Z`) / 86_400_000) * 1440;
+  const spans = shifts
+    .filter((s) => !s.deleted && s.kind === "shift")
+    .flatMap((s) =>
+      shiftSegments(s, templates).map((seg) => {
+        const a = day(s.workDate) + min(seg.start);
+        let b = day(s.workDate) + min(seg.end);
+        if (b <= a) b += 1440;
+        return { id: s.id, employeeId: s.employeeId, a, b };
+      }),
+    );
+  const out = new Set<string>();
+  for (let i = 0; i < spans.length; i++) {
+    for (let j = i + 1; j < spans.length; j++) {
+      const x = spans[i]!;
+      const y = spans[j]!;
+      if (x.id !== y.id && x.employeeId === y.employeeId && x.a < y.b && y.a < x.b) {
+        out.add(x.id);
+        out.add(y.id);
+      }
+    }
+  }
+  return out;
+}

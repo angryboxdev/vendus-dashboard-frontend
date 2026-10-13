@@ -20,11 +20,18 @@ export interface BoardEdit {
   onCellDragEnter: (c: CellRef) => void;
   onCellDragOver: (e: DragEvent) => void;
   onCellDrop: (c: CellRef, e: DragEvent) => void;
+  /** Turno largado: a escolha "Mover / Copiar" aparece na célula onde se largou. */
+  prompt: { dropKey: string; count: number; canMove: boolean } | null;
+  onPromptMove: () => void;
+  onPromptCopy: () => void;
+  onPromptCancel: () => void;
 }
 
 export interface DropPrompt {
   source: RosterShift;
   targets: CellRef[];
+  /** Célula onde o turno foi largado (onde aparece a escolha). */
+  drop: CellRef;
 }
 
 export interface EditFailure {
@@ -81,6 +88,8 @@ export function useRosterEditing(o: {
   }, []);
   const [drag, setDrag] = useState<{ source: RosterShift; anchor: CellRef | null; targets: Set<string> } | null>(null);
   const [prompt, setPrompt] = useState<DropPrompt | null>(null);
+  // Mover um turno já publicado pede o motivo (o ecrã mostra o diálogo).
+  const [askReason, setAskReason] = useState(false);
   const promptOpen = useRef(false);
   useEffect(() => {
     promptOpen.current = !!prompt;
@@ -95,6 +104,8 @@ export function useRosterEditing(o: {
   const selecting = useRef(false);
   const hover = useRef<RosterShift | null>(null);
   const latest = useRef(o);
+  // Ações da escolha "Mover / Copiar" (definidas mais abaixo; lidas só em eventos).
+  const actions = useRef({ move: () => {}, copy: () => {} });
   // Opções mais recentes para os handlers (atualizadas depois de cada render).
   useLayoutEffect(() => {
     latest.current = o;
@@ -203,6 +214,8 @@ export function useRosterEditing(o: {
       } else if (e.key === "Escape") {
         clearSelection();
         setDrag(null);
+        setPrompt(null);
+        setAskReason(false);
       }
     };
     window.addEventListener("keydown", onKey);
@@ -272,21 +285,29 @@ export function useRosterEditing(o: {
         e.preventDefault();
         if (e.dataTransfer) e.dataTransfer.dropEffect = "copy";
       },
+      prompt: prompt ? { dropKey: cellKey(prompt.drop), count: prompt.targets.length, canMove: prompt.targets.length === 1 } : null,
+      onPromptMove: () => actions.current.move(),
+      onPromptCopy: () => actions.current.copy(),
+      onPromptCancel: () => {
+        setPrompt(null);
+        setAskReason(false);
+      },
       onCellDrop: (c, e) => {
         e.preventDefault();
         if (!drag) return;
         const keys = drag.targets.size ? [...drag.targets] : [cellKey(c)].filter((k) => k !== cellKey(drag.source));
         setDrag(null);
-        if (keys.length) setPrompt({ source: drag.source, targets: keys.map(parseCellKey) });
+        if (keys.length) setPrompt({ source: drag.source, targets: keys.map(parseCellKey), drop: c });
       },
     }),
-    [selected, drag, clipboard, clearSelection, paintSelection, setSelected],
+    [selected, drag, clipboard, prompt, clearSelection, paintSelection, setSelected],
   );
 
   const copyPrompt = async () => {
     if (!prompt) return;
     const p = prompt;
     setPrompt(null);
+    setAskReason(false);
     // Um só dia largado à mão: cria mesmo que já tenha turno (a API decide); vários dias: só os livres.
     await createAll(copyInputs(p.source, p.targets), "copiados", p.targets.length > 1);
   };
@@ -296,6 +317,7 @@ export function useRosterEditing(o: {
     if (!prompt || prompt.targets.length !== 1) return;
     const { source, targets } = prompt;
     setPrompt(null);
+    setAskReason(false);
     const created = await createAll(copyInputs(source, targets), "movidos", false);
     if (!created) return;
     const remove = async (confirm: boolean): Promise<void> => {
@@ -314,12 +336,27 @@ export function useRosterEditing(o: {
     await remove(false);
   };
 
+  useLayoutEffect(() => {
+    actions.current = {
+      move: () => {
+        if (!prompt) return;
+        if (prompt.source.published) setAskReason(true);
+        else void movePrompt(null);
+      },
+      copy: () => void copyPrompt(),
+    };
+  });
+
   return {
     edit,
+    askReason,
     selectedCount: selected.size,
     clipboard,
     prompt,
-    closePrompt: () => setPrompt(null),
+    closePrompt: () => {
+      setPrompt(null);
+      setAskReason(false);
+    },
     copyPrompt,
     movePrompt,
     paste,

@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../../../../lib/api.ts";
 import type { RosterShift } from "../../../domain/entities/rosters.ts";
 import { weekOf } from "../../../domain/services/attendance.service.ts";
-import { chipLabel, hoursLabel, hoursLong, rosterRows, segmentsTone, shiftRows, templateTone } from "../../../domain/services/roster-board.service.ts";
+import { chipLabel, hoursLabel, hoursLong, overlappingIds, rosterRows, segmentsTone, shiftRows, templateTone } from "../../../domain/services/roster-board.service.ts";
 import { cellLabel, daysFrom, parseSegments, violationsOf } from "../../../domain/services/rosters.service.ts";
 import { cellRect, copyInputs, paintInputs } from "../../../domain/services/roster-edit.service.ts";
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
@@ -38,14 +38,16 @@ const mod = () => {
     settings: { listEmployees: vi.fn(async () => [{ id: "e1", label: "Ana Teste", photoUrl: "https://foto/ana.jpg" }, { id: "e2", label: "Bruno Teste" }]), listLocations: vi.fn(async () => [{ id: "l1", label: "Porto" }]) } as unknown as NovoRhModule["settings"],
   });
   m.rosters.listRosters = vi.fn(async () => [ROSTER]);
+  m.rosters.summary = vi.fn(async () => [{ roster: ROSTER, employeeIds: ["e1"], shifts: 2, pending: 1, lastPublishedAt: "2026-10-12T10:00:00Z" }]);
   m.rosters.listTemplates = vi.fn(async () => [TPL]);
   m.rosters.listShifts = vi.fn(async () => ({ roster: ROSTER, pending: 1, shifts: [PUBLISHED, { ...PUBLISHED, id: "s2", workDate: TUE, dirty: true, published: null, publishedVersion: null }] }));
   return m;
 };
 
-/** A escala abre já escolhida (a primeira); espera pela grelha. */
+/** Abre na visão macro; escolher a escala abre a grelha. */
 async function openRoster() {
   const user = userEvent.setup();
+  await user.click(await screen.findByRole("button", { name: "Loja Porto" }));
   await screen.findAllByRole("button", { name: `Ana Teste ${MON}` });
   return user;
 }
@@ -89,6 +91,7 @@ describe("Escalas — ecrãs", () => {
   it("título, escala já escolhida, grelha da semana, rascunho e painel de atribuição", async () => {
     renderWith(mod());
     expect(screen.getByRole("heading", { level: 1, name: "Escalas & Turnos" })).toBeInTheDocument();
+    await openRoster();
     expect(await screen.findByRole("button", { name: /Escala: Loja Porto/ })).toBeInTheDocument();
     const card = (await screen.findAllByRole("button", { name: `Ana Teste ${MON}` }))[0]!;
     expect(card).toHaveTextContent("Tarde");
@@ -115,6 +118,7 @@ describe("Escalas — ecrãs", () => {
   it("sem escalas: estado vazio com 'Nova escala'", async () => {
     const m = mod();
     m.rosters.listRosters = vi.fn(async () => []);
+    m.rosters.summary = vi.fn(async () => []);
     renderWith(m);
     expect(await screen.findByText("Ainda não há escalas nesta organização")).toBeInTheDocument();
     await userEvent.setup().click(screen.getAllByRole("button", { name: "Nova escala" })[0]!);
@@ -236,9 +240,9 @@ describe("Escalas — ecrãs", () => {
     fireEvent.dragEnter(cell(wed), { dataTransfer: data });
     expect(cell(wed)).toHaveAttribute("data-selected", "true");
     fireEvent.drop(cell(wed), { dataTransfer: data });
-    const box = screen.getByRole("dialog", { name: "T de Ana Teste" });
-    expect(within(box).getByText(`Para Ana Teste, ${wed}. Quer mover ou copiar o turno?`)).toBeInTheDocument();
-    await user.click(within(box).getByRole("button", { name: "Mover turno" }));
+    // A escolha aparece na própria célula onde se largou.
+    const choice = within(cell(wed)).getByRole("group", { name: "Mover ou copiar o turno" });
+    await user.click(within(choice).getByRole("button", { name: "Mover" }));
     await vi.waitFor(() => expect(m.rosters.deleteShift).toHaveBeenCalledWith("s2", { reason: null, confirm: false }));
     expect(m.rosters.addShift).toHaveBeenCalledWith("r1", { employeeId: "e1", workDate: wed, kind: "shift", templateId: "t1", segments: [] });
   });
@@ -257,15 +261,16 @@ describe("Escalas — ecrãs", () => {
     fireEvent.dragEnter(cell(fri), { dataTransfer: data });
     expect(cell(thu)).toHaveAttribute("data-selected", "true");
     fireEvent.drop(cell(fri), { dataTransfer: data });
-    const box = screen.getByRole("dialog");
-    expect(within(box).queryByRole("button", { name: "Mover turno" })).toBeNull();
-    await user.click(within(box).getByRole("button", { name: "Copiar para 3 dias" }));
+    const box = within(cell(fri)).getByRole("group", { name: "Mover ou copiar o turno" });
+    expect(within(box).queryByRole("button", { name: "Mover" })).toBeNull();
+    await user.click(within(box).getByRole("button", { name: "Copiar (3)" }));
     await vi.waitFor(() => expect(m.rosters.addShift).toHaveBeenCalledTimes(3));
     // Um só dia, turno publicado: mover pede motivo.
     fireEvent.dragStart(card(), { dataTransfer: data });
     fireEvent.dragEnter(cell(wed), { dataTransfer: data });
     fireEvent.drop(cell(wed), { dataTransfer: data });
-    const one = screen.getByRole("dialog");
+    await user.click(within(within(cell(wed)).getByRole("group", { name: "Mover ou copiar o turno" })).getByRole("button", { name: "Mover" }));
+    const one = screen.getByRole("dialog", { name: "T de Ana Teste" });
     expect(within(one).getByRole("button", { name: "Mover turno" })).toBeDisabled();
     await user.type(within(one).getByLabelText(/Motivo/), "Troca pedida");
     expect(within(one).getByRole("button", { name: "Mover turno" })).toBeEnabled();
@@ -294,11 +299,34 @@ describe("Escalas — ecrãs", () => {
     fireEvent.dragEnter(cell(TUE), { dataTransfer: data });
     fireEvent.dragEnter(cell(thu), { dataTransfer: data });
     fireEvent.drop(cell(thu), { dataTransfer: data });
-    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Copiar para 3 dias" }));
+    await user.click(within(within(cell(thu)).getByRole("group", { name: "Mover ou copiar o turno" })).getByRole("button", { name: "Copiar (3)" }));
     await vi.waitFor(() => expect(m.rosters.addShift).toHaveBeenCalledTimes(2));
     expect(m.rosters.addShift).not.toHaveBeenCalledWith("r1", expect.objectContaining({ workDate: TUE }));
     expect(m.rosters.addShift).toHaveBeenCalledWith("r1", expect.objectContaining({ workDate: wed }));
     expect(await screen.findByText(/1 dia com turno ignorado/)).toBeInTheDocument();
+  });
+
+  it("visão macro: escalas com local, funcionários, estado e última publicação; escolher abre a grelha", async () => {
+    renderWith(mod());
+    const row = (await screen.findByRole("button", { name: "Loja Porto" })).closest("tr")!;
+    expect(within(row).getByText("Porto")).toBeInTheDocument();
+    expect(within(row).getByText("1")).toBeInTheDocument();
+    expect(within(row).getByText("Pendente")).toBeInTheDocument();
+    expect(within(row).getByText("12/10/2026")).toBeInTheDocument();
+    expect(screen.getByText("1 escala(s)")).toBeInTheDocument();
+    await userEvent.setup().click(within(row).getByRole("button", { name: "Loja Porto" }));
+    expect(await screen.findByRole("table", { name: "Turnos por dia" })).toBeInTheDocument();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Todas as escalas" }));
+    expect(await screen.findByRole("button", { name: "Loja Porto" })).toBeInTheDocument();
+  });
+
+  it("turnos sobrepostos (vindos de antes) ficam assinalados; a API recusa novos", async () => {
+    const m = mod();
+    m.rosters.listShifts = vi.fn(async () => ({ roster: ROSTER, pending: 1, shifts: [PUBLISHED, { ...PUBLISHED, id: "s9", dirty: true, published: null, publishedVersion: null }] }));
+    renderWith(m);
+    await openRoster();
+    expect(within(grid()).getAllByText("Sobreposto a outro turno")).toHaveLength(2);
+    expect(overlappingIds([PUBLISHED, { ...PUBLISHED, id: "x", segments: [{ start: "22:00", end: "23:00" }], templateId: null }], [TPL]).size).toBe(0);
   });
 
   it("regras da edição direta: retângulo de células, cópia sem a própria célula, pintura", () => {

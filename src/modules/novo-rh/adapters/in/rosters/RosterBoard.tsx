@@ -1,9 +1,10 @@
-import { Fragment, useState, type ReactNode } from "react";
+import { Fragment, useMemo, useState, type ReactNode } from "react";
 import {
   AvatarStack,
   EmployeeCell,
   IconButton,
   IconCalendar,
+  IconClose,
   IconPlus,
   IconSort,
   IconUser,
@@ -26,6 +27,7 @@ import {
   dayHeader,
   hoursLabel,
   hoursLong,
+  overlappingIds,
   segmentLabel,
   segmentsMinutes,
   shiftDisplay,
@@ -70,15 +72,17 @@ function Cell({
   label,
   index,
   subtitle,
+  overlap = false,
 }: {
   s: RosterShift;
   p: RosterBoardProps;
   label: string;
   index: number;
   subtitle?: string;
+  overlap?: boolean;
 }) {
   const e = subtitle === undefined ? p.edit : undefined;
-  if (!e) return <CellBody s={s} p={p} label={label} index={index} subtitle={subtitle} />;
+  if (!e) return <CellBody s={s} p={p} label={label} index={index} subtitle={subtitle} overlap={overlap} />;
   const copied = e.clipboardId === s.id;
   return (
     <div
@@ -92,7 +96,7 @@ function Cell({
       title="Arraste para outro dia para mover ou copiar · Ctrl+C copia"
       className={`cursor-grab rounded-lg active:cursor-grabbing ${copied ? "outline-dashed outline-2 outline-offset-1 outline-brand-500" : ""} ${e.draggingId === s.id ? "opacity-50" : ""}`}
     >
-      <CellBody s={s} p={p} label={label} index={index} />
+      <CellBody s={s} p={p} label={label} index={index} overlap={overlap} />
       {copied && <span className="sr-only"> (copiado)</span>}
     </div>
   );
@@ -104,12 +108,14 @@ function CellBody({
   label,
   index,
   subtitle,
+  overlap = false,
 }: {
   s: RosterShift;
   p: RosterBoardProps;
   label: string;
   index: number;
   subtitle?: string;
+  overlap?: boolean;
 }) {
   if (s.kind === "day_off")
     return (
@@ -138,8 +144,9 @@ function CellBody({
       hours={hoursLabel(segmentsMinutes(segs))}
       status={s.dirty ? "draft" : "published"}
       onClick={() => p.onOpen(s)}
-      tooltip={`${title}${s.dirty ? " · por publicar" : ""}${s.onCall ? " · prevenção" : ""}`}
-      className="motion-safe:animate-motion-pop-in"
+      tooltip={`${title}${s.dirty ? " · por publicar" : ""}${s.onCall ? " · prevenção" : ""}${overlap ? " · sobreposto a outro turno: retire um deles" : ""}`}
+      className={`motion-safe:animate-motion-pop-in ${overlap ? "ring-2 ring-red-500/70" : ""}`}
+      indicator={overlap ? { className: "bg-red-500", label: "Sobreposto a outro turno" } : undefined}
       style={{ animationDelay: `${Math.min(index, 8) * 25}ms` }}
       ariaLabel={label}
     />
@@ -158,6 +165,7 @@ export function RosterBoard(p: RosterBoardProps) {
   };
   const firstBatch = useFirstBatch(p.rows.map((r) => r.employeeId));
   const byShift = p.mode === "shifts" ? shiftRows(p.shifts, p.templates) : [];
+  const overlapIds = useMemo(() => overlappingIds(p.shifts, p.templates), [p.shifts, p.templates]);
 
   const header = (
     <div role="row" className="grid border-b border-line-subtle" style={grid}>
@@ -304,8 +312,42 @@ export function RosterBoard(p: RosterBoardProps) {
               onDragEnter={e ? () => e.onCellDragEnter(c) : undefined}
               onDragOver={e?.onCellDragOver}
               onDrop={e ? (ev) => e.onCellDrop(c, ev) : undefined}
-              className={`group flex min-h-[76px] flex-col gap-1.5 border-r border-line-subtle p-1 transition-colors duration-100 last:border-r-0 ${mark}`}
+              className={`group relative flex min-h-[76px] flex-col gap-1.5 border-r border-line-subtle p-1 transition-colors duration-100 last:border-r-0 ${mark}`}
             >
+              {e?.prompt?.dropKey === k && (
+                <div
+                  role="group"
+                  aria-label="Mover ou copiar o turno"
+                  className="absolute inset-1 z-20 flex overflow-hidden rounded-lg text-[13px] font-semibold shadow-pop ring-1 ring-navy-900/15 motion-safe:animate-motion-pop-in"
+                >
+                  {e.prompt.canMove && (
+                    <button
+                      type="button"
+                      autoFocus
+                      onClick={e.onPromptMove}
+                      className="flex-1 bg-surface-card text-navy-900 transition-colors hover:bg-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500/50"
+                    >
+                      Mover
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    autoFocus={!e.prompt.canMove}
+                    onClick={e.onPromptCopy}
+                    className="flex-1 bg-navy-900 text-white transition-colors hover:bg-navy-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500/60"
+                  >
+                    {e.prompt.count > 1 ? `Copiar (${e.prompt.count})` : "Copiar"}
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Cancelar"
+                    onClick={e.onPromptCancel}
+                    className="absolute right-0.5 top-0.5 rounded-md p-0.5 text-white/70 hover:text-white"
+                  >
+                    <IconClose size={12} />
+                  </button>
+                </div>
+              )}
               {own.length
                 ? own.map((s, i) => (
                     <Cell
@@ -314,6 +356,7 @@ export function RosterBoard(p: RosterBoardProps) {
                       p={p}
                       label={`${r.name} ${ymd}`}
                       index={index + i}
+                      overlap={overlapIds.has(s.id)}
                     />
                   ))
                 : emptyCell(r.employeeId, r.name, ymd)}
