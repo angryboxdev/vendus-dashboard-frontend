@@ -20,12 +20,12 @@ export function PageShell({
   children: ReactNode;
 }) {
   return (
-    <div className="flex min-h-full flex-col bg-[#FAF6F3]">
-      <header className="border-b border-[#F5C992]/40 bg-white px-4 pt-4 sm:px-6">
+    <div className="flex min-h-full flex-col bg-surface-app">
+      <header className="border-b border-line bg-white px-4 pt-4 sm:px-6">
         <div className={`flex flex-wrap items-start justify-between gap-3 ${tabs ? "pb-2" : "pb-4"}`}>
           <div className="min-w-0">
-            <h1 className="text-xl font-semibold text-stone-900">{title}</h1>
-            {description && <p className="mt-0.5 text-sm text-stone-500">{description}</p>}
+            <h1 className="text-2xl font-semibold tracking-tight text-navy-900">{title}</h1>
+            {description && <p className="mt-0.5 text-sm text-ink-secondary">{description}</p>}
           </div>
           {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
         </div>

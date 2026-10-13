@@ -47,19 +47,19 @@ export function Drawer({
         aria-modal="true"
         aria-label={typeof title === "string" ? title : undefined}
         {...(as === "form" ? { onSubmit } : {})}
-        className={`fixed inset-y-0 right-0 z-50 flex w-full ${width} flex-col bg-white shadow-xl`}
+        className={`fixed inset-y-0 right-0 z-50 flex w-full ${width} flex-col bg-white shadow-pop`}
       >
-        <div className="flex items-start justify-between gap-3 border-b border-[#F5C992]/40 px-6 py-4">
+        <div className="flex items-start justify-between gap-3 border-b border-line px-6 py-4">
           <div className="min-w-0">
-            <h2 className="text-base font-semibold text-stone-900">{title}</h2>
-            {description && <p className="mt-0.5 text-sm text-stone-500">{description}</p>}
+            <h2 className="text-base font-semibold text-navy-900">{title}</h2>
+            {description && <p className="mt-0.5 text-sm text-ink-secondary">{description}</p>}
           </div>
-          <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-lg p-1.5 text-stone-400 transition-colors duration-150 hover:bg-stone-100 hover:text-stone-600">
+          <button type="button" onClick={onClose} aria-label="Fechar" className="rounded-lg p-1.5 text-ink-muted transition-colors duration-150 hover:bg-surface-soft hover:text-navy-900">
             <IconClose />
           </button>
         </div>
         <div className="flex-1 space-y-4 overflow-y-auto px-6 py-4">{children}</div>
-        {footer && <div className="flex justify-end gap-2 border-t border-[#F5C992]/40 px-6 py-4">{footer}</div>}
+        {footer && <div className="flex justify-end gap-2 border-t border-line px-6 py-4">{footer}</div>}
       </MotionLayer>
     </MotionPresence>
   );

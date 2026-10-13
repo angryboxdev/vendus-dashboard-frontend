@@ -3,7 +3,7 @@ import { NavLink } from "react-router-dom";
 /** Tabs compactas: texto com sublinhado laranja (nunca "pills"). */
 const tabClass = (active: boolean) =>
   `-mb-px inline-flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2 text-sm font-medium transition-colors duration-150 ${
-    active ? "border-[#ED5C32] text-[#ED5C32]" : "border-transparent text-stone-500 hover:text-stone-700"
+    active ? "border-brand-600 text-brand-600" : "border-transparent text-ink-secondary hover:text-ink"
   }`;
 
 const Count = ({ n }: { n: number }) => <span className="rounded-full bg-stone-100 px-1.5 text-xs font-medium text-stone-600">{n}</span>;

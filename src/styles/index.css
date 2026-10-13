@@ -2,6 +2,54 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+ * Design System Mezza (premium) — tokens centrais. Os componentes usam as
+ * classes Tailwind ligadas a estas variáveis (tailwind.config.js); nunca HEX
+ * soltos. Cobre = marca/ação principal; navy = estrutura e texto; verde,
+ * âmbar e vermelho só para estados. Os pastéis dos turnos são operacionais
+ * (não substituem a paleta da marca).
+ */
+@layer base {
+  :root {
+    --navy-950: 18 24 43; /* #12182B */
+    --navy-900: 25 33 58; /* #19213A */
+    --navy-800: 38 48 78; /* #26304E */
+
+    --brand-600: 201 100 58; /* #C9643A */
+    --brand-500: 214 117 73; /* #D67549 */
+    --brand-100: 247 232 223; /* #F7E8DF */
+    --brand-50: 252 245 241; /* #FCF5F1 */
+
+    --surface-app: 248 247 244; /* #F8F7F4 */
+    --surface-soft: 243 244 243; /* #F3F4F3 */
+    --surface-card: 255 255 255;
+
+    --text-primary: 24 32 57; /* #182039 */
+    --text-secondary: 104 112 134; /* #687086 */
+    --text-muted: 152 160 175; /* #98A0AF */
+
+    --border-soft: 230 232 236; /* #E6E8EC */
+    --border-subtle: 239 240 242; /* #EFF0F2 */
+
+    /* Turnos (pastel operacional): fundo / borda / texto */
+    --shift-morning-bg: 251 231 226;
+    --shift-morning-line: 236 176 160;
+    --shift-morning-ink: 122 52 34;
+    --shift-afternoon-bg: 223 236 250;
+    --shift-afternoon-line: 150 186 228;
+    --shift-afternoon-ink: 30 64 112;
+    --shift-night-bg: 252 243 214;
+    --shift-night-line: 226 196 112;
+    --shift-night-ink: 110 80 10;
+    --shift-split-bg: 222 245 234;
+    --shift-split-line: 140 204 172;
+    --shift-split-ink: 22 92 60;
+    --shift-other-bg: 241 232 236;
+    --shift-other-line: 200 176 186;
+    --shift-other-ink: 92 60 74;
+  }
+}
+
 @layer components {
   .input {
     @apply w-full rounded-md border border-stone-300 bg-white px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32];
@@ -14,6 +62,23 @@
   .btn-secondary {
     @apply rounded-md border border-stone-300 bg-white px-3.5 py-2 text-sm font-medium text-stone-700 transition hover:bg-stone-50 disabled:cursor-not-allowed disabled:opacity-50;
   }
+
+  /*
+   * Design System Mezza: só dentro de `.ds` (Novo RH). Fora dele, o resto da
+   * aplicação mantém o aspeto anterior.
+   */
+  .ds {
+    @apply text-ink;
+  }
+  .ds .input {
+    @apply rounded-xl border-line bg-surface-card text-ink placeholder:text-ink-muted focus:border-brand-500 focus:ring-2 focus:ring-brand-500/15;
+  }
+  .ds .btn-primary {
+    @apply rounded-xl bg-none bg-brand-600 hover:bg-brand-500 hover:opacity-100;
+  }
+  .ds .btn-secondary {
+    @apply rounded-xl border-navy-900/20 bg-surface-card text-navy-900 hover:bg-surface-soft;
+  }
 }
 
 @font-face {
@@ -21,6 +86,36 @@
   src: url("/fonts/AmsiProAKS-Normal.woff2") format("woff2"),
        url("/fonts/AmsiProAKS-Normal.woff") format("woff");
   font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* Design System Mezza: Poppins (alojada no site, licença OFL; só o subconjunto latino). */
+@font-face {
+  font-family: "Poppins";
+  src: url("/fonts/poppins/Poppins-400.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Poppins";
+  src: url("/fonts/poppins/Poppins-500.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Poppins";
+  src: url("/fonts/poppins/Poppins-600.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Poppins";
+  src: url("/fonts/poppins/Poppins-700.woff2") format("woff2");
+  font-weight: 700;
   font-style: normal;
   font-display: swap;
 }

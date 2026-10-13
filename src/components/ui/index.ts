@@ -1,8 +1,15 @@
 export * from "./ui-classes.ts";
 export * from "./icons.tsx";
-export { Button } from "./Button.tsx";
+export { Button, IconButton } from "./Button.tsx";
 export { PageShell } from "./PageShell.tsx";
 export { Tabs, TabNav } from "./Tabs.tsx";
 export { StatusBadge, type StatusTone } from "./StatusBadge.tsx";
 export { AlertBanner, type AlertTone } from "./AlertBanner.tsx";
 export { Drawer } from "./Drawer.tsx";
+export { SearchInput, SegmentedControl } from "./Inputs.tsx";
+export { Avatar, AvatarStack, EmployeeCell, type AvatarSize, type AvatarStackItem } from "./Avatar.tsx";
+export { Popover, DropdownMenu, SearchableSelect, type MenuEntry } from "./Popover.tsx";
+export { PageHeader, Toolbar, ToolbarGroup, ToolbarDivider, DateNavigator, Skeleton, EmptyState } from "./Layout.tsx";
+export { Dialog } from "./Dialog.tsx";
+export { TimePicker } from "./TimePicker.tsx";
+export { ShiftCard, ShiftGroup, ShiftToneBar, ShiftTypeChip, type ShiftTone } from "./ShiftCard.tsx";

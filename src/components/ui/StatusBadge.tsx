@@ -11,7 +11,7 @@ const TONE: Record<StatusTone, { chip: string; dot: string }> = {
   success: { chip: "bg-emerald-50 text-emerald-800", dot: "bg-emerald-500" },
   warning: { chip: "bg-amber-50 text-amber-800", dot: "bg-amber-500" },
   danger: { chip: "bg-red-50 text-red-800", dot: "bg-red-500" },
-  neutral: { chip: "bg-stone-100 text-stone-600", dot: "bg-stone-400" },
+  neutral: { chip: "bg-surface-soft text-ink-secondary", dot: "bg-ink-muted" },
 };
 
 export function StatusBadge({ tone, children, dot = true }: { tone: StatusTone; children: ReactNode; dot?: boolean }) {

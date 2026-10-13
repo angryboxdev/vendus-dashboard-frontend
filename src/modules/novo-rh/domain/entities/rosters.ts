@@ -24,6 +24,17 @@ export interface Roster {
   archived: boolean;
 }
 
+/** Visão macro de uma escala (`GET /rosters/summary`). */
+export interface RosterSummary {
+  roster: Roster;
+  /** Quem tem turnos no período. */
+  employeeIds: string[];
+  shifts: number;
+  /** Alterações por publicar no período. */
+  pending: number;
+  lastPublishedAt: string | null;
+}
+
 export interface ShiftState {
   employeeId: string;
   workDate: string;

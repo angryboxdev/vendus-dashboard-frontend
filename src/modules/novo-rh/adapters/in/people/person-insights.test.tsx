@@ -16,7 +16,7 @@ const PERSON: Person = {
   id: "e1", firstName: "Carla", lastName: "Demo", fullName: "Carla Maria Demo", nif: "123456789", email: "carla@demo.invalid", phone: null, personalEmail: null,
   address: null, postalCode: null, city: null, country: null, birthDate: null, gender: null, nationality: null, niss: null, idCardNumber: null, iban: null,
   hireDate: "2026-01-05", primaryLocationId: "loc-1", positionId: "pos-op", status: "active", currency: "EUR", payPeriod: "monthly", baseSalary: null, hourlyRate: null,
-  deactivatedAt: null, deactivationReason: null, userId: null, version: 3, hidden: [], missing: [],
+  deactivatedAt: null, deactivationReason: null, userId: null, photoUrl: null, version: 3, hidden: [], missing: [],
 };
 
 const day = (workDate: string, over: Partial<AttendanceDays["days"][number]> = {}) => ({ workDate, workedSeconds: 8 * 3600, breakSeconds: 1800, nightSeconds: 0, theoreticalSeconds: 8 * 3600, excessSeconds: 0, pendingSeconds: 0, segments: [], incidents: [], ...over });

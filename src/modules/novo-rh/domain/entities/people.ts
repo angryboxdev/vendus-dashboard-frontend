@@ -30,6 +30,8 @@ export interface Person {
   deactivatedAt: string | null;
   deactivationReason: string | null;
   userId: string | null;
+  /** Foto (URL assinado de curta duração) ou null. */
+  photoUrl: string | null;
   version: number;
   /** Campos que quem vê não pode ver (vêm a null). */
   hidden: string[];
@@ -37,7 +39,7 @@ export interface Person {
   missing: string[];
 }
 
-export type PersonField = Exclude<keyof Person, "id" | "fullName" | "status" | "deactivatedAt" | "deactivationReason" | "userId" | "version" | "hidden" | "missing">;
+export type PersonField = Exclude<keyof Person, "id" | "fullName" | "photoUrl" | "status" | "deactivatedAt" | "deactivationReason" | "userId" | "version" | "hidden" | "missing">;
 
 export interface Contract {
   id: string;

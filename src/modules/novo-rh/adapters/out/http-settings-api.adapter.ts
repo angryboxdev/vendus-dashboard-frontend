@@ -62,11 +62,11 @@ export class HttpSettingsApiAdapter implements SettingsApiPort {
   // Em Demonstração lê-se do Novo RH (organização fictícia); as rotas antigas são sempre da organização real.
   async listEmployees(): Promise<Option[]> {
     if (this.mode() === "demo") {
-      const rows = await apiGet<{ id: string; fullName: string }[]>("/api/novo-rh/people?status=active");
-      return rows.map((e) => ({ id: e.id, label: e.fullName }));
+      const rows = await apiGet<{ id: string; fullName: string; photoUrl?: string | null }[]>("/api/novo-rh/people?status=active");
+      return rows.map((e) => ({ id: e.id, label: e.fullName, photoUrl: e.photoUrl ?? null }));
     }
-    const res = await apiGet<{ items: { id: string; fullName: string }[] }>("/api/hr/people?status=active&page=1&pageSize=500");
-    return res.items.map((e) => ({ id: e.id, label: e.fullName }));
+    const res = await apiGet<{ items: { id: string; fullName: string; photoUrl?: string | null }[] }>("/api/hr/people?status=active&page=1&pageSize=500");
+    return res.items.map((e) => ({ id: e.id, label: e.fullName, photoUrl: e.photoUrl ?? null }));
   }
   async listLocations(): Promise<Option[]> {
     const rows = await apiGet<{ id: string; name: string }[]>(this.mode() === "demo" ? "/api/novo-rh/catalog/locations" : "/api/locations");

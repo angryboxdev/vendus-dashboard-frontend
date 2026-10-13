@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, FIELD, IconPlus, PageShell, SURFACE, TABLE, TH, THEAD } from "../../../../components/ui/index.ts";
+import { Button, FIELD, IconPlus, PageShell, SURFACE, TABLE, TH, THEAD } from "../../../../components/ui-legacy/index.ts";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useHrModule } from "../../hr.module.tsx";

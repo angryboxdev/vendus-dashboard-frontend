@@ -42,7 +42,7 @@ import {
   TR,
   buttonClass,
   type StatusTone,
-} from "../../../../components/ui/index.ts";
+} from "../../../../components/ui-legacy/index.ts";
 
 type Tab = "calendar" | "records" | "balances";
 

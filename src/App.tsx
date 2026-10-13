@@ -191,7 +191,10 @@ export default function App() {
           <ProtectedRoute>
             <SidebarProvider>
             <div className="flex min-h-screen bg-[#FAF6F3]">
-              <Sidebar />
+              {/* A barra lateral fica como estava (fonte e aspeto anteriores ao Design System). */}
+              <div className="contents font-legacy">
+                <Sidebar />
+              </div>
               <main className="min-w-0 flex-1 overflow-auto pt-12 md:pt-0">
                 <Routes>
                 <Route path="/" element={<HomeRedirect />} />

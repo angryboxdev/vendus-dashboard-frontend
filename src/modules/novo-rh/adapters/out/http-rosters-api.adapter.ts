@@ -1,5 +1,5 @@
 import { apiGet, apiWrite } from "../../../../lib/api.ts";
-import type { Publication, PublishOptions, Roster, RosterShift, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation } from "../../domain/entities/rosters.ts";
+import type { Publication, PublishOptions, Roster, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation } from "../../domain/entities/rosters.ts";
 import type { RostersApiPort } from "../../domain/ports/out/rosters-api.port.ts";
 
 const R = "/api/novo-rh/rosters";
@@ -17,6 +17,9 @@ export class HttpRostersApiAdapter implements RostersApiPort {
   }
   listRosters() {
     return apiGet<Roster[]>(R);
+  }
+  summary(from: string, to: string) {
+    return apiGet<RosterSummary[]>(`${R}/summary?${qs({ from, to })}`);
   }
   async createRoster(input: Pick<Roster, "name" | "targetType" | "targetId">) {
     return (await apiWrite<Roster>(R, { body: input })).data;

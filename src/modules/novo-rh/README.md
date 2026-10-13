@@ -99,6 +99,12 @@ módulo a usar a base de i18n (`src/i18n`).
 - Visível só para Admin enquanto está em desenvolvimento.
 - Textos via `t()` desde o início (pt-PT agora, es-ES depois — ADR-0023 do backend).
 - Modo Demonstração (ADR-0034 do backend): o browser só envia o cabeçalho; o backend decide a organização fictícia (só Admin). O cabeçalho liga-se de forma síncrona no `NovoRhProvider` e, ao trocar, apagam-se as queries `["novo-rh", …]` e os ecrãs voltam a montar — nada de um modo aparece no outro. Acessos, notificações e "O meu ponto" usam sempre a conta real.
+- Fotos: `photoUrl` vem da lista de colaboradores (`settings.listEmployees`, real = `/api/hr/people`, demo = `/api/novo-rh/people`) e da ficha; os ecrãs usam `useEmployeePhotos()` e o `Avatar` do kit (iniciais se não houver foto ou o URL expirar). A demonstração usa ilustrações CC0 em `public/demo-avatars/` (ver o LICENSE.md da pasta).
+- Escalas (Design System): vista "Turnos" = uma linha por modelo (barra na cor do tipo, horário, horas do período) com as fotos de quem faz o turno em cada dia; sem escalas, a grelha dá lugar a um estado vazio com "Nova escala".
+- Escalas abrem na visão macro (`RostersOverview`, `GET /rosters/summary`): todas as escalas por local/grupo, com funcionários, estado e última publicação; escolher uma abre a grelha.
+- Escalas — sobreposições: a API recusa (422) turnos que se sobreponham a outro do mesmo colaborador, também em rascunho; a grelha assinala a vermelho os que já existiam (`overlappingIds`).
+- Escalas — edição direta (`use-roster-editing.ts`, regras puras em `roster-edit.service.ts`): arrastar um turno para outro dia mostra "Mover | Copiar" na própria célula; arrastar por vários dias pinta-os (retângulo pessoas × dias) e copia para todos; clicar/arrastar em dias vazios escolhe-os (com um modelo escolhido em "Atribuir turnos", atribui-o logo, em massa); Ctrl+C copia o turno sob o rato (ou o aberto) e Ctrl+V cola nos dias escolhidos. Sem endpoints novos: cada turno é criado com `addShift` (as regras e avisos continuam na API); "mover" = criar no novo dia e depois retirar o original (com motivo se já estava publicado — a API publica logo essa remoção). Funciona igual em dados reais e na demonstração.
+- Modelos de turno: as horas escolhem-se no relógio (`TimePicker` do kit), sem escrever.
 
 ## How to test
 

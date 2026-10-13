@@ -15,7 +15,7 @@ const PERSON: Person = {
   id: "e1", firstName: "Carla", lastName: "Demo", fullName: "Carla Demo", nif: "123456789", email: "carla@demo.invalid", phone: null, personalEmail: null,
   address: null, postalCode: null, city: null, country: null, birthDate: null, gender: null, nationality: null, niss: null, idCardNumber: null, iban: null,
   hireDate: "2026-10-01", primaryLocationId: "loc-1", positionId: null, status: "active", currency: "EUR", payPeriod: "monthly", baseSalary: null, hourlyRate: null,
-  deactivatedAt: null, deactivationReason: null, userId: null, version: 3, hidden: ["iban"], missing: [],
+  deactivatedAt: null, deactivationReason: null, userId: null, photoUrl: null, version: 3, hidden: ["iban"], missing: [],
 };
 
 function renderAt(path: string, ui: ReactNode, mod: NovoRhModule) {

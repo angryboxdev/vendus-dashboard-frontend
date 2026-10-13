@@ -2,12 +2,13 @@ import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
-import { Button, FIELD, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR } from "../../../../../components/ui/index.ts";
+import { Avatar, Button, FIELD, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR } from "../../../../../components/ui/index.ts";
 import type { PersonOverview } from "../../../domain/entities/overview.ts";
 import { dateIn, formatDuration } from "../../../domain/services/attendance.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { STATUS } from "../overview/overview-status.ts";
 import { PersonDayDrawer } from "../overview/PersonDayDrawer.tsx";
+import { useEmployeePhotos } from "../common/use-employee-photos.ts";
 
 /** Minutos desde a meia-noite local do dia (pode passar de 1440 em jornadas noturnas). */
 function minuteOfDay(iso: string, date: string, timeZone: string): number {
@@ -27,6 +28,7 @@ const SEG_COLOR: Record<string, string> = { work: "bg-emerald-500", remote: "bg-
  */
 export function TeamDayPanel() {
   const { t } = useI18n();
+  const photoOf = useEmployeePhotos();
   const { overview } = useNovoRh();
   const [date, setDate] = useState<string | null>(null);
   const [onlyIssues, setOnlyIssues] = useState(false);
@@ -74,10 +76,15 @@ export function TeamDayPanel() {
             {people.map((p) => (
               <tr key={p.employeeId} className={`${TR} hover:bg-[#FDF8F5]`}>
                 <td className={TD}>
-                  <button type="button" className="text-left font-medium text-stone-900 hover:underline" onClick={() => setOpen(p)}>
-                    {p.name}
-                  </button>
-                  <span className="block text-xs text-stone-500">{p.locationName ?? t("ovw.noLocation")}</span>
+                  <div className="flex items-center gap-2.5">
+                    <Avatar name={p.name} photoUrl={photoOf(p.employeeId)} size="sm" />
+                    <div className="min-w-0">
+                      <button type="button" className="text-left font-medium text-stone-900 hover:underline" onClick={() => setOpen(p)}>
+                        {p.name}
+                      </button>
+                      <span className="block text-xs text-stone-500">{p.locationName ?? t("ovw.noLocation")}</span>
+                    </div>
+                  </div>
                 </td>
                 <td className={TD}>
                   <div className="flex flex-wrap gap-1">

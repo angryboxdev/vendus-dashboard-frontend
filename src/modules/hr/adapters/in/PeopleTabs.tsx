@@ -1,4 +1,4 @@
-import { TabNav } from "../../../../components/ui/index.ts";
+import { TabNav } from "../../../../components/ui-legacy/index.ts";
 
 /**
  * Navegação por abas de "Colaboradores" (antes "Pessoas" — renomeada na

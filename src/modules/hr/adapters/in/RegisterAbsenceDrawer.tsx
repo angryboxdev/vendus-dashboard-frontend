@@ -3,7 +3,7 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
 import { ABSENCE_TYPE_LABEL, type AbsenceDuration, type AbsenceType, type RegisterAbsencePayload } from "../../domain/entities/absences.ts";
 import type { EmployeeListRow } from "../../domain/entities/employee.ts";
-import { Button, Drawer, IconAlert, IconCalendar, IconCheck, IconClock, IconUsers, LABEL } from "../../../../components/ui/index.ts";
+import { Button, Drawer, IconAlert, IconCalendar, IconCheck, IconClock, IconUsers, LABEL } from "../../../../components/ui-legacy/index.ts";
 
 const TYPES = Object.keys(ABSENCE_TYPE_LABEL) as AbsenceType[];
 const DURATIONS: Array<{ key: AbsenceDuration; label: string }> = [
