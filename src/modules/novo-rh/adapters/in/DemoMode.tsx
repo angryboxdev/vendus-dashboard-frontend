@@ -25,7 +25,11 @@ export function DataModeSwitch() {
   const refresh = useMutation({
     mutationFn: () => demo.refresh(),
     // Os ecrãs do Novo RH voltam a pedir com as marcações novas.
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["novo-rh"] }),
+    onSuccess: (r) => {
+      void qc.invalidateQueries({ queryKey: ["novo-rh"] });
+      // A correr em segundo plano: volta a pedir os dados daqui a pouco.
+      if (r.running) setTimeout(() => void qc.invalidateQueries({ queryKey: ["novo-rh"] }), 30_000);
+    },
   });
   const exists = status.data?.exists === true;
   const option = (value: DataMode, label: string, enabled: boolean) => {
@@ -72,7 +76,7 @@ export function DataModeSwitch() {
             {refresh.isPending ? t("novoRh.mode.refreshing") : t("novoRh.mode.refresh")}
           </Button>
           <p className="text-xs text-stone-500">
-            {refresh.data ? t("novoRh.mode.refreshed", { count: refresh.data.punches }) : t("novoRh.mode.refreshHint")}
+            {refresh.data ? (refresh.data.running ? t("novoRh.mode.refreshRunning") : t("novoRh.mode.refreshed", { count: refresh.data.punches })) : t("novoRh.mode.refreshHint")}
           </p>
           {refresh.isError && <p className="text-xs text-red-700">{refresh.error.message}</p>}
         </div>
