@@ -2,6 +2,7 @@ import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState, typ
 import type { RosterShift, ShiftInput, Violation } from "../../../domain/entities/rosters.ts";
 import { cellKey, cellRect, copyInputs, paintInputs, parseCellKey, type CellRef } from "../../../domain/services/roster-edit.service.ts";
 import { violationsOf } from "../../../domain/services/rosters.service.ts";
+import { groupByEmployee, type EditOp } from "../../../domain/services/edit-history.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 
 /** Ligações da grelha à edição direta (seleção, arrastar, copiar/colar). */
@@ -25,6 +26,8 @@ export interface BoardEdit {
   onPromptMove: () => void;
   onPromptCopy: () => void;
   onPromptCancel: () => void;
+  /** × num turno pendente (nunca publicado): retira-o sem confirmação (pode desfazer-se). */
+  onRemove: (s: RosterShift) => void;
 }
 
 export interface DropPrompt {
@@ -77,6 +80,11 @@ export function useRosterEditing(o: {
   /** 409 numa remoção: confirmar avisos e repetir. */
   onConfirm: (v: Violation[], retry: () => void) => void;
   refresh: () => Promise<unknown>;
+  /** Período visível (as operações inversas atuam só nele). */
+  from: string;
+  to: string;
+  /** Regista a operação para Desfazer/Refazer. */
+  record: (op: EditOp) => void;
 }) {
   const { rosters } = useNovoRh();
   const [selected, setSelectedState] = useState<Set<string>>(new Set());
@@ -104,6 +112,8 @@ export function useRosterEditing(o: {
   const selecting = useRef(false);
   const hover = useRef<RosterShift | null>(null);
   const latest = useRef(o);
+  // Turnos a ser retirados (um clique repetido no mesmo × não faz nada).
+  const removing = useRef(new Set<string>());
   // Ações da escolha "Mover / Copiar" (definidas mais abaixo; lidas só em eventos).
   const actions = useRef({ move: () => {}, copy: () => {} });
   // Opções mais recentes para os handlers (atualizadas depois de cada render).
@@ -113,26 +123,26 @@ export function useRosterEditing(o: {
 
   /** Cria os turnos um a um (cada um com as regras da API); junta avisos e recusas. */
   const createAll = useCallback(
-    async (all: ShiftInput[], verb: string, skipOccupied = true) => {
+    async (all: ShiftInput[], verb: string, skipOccupied = true): Promise<RosterShift[]> => {
       const { rosterId, occupied } = latest.current;
-      if (!rosterId || all.length === 0 || running.current) return 0;
+      if (!rosterId || all.length === 0 || running.current) return [];
       const inputs = skipOccupied ? all.filter((i) => !occupied.has(cellKey(i))) : all;
       const skipped = all.length - inputs.length;
       if (inputs.length === 0) {
         setNotice(`Os dias escolhidos já têm turno (${skipped} ignorado${skipped === 1 ? "" : "s"}).`);
-        return 0;
+        return [];
       }
       running.current = true;
       setBusy(true);
       setFailures([]);
       const warnings: Violation[] = [];
       const failed: EditFailure[] = [];
-      let created = 0;
+      const made: RosterShift[] = [];
       for (const input of inputs) {
         try {
           const r = await rosters.addShift(rosterId, input);
           warnings.push(...r.warnings);
-          created++;
+          made.push(r.shift);
         } catch (e) {
           failed.push({ cell: { employeeId: input.employeeId, workDate: input.workDate }, message: errorText(e) });
         }
@@ -141,10 +151,16 @@ export function useRosterEditing(o: {
       running.current = false;
       setBusy(false);
       setFailures(failed);
+      const created = made.length;
+      // Mover regista a sua própria operação (criar + retirar a origem).
+      if (created && verb !== "movidos") {
+        const { from, to } = latest.current;
+        latest.current.record({ type: "ASSIGN_SHIFT", affectedIds: made.map((m) => m.id), inversePayload: { byEmployee: groupByEmployee(made), from, to } });
+      }
       const ignored = skipped ? ` ${skipped} dia${skipped === 1 ? "" : "s"} com turno ignorado${skipped === 1 ? "" : "s"}.` : "";
       setNotice(created ? `${created} ${created === 1 ? "turno" : "turnos"} ${verb} (por publicar).${ignored}` : ignored.trim() || null);
       if (warnings.length) latest.current.onWarnings(warnings);
-      return created;
+      return made;
     },
     [rosters],
   );
@@ -288,6 +304,22 @@ export function useRosterEditing(o: {
       prompt: prompt ? { dropKey: cellKey(prompt.drop), count: prompt.targets.length, canMove: prompt.targets.length === 1 } : null,
       onPromptMove: () => actions.current.move(),
       onPromptCopy: () => actions.current.copy(),
+      onRemove: (s) => {
+        if (s.published !== null || removing.current.has(s.id)) return;
+        removing.current.add(s.id);
+        void (async () => {
+          try {
+            await rosters.deleteShift(s.id, { reason: null, confirm: false });
+            const { from, to } = latest.current;
+            latest.current.record({ type: "REMOVE_SHIFT", affectedIds: [s.id], inversePayload: { byEmployee: { [s.employeeId]: [s.id] }, from, to } });
+          } catch (e) {
+            setFailures([{ cell: s, message: errorText(e) }]);
+          } finally {
+            removing.current.delete(s.id);
+            await latest.current.refresh();
+          }
+        })();
+      },
       onPromptCancel: () => {
         setPrompt(null);
         setAskReason(false);
@@ -300,7 +332,7 @@ export function useRosterEditing(o: {
         if (keys.length) setPrompt({ source: drag.source, targets: keys.map(parseCellKey), drop: c });
       },
     }),
-    [selected, drag, clipboard, prompt, clearSelection, paintSelection, setSelected],
+    [selected, drag, clipboard, prompt, clearSelection, paintSelection, setSelected, rosters],
   );
 
   const copyPrompt = async () => {
@@ -318,12 +350,17 @@ export function useRosterEditing(o: {
     const { source, targets } = prompt;
     setPrompt(null);
     setAskReason(false);
-    const created = await createAll(copyInputs(source, targets), "movidos", false);
-    if (!created) return;
+    const made = await createAll(copyInputs(source, targets), "movidos", false);
+    if (!made.length) return;
     const remove = async (confirm: boolean): Promise<void> => {
       try {
         await rosters.deleteShift(source.id, { reason, confirm });
         await latest.current.refresh();
+        // Só um turno pendente se pode desfazer (retirar um publicado publica logo).
+        if (source.published === null) {
+          const { from, to } = latest.current;
+          latest.current.record({ type: "MOVE_SHIFT", affectedIds: made.map((m) => m.id), inversePayload: { removed: { [source.employeeId]: [source.id] }, byEmployee: groupByEmployee(made), from, to } });
+        }
       } catch (e) {
         const v = violationsOf(e);
         if (v?.kind === "confirm") latest.current.onConfirm(v.violations, () => void remove(true));

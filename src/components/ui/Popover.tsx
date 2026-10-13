@@ -12,12 +12,15 @@ export function Popover({
   align = "left",
   width = "w-64",
   label,
+  className = "relative",
 }: {
   trigger: (props: { open: boolean; toggle: () => void; id: string }) => ReactNode;
   children: (close: () => void) => ReactNode;
   align?: "left" | "right";
   width?: string;
   label?: string;
+  /** Contentor do gatilho (por omissão `relative`; ex.: `absolute inset-0` para ocupar uma célula). */
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -34,10 +37,10 @@ export function Popover({
     };
   }, [open]);
   return (
-    <div ref={ref} className="relative">
+    <div ref={ref} className={className}>
       {trigger({ open, toggle: () => setOpen((o) => !o), id })}
       {open && (
-        <div id={id} role="dialog" aria-label={label} className={`absolute z-40 mt-2 ${width} ${align === "right" ? "right-0" : "left-0"} ${POPOVER} motion-safe:animate-motion-pop-in`}>
+        <div id={id} role="dialog" aria-label={label} className={`absolute top-full z-40 mt-2 ${width} ${align === "right" ? "right-0" : "left-0"} ${POPOVER} motion-safe:animate-motion-pop-in`}>
           {children(() => setOpen(false))}
         </div>
       )}
@@ -55,9 +58,21 @@ export interface MenuEntry {
 }
 
 /** Menu de ações (ex.: "Adicionar ▾"). Itens desativados mostram o motivo em `hint`. */
-export function DropdownMenu({ label, items, trigger, align = "right" }: { label: string; items: (MenuEntry | "separator")[]; trigger: (props: { open: boolean; toggle: () => void }) => ReactNode; align?: "left" | "right" }) {
+export function DropdownMenu({
+  label,
+  items,
+  trigger,
+  align = "right",
+  className,
+}: {
+  label: string;
+  items: (MenuEntry | "separator")[];
+  trigger: (props: { open: boolean; toggle: () => void }) => ReactNode;
+  align?: "left" | "right";
+  className?: string;
+}) {
   return (
-    <Popover label={label} align={align} width="w-64" trigger={({ open, toggle }) => trigger({ open, toggle })}>
+    <Popover label={label} align={align} width="w-64" className={className} trigger={({ open, toggle }) => trigger({ open, toggle })}>
       {(close) => (
         <div role="menu" aria-label={label}>
           {items.map((i, n) =>

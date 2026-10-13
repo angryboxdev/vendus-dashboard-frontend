@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../../../../lib/api.ts";
 import type { RosterShift } from "../../../domain/entities/rosters.ts";
@@ -8,6 +9,7 @@ import { weekOf } from "../../../domain/services/attendance.service.ts";
 import { chipLabel, hoursLabel, hoursLong, overlappingIds, rosterRows, segmentsTone, shiftRows, templateTone } from "../../../domain/services/roster-board.service.ts";
 import { cellLabel, daysFrom, parseSegments, violationsOf } from "../../../domain/services/rosters.service.ts";
 import { cellRect, copyInputs, paintInputs } from "../../../domain/services/roster-edit.service.ts";
+import { afterRedo, afterUndo, emptyHistory, HISTORY_LIMIT, recordOp, type EditOp } from "../../../domain/services/edit-history.service.ts";
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
 import { fakeNovoRhModule } from "../../../fake-module.test-utils.ts";
 import { NovoRhProvider, type NovoRhModule } from "../../../novo-rh.module.tsx";
@@ -22,7 +24,9 @@ function renderWith(m: NovoRhModule) {
   render(
     <QueryClientProvider client={qc}>
       <NovoRhProvider module={m}>
-        <RostersView />
+        <MemoryRouter>
+          <RostersView />
+        </MemoryRouter>
       </NovoRhProvider>
     </QueryClientProvider>,
   );
@@ -339,6 +343,96 @@ describe("Escalas — ecrãs", () => {
     await openRoster();
     expect(within(grid()).getAllByText("Sobreposto a outro turno")).toHaveLength(2);
     expect(overlappingIds([PUBLISHED, { ...PUBLISHED, id: "x", segments: [{ start: "22:00", end: "23:00" }], templateId: null }], [TPL]).size).toBe(0);
+  });
+
+  it("histórico: deltas mínimos, máx. 30, nova ação limpa o refazer", () => {
+    const op = (id: string): EditOp => ({ type: "REMOVE_SHIFT", affectedIds: [id], inversePayload: { byEmployee: { e1: [id] }, from: MON, to: TUE } });
+    let h = emptyHistory();
+    for (let i = 0; i < HISTORY_LIMIT + 5; i++) h = recordOp(h, op(`s${i}`));
+    expect(h.undo).toHaveLength(HISTORY_LIMIT);
+    h = afterUndo(h);
+    expect(h.redo).toHaveLength(1);
+    h = afterRedo(h);
+    expect(h.redo).toHaveLength(0);
+    h = afterUndo(h);
+    expect(recordOp(h, op("novo")).redo).toEqual([]);
+  });
+
+  it("atribuir com o modelo escolhido: pré-visualização junto ao cursor, Desfazer retira e Refazer repõe; Esc cancela", async () => {
+    const m = mod();
+    const created = { ...PUBLISHED, id: "n1", workDate: daysFrom(MON, 3)[2]!, published: null, publishedVersion: null, dirty: true };
+    m.rosters.addShift = vi.fn(async () => ({ shift: created, warnings: [] }));
+    m.rosters.clearPending = vi.fn(async () => ({ removed: [created] }));
+    m.rosters.restoreShifts = vi.fn(async () => ({ restored: [created], warnings: [] }));
+    renderWith(m);
+    const user = await openRoster();
+    const third = daysFrom(MON, 3)[2]!;
+    const undo = screen.getByRole("button", { name: "Desfazer" });
+    const redo = screen.getByRole("button", { name: "Refazer" });
+    expect(undo).toBeDisabled();
+    await user.click(within(panel()).getByRole("button", { name: /Tarde/ }));
+    expect(document.querySelector('[data-testid="placement-preview"]')).not.toBeNull();
+    await user.click(within(grid()).getByRole("button", { name: `Ana Teste ${third}` }));
+    await vi.waitFor(() => expect(undo).toBeEnabled());
+    expect(m.rosters.addShift).toHaveBeenCalledTimes(1);
+    await user.click(undo);
+    await vi.waitFor(() => expect(m.rosters.clearPending).toHaveBeenCalledWith("r1", expect.objectContaining({ employeeId: "e1", shiftIds: ["n1"] })));
+    await vi.waitFor(() => expect(redo).toBeEnabled());
+    await user.click(redo);
+    await vi.waitFor(() => expect(m.rosters.restoreShifts).toHaveBeenCalledWith("r1", ["n1"]));
+    await user.keyboard("{Escape}");
+    expect(document.querySelector('[data-testid="placement-preview"]')).toBeNull();
+  });
+
+  it("× só nos turnos pendentes; remove sem confirmação e pode desfazer-se", async () => {
+    const m = mod();
+    m.rosters.deleteShift = vi.fn(async () => ({ publication: null }));
+    m.rosters.restoreShifts = vi.fn(async () => ({ restored: [], warnings: [] }));
+    renderWith(m);
+    const user = await openRoster();
+    const published = within(grid()).getByRole("button", { name: `Ana Teste ${MON}` }).parentElement!;
+    const draft = within(grid()).getByRole("button", { name: `Ana Teste ${TUE}` }).parentElement!;
+    expect(within(published).queryByRole("button", { name: "Remover turno" })).toBeNull();
+    await user.click(within(draft).getByRole("button", { name: "Remover turno" }));
+    await vi.waitFor(() => expect(m.rosters.deleteShift).toHaveBeenCalledWith("s2", { reason: null, confirm: false }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    const undo = screen.getByRole("button", { name: "Desfazer" });
+    await vi.waitFor(() => expect(undo).toBeEnabled());
+    await user.click(undo);
+    await vi.waitFor(() => expect(m.rosters.restoreShifts).toHaveBeenCalledWith("r1", ["s2"]));
+  });
+
+  it("linha da pessoa: nome é link para a ficha; menu (célula ou ⋯) limpa os pendentes da semana numa só chamada", async () => {
+    const m = mod();
+    m.rosters.clearPending = vi.fn(async () => ({ removed: [{ ...PUBLISHED, id: "s2" }] }));
+    m.rosters.restoreShifts = vi.fn(async () => ({ restored: [], warnings: [] }));
+    renderWith(m);
+    const user = await openRoster();
+    expect(within(grid()).getByRole("link", { name: "Ana Teste" })).toHaveAttribute("href", "/hr/novo/pessoas/e1");
+    await user.click(within(grid()).getByRole("button", { name: "Opções de Ana Teste" }));
+    await user.click(screen.getByRole("menuitem", { name: "Limpar turnos pendentes da semana" }));
+    const box = screen.getByRole("dialog", { name: "Limpar turnos pendentes da semana?" });
+    expect(box).toHaveTextContent("Serão removidos 1 turno(s) ainda não publicados de Ana Teste");
+    await user.click(within(box).getByRole("button", { name: "Limpar turnos" }));
+    const sun = daysFrom(MON, 7)[6]!;
+    await vi.waitFor(() => expect(m.rosters.clearPending).toHaveBeenCalledTimes(1));
+    expect(m.rosters.clearPending).toHaveBeenCalledWith("r1", { employeeId: "e1", from: MON, to: sun });
+    await user.click(screen.getByRole("button", { name: "Desfazer" }));
+    await vi.waitFor(() => expect(m.rosters.restoreShifts).toHaveBeenCalledWith("r1", ["s2"]));
+  });
+
+  it("publicar com sucesso limpa o histórico de edição", async () => {
+    const m = mod();
+    m.rosters.deleteShift = vi.fn(async () => ({ publication: null }));
+    m.rosters.publish = vi.fn(async () => ({ id: "p", version: 2, reason: null, confirmedWarnings: [], changes: [], publishedBy: "x", createdAt: "2026-10-13T10:00:00Z" }));
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(within(within(grid()).getByRole("button", { name: `Ana Teste ${TUE}` }).parentElement!).getByRole("button", { name: "Remover turno" }));
+    const undo = screen.getByRole("button", { name: "Desfazer" });
+    await vi.waitFor(() => expect(undo).toBeEnabled());
+    await user.click(screen.getByRole("button", { name: "Publicar escala" }));
+    await user.click(await screen.findByRole("button", { name: "Publicar agora" }));
+    await vi.waitFor(() => expect(undo).toBeDisabled());
   });
 
   it("regras da edição direta: retângulo de células, cópia sem a própria célula, pintura", () => {

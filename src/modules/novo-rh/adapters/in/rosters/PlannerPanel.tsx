@@ -1,4 +1,5 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
@@ -56,6 +57,8 @@ import { downloadBlob } from "../download.ts";
 import { AssignPanel } from "./AssignPanel.tsx";
 import { RosterBoard, type BoardMode } from "./RosterBoard.tsx";
 import { useRosterEditing } from "./use-roster-editing.ts";
+import { useEditHistory } from "./use-edit-history.ts";
+import { PlacementPreview } from "./PlacementPreview.tsx";
 import { cellKey } from "../../../domain/services/roster-edit.service.ts";
 
 const KEY = ["novo-rh", "rosters"];
@@ -135,8 +138,14 @@ export function PlannerPanel({
   const { rosters, settings, structure, people } = useNovoRh();
   const qc = useQueryClient();
   const today = todayIn();
-  const [chosen, setChosen] = useState(() => load(ROSTER_KEY));
-  const [from, setFrom] = useState(() => weekOf(today).from);
+  // Escala e semana também na URL (?escala=&semana=): ao voltar da ficha de
+  // um colaborador, o browser repõe o mesmo local e período.
+  const [params, setParams] = useSearchParams();
+  const [chosen, setChosen] = useState(() => params.get("escala") || load(ROSTER_KEY));
+  const [from, setFrom] = useState(() => {
+    const w = params.get("semana");
+    return w && /^d{4}-d{2}-d{2}$/.test(w) ? weekOf(w).from : weekOf(today).from;
+  });
   const [span, setSpan] = useState<7 | 14>(7);
   const to = plus(from, span - 1);
   const days = daysFrom(from, span);
@@ -263,8 +272,12 @@ export function PlannerPanel({
       ),
     [shifts.data],
   );
+  const edits = useEditHistory({ rosterId, refresh });
   const editing = useRosterEditing({
     rosterId,
+    from,
+    to,
+    record: edits.record,
     enabled: !!rosterId && mode !== "shifts",
     people: order,
     days,
@@ -279,6 +292,51 @@ export function PlannerPanel({
     refresh,
   });
   const [moveReason, setMoveReason] = useState("");
+  const [clearFor, setClearFor] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
+  /** Turnos pendentes (nunca publicados) de cada pessoa no período visível. */
+  const pendingOf = (employeeId: string) =>
+    (shifts.data?.shifts ?? []).filter(
+      (s) => s.employeeId === employeeId && !s.deleted && s.published === null && s.workDate >= from && s.workDate <= to,
+    );
+  const clearWeek = async () => {
+    if (!clearFor || clearing) return;
+    setClearing(true);
+    try {
+      const { removed } = await rosters.clearPending(rosterId, { employeeId: clearFor, from, to });
+      edits.record({ type: "CLEAR_EMPLOYEE_WEEK", affectedIds: removed.map((r) => r.id), inversePayload: { employeeId: clearFor, from, to } });
+    } finally {
+      setClearing(false);
+      setClearFor(null);
+      await refresh();
+    }
+  };
+
+  // Mudar de escala ou de período: nova sessão de edição (sem histórico nem modelo escolhido).
+  useEffect(() => {
+    edits.reset();
+    setPaint("");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rosterId, from, span]);
+  useEffect(() => {
+    if (!rosterId) return;
+    setParams(
+      (p) => {
+        const next = new URLSearchParams(p);
+        next.set("escala", rosterId);
+        next.set("semana", from);
+        return next;
+      },
+      { replace: true },
+    );
+  }, [rosterId, from, setParams]);
+  // Esc cancela o modo de atribuição.
+  useEffect(() => {
+    if (!paint) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setPaint("");
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [paint]);
 
   /** Corre uma ação que pode devolver avisos (409) ou bloqueios (422); "Publicar mesmo assim" repete com confirmação. */
   const guarded = async (
@@ -345,7 +403,8 @@ export function PlannerPanel({
   });
   const publish = useMutation({
     mutationFn: () =>
-      guarded((o) => rosters.publish(rosterId, o), {
+      // Publicação concluída = novo ponto de partida: o histórico de edição limpa-se.
+      guarded((o) => rosters.publish(rosterId, o).then((r) => (edits.reset(), r)), {
         reason: publishNote.trim() || null,
         confirm: false,
       }),
@@ -536,10 +595,10 @@ export function PlannerPanel({
 
         <div className="hidden items-center gap-0.5 lg:flex">
           <ToolbarDivider />
-          <IconButton label={t("ros.board.undo")} className={iconBtn} disabled>
+          <IconButton label={t("ros.board.undo")} className={iconBtn} disabled={!edits.canUndo} onClick={edits.undo}>
             <IconUndo size={18} />
           </IconButton>
-          <IconButton label={t("ros.board.redo")} className={iconBtn} disabled>
+          <IconButton label={t("ros.board.redo")} className={iconBtn} disabled={!edits.canRedo} onClick={edits.redo}>
             <IconRedo size={18} />
           </IconButton>
           <ToolbarDivider />
@@ -796,6 +855,17 @@ export function PlannerPanel({
           title={message(add.error, t("common.error"))}
         />
       )}
+      {edits.message && (
+        <AlertBanner
+          tone="warning"
+          title={edits.message}
+          action={
+            <Button size="sm" variant="tertiary" onClick={edits.dismiss}>
+              {t("ros.edit.ok")}
+            </Button>
+          }
+        />
+      )}
       {editing.failures.length > 0 && (
         <AlertBanner tone="danger" title={t("ros.edit.failed", { count: editing.failures.length })}>
           <ul className="mt-1 list-disc pl-5 text-sm">
@@ -878,6 +948,11 @@ export function PlannerPanel({
               }
               summary={summary}
               edit={mode !== "shifts" ? editing.edit : undefined}
+              rowActions={{
+                pending: (id) => pendingOf(id).length,
+                onClearWeek: setClearFor,
+                period: span === 7 ? "week" : "period",
+              }}
             />
           ) : list.isLoading ? (
             <div className="h-96 animate-pulse rounded-2.5xl bg-surface-card motion-reduce:animate-none" />
@@ -924,10 +999,46 @@ export function PlannerPanel({
             onChange={setPaint}
             onCreate={onOpenTemplates}
             onSettings={onOpenTemplates}
-            onClose={() => setAssignOpen(false)}
+            onClose={() => {
+              setAssignOpen(false);
+              setPaint("");
+            }}
           />
         )}
       </div>
+
+      {/* Limpar os turnos pendentes da semana de uma pessoa (uma só operação; pode desfazer-se). */}
+      <Dialog
+        open={!!clearFor}
+        title={span === 7 ? t("ros.clear.titleWeek") : t("ros.clear.titlePeriod")}
+        description={
+          clearFor &&
+          t("ros.clear.body", {
+            count: pendingOf(clearFor).length,
+            name: name(clearFor),
+            from: `${from.slice(8, 10)}/${from.slice(5, 7)}`,
+            to: `${to.slice(8, 10)}/${to.slice(5, 7)}`,
+          })
+        }
+        onClose={() => setClearFor(null)}
+        actions={
+          <>
+            <Button variant="tertiary" onClick={() => setClearFor(null)}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="danger" loading={clearing} disabled={clearing} onClick={() => void clearWeek()}>
+              {t("ros.clear.confirm")}
+            </Button>
+          </>
+        }
+      />
+
+      {paint && assignOpen && (
+        <PlacementPreview
+          tone={paint === "day_off" ? null : (tpls.find((x) => x.id === paint) ?? null)}
+          label={paintName ?? ""}
+        />
+      )}
 
       {/* Mover um turno já publicado: o motivo é obrigatório (a escolha Mover/Copiar aparece na própria grelha). */}
       <Dialog
