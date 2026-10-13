@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
-import { AlertBanner, Button, Drawer, FIELD, IconChevronLeft, IconChevronRight, IconPlus, LABEL, SURFACE } from "../../../../../components/ui/index.ts";
+import { AlertBanner, Avatar, Button, Drawer, FIELD, IconChevronLeft, IconChevronRight, IconPlus, LABEL, SURFACE } from "../../../../../components/ui/index.ts";
 import type { AbsenceRequest } from "../../../domain/entities/absences.ts";
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
@@ -89,7 +89,12 @@ export function CalendarPanel() {
               const reqs = byPerson.get(e.id) ?? [];
               return (
                 <tr key={e.id} className="border-t border-stone-100">
-                  <td className="sticky left-0 z-10 whitespace-nowrap bg-white px-2 py-1 text-stone-900">{e.label}</td>
+                  <td className="sticky left-0 z-10 whitespace-nowrap bg-white px-2 py-1 text-stone-900">
+                    <span className="flex items-center gap-2">
+                      <Avatar name={e.label} photoUrl={e.photoUrl} size="xs" />
+                      {e.label}
+                    </span>
+                  </td>
                   {days.map((d) => {
                     const r = reqs.find((x) => x.startDate <= d && x.endDate >= d);
                     const color = r?.typeColor ?? "#ED5C32";

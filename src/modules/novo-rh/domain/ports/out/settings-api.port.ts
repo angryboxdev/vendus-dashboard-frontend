@@ -16,6 +16,8 @@ import type {
 export interface Option {
   id: string;
   label: string;
+  /** Colaboradores: foto (URL assinado de curta duração), quando existe. */
+  photoUrl?: string | null;
 }
 
 /** Motor de configurações do Novo RH (+ listas de apoio para escolher alvos). */

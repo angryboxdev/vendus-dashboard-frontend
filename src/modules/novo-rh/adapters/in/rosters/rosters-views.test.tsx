@@ -5,7 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../../../../lib/api.ts";
 import type { RosterShift } from "../../../domain/entities/rosters.ts";
 import { weekOf } from "../../../domain/services/attendance.service.ts";
-import { chipLabel, hoursLabel, rosterRows, segmentsTone, templateTone } from "../../../domain/services/roster-board.service.ts";
+import { chipLabel, hoursLabel, hoursLong, rosterRows, segmentsTone, shiftRows, templateTone } from "../../../domain/services/roster-board.service.ts";
 import { cellLabel, daysFrom, parseSegments, violationsOf } from "../../../domain/services/rosters.service.ts";
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
 import { fakeNovoRhModule } from "../../../fake-module.test-utils.ts";
@@ -34,7 +34,7 @@ const PUBLISHED: RosterShift = { ...state, id: "s1", rosterId: "r1", deleted: fa
 
 const mod = () => {
   const m = fakeNovoRhModule({
-    settings: { listEmployees: vi.fn(async () => [{ id: "e1", label: "Ana Teste" }, { id: "e2", label: "Bruno Teste" }]), listLocations: vi.fn(async () => [{ id: "l1", label: "Porto" }]) } as unknown as NovoRhModule["settings"],
+    settings: { listEmployees: vi.fn(async () => [{ id: "e1", label: "Ana Teste", photoUrl: "https://foto/ana.jpg" }, { id: "e2", label: "Bruno Teste" }]), listLocations: vi.fn(async () => [{ id: "l1", label: "Porto" }]) } as unknown as NovoRhModule["settings"],
   });
   m.rosters.listRosters = vi.fn(async () => [ROSTER]);
   m.rosters.listTemplates = vi.fn(async () => [TPL]);
@@ -75,6 +75,10 @@ describe("Escalas — regras do ecrã", () => {
     const rows = rosterRows([PUBLISHED], ["e2"], [{ id: "e1", label: "Ana Teste" }, { id: "e2", label: "Bruno Teste" }], [TPL], { search: "", sort: "asc" });
     expect(rows.map((r) => [r.name, r.minutes])).toEqual([["Ana Teste", 360], ["Bruno Teste", 0]]);
     expect(rosterRows([PUBLISHED], [], [{ id: "e1", label: "Ána Teste" }], [TPL], { search: "ana", sort: "asc" })).toHaveLength(1);
+    expect(hoursLong(3600)).toBe("60h 00min");
+    const off = { ...PUBLISHED, id: "s3", kind: "day_off" as const, templateId: null, segments: [] };
+    const byShift = shiftRows([PUBLISHED, { ...PUBLISHED, id: "s2", employeeId: "e2" }, off], [TPL]);
+    expect(byShift.map((r) => [r.key, r.label, r.minutes, r.byDate.get(MON)?.length])).toEqual([["t1", "Tarde", 720, 2], ["day_off", "Folga", 0, 1]]);
   });
 });
 
@@ -89,6 +93,29 @@ describe("Escalas — ecrãs", () => {
     expect(screen.getAllByRole("button", { name: `Ana Teste ${TUE}` })[0]).toHaveTextContent("(rascunho)");
     expect(screen.getByText("1 por publicar")).toBeInTheDocument();
     expect(within(panel()).getByText("T")).toBeInTheDocument();
+  });
+
+  it("foto redonda ao lado do nome; vista por turnos com as fotos de quem faz o turno", async () => {
+    renderWith(mod());
+    await openRoster();
+    const row = screen.getAllByRole("row").find((r) => within(r).queryByText("Ana Teste"))!;
+    expect(row.querySelector('img[src="https://foto/ana.jpg"]')).not.toBeNull();
+    expect(screen.getAllByText("1 pessoa atribuída • 0 ocultos").length).toBeGreaterThan(0);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("radio", { name: "Turnos" }));
+    expect(await screen.findByText("Turnos da escala")).toBeInTheDocument();
+    expect(screen.getByText("1 turnos atribuídos")).toBeInTheDocument();
+    expect(screen.getByText("12h 00min")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: `Ana Teste ${MON}` })[0]!.querySelector("img")).not.toBeNull();
+  });
+
+  it("sem escalas: estado vazio com 'Nova escala'", async () => {
+    const m = mod();
+    m.rosters.listRosters = vi.fn(async () => []);
+    renderWith(m);
+    expect(await screen.findByText("Ainda não há escalas nesta organização")).toBeInTheDocument();
+    await userEvent.setup().click(screen.getAllByRole("button", { name: "Nova escala" })[0]!);
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
   });
 
   it("RE_15_modelo_sem_nome_nao_se_cria_e_faixas_invalidas_avisam", async () => {

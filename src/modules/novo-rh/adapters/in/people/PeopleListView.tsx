@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
-import { Button, FIELD, IconDownload, IconPlus, IconSearch, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR, Tabs } from "../../../../../components/ui/index.ts";
+import { Avatar, Button, FIELD, IconDownload, IconPlus, IconSearch, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR, Tabs } from "../../../../../components/ui/index.ts";
 import type { Person } from "../../../domain/entities/people.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { downloadBlob } from "../download.ts";
@@ -203,7 +203,8 @@ export function PeopleListView() {
               {rows.map((p) => (
                 <tr key={p.id} className={TR}>
                   <td className={TD}>
-                    <Link to={`/hr/novo/pessoas/${p.id}`} className="font-medium text-stone-900 hover:underline">
+                    <Link to={`/hr/novo/pessoas/${p.id}`} className="inline-flex items-center gap-2.5 font-medium text-stone-900 hover:underline">
+                      <Avatar name={p.fullName} photoUrl={p.photoUrl} size="sm" />
                       {p.fullName}
                     </Link>
                   </td>

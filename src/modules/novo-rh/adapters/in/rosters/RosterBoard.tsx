@@ -1,5 +1,6 @@
 import { Fragment, useState, type ReactNode } from "react";
 import {
+  AvatarStack,
   EmployeeCell,
   IconButton,
   IconCalendar,
@@ -8,7 +9,8 @@ import {
   IconUser,
   IconUsers,
   ShiftCard,
-  ShiftTypeChip,
+  ShiftGroup,
+  ShiftToneBar,
   Skeleton,
 } from "../../../../../components/ui/index.ts";
 import {
@@ -20,15 +22,15 @@ import type {
   ShiftTemplate,
 } from "../../../domain/entities/rosters.ts";
 import {
-  chipLabel,
   dayCounts,
   dayHeader,
   hoursLabel,
+  hoursLong,
   segmentLabel,
   segmentsMinutes,
   shiftDisplay,
+  shiftRows,
   shiftSegments,
-  templateTone,
   type RosterRow,
 } from "../../../domain/services/roster-board.service.ts";
 
@@ -47,6 +49,10 @@ export interface RosterBoardProps {
   sort: "asc" | "desc";
   onToggleSort: () => void;
   positionName: (id: string | null) => string | null;
+  /** Nome e foto de qualquer colaborador (vista por turnos). */
+  person: (id: string) => { name: string; photoUrl: string | null };
+  /** Pessoas da escala escondidas pela pesquisa. */
+  hidden: number;
   /** Há um modelo escolhido em "Atribuir turnos" (clicar num dia vazio atribui-o). */
   painting: boolean;
   onOpen: (s: RosterShift) => void;
@@ -113,19 +119,27 @@ export function RosterBoard(p: RosterBoardProps) {
     gridTemplateColumns: `222px repeat(${p.days.length}, minmax(96px, 1fr))`,
   };
   const firstBatch = useFirstBatch(p.rows.map((r) => r.employeeId));
+  const byShift = p.mode === "shifts" ? shiftRows(p.shifts, p.templates) : [];
 
   const header = (
     <div role="row" className="grid border-b border-line-subtle" style={grid}>
       <div
         role="columnheader"
-        className={`${FIRST_COL} flex items-center justify-between border-r border-line-subtle px-4 py-4`}
+        className={`${FIRST_COL} flex items-center justify-between gap-1 border-r border-line-subtle py-4 pl-4 pr-2`}
       >
-        <span className="text-base font-semibold text-navy-900">
-          {p.mode === "shifts"
-            ? "Turnos"
-            : p.mode === "positions"
-              ? "Cargos"
-              : "Funcionários"}
+        <span className="min-w-0">
+          <span className="block text-base font-semibold text-navy-900">
+            {p.mode === "shifts"
+              ? "Turnos da escala"
+              : p.mode === "positions"
+                ? "Cargos"
+                : "Funcionários"}
+          </span>
+          <span className="block whitespace-nowrap text-[11px] text-ink-secondary">
+            {p.mode === "shifts"
+              ? `${byShift.filter((r) => r.key !== "day_off").length} turnos atribuídos`
+              : `${p.rows.length} ${p.rows.length === 1 ? "pessoa atribuída" : "pessoas atribuídas"} • ${p.hidden} ${p.hidden === 1 ? "oculto" : "ocultos"}`}
+          </span>
         </span>
         <IconButton
           label={p.sort === "asc" ? "Ordenar de Z a A" : "Ordenar de A a Z"}
@@ -146,7 +160,9 @@ export function RosterBoard(p: RosterBoardProps) {
             aria-current={today ? "date" : undefined}
             className="flex flex-col items-center gap-1.5 border-r border-line-subtle px-2 py-3 last:border-r-0"
           >
-            <span className="whitespace-nowrap text-[12px] text-ink-secondary">{weekday}</span>
+            <span className="whitespace-nowrap text-[12px] text-ink-secondary">
+              {weekday}
+            </span>
             <span
               className={`flex h-7 min-w-7 items-center justify-center rounded-full px-1 text-base font-semibold tabular-nums ${today ? "bg-brand-600 text-white" : "text-navy-900"}`}
             >
@@ -201,6 +217,7 @@ export function RosterBoard(p: RosterBoardProps) {
         >
           <EmployeeCell
             name={r.name}
+            photoUrl={r.photoUrl}
             subtitle={p.positionName(r.positionId) ?? undefined}
             size="list"
             aside={hoursLabel(r.minutes)}
@@ -256,91 +273,78 @@ export function RosterBoard(p: RosterBoardProps) {
       </div>
     ));
   } else if (p.mode === "shifts") {
-    // Uma linha por modelo (e uma para as folgas), com as pessoas de cada dia.
-    const live = p.shifts.filter((s) => !s.deleted);
-    const keys = [
-      ...new Set(
-        live.map((s) =>
-          s.kind === "day_off"
-            ? "day_off"
-            : (s.templateId ?? `custom:${shiftDisplay(s, p.templates).title}`),
-        ),
-      ),
-    ];
-    body = keys.map((key, gi) => {
-      const sample = live.find(
-        (s) =>
-          (s.kind === "day_off"
-            ? "day_off"
-            : (s.templateId ??
-              `custom:${shiftDisplay(s, p.templates).title}`)) === key,
-      )!;
-      const tpl = p.templates.find((t) => t.id === key);
-      const label =
-        key === "day_off" ? "Folga" : shiftDisplay(sample, p.templates).title;
-      return (
+    // Uma linha por modelo (folgas no fim): barra na cor do tipo, horário e
+    // horas do período; em cada dia, as fotos de quem o faz.
+    body = byShift.map((row, gi) => (
+      <div
+        key={row.key}
+        role="row"
+        className="grid border-b border-line-subtle last:border-b-0 motion-safe:animate-motion-fade-up"
+        style={{ ...grid, animationDelay: `${Math.min(gi, 8) * 50}ms` }}
+      >
         <div
-          key={key}
-          role="row"
-          className="grid border-b border-line-subtle last:border-b-0 motion-safe:animate-motion-fade-up"
-          style={{ ...grid, animationDelay: `${Math.min(gi, 8) * 50}ms` }}
+          role="rowheader"
+          className={`${FIRST_COL} flex items-stretch gap-3 border-r border-line-subtle py-3 pl-3.5 pr-3`}
         >
-          <div
-            role="rowheader"
-            className={`${FIRST_COL} flex items-center gap-3 border-r border-line-subtle px-4 py-3`}
-          >
-            {key === "day_off" ? (
-              <span className="inline-flex h-8 min-w-[44px] items-center justify-center rounded-lg bg-surface-soft px-2 text-xs font-medium text-ink-secondary">
-                F
-              </span>
-            ) : (
-              <ShiftTypeChip
-                tone={
-                  tpl
-                    ? templateTone(tpl)
-                    : shiftDisplay(sample, p.templates).tone
-                }
-              >
-                {tpl ? chipLabel(tpl) : label.slice(0, 3)}
-              </ShiftTypeChip>
+          <ShiftToneBar tone={row.tone} />
+          <div className="min-w-0 py-0.5">
+            <p className="text-[13px] font-semibold leading-snug text-navy-900">
+              {row.label}
+            </p>
+            {row.segments.length > 0 && (
+              <p className="text-xs tabular-nums text-ink-secondary">
+                {row.segments.map(segmentLabel).join(" · ")}
+              </p>
             )}
-            <span className="text-sm font-medium text-navy-900">{label}</span>
+            {row.key !== "day_off" && (
+              <p className="mt-0.5 text-xs tabular-nums text-ink-muted">
+                {hoursLong(row.minutes)}
+              </p>
+            )}
           </div>
-          {p.days.map((ymd) => {
-            const day = live.filter(
-              (s) =>
-                s.workDate === ymd &&
-                (s.kind === "day_off"
-                  ? "day_off"
-                  : (s.templateId ??
-                    `custom:${shiftDisplay(s, p.templates).title}`)) === key,
-            );
-            return (
-              <div
-                key={ymd}
-                role="cell"
-                className="flex min-h-[76px] flex-col gap-1.5 border-r border-line-subtle p-1 last:border-r-0"
-              >
-                {day.map((s, i) => {
-                  const r = p.rows.find((x) => x.employeeId === s.employeeId);
-                  const name = r?.name ?? s.employeeId;
-                  return (
-                    <Cell
-                      key={s.id}
-                      s={s}
-                      p={p}
-                      label={`${name} ${ymd}`}
-                      index={i}
-                      subtitle={name.split(" ").slice(0, 2).join(" ")}
-                    />
-                  );
-                })}
-              </div>
-            );
-          })}
         </div>
-      );
-    });
+        {p.days.map((ymd) => {
+          const day = row.byDate.get(ymd) ?? [];
+          return (
+            <div
+              key={ymd}
+              role="cell"
+              className="flex min-h-[76px] flex-col justify-center border-r border-line-subtle p-1 last:border-r-0"
+            >
+              {day.length > 0 && (
+                <ShiftGroup
+                  tone={row.tone}
+                  draft={day.every((s) => s.dirty)}
+                  className="motion-safe:animate-motion-pop-in"
+                >
+                  <AvatarStack
+                    size="sm"
+                    max={4}
+                    items={day.map((s) => {
+                      const who = p.person(s.employeeId);
+                      return {
+                        key: s.id,
+                        name: who.name,
+                        photoUrl: who.photoUrl,
+                        label: `${who.name} ${ymd}`,
+                        onClick: () => p.onOpen(s),
+                      };
+                    })}
+                  />
+                  <span
+                    className="flex items-center gap-1 pr-0.5 text-xs font-medium tabular-nums text-ink-secondary"
+                    title={`${day.length} ${day.length === 1 ? "pessoa" : "pessoas"}`}
+                  >
+                    <IconUser size={13} />
+                    {day.length}
+                  </span>
+                </ShiftGroup>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    ));
   } else if (p.mode === "positions") {
     const groups = new Map<string, RosterRow[]>();
     for (const r of p.rows) {
@@ -367,7 +371,9 @@ export function RosterBoard(p: RosterBoardProps) {
     body = p.rows.map((r, i) => employeeRow(r, i));
   }
 
-  const empty = !p.loading && p.rows.length === 0;
+  const empty =
+    !p.loading &&
+    (p.mode === "shifts" ? byShift.length === 0 : p.rows.length === 0);
   return (
     <section
       aria-label="Escala"
@@ -446,6 +452,7 @@ function RosterAgenda(p: RosterBoardProps) {
             >
               <EmployeeCell
                 name={r.name}
+                photoUrl={r.photoUrl}
                 subtitle={p.positionName(r.positionId) ?? undefined}
                 size="list"
                 aside={hoursLabel(r.minutes)}

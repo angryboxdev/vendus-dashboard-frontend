@@ -7,9 +7,11 @@ import {
   DateNavigator,
   Drawer,
   DropdownMenu,
+  EmptyState,
   FIELD,
   IconAlert,
   IconButton,
+  IconCalendar,
   IconChevronDown,
   IconCopy,
   IconDownload,
@@ -212,6 +214,7 @@ export function PlannerPanel({
       (employees.data ?? []).map((e) => ({
         id: e.id,
         label: e.label,
+        photoUrl: e.photoUrl ?? null,
         positionId:
           persons.data?.find((p) => p.id === e.id)?.positionId ?? null,
       })),
@@ -225,6 +228,20 @@ export function PlannerPanel({
       }),
     [shifts.data, extraRows, peopleIndex, tpls, search, sort],
   );
+  const hidden = useMemo(
+    () =>
+      search.trim()
+        ? rosterRows(shifts.data?.shifts ?? [], extraRows, peopleIndex, tpls, {
+            search: "",
+            sort,
+          }).length - rows.length
+        : 0,
+    [shifts.data, extraRows, peopleIndex, tpls, search, sort, rows.length],
+  );
+  const person = (id: string) => {
+    const e = employees.data?.find((x) => x.id === id);
+    return { name: e?.label ?? id, photoUrl: e?.photoUrl ?? null };
+  };
 
   /** Corre uma ação que pode devolver avisos (409) ou bloqueios (422); "Publicar mesmo assim" repete com confirmação. */
   const guarded = async (
@@ -368,18 +385,6 @@ export function PlannerPanel({
           }}
           triggerClassName="h-12 min-w-[246px]"
         />
-        {list.data && active.length === 0 && (
-          <p className="mt-3 text-sm text-ink-secondary">
-            {t("ros.roster.none")}{" "}
-            <button
-              type="button"
-              className="font-medium text-brand-600 hover:underline"
-              onClick={() => setDrawer("new")}
-            >
-              {t("ros.roster.new")}
-            </button>
-          </p>
-        )}
       </div>
 
       <Toolbar label={t("ros.toolbar")}>
@@ -771,6 +776,8 @@ export function PlannerPanel({
                 setSort((s) => (s === "asc" ? "desc" : "asc"))
               }
               positionName={positionName}
+              person={person}
+              hidden={hidden}
               painting={painting && !add.isPending}
               onOpen={(s) => {
                 setReason("");
@@ -781,10 +788,41 @@ export function PlannerPanel({
               }
               summary={summary}
             />
+          ) : list.isLoading ? (
+            <div className="h-96 animate-pulse rounded-2.5xl bg-surface-card motion-reduce:animate-none" />
           ) : (
-            list.isLoading && (
-              <div className="h-96 animate-pulse rounded-2.5xl bg-surface-card motion-reduce:animate-none" />
-            )
+            <section
+              aria-label="Escala"
+              className="rounded-2.5xl border border-line bg-surface-card shadow-card motion-safe:animate-motion-fade-up"
+            >
+              {list.isError ? (
+                <EmptyState
+                  icon={<IconCalendar size={22} />}
+                  title={t("ros.board.loadError")}
+                  description={message(list.error, t("common.error"))}
+                  action={
+                    <Button onClick={() => void list.refetch()}>
+                      {t("ros.board.retry")}
+                    </Button>
+                  }
+                />
+              ) : (
+                <EmptyState
+                  icon={<IconCalendar size={22} />}
+                  title={t("ros.board.noRostersTitle")}
+                  description={t("ros.board.noRostersText")}
+                  action={
+                    <Button
+                      variant="primary"
+                      icon={<IconPlus size={16} />}
+                      onClick={() => setDrawer("new")}
+                    >
+                      {t("ros.roster.new")}
+                    </Button>
+                  }
+                />
+              )}
+            </section>
           )}
         </div>
         {assignOpen && rosterId && (

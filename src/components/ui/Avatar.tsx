@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
 /** Fundos discretos para as iniciais (escolhidos pelo nome, sempre os mesmos para a mesma pessoa). */
 const SOFT_BG = ["bg-brand-100 text-brand-600", "bg-shift-afternoon-bg text-shift-afternoon-ink", "bg-shift-split-bg text-shift-split-ink", "bg-shift-night-bg text-shift-night-ink", "bg-shift-other-bg text-shift-other-ink"];
@@ -21,11 +21,17 @@ function hash(s: string): number {
   return h;
 }
 
-/** Fotografia real quando existe; senão iniciais sobre um fundo pastel discreto. */
-export function Avatar({ name, photoUrl = null, size = "md" }: { name: string; photoUrl?: string | null; size?: AvatarSize }) {
-  if (photoUrl) return <img src={photoUrl} alt={name} className={`shrink-0 rounded-full bg-surface-soft object-cover ${SIZES[size]}`} />;
+/**
+ * Fotografia redonda quando existe; senão (ou se a imagem falhar, ex.: URL
+ * expirado) iniciais sobre um fundo pastel discreto. Decorativa: o nome está
+ * sempre escrito ao lado ou no rótulo do botão.
+ */
+export function Avatar({ name, photoUrl = null, size = "md", className = "" }: { name: string; photoUrl?: string | null; size?: AvatarSize; className?: string }) {
+  const [failed, setFailed] = useState<string | null>(null);
+  if (photoUrl && failed !== photoUrl)
+    return <img src={photoUrl} alt="" aria-hidden="true" loading="lazy" onError={() => setFailed(photoUrl)} className={`shrink-0 rounded-full bg-surface-soft object-cover ${SIZES[size]} ${className}`.trim()} />;
   return (
-    <span aria-hidden="true" className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold ${SOFT_BG[hash(name) % SOFT_BG.length]} ${SIZES[size]}`}>
+    <span aria-hidden="true" className={`inline-flex shrink-0 items-center justify-center rounded-full font-semibold ${SOFT_BG[hash(name) % SOFT_BG.length]} ${SIZES[size]} ${className}`.trim()}>
       {initials(name) || "?"}
     </span>
   );
@@ -41,6 +47,46 @@ export function EmployeeCell({ name, subtitle, photoUrl = null, size = "md", asi
         {subtitle && <p className="truncate text-xs text-ink-secondary">{subtitle}</p>}
       </div>
       {aside && <div className="shrink-0 text-xs tabular-nums text-ink-secondary">{aside}</div>}
+    </div>
+  );
+}
+
+export interface AvatarStackItem {
+  key: string;
+  name: string;
+  photoUrl?: string | null;
+  /** Com `onClick`, cada foto é um botão (rótulo = `label` ou o nome). */
+  onClick?: () => void;
+  label?: string;
+}
+
+/** Fotos sobrepostas (ex.: quem faz um turno num dia), com "+N" quando passam de `max`. */
+export function AvatarStack({ items, max = 4, size = "sm" }: { items: AvatarStackItem[]; max?: number; size?: AvatarSize }) {
+  const shown = items.length > max ? items.slice(0, max - 1) : items;
+  const rest = items.length - shown.length;
+  return (
+    <div className="flex items-center -space-x-2">
+      {shown.map((i) =>
+        i.onClick ? (
+          <button
+            key={i.key}
+            type="button"
+            aria-label={i.label ?? i.name}
+            title={i.name}
+            onClick={i.onClick}
+            className="rounded-full ring-2 ring-surface-card transition duration-150 hover:z-10 hover:-translate-y-px focus-visible:z-10 focus-visible:outline-none focus-visible:ring-brand-500/60"
+          >
+            <Avatar name={i.name} photoUrl={i.photoUrl} size={size} />
+          </button>
+        ) : (
+          <span key={i.key} title={i.name} className="rounded-full ring-2 ring-surface-card">
+            <Avatar name={i.name} photoUrl={i.photoUrl} size={size} />
+          </span>
+        ),
+      )}
+      {rest > 0 && (
+        <span className={`inline-flex shrink-0 items-center justify-center rounded-full bg-surface-card font-semibold text-ink-secondary ring-2 ring-surface-card ${SIZES[size]}`}>+{rest}</span>
+      )}
     </div>
   );
 }

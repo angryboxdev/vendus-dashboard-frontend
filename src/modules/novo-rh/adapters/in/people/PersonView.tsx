@@ -5,6 +5,7 @@ import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
 import {
   AlertBanner,
+  Avatar,
   Button,
   FIELD,
   IconChevronLeft,
@@ -108,12 +109,16 @@ export function PersonView() {
       </Link>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span
-            aria-hidden="true"
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#ED5C32] to-[#F08A4B] text-base font-semibold text-white"
-          >
-            {initials(p.fullName)}
-          </span>
+          {p.photoUrl ? (
+            <Avatar name={p.fullName} photoUrl={p.photoUrl} size="lg" />
+          ) : (
+            <span
+              aria-hidden="true"
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#ED5C32] to-[#F08A4B] text-base font-semibold text-white"
+            >
+              {initials(p.fullName)}
+            </span>
+          )}
           <div>
             <h2 className="text-lg font-semibold text-stone-900">
               {p.fullName}

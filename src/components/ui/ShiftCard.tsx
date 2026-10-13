@@ -3,13 +3,25 @@ import type { ReactNode } from "react";
 /** Cor operacional do turno (pastéis próprios; não substituem a paleta da marca). */
 export type ShiftTone = "morning" | "afternoon" | "night" | "split" | "other";
 
-const TONE: Record<ShiftTone, { fill: string; soft: string; line: string; ink: string }> = {
-  morning: { fill: "bg-shift-morning-bg", soft: "bg-shift-morning-bg/25", line: "border-shift-morning-line", ink: "text-shift-morning-ink" },
-  afternoon: { fill: "bg-shift-afternoon-bg", soft: "bg-shift-afternoon-bg/25", line: "border-shift-afternoon-line", ink: "text-shift-afternoon-ink" },
-  night: { fill: "bg-shift-night-bg", soft: "bg-shift-night-bg/25", line: "border-shift-night-line", ink: "text-shift-night-ink" },
-  split: { fill: "bg-shift-split-bg", soft: "bg-shift-split-bg/25", line: "border-shift-split-line", ink: "text-shift-split-ink" },
-  other: { fill: "bg-shift-other-bg", soft: "bg-shift-other-bg/25", line: "border-shift-other-line", ink: "text-shift-other-ink" },
+const TONE: Record<ShiftTone, { fill: string; soft: string; line: string; ink: string; bar: string }> = {
+  morning: { fill: "bg-shift-morning-bg", soft: "bg-shift-morning-bg/25", line: "border-shift-morning-line", ink: "text-shift-morning-ink", bar: "bg-shift-morning-line" },
+  afternoon: { fill: "bg-shift-afternoon-bg", soft: "bg-shift-afternoon-bg/25", line: "border-shift-afternoon-line", ink: "text-shift-afternoon-ink", bar: "bg-shift-afternoon-line" },
+  night: { fill: "bg-shift-night-bg", soft: "bg-shift-night-bg/25", line: "border-shift-night-line", ink: "text-shift-night-ink", bar: "bg-shift-night-line" },
+  split: { fill: "bg-shift-split-bg", soft: "bg-shift-split-bg/25", line: "border-shift-split-line", ink: "text-shift-split-ink", bar: "bg-shift-split-line" },
+  other: { fill: "bg-shift-other-bg", soft: "bg-shift-other-bg/25", line: "border-shift-other-line", ink: "text-shift-other-ink", bar: "bg-shift-other-line" },
 };
+
+/** Barra vertical na cor do tipo (linhas da vista por turnos). */
+export function ShiftToneBar({ tone }: { tone: ShiftTone | "neutral" }) {
+  return <span aria-hidden="true" className={`w-1 shrink-0 self-stretch rounded-full ${tone === "neutral" ? "bg-line" : TONE[tone].bar}`} />;
+}
+
+/** Bloco pastel do tipo com conteúdo livre (ex.: fotos de quem faz o turno no dia); rascunho = tracejado. */
+export function ShiftGroup({ tone, draft = false, children, className = "" }: { tone: ShiftTone | "neutral"; draft?: boolean; children: ReactNode; className?: string }) {
+  const t = tone === "neutral" ? null : TONE[tone];
+  const look = draft ? `border border-dashed bg-surface-card ${t ? t.line : "border-line"}` : t ? t.fill : "bg-surface-soft";
+  return <div className={`flex min-h-[52px] items-center justify-between gap-1.5 rounded-lg px-1.5 py-1.5 ${look} ${className}`.trim()}>{children}</div>;
+}
 
 /** Chip do tipo de turno ("Man", "Not"…), com o pastel do tipo. */
 export function ShiftTypeChip({ tone, children }: { tone: ShiftTone; children: ReactNode }) {

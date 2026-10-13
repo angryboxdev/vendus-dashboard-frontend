@@ -65,6 +65,12 @@ export function hoursLabel(minutes: number): string {
   return m ? `${h}h ${String(m).padStart(2, "0")}min` : `${h}h`;
 }
 
+/** Total com minutos sempre: "60h 00min", "8h 30min". */
+export function hoursLong(minutes: number): string {
+  const m = Math.max(0, minutes);
+  return `${Math.floor(m / 60)}h ${String(m % 60).padStart(2, "0")}min`;
+}
+
 /** "09:00 - 15:00". */
 export const segmentLabel = (s: Segment) => `${s.start} - ${s.end}`;
 
@@ -125,6 +131,7 @@ export interface RosterRow {
   employeeId: string;
   name: string;
   positionId: string | null;
+  photoUrl: string | null;
   minutes: number;
   byDate: Map<string, RosterShift[]>;
 }
@@ -136,7 +143,12 @@ export interface RosterRow {
 export function rosterRows(
   shifts: RosterShift[],
   extra: string[],
-  people: { id: string; label: string; positionId?: string | null }[],
+  people: {
+    id: string;
+    label: string;
+    positionId?: string | null;
+    photoUrl?: string | null;
+  }[],
   templates: ShiftTemplate[],
   options: { search: string; sort: "asc" | "desc" },
 ): RosterRow[] {
@@ -165,6 +177,7 @@ export function rosterRows(
         employeeId: id,
         name: person?.label ?? id,
         positionId: person?.positionId ?? null,
+        photoUrl: person?.photoUrl ?? null,
         minutes,
         byDate,
       };
@@ -188,4 +201,68 @@ export function dayCounts(
     people: new Set(day.map((s) => s.employeeId)).size,
     shifts: day.length,
   };
+}
+
+export interface ShiftRow {
+  /** Id do modelo, "day_off" ou "custom:<nome>" (turnos sem modelo). */
+  key: string;
+  label: string;
+  tone: RosterTone | "neutral";
+  chip: string;
+  /** Faixas do modelo (vazio nas folgas). */
+  segments: Segment[];
+  /** Horas de todos os turnos desta linha no período. */
+  minutes: number;
+  byDate: Map<string, RosterShift[]>;
+}
+
+const shiftKey = (s: RosterShift, templates: ShiftTemplate[]) =>
+  s.kind === "day_off"
+    ? "day_off"
+    : (s.templateId ?? `custom:${shiftDisplay(s, templates).title}`);
+
+/**
+ * Vista por turnos: uma linha por modelo usado no período (e uma para as
+ * folgas, no fim), com quem o faz em cada dia e as horas somadas.
+ */
+export function shiftRows(
+  shifts: RosterShift[],
+  templates: ShiftTemplate[],
+): ShiftRow[] {
+  const rows = new Map<string, ShiftRow>();
+  for (const s of shifts.filter((x) => !x.deleted)) {
+    const key = shiftKey(s, templates);
+    let row = rows.get(key);
+    if (!row) {
+      const tpl = templates.find((t) => t.id === key);
+      const shown = shiftDisplay(s, templates);
+      row = {
+        key,
+        label: key === "day_off" ? "Folga" : shown.title,
+        tone: key === "day_off" ? "neutral" : shown.tone,
+        chip:
+          key === "day_off"
+            ? "F"
+            : tpl
+              ? chipLabel(tpl)
+              : shown.title.slice(0, 3),
+        segments: key === "day_off" ? [] : shiftSegments(s, templates),
+        minutes: 0,
+        byDate: new Map(),
+      };
+      rows.set(key, row);
+    }
+    if (s.kind === "shift")
+      row.minutes += segmentsMinutes(shiftSegments(s, templates));
+    row.byDate.set(s.workDate, [...(row.byDate.get(s.workDate) ?? []), s]);
+  }
+  return [...rows.values()].sort((a, b) =>
+    a.key === "day_off"
+      ? 1
+      : b.key === "day_off"
+        ? -1
+        : (a.segments[0]?.start ?? "").localeCompare(
+            b.segments[0]?.start ?? "",
+          ) || a.label.localeCompare(b.label, "pt"),
+  );
 }

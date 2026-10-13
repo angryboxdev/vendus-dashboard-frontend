@@ -3,11 +3,12 @@ import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
-import { Button, FIELD, IconCalendar, IconSearch, SECTION_TITLE, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR } from "../../../../../components/ui/index.ts";
+import { Avatar, Button, FIELD, IconCalendar, IconSearch, SECTION_TITLE, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR } from "../../../../../components/ui/index.ts";
 import type { PersonOverview, PersonStatus } from "../../../domain/entities/overview.ts";
 import { formatDuration, timeIn } from "../../../domain/services/attendance.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { STATUS } from "./overview-status.ts";
+import { useEmployeePhotos } from "../common/use-employee-photos.ts";
 import { PersonDayDrawer } from "./PersonDayDrawer.tsx";
 
 
@@ -30,6 +31,7 @@ const longDate = (date: string) => new Intl.DateTimeFormat("pt-PT", { weekday: "
  */
 export function OverviewDashboard() {
   const { t } = useI18n();
+  const photoOf = useEmployeePhotos();
   const { overview } = useNovoRh();
   const [date, setDate] = useState<string | null>(null);
   const [filter, setFilter] = useState<Filter>("all");
@@ -152,10 +154,15 @@ export function OverviewDashboard() {
                 {people.map((p) => (
                   <tr key={p.employeeId} className={`${TR} cursor-pointer hover:bg-[#FDF8F5]`} onClick={() => setOpen(p)}>
                     <td className={TD}>
-                      <button type="button" className="text-left font-medium text-stone-900 hover:underline" onClick={() => setOpen(p)}>
-                        {p.name}
-                      </button>
-                      <p className="text-xs text-stone-500">{p.locationName ?? t("ovw.noLocation")}</p>
+                      <div className="flex items-center gap-2.5">
+                        <Avatar name={p.name} photoUrl={photoOf(p.employeeId)} size="sm" />
+                        <div className="min-w-0">
+                          <button type="button" className="text-left font-medium text-stone-900 hover:underline" onClick={() => setOpen(p)}>
+                            {p.name}
+                          </button>
+                          <p className="text-xs text-stone-500">{p.locationName ?? t("ovw.noLocation")}</p>
+                        </div>
+                      </div>
                     </td>
                     <td className={TD}>
                       <div className="flex flex-wrap items-center gap-1">

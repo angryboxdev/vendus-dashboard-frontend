@@ -99,6 +99,8 @@ módulo a usar a base de i18n (`src/i18n`).
 - Visível só para Admin enquanto está em desenvolvimento.
 - Textos via `t()` desde o início (pt-PT agora, es-ES depois — ADR-0023 do backend).
 - Modo Demonstração (ADR-0034 do backend): o browser só envia o cabeçalho; o backend decide a organização fictícia (só Admin). O cabeçalho liga-se de forma síncrona no `NovoRhProvider` e, ao trocar, apagam-se as queries `["novo-rh", …]` e os ecrãs voltam a montar — nada de um modo aparece no outro. Acessos, notificações e "O meu ponto" usam sempre a conta real.
+- Fotos: `photoUrl` vem da lista de colaboradores (`settings.listEmployees`, real = `/api/hr/people`, demo = `/api/novo-rh/people`) e da ficha; os ecrãs usam `useEmployeePhotos()` e o `Avatar` do kit (iniciais se não houver foto ou o URL expirar). A demonstração usa ilustrações CC0 em `public/demo-avatars/` (ver o LICENSE.md da pasta).
+- Escalas (Design System): vista "Turnos" = uma linha por modelo (barra na cor do tipo, horário, horas do período) com as fotos de quem faz o turno em cada dia; sem escalas, a grelha dá lugar a um estado vazio com "Nova escala".
 
 ## How to test
 
