@@ -219,18 +219,21 @@ export function NovoRhPage() {
     <I18nProvider locale="pt-PT">
       <NovoRhProvider>
         <NovoRhSlotsContext.Provider value={SLOTS}>
-          <NovoRhLayout
-            extraActions={
-              <>
-                <ClockWidget />
-                <NotificationsBell />
-              </>
-            }
-          >
-            <MfaGate>
-              <NovoRhRoutes />
-            </MfaGate>
-          </NovoRhLayout>
+          {/* Design System Mezza só aqui dentro (classe `ds`); o resto da aplicação mantém o aspeto anterior. */}
+          <div className="ds">
+            <NovoRhLayout
+              extraActions={
+                <>
+                  <ClockWidget />
+                  <NotificationsBell />
+                </>
+              }
+            >
+              <MfaGate>
+                <NovoRhRoutes />
+              </MfaGate>
+            </NovoRhLayout>
+          </div>
         </NovoRhSlotsContext.Provider>
       </NovoRhProvider>
     </I18nProvider>

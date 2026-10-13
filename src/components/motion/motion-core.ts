@@ -33,7 +33,7 @@ export const MOTION_FADE = "motion-safe:animate-motion-fade";
 export const MOTION_CARD_HOVER =
   "transition-[transform,box-shadow,background-color,border-color] duration-150 ease-out motion-safe:hover:-translate-y-0.5 hover:shadow-md motion-safe:active:translate-y-0 motion-safe:active:scale-[0.995]";
 /** Hover de linhas de lista/tabela: só cor de fundo — nunca desloca a linha. */
-export const MOTION_ROW_HOVER = "transition-colors duration-150 hover:bg-surface-soft/60";
+export const MOTION_ROW_HOVER = "transition-colors duration-150 hover:bg-[#FDF8F5]";
 
 /** Fundo escurecido de modais/drawers. */
 export function motionOverlay(leaving: boolean): string {

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useHrModule } from "../../hr.module.tsx";
 import type { LeaveBalanceRow } from "../../domain/entities/absences.ts";
-import { Button, IconChevronLeft, IconChevronRight, SURFACE, TABLE, TD, TH, THEAD, TR } from "../../../../components/ui/index.ts";
+import { Button, IconChevronLeft, IconChevronRight, SURFACE, TABLE, TD, TH, THEAD, TR } from "../../../../components/ui-legacy/index.ts";
 
 const numCls = "w-16 rounded-md border border-stone-300 px-2 py-1 text-right text-sm";
 

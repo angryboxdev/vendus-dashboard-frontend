@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import { Button, IconPlus, PageShell, SURFACE } from "../../../../components/ui/index.ts";
+import { Button, IconPlus, PageShell, SURFACE } from "../../../../components/ui-legacy/index.ts";
 import { ApiError } from "../../../../lib/api.ts";
 import { useAuth } from "../../../../contexts/AuthContext.tsx";
 import type { Position } from "../../domain/entities/position.ts";

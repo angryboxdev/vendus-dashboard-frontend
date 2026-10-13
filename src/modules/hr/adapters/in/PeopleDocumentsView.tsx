@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Button, PageShell } from "../../../../components/ui/index.ts";
+import { Button, PageShell } from "../../../../components/ui-legacy/index.ts";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { useHrModule } from "../../hr.module.tsx";

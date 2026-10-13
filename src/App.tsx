@@ -190,7 +190,7 @@ export default function App() {
         element={
           <ProtectedRoute>
             <SidebarProvider>
-            <div className="flex min-h-screen bg-surface-app">
+            <div className="flex min-h-screen bg-[#FAF6F3]">
               {/* A barra lateral fica como estava (fonte e aspeto anteriores ao Design System). */}
               <div className="contents font-legacy">
                 <Sidebar />
