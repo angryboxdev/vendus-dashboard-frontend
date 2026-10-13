@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../../../../lib/api.ts";
@@ -7,6 +7,7 @@ import type { RosterShift } from "../../../domain/entities/rosters.ts";
 import { weekOf } from "../../../domain/services/attendance.service.ts";
 import { chipLabel, hoursLabel, hoursLong, rosterRows, segmentsTone, shiftRows, templateTone } from "../../../domain/services/roster-board.service.ts";
 import { cellLabel, daysFrom, parseSegments, violationsOf } from "../../../domain/services/rosters.service.ts";
+import { cellRect, copyInputs, paintInputs } from "../../../domain/services/roster-edit.service.ts";
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
 import { fakeNovoRhModule } from "../../../fake-module.test-utils.ts";
 import { NovoRhProvider, type NovoRhModule } from "../../../novo-rh.module.tsx";
@@ -50,6 +51,8 @@ async function openRoster() {
 }
 
 const panel = () => screen.getByRole("complementary", { name: "Atribuir turnos" });
+const grid = () => screen.getByRole("table", { name: "Turnos por dia" });
+const dt = () => ({ setData: vi.fn(), effectAllowed: "", dropEffect: "" });
 
 beforeEach(() => localStorage.clear());
 
@@ -179,16 +182,102 @@ describe("Escalas — ecrãs", () => {
     expect(m.rosters.updateShift).toHaveBeenCalledWith("s1", { kind: "shift", templateId: "t1" }, { reason: "Pedido da loja", confirm: false });
   });
 
-  it("clicar num dia vazio cria o turno do modelo escolhido (rascunho)", async () => {
+  it("clicar num dia vazio escolhe-o; com um modelo escolhido, cria o turno (rascunho)", async () => {
     const m = mod();
     m.rosters.addShift = vi.fn(async () => ({ shift: PUBLISHED, warnings: [] }));
     renderWith(m);
     const user = await openRoster();
     const third = daysFrom(MON, 3)[2]!;
-    expect(screen.getAllByRole("button", { name: `Ana Teste ${third}` })[0]).toBeDisabled();
+    const empty = () => within(grid()).getByRole("button", { name: `Ana Teste ${third}` });
+    await user.click(empty());
+    expect(empty()).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("1 dia(s) escolhido(s)")).toBeInTheDocument();
+    expect(m.rosters.addShift).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: "Limpar escolha" }));
     await user.click(within(panel()).getByRole("button", { name: /Tarde/ }));
-    await user.click(screen.getAllByRole("button", { name: `Ana Teste ${third}` })[0]!);
+    await user.click(empty());
     expect(m.rosters.addShift).toHaveBeenCalledWith("r1", expect.objectContaining({ employeeId: "e1", workDate: third, kind: "shift", templateId: "t1" }));
+    expect(await screen.findByText("1 turno atribuídos (por publicar).")).toBeInTheDocument();
+  });
+
+  it("Ctrl+C no turno e Ctrl+V nos dias escolhidos copia-o (mesmo modelo)", async () => {
+    const m = mod();
+    m.rosters.addShift = vi.fn(async () => ({ shift: PUBLISHED, warnings: [] }));
+    renderWith(m);
+    const user = await openRoster();
+    const [, , wed, thu] = daysFrom(MON, 4);
+    const source = within(grid()).getByRole("button", { name: `Ana Teste ${MON}` });
+    await user.hover(source);
+    await user.keyboard("{Control>}c{/Control}");
+    expect(screen.getByText(/Turno copiado: Ana Teste/)).toBeInTheDocument();
+    await user.unhover(source);
+    await user.click(within(grid()).getByRole("button", { name: `Ana Teste ${wed}` }));
+    await user.keyboard("{Control>}");
+    await user.click(within(grid()).getByRole("button", { name: `Ana Teste ${thu}` }));
+    await user.keyboard("{/Control}");
+    expect(screen.getByText("2 dia(s) escolhido(s)")).toBeInTheDocument();
+    await user.keyboard("{Control>}v{/Control}");
+    await vi.waitFor(() => expect(m.rosters.addShift).toHaveBeenCalledTimes(2));
+    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", { employeeId: "e1", workDate: wed, kind: "shift", templateId: "t1", segments: [] });
+    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", { employeeId: "e1", workDate: thu, kind: "shift", templateId: "t1", segments: [] });
+  });
+
+  it("arrastar um turno para outro dia pergunta mover/copiar; mover cria no novo dia e retira o original", async () => {
+    const m = mod();
+    m.rosters.addShift = vi.fn(async () => ({ shift: PUBLISHED, warnings: [] }));
+    m.rosters.deleteShift = vi.fn(async () => ({ publication: null }));
+    renderWith(m);
+    const user = await openRoster();
+    const wed = daysFrom(MON, 3)[2]!;
+    const card = within(grid()).getByRole("button", { name: `Ana Teste ${TUE}` }).parentElement!;
+    const cell = (d: string) => within(grid()).getByRole("button", { name: `Ana Teste ${d}` }).closest("[role=cell]")!;
+    const data = dt();
+    fireEvent.dragStart(card, { dataTransfer: data });
+    fireEvent.dragEnter(cell(wed), { dataTransfer: data });
+    expect(cell(wed)).toHaveAttribute("data-selected", "true");
+    fireEvent.drop(cell(wed), { dataTransfer: data });
+    const box = screen.getByRole("dialog", { name: "T de Ana Teste" });
+    expect(within(box).getByText(`Para Ana Teste, ${wed}. Quer mover ou copiar o turno?`)).toBeInTheDocument();
+    await user.click(within(box).getByRole("button", { name: "Mover turno" }));
+    await vi.waitFor(() => expect(m.rosters.deleteShift).toHaveBeenCalledWith("s2", { reason: null, confirm: false }));
+    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", { employeeId: "e1", workDate: wed, kind: "shift", templateId: "t1", segments: [] });
+  });
+
+  it("arrastar por vários dias pinta-os e copia para todos; um turno publicado só se move com motivo", async () => {
+    const m = mod();
+    m.rosters.addShift = vi.fn(async () => ({ shift: PUBLISHED, warnings: [] }));
+    renderWith(m);
+    const user = await openRoster();
+    const [, , wed, thu, fri] = daysFrom(MON, 5);
+    const card = () => within(grid()).getByRole("button", { name: `Ana Teste ${MON}` }).parentElement!;
+    const cell = (d: string) => within(grid()).getByRole("button", { name: `Ana Teste ${d}` }).closest("[role=cell]")!;
+    const data = dt();
+    fireEvent.dragStart(card(), { dataTransfer: data });
+    fireEvent.dragEnter(cell(wed), { dataTransfer: data });
+    fireEvent.dragEnter(cell(fri), { dataTransfer: data });
+    expect(cell(thu)).toHaveAttribute("data-selected", "true");
+    fireEvent.drop(cell(fri), { dataTransfer: data });
+    const box = screen.getByRole("dialog");
+    expect(within(box).queryByRole("button", { name: "Mover turno" })).toBeNull();
+    await user.click(within(box).getByRole("button", { name: "Copiar para 3 dias" }));
+    await vi.waitFor(() => expect(m.rosters.addShift).toHaveBeenCalledTimes(3));
+    // Um só dia, turno publicado: mover pede motivo.
+    fireEvent.dragStart(card(), { dataTransfer: data });
+    fireEvent.dragEnter(cell(wed), { dataTransfer: data });
+    fireEvent.drop(cell(wed), { dataTransfer: data });
+    const one = screen.getByRole("dialog");
+    expect(within(one).getByRole("button", { name: "Mover turno" })).toBeDisabled();
+    await user.type(within(one).getByLabelText(/Motivo/), "Troca pedida");
+    expect(within(one).getByRole("button", { name: "Mover turno" })).toBeEnabled();
+  });
+
+  it("regras da edição direta: retângulo de células, cópia sem a própria célula, pintura", () => {
+    const rect = cellRect(["e1", "e2"], [MON, TUE], { employeeId: "e2", workDate: TUE }, { employeeId: "e1", workDate: MON });
+    expect(rect).toHaveLength(4);
+    expect(copyInputs(PUBLISHED, [{ employeeId: "e1", workDate: MON }, { employeeId: "e2", workDate: MON }, { employeeId: "e2", workDate: MON }])).toEqual([
+      { employeeId: "e2", workDate: MON, kind: "shift", templateId: "t1", segments: [] },
+    ]);
+    expect(paintInputs("day_off", [{ employeeId: "e1", workDate: TUE }])).toEqual([{ employeeId: "e1", workDate: TUE, kind: "day_off", templateId: null, segments: [] }]);
   });
 
   it("troca: aprovar e recusar só com comentário", async () => {

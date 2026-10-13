@@ -33,6 +33,8 @@ import {
   shiftSegments,
   type RosterRow,
 } from "../../../domain/services/roster-board.service.ts";
+import { cellKey } from "../../../domain/services/roster-edit.service.ts";
+import type { BoardEdit } from "./use-roster-editing.ts";
 
 export type BoardMode = "employees" | "shifts" | "positions";
 
@@ -58,9 +60,45 @@ export interface RosterBoardProps {
   onOpen: (s: RosterShift) => void;
   onPaint: (employeeId: string, ymd: string) => void;
   summary: ReactNode;
+  /** Edição direta (arrastar, selecionar dias, copiar/colar); sem ela, só cliques. */
+  edit?: BoardEdit;
 }
 
 function Cell({
+  s,
+  p,
+  label,
+  index,
+  subtitle,
+}: {
+  s: RosterShift;
+  p: RosterBoardProps;
+  label: string;
+  index: number;
+  subtitle?: string;
+}) {
+  const e = subtitle === undefined ? p.edit : undefined;
+  if (!e) return <CellBody s={s} p={p} label={label} index={index} subtitle={subtitle} />;
+  const copied = e.clipboardId === s.id;
+  return (
+    <div
+      draggable
+      onDragStart={(ev) => e.onShiftDragStart(s, ev)}
+      onDragEnd={e.onShiftDragEnd}
+      onPointerEnter={() => e.onShiftHover(s)}
+      onPointerLeave={() => e.onShiftHover(null)}
+      onFocus={() => e.onShiftHover(s)}
+      onBlur={() => e.onShiftHover(null)}
+      title="Arraste para outro dia para mover ou copiar · Ctrl+C copia"
+      className={`cursor-grab rounded-lg active:cursor-grabbing ${copied ? "outline-dashed outline-2 outline-offset-1 outline-brand-500" : ""} ${e.draggingId === s.id ? "opacity-50" : ""}`}
+    >
+      <CellBody s={s} p={p} label={label} index={index} />
+      {copied && <span className="sr-only"> (copiado)</span>}
+    </div>
+  );
+}
+
+function CellBody({
   s,
   p,
   label,
@@ -185,7 +223,30 @@ export function RosterBoard(p: RosterBoardProps) {
     </div>
   );
 
-  const emptyCell = (employeeId: string, name: string, ymd: string) => (
+  const emptyCell = (employeeId: string, name: string, ymd: string) => {
+    const e = p.edit;
+    if (e) {
+      const c = { employeeId, workDate: ymd };
+      const on = e.selected.has(cellKey(c));
+      return (
+        <button
+          type="button"
+          aria-label={`${name} ${ymd}`}
+          aria-pressed={on}
+          onPointerDown={(ev) => e.onCellPointerDown(c, ev)}
+          onClick={(ev) => ev.detail === 0 && e.onCellKey(c)}
+          title={
+            p.painting
+              ? "Clique ou arraste para atribuir o turno escolhido"
+              : "Clique ou arraste para escolher dias · Ctrl+V cola o turno copiado"
+          }
+          className={`flex h-full min-h-[64px] w-full select-none items-center justify-center rounded-lg text-ink-muted transition duration-150 hover:bg-brand-50 hover:text-brand-600 focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${on ? "text-brand-600 opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+        >
+          <IconPlus size={16} />
+        </button>
+      );
+    }
+    return (
     <button
       type="button"
       aria-label={`${name} ${ymd}`}
@@ -200,7 +261,8 @@ export function RosterBoard(p: RosterBoardProps) {
     >
       {p.painting && <IconPlus size={16} />}
     </button>
-  );
+    );
+  };
 
   const employeeRow = (r: RosterRow, index: number) => {
     const motion = motionListItem(index, firstBatch.has(r.employeeId));
@@ -225,11 +287,24 @@ export function RosterBoard(p: RosterBoardProps) {
         </div>
         {p.days.map((ymd) => {
           const own = r.byDate.get(ymd) ?? [];
+          const c = { employeeId: r.employeeId, workDate: ymd };
+          const e = p.edit;
+          const k = cellKey(c);
+          const mark = e?.targets.has(k)
+            ? "bg-brand-100/70 ring-2 ring-inset ring-brand-500/60"
+            : e?.selected.has(k)
+              ? "bg-brand-50 ring-2 ring-inset ring-brand-500/40"
+              : "";
           return (
             <div
               key={ymd}
               role="cell"
-              className="group flex min-h-[76px] flex-col gap-1.5 border-r border-line-subtle p-1 last:border-r-0"
+              data-selected={e && (e.selected.has(k) || e.targets.has(k)) ? "true" : undefined}
+              onPointerEnter={e ? () => e.onCellPointerEnter(c) : undefined}
+              onDragEnter={e ? () => e.onCellDragEnter(c) : undefined}
+              onDragOver={e?.onCellDragOver}
+              onDrop={e ? (ev) => e.onCellDrop(c, ev) : undefined}
+              className={`group flex min-h-[76px] flex-col gap-1.5 border-r border-line-subtle p-1 transition-colors duration-100 last:border-r-0 ${mark}`}
             >
               {own.length
                 ? own.map((s, i) => (

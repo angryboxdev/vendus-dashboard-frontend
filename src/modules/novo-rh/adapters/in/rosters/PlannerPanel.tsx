@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import {
   AlertBanner,
   Button,
   DateNavigator,
+  Dialog,
   Drawer,
   DropdownMenu,
   EmptyState,
@@ -53,6 +55,7 @@ import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { downloadBlob } from "../download.ts";
 import { AssignPanel } from "./AssignPanel.tsx";
 import { RosterBoard, type BoardMode } from "./RosterBoard.tsx";
+import { useRosterEditing } from "./use-roster-editing.ts";
 
 const KEY = ["novo-rh", "rosters"];
 const ROSTER_KEY = "novo-rh-roster-id";
@@ -242,6 +245,29 @@ export function PlannerPanel({
     const e = employees.data?.find((x) => x.id === id);
     return { name: e?.label ?? id, photoUrl: e?.photoUrl ?? null };
   };
+  // Ordem das linhas como aparecem (em "Cargos", agrupadas por cargo).
+  const order =
+    mode === "positions"
+      ? [...rows]
+          .map((r, i) => ({ r, i, g: positionName(r.positionId) ?? "Sem cargo" }))
+          .sort((a, b) => a.g.localeCompare(b.g, "pt") || a.i - b.i)
+          .map((x) => x.r.employeeId)
+      : rows.map((r) => r.employeeId);
+  const editing = useRosterEditing({
+    rosterId,
+    enabled: !!rosterId && mode !== "shifts",
+    people: order,
+    days,
+    paint,
+    openShift: selected,
+    shiftTitle: (s) =>
+      `${name(s.employeeId)} · ${cellLabel(s, tpls)} · ${s.workDate}`,
+    onWarnings: (v) =>
+      setProblem({ kind: "confirm", violations: v, retry: () => setProblem(null) }),
+    onConfirm: (v, retry) => setProblem({ kind: "confirm", violations: v, retry }),
+    refresh,
+  });
+  const [moveReason, setMoveReason] = useState("");
 
   /** Corre uma ação que pode devolver avisos (409) ou bloqueios (422); "Publicar mesmo assim" repete com confirmação. */
   const guarded = async (
@@ -759,6 +785,59 @@ export function PlannerPanel({
           title={message(add.error, t("common.error"))}
         />
       )}
+      {editing.failures.length > 0 && (
+        <AlertBanner tone="danger" title={t("ros.edit.failed", { count: editing.failures.length })}>
+          <ul className="mt-1 list-disc pl-5 text-sm">
+            {editing.failures.map((f, i) => (
+              <li key={i}>
+                {name(f.cell.employeeId)}, {f.cell.workDate}: {f.message}
+              </li>
+            ))}
+          </ul>
+        </AlertBanner>
+      )}
+      {rosterId && mode !== "shifts" && (editing.selectedCount > 0 || editing.notice || editing.busy) && createPortal(
+        <div className="ds pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center px-4 font-sans">
+        <div
+          role="status"
+          className="pointer-events-auto flex max-w-full flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface-card px-4 py-2.5 text-sm text-ink shadow-pop motion-safe:animate-motion-fade-up"
+        >
+          {editing.busy ? (
+            <span className="text-ink-secondary">{t("ros.edit.working")}</span>
+          ) : editing.selectedCount > 0 ? (
+            <>
+              <span className="font-medium text-navy-900">
+                {t("ros.edit.selected", { count: editing.selectedCount })}
+              </span>
+              {editing.clipboard && (
+                <Button size="sm" variant="primary" icon={<IconCopy size={14} />} onClick={() => void editing.paste()}>
+                  {t("ros.edit.paste")}
+                </Button>
+              )}
+              {paint && (
+                <Button size="sm" onClick={() => void editing.paintSelection()}>
+                  {t("ros.edit.assign", { name: paintName ?? "" })}
+                </Button>
+              )}
+              {!editing.clipboard && !paint && (
+                <span className="text-ink-secondary">{t("ros.edit.hint")}</span>
+              )}
+              <Button size="sm" variant="tertiary" onClick={editing.clearSelection}>
+                {t("ros.edit.clear")}
+              </Button>
+            </>
+          ) : (
+            <>
+              <span>{editing.notice}</span>
+              <Button size="sm" variant="tertiary" onClick={editing.dismissNotice}>
+                {t("ros.edit.ok")}
+              </Button>
+            </>
+          )}
+        </div>
+        </div>,
+        document.body,
+      )}
 
       <div className="flex items-start">
         <div className="min-w-0 flex-1">
@@ -787,6 +866,7 @@ export function PlannerPanel({
                 add.mutate({ employeeId, workDate })
               }
               summary={summary}
+              edit={mode !== "shifts" ? editing.edit : undefined}
             />
           ) : list.isLoading ? (
             <div className="h-96 animate-pulse rounded-2.5xl bg-surface-card motion-reduce:animate-none" />
@@ -837,6 +917,78 @@ export function PlannerPanel({
           />
         )}
       </div>
+
+      {/* Turno largado noutro dia: mover ou copiar (vários dias = copiar para todos). */}
+      <Dialog
+        open={!!editing.prompt}
+        title={
+          editing.prompt
+            ? t("ros.edit.dropTitle", {
+                shift: cellLabel(editing.prompt.source, tpls),
+                name: name(editing.prompt.source.employeeId),
+              })
+            : ""
+        }
+        description={
+          editing.prompt &&
+          (editing.prompt.targets.length === 1
+            ? t("ros.edit.dropOne", {
+                name: name(editing.prompt.targets[0]!.employeeId),
+                date: editing.prompt.targets[0]!.workDate,
+              })
+            : t("ros.edit.dropMany", { count: editing.prompt.targets.length }))
+        }
+        onClose={() => {
+          editing.closePrompt();
+          setMoveReason("");
+        }}
+        actions={
+          <>
+            <Button
+              variant="tertiary"
+              onClick={() => {
+                editing.closePrompt();
+                setMoveReason("");
+              }}
+            >
+              {t("common.cancel")}
+            </Button>
+            {editing.prompt?.targets.length === 1 && (
+              <Button
+                disabled={!!editing.prompt.source.published && !moveReason.trim()}
+                onClick={() => {
+                  void editing.movePrompt(moveReason.trim() || null);
+                  setMoveReason("");
+                }}
+              >
+                {t("ros.edit.move")}
+              </Button>
+            )}
+            <Button
+              variant="primary"
+              onClick={() => {
+                void editing.copyPrompt();
+                setMoveReason("");
+              }}
+            >
+              {editing.prompt && editing.prompt.targets.length > 1
+                ? t("ros.edit.copyMany", { count: editing.prompt.targets.length })
+                : t("ros.edit.copy")}
+            </Button>
+          </>
+        }
+      >
+        {editing.prompt?.source.published && editing.prompt.targets.length === 1 && (
+          <label className="block">
+            <span className={LABEL}>{t("ros.edit.moveReason")}</span>
+            <input
+              className={`${FIELD} w-full`}
+              value={moveReason}
+              onChange={(e) => setMoveReason(e.target.value)}
+            />
+          </label>
+        )}
+      </Dialog>
 
       {/* Turno escolhido: alterar para o modelo selecionado ou remover (motivo se já publicado). */}
       <Drawer
