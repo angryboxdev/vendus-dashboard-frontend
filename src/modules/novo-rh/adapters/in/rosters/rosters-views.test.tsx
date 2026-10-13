@@ -234,7 +234,7 @@ describe("Escalas — ecrãs", () => {
     const user = await openRoster();
     const wed = daysFrom(MON, 3)[2]!;
     const card = within(grid()).getByRole("button", { name: `Ana Teste ${TUE}` }).parentElement!;
-    const cell = (d: string) => within(grid()).getByRole("button", { name: `Ana Teste ${d}` }).closest("[role=cell]")!;
+    const cell = (d: string) => within(grid()).getByRole("button", { name: `Ana Teste ${d}` }).closest<HTMLElement>("[role=cell]")!;
     const data = dt();
     fireEvent.dragStart(card, { dataTransfer: data });
     fireEvent.dragEnter(cell(wed), { dataTransfer: data });
@@ -254,7 +254,7 @@ describe("Escalas — ecrãs", () => {
     const user = await openRoster();
     const [, , wed, thu, fri] = daysFrom(MON, 5);
     const card = () => within(grid()).getByRole("button", { name: `Ana Teste ${MON}` }).parentElement!;
-    const cell = (d: string) => within(grid()).getByRole("button", { name: `Ana Teste ${d}` }).closest("[role=cell]")!;
+    const cell = (d: string) => within(grid()).getByRole("button", { name: `Ana Teste ${d}` }).closest<HTMLElement>("[role=cell]")!;
     const data = dt();
     fireEvent.dragStart(card(), { dataTransfer: data });
     fireEvent.dragEnter(cell(wed), { dataTransfer: data });
@@ -293,7 +293,7 @@ describe("Escalas — ecrãs", () => {
     const user = await openRoster();
     const [, , wed, thu] = daysFrom(MON, 4);
     const card = within(grid()).getByRole("button", { name: `Ana Teste ${MON}` }).parentElement!;
-    const cell = (d: string) => within(grid()).getAllByRole("button", { name: `Ana Teste ${d}` })[0]!.closest("[role=cell]")!;
+    const cell = (d: string) => within(grid()).getAllByRole("button", { name: `Ana Teste ${d}` })[0]!.closest<HTMLElement>("[role=cell]")!;
     const data = dt();
     fireEvent.dragStart(card, { dataTransfer: data });
     fireEvent.dragEnter(cell(TUE), { dataTransfer: data });
