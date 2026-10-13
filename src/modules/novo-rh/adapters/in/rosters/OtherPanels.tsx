@@ -5,15 +5,18 @@ import type { MessageKey } from "../../../../../i18n/i18n.ts";
 import {
   Button,
   FIELD,
+  IconPlus,
+  IconTrash,
   LABEL,
   SECTION_TITLE,
   StatusBadge,
   SURFACE,
+  TimePicker,
 } from "../../../../../components/ui/index.ts";
+import type { Segment } from "../../../domain/entities/rosters.ts";
 import {
   daysFrom,
   formatSegments,
-  parseSegments,
 } from "../../../domain/services/rosters.service.ts";
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
@@ -34,11 +37,16 @@ export function TemplatesPanel() {
   const [v, setV] = useState({
     name: "",
     abbreviation: "",
-    segments: "",
     color: "#ED5C32",
     onCall: false,
   });
-  const segs = parseSegments(v.segments);
+  // Faixas escolhidas no relógio (sem escrever); até 3 por modelo.
+  const [segments, setSegments] = useState<Segment[]>([
+    { start: "09:00", end: "17:00" },
+  ]);
+  const valid = segments.every((s) => s.start !== s.end);
+  const setSegment = (i: number, patch: Partial<Segment>) =>
+    setSegments(segments.map((s, j) => (j === i ? { ...s, ...patch } : s)));
   const create = useMutation({
     mutationFn: () =>
       rosters.createTemplate({
@@ -46,10 +54,11 @@ export function TemplatesPanel() {
         abbreviation: v.abbreviation,
         color: v.color,
         onCall: v.onCall,
-        segments: segs!,
+        segments,
       }),
     onSuccess: async () => {
-      setV({ ...v, name: "", abbreviation: "", segments: "" });
+      setV({ ...v, name: "", abbreviation: "" });
+      setSegments([{ start: "09:00", end: "17:00" }]);
       await qc.invalidateQueries({ queryKey: KEY });
     },
   });
@@ -113,14 +122,54 @@ export function TemplatesPanel() {
             onChange={(e) => setV({ ...v, abbreviation: e.target.value })}
           />
         </label>
-        <label className="min-w-[220px] flex-1">
-          <span className={LABEL}>{t("ros.template.segments")}</span>
-          <input
-            className={`${FIELD} w-full`}
-            value={v.segments}
-            onChange={(e) => setV({ ...v, segments: e.target.value })}
-          />
-        </label>
+        <fieldset className="min-w-[220px] flex-1">
+          <legend className={LABEL}>{t("ros.template.segments")}</legend>
+          <div className="flex flex-wrap items-center gap-2">
+            {segments.map((s, i) => (
+              <div key={i} className="flex items-center gap-1.5">
+                <TimePicker
+                  label={`${t("ros.template.start")} ${i + 1}`}
+                  value={s.start}
+                  onChange={(start) => setSegment(i, { start })}
+                />
+                <span className="text-ink-muted">–</span>
+                <TimePicker
+                  label={`${t("ros.template.end")} ${i + 1}`}
+                  value={s.end}
+                  onChange={(end) => setSegment(i, { end })}
+                />
+                {segments.length > 1 && (
+                  <Button
+                    size="sm"
+                    variant="tertiary"
+                    aria-label={`${t("ros.template.removeSegment")} ${i + 1}`}
+                    onClick={() =>
+                      setSegments(segments.filter((_, j) => j !== i))
+                    }
+                  >
+                    <IconTrash size={16} />
+                  </Button>
+                )}
+              </div>
+            ))}
+            {segments.length < 3 && (
+              <Button
+                size="sm"
+                variant="tertiary"
+                icon={<IconPlus size={16} />}
+                onClick={() => {
+                  const last = segments[segments.length - 1]!;
+                  // Nova faixa começa onde a última acaba e dura 4 h.
+                  const [h, m] = last.end.split(":").map(Number);
+                  const end = `${String(((h ?? 0) + 4) % 24).padStart(2, "0")}:${String(m ?? 0).padStart(2, "0")}`;
+                  setSegments([...segments, { start: last.end, end }]);
+                }}
+              >
+                {t("ros.template.addSegment")}
+              </Button>
+            )}
+          </div>
+        </fieldset>
         <label className="flex items-center gap-1 pb-2 text-sm text-stone-700">
           <input
             type="checkbox"
@@ -131,13 +180,13 @@ export function TemplatesPanel() {
         </label>
         <Button
           variant="primary"
-          disabled={!segs || create.isPending}
+          disabled={!valid || create.isPending}
           onClick={() => create.mutate()}
         >
           {t("ros.template.create")}
         </Button>
       </div>
-      {v.segments && !segs && (
+      {!valid && (
         <p className="text-sm text-red-700">
           {t("ros.template.invalidSegments")}
         </p>

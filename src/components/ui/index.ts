@@ -10,4 +10,5 @@ export { SearchInput, SegmentedControl } from "./Inputs.tsx";
 export { Avatar, AvatarStack, EmployeeCell, type AvatarSize, type AvatarStackItem } from "./Avatar.tsx";
 export { Popover, DropdownMenu, SearchableSelect, type MenuEntry } from "./Popover.tsx";
 export { PageHeader, Toolbar, ToolbarGroup, ToolbarDivider, DateNavigator, Skeleton, EmptyState } from "./Layout.tsx";
+export { TimePicker } from "./TimePicker.tsx";
 export { ShiftCard, ShiftGroup, ShiftToneBar, ShiftTypeChip, type ShiftTone } from "./ShiftCard.tsx";

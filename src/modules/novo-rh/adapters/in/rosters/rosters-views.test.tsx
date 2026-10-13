@@ -128,12 +128,23 @@ describe("Escalas — ecrãs", () => {
     // Modelos de turno abrem em "Configurações" no painel "Atribuir turnos".
     await user.click(within(panel()).getByRole("button", { name: "Configurações" }));
     const box = await screen.findByRole("group", { name: "Criar modelo" });
-    await user.type(within(box).getByLabelText("Faixas (ex.: 09:00-13:00, 14:00-18:00)"), "9h");
+    // Horas no relógio (sem escrever): fim 1 igual ao início → faixa inválida.
+    await user.click(within(box).getByRole("button", { name: "Fim 1: 17:00" }));
+    const hours = screen.getByRole("listbox", { name: "Horas" });
+    hours.focus();
+    for (let i = 0; i < 8; i++) await user.keyboard("{ArrowUp}");
+    expect(within(box).getByRole("button", { name: "Fim 1: 09:00" })).toBeInTheDocument();
     expect(screen.getByText(/Faixas inválidas/)).toBeInTheDocument();
-    await user.clear(within(box).getByLabelText("Faixas (ex.: 09:00-13:00, 14:00-18:00)"));
-    await user.type(within(box).getByLabelText("Faixas (ex.: 09:00-13:00, 14:00-18:00)"), "16:00-22:00");
+    expect(within(box).getByRole("button", { name: "Criar modelo" })).toBeDisabled();
+    await user.keyboard("{PageDown}");
+    await user.click(screen.getByRole("option", { name: "15" }));
+    expect(within(box).getByRole("button", { name: "Fim 1: 15:00" })).toBeInTheDocument();
+    await user.click(within(box).getByRole("button", { name: "Adicionar faixa" }));
+    expect(within(box).getByRole("button", { name: "Início 2: 15:00" })).toBeInTheDocument();
+    expect(within(box).getByRole("button", { name: "Fim 2: 19:00" })).toBeInTheDocument();
     await user.click(within(box).getByRole("button", { name: "Criar modelo" }));
     expect(await screen.findByText("Campo obrigatório")).toBeInTheDocument();
+    expect(m.rosters.createTemplate).toHaveBeenCalledWith(expect.objectContaining({ segments: [{ start: "09:00", end: "15:00" }, { start: "15:00", end: "19:00" }] }));
   });
 
   it("RE_16_publicar_com_avisos_pede_confirmacao_e_repete_com_confirm", async () => {
