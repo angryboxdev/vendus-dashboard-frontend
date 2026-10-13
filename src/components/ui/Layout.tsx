@@ -31,7 +31,7 @@ export function PageHeader({ breadcrumb, title, description, actions }: { breadc
 /** Barra de ferramentas: um só contentor suave que concentra as ações da vista. */
 export function Toolbar({ children, label }: { children: ReactNode; label: string }) {
   return (
-    <div role="toolbar" aria-label={label} className="flex flex-wrap items-center gap-1.5 rounded-2.5xl bg-surface-soft/80 p-2 motion-safe:animate-motion-fade-up [animation-delay:60ms]">
+    <div role="toolbar" aria-label={label} className="flex flex-wrap items-center gap-1.5 rounded-2.5xl bg-surface-soft/80 p-2 xl:flex-nowrap motion-safe:animate-motion-fade-up [animation-delay:60ms]">
       {children}
     </div>
   );
@@ -55,7 +55,7 @@ export function DateNavigator({ label, onPrev, onNext, prevLabel = "Período ant
       <button type="button" onClick={onPrev} aria-label={prevLabel} className={btn}>
         <IconChevronLeft size={16} />
       </button>
-      <span aria-live="polite" className="min-w-[12rem] px-1.5 text-center text-sm font-medium text-navy-900 tabular-nums first-letter:uppercase">
+      <span aria-live="polite" className="min-w-[11rem] whitespace-nowrap px-1 text-center text-sm font-medium text-navy-900 tabular-nums first-letter:uppercase">
         {label}
       </span>
       <button type="button" onClick={onNext} aria-label={nextLabel} className={btn}>

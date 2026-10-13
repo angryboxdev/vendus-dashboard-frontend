@@ -33,6 +33,7 @@ export function ShiftCard({
   className = "",
   style,
   indicator,
+  ariaLabel,
 }: {
   tone: ShiftTone;
   title: ReactNode;
@@ -47,6 +48,8 @@ export function ShiftCard({
   style?: React.CSSProperties;
   /** Ponto de estado (ex.: presença conferida) com o texto para leitores de ecrã. */
   indicator?: { className: string; label: string };
+  /** Nome acessível do botão (por omissão, o texto do cartão). */
+  ariaLabel?: string;
 }) {
   const t = TONE[tone];
   const draft = status === "draft";
@@ -61,7 +64,7 @@ export function ShiftCard({
         )}
       </span>
       {times.map((time, i) => (
-        <span key={i} className="mt-0.5 flex items-center justify-between gap-1 whitespace-nowrap text-[10.5px] leading-4 text-ink-secondary tabular-nums">
+        <span key={i} className="mt-0.5 flex items-center justify-between gap-1 whitespace-nowrap text-[10px] leading-4 text-ink-secondary tabular-nums">
           <span className="truncate">{time}</span>
           {times.length === 1 && hours && <span className="shrink-0">{hours}</span>}
         </span>
@@ -73,7 +76,7 @@ export function ShiftCard({
     draft ? `border border-dashed ${t.line} ${t.soft}` : `border border-transparent ${t.fill}`
   } ${onClick ? "hover:-translate-y-px hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40" : ""} ${className}`;
   return onClick ? (
-    <button type="button" onClick={onClick} title={tooltip} className={cls} style={style}>
+    <button type="button" onClick={onClick} title={tooltip} aria-label={ariaLabel} className={cls} style={style}>
       {body}
     </button>
   ) : (

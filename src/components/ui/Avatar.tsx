@@ -34,10 +34,10 @@ export function Avatar({ name, photoUrl = null, size = "md" }: { name: string; p
 /** Pessoa numa lista: avatar, nome (principal) e cargo/departamento (secundário); `aside` à direita (ex.: horas). */
 export function EmployeeCell({ name, subtitle, photoUrl = null, size = "md", aside }: { name: string; subtitle?: ReactNode; photoUrl?: string | null; size?: AvatarSize; aside?: ReactNode }) {
   return (
-    <div className="flex min-w-0 items-center gap-3">
+    <div className="flex min-w-0 items-center gap-2.5">
       <Avatar name={name} photoUrl={photoUrl} size={size} />
       <div className="min-w-0 flex-1">
-        <p className="truncate text-[13px] font-medium text-navy-900">{name}</p>
+        <p className="text-[13px] font-medium leading-snug text-navy-900">{name}</p>
         {subtitle && <p className="truncate text-xs text-ink-secondary">{subtitle}</p>}
       </div>
       {aside && <div className="shrink-0 text-xs tabular-nums text-ink-secondary">{aside}</div>}

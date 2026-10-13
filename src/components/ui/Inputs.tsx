@@ -40,7 +40,7 @@ export function SegmentedControl<K extends string>({
             role="radio"
             aria-checked={active}
             onClick={() => onChange(i.key)}
-            className={`rounded-lg font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${size === "sm" ? "px-2.5 py-1 text-xs" : "px-3.5 py-1.5 text-sm"} ${
+            className={`rounded-lg font-medium transition-all duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${size === "sm" ? "px-2.5 py-1 text-xs" : "px-3 py-1.5 text-sm"} ${
               active ? "bg-surface-card text-navy-900 shadow-card" : "text-ink-secondary hover:text-navy-900"
             }`}
           >
