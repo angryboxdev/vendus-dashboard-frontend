@@ -31,7 +31,7 @@ export function PageHeader({ breadcrumb, title, description, actions }: { breadc
 /** Barra de ferramentas: um só contentor suave que concentra as ações da vista. */
 export function Toolbar({ children, label }: { children: ReactNode; label: string }) {
   return (
-    <div role="toolbar" aria-label={label} className="flex flex-wrap items-center gap-1.5 rounded-2.5xl bg-surface-soft/80 p-2 xl:flex-nowrap motion-safe:animate-motion-fade-up [animation-delay:60ms]">
+    <div role="toolbar" aria-label={label} className="relative z-20 flex flex-wrap items-center gap-1.5 rounded-2.5xl bg-surface-soft/80 p-2 xl:flex-nowrap motion-safe:animate-motion-fade-up [animation-delay:60ms]">
       {children}
     </div>
   );

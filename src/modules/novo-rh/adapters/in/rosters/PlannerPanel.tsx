@@ -397,7 +397,7 @@ export function PlannerPanel({
 
   return (
     <div className="space-y-6">
-      <div className="motion-safe:animate-motion-fade-up [animation-delay:30ms]">
+      <div className="relative z-30 motion-safe:animate-motion-fade-up [animation-delay:30ms]">
         <SearchableSelect
           label={t("ros.roster")}
           icon={<IconStore size={20} />}

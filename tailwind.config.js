@@ -31,15 +31,18 @@ export default {
       },
       // UI Motion MVP (src/components/motion) — só opacity/transform; usar
       // sempre com o prefixo `motion-safe:` (prefers-reduced-motion).
+      // As entradas acabam em `transform: none`: com fill-mode "both", um
+      // transform final deixaria cada bloco num contexto de empilhamento
+      // próprio e os menus/popovers ficariam por trás do bloco seguinte.
       keyframes: {
         "motion-fade": { from: { opacity: "0" }, to: { opacity: "1" } },
-        "motion-fade-up": { from: { opacity: "0", transform: "translateY(6px)" }, to: { opacity: "1", transform: "translateY(0)" } },
+        "motion-fade-up": { from: { opacity: "0", transform: "translateY(6px)" }, to: { opacity: "1", transform: "none" } },
         "motion-fade-out": { from: { opacity: "1" }, to: { opacity: "0" } },
-        "motion-slide-in-right": { from: { opacity: "0", transform: "translateX(16px)" }, to: { opacity: "1", transform: "translateX(0)" } },
+        "motion-slide-in-right": { from: { opacity: "0", transform: "translateX(16px)" }, to: { opacity: "1", transform: "none" } },
         "motion-slide-out-right": { from: { opacity: "1", transform: "translateX(0)" }, to: { opacity: "0", transform: "translateX(16px)" } },
-        "motion-pop-in": { from: { opacity: "0", transform: "translateY(8px) scale(0.99)" }, to: { opacity: "1", transform: "translateY(0) scale(1)" } },
+        "motion-pop-in": { from: { opacity: "0", transform: "translateY(8px) scale(0.99)" }, to: { opacity: "1", transform: "none" } },
         "motion-pop-out": { from: { opacity: "1", transform: "translateY(0) scale(1)" }, to: { opacity: "0", transform: "translateY(8px) scale(0.99)" } },
-        "motion-rise": { from: { opacity: "0", transform: "translateY(18px)" }, to: { opacity: "1", transform: "translateY(0)" } },
+        "motion-rise": { from: { opacity: "0", transform: "translateY(18px)" }, to: { opacity: "1", transform: "none" } },
       },
       animation: {
         "motion-fade": "motion-fade 200ms ease-out both",
