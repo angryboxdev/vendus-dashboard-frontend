@@ -1093,6 +1093,7 @@ export const ptPT = {
   "ros.overview.noMatch": "Nenhuma escala encontrada",
   "ros.overview.count": "{count} escala(s)",
   "ros.overview.back": "Todas as escalas",
+  "ros.overview.summaryError": "Não foi possível obter o resumo das escalas (pessoas e estado). Pode abrir cada escala na mesma.",
   "ros.edit.selected": "{count} dia(s) escolhido(s)",
   "ros.edit.paste": "Colar turno copiado (Ctrl+V)",
   "ros.edit.assign": "Atribuir {name}",

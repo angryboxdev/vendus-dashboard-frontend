@@ -320,6 +320,18 @@ describe("Escalas — ecrãs", () => {
     expect(await screen.findByRole("button", { name: "Loja Porto" })).toBeInTheDocument();
   });
 
+  it("se o resumo falhar, as escalas aparecem na mesma (sem pessoas/estado) com o erro à vista", async () => {
+    const m = mod();
+    m.rosters.summary = vi.fn(async () => {
+      throw new ApiError("Erro interno", 500);
+    });
+    renderWith(m);
+    expect(await screen.findByText(/Não foi possível obter o resumo das escalas/)).toBeInTheDocument();
+    expect(screen.getByText("500 · Erro interno")).toBeInTheDocument();
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Loja Porto" }));
+    expect(await screen.findByRole("table", { name: "Turnos por dia" })).toBeInTheDocument();
+  });
+
   it("turnos sobrepostos (vindos de antes) ficam assinalados; a API recusa novos", async () => {
     const m = mod();
     m.rosters.listShifts = vi.fn(async () => ({ roster: ROSTER, pending: 1, shifts: [PUBLISHED, { ...PUBLISHED, id: "s9", dirty: true, published: null, publishedVersion: null }] }));

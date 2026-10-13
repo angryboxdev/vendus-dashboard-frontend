@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
+import { ApiError } from "../../../../../lib/api.ts";
 import {
+  AlertBanner,
   AvatarStack,
   Button,
   EmptyState,
@@ -42,7 +44,11 @@ export function RostersOverview({ onOpen }: { onOpen: (rosterId: string) => void
   const to = daysFrom(from, WEEKS * 7).at(-1)!;
   const [search, setSearch] = useState("");
   const [creating, setCreating] = useState(false);
-  const q = useQuery({ queryKey: ["novo-rh", "rosters", "summary", from], queryFn: () => rosters.summary(from, to) });
+  const q = useQuery({ queryKey: ["novo-rh", "rosters", "summary", from], queryFn: () => rosters.summary(from, to), retry: false });
+  // Sem o resumo, a lista simples das escalas (sem pessoas/estado) — o ecrã nunca fica vazio.
+  const plain = useQuery({ queryKey: ["novo-rh", "rosters", "list"], queryFn: () => rosters.listRosters(), enabled: q.isError });
+  const data: RosterSummary[] | undefined = q.data ?? (plain.data ? plain.data.filter((r) => !r.archived).map((roster) => ({ roster, employeeIds: [], shifts: -1, pending: 0, lastPublishedAt: null })) : undefined);
+  const errorDetail = q.error instanceof ApiError ? `${q.error.status} · ${q.error.message}` : q.error instanceof Error ? q.error.message : "";
   const employees = useQuery({ queryKey: ["novo-rh", "settings", "employees"], queryFn: () => settings.listEmployees() });
   const locations = useQuery({ queryKey: ["novo-rh", "settings", "locations"], queryFn: () => settings.listLocations() });
   const groups = useQuery({ queryKey: ["novo-rh", "structure", "groups"], queryFn: () => structure.listGroups() });
@@ -55,7 +61,7 @@ export function RostersOverview({ onOpen }: { onOpen: (rosterId: string) => void
       ? { icon: <IconStore size={14} />, label: locations.data?.find((l) => l.id === s.roster.targetId)?.label ?? t("ros.overview.byLocation") }
       : { icon: <IconUsers size={14} />, label: groups.data?.find((g) => g.id === s.roster.targetId)?.name ?? t("ros.overview.byGroup") };
   const norm = (v: string) => v.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase();
-  const rows = (q.data ?? []).filter((s) => !search.trim() || norm(`${s.roster.name} ${target(s).label}`).includes(norm(search.trim())));
+  const rows = (data ?? []).filter((s) => !search.trim() || norm(`${s.roster.name} ${target(s).label}`).includes(norm(search.trim())));
   const firstBatch = useFirstBatch(rows.map((r) => r.roster.id));
 
   return (
@@ -69,6 +75,15 @@ export function RostersOverview({ onOpen }: { onOpen: (rosterId: string) => void
           </Button>
         </div>
       </div>
+      {q.isError && !plain.isError && (
+        <AlertBanner
+          tone="warning"
+          title={t("ros.overview.summaryError")}
+          action={<Button size="sm" onClick={() => void q.refetch()}>{t("ros.board.retry")}</Button>}
+        >
+          <p className="text-xs">{errorDetail}</p>
+        </AlertBanner>
+      )}
       <div className="overflow-hidden rounded-2.5xl border border-line bg-surface-card shadow-card motion-safe:animate-motion-fade-up [animation-delay:80ms]">
         <div className="overflow-x-auto">
           <table className={TABLE}>
@@ -82,7 +97,7 @@ export function RostersOverview({ onOpen }: { onOpen: (rosterId: string) => void
               </tr>
             </thead>
             <tbody>
-              {q.isLoading &&
+              {(q.isLoading || plain.isLoading) &&
                 Array.from({ length: 4 }, (_, i) => (
                   <tr key={i} className="border-b border-line-subtle">
                     {["w-40", "w-32", "w-24", "w-20", "w-24"].map((w, j) => (
@@ -122,7 +137,9 @@ export function RostersOverview({ onOpen }: { onOpen: (rosterId: string) => void
                       </span>
                     </td>
                     <td className={TD}>
-                      {people.length ? (
+                      {s.shifts < 0 ? (
+                        <span className="text-xs text-ink-muted">—</span>
+                      ) : people.length ? (
                         <span className="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface-card py-1 pl-1 pr-2.5 shadow-card">
                           <AvatarStack size="xs" max={3} items={people.slice(0, 3)} />
                           <span className="text-xs font-medium tabular-nums text-shift-afternoon-ink">{people.length}</span>
@@ -132,7 +149,9 @@ export function RostersOverview({ onOpen }: { onOpen: (rosterId: string) => void
                       )}
                     </td>
                     <td className={TD}>
-                      {s.pending > 0 ? (
+                      {s.shifts < 0 ? (
+                        <span className="text-xs text-ink-muted">—</span>
+                      ) : s.pending > 0 ? (
                         <StatusBadge tone="warning">{t("ros.overview.pending")}</StatusBadge>
                       ) : s.shifts > 0 ? (
                         <StatusBadge tone="success">{t("ros.overview.published")}</StatusBadge>
@@ -147,14 +166,16 @@ export function RostersOverview({ onOpen }: { onOpen: (rosterId: string) => void
             </tbody>
           </table>
         </div>
-        {q.data && rows.length === 0 && (
+        {data && rows.length === 0 && (
           <EmptyState
             icon={<IconCalendar size={22} />}
             title={search ? t("ros.overview.noMatch") : t("ros.board.noRostersTitle")}
             description={search ? undefined : t("ros.board.noRostersText")}
           />
         )}
-        {q.isError && <EmptyState icon={<IconCalendar size={22} />} title={t("ros.board.loadError")} action={<Button onClick={() => void q.refetch()}>{t("ros.board.retry")}</Button>} />}
+        {q.isError && plain.isError && (
+          <EmptyState icon={<IconCalendar size={22} />} title={t("ros.board.loadError")} description={errorDetail} action={<Button onClick={() => void q.refetch()}>{t("ros.board.retry")}</Button>} />
+        )}
         {rows.length > 0 && <p className="border-t border-line-subtle px-6 py-3 text-right text-sm text-ink-muted">{t("ros.overview.count", { count: rows.length })}</p>}
       </div>
       <NewRosterDrawer
