@@ -73,7 +73,7 @@ export function AssignPanel({
       />
       <aside
         aria-label={t("ros.assign.title")}
-        className="fixed inset-0 z-50 flex flex-col bg-surface-card motion-safe:animate-motion-slide-in-right sm:inset-y-0 sm:left-auto sm:w-[420px] sm:shadow-pop xl:sticky xl:top-4 xl:z-10 xl:-ml-2 xl:max-h-[calc(100vh-2rem)] xl:min-h-[640px] xl:w-[308px] xl:shrink-0 xl:rounded-2.5xl xl:border xl:border-line xl:shadow-pop"
+        className="fixed inset-0 z-50 flex flex-col bg-surface-card motion-safe:animate-motion-slide-in-right sm:inset-y-0 sm:left-auto sm:w-[420px] sm:shadow-pop xl:sticky xl:top-4 xl:z-10 xl:ml-4 xl:max-h-[calc(100vh-2rem)] xl:min-h-[640px] xl:w-[308px] xl:shrink-0 xl:rounded-2.5xl xl:border xl:border-line xl:shadow-pop"
       >
         <div className="flex items-start justify-between gap-3 px-6 pb-2 pt-6">
           <h2 className="text-xl font-semibold text-navy-900">
