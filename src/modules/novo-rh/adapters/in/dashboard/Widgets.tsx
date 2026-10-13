@@ -121,6 +121,7 @@ export function UnitsBody({ s, onOpen, onlyAttention, onClearFilter }: { s: Oper
 }
 
 export function CoverageBody({ s }: { s: OperationalSnapshot }) {
+  if (s.partial?.includes("coverage")) return <WidgetMessage text="A cobertura não pôde ser calculada agora (fica disponível na próxima atualização)." action={<Link to="/hr/novo/escalas" className={MORE}>Ver nas Escalas ›</Link>} />;
   const row = (label: string, n: number) => (
     <Link to="/hr/novo/escalas" className="flex items-center justify-between rounded-xl border border-line-subtle px-3 py-2 text-sm hover:bg-surface-soft">
       <span className="text-ink">{label}</span>
