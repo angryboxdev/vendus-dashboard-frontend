@@ -271,6 +271,36 @@ describe("Escalas — ecrãs", () => {
     expect(within(one).getByRole("button", { name: "Mover turno" })).toBeEnabled();
   });
 
+  it("Ctrl+C com texto selecionado é a cópia normal do browser (não copia o turno)", async () => {
+    renderWith(mod());
+    const user = await openRoster();
+    const spy = vi.spyOn(window, "getSelection").mockReturnValue({ toString: () => "texto" } as unknown as Selection);
+    await user.hover(within(grid()).getByRole("button", { name: `Ana Teste ${MON}` }));
+    await user.keyboard("{Control>}c{/Control}");
+    expect(screen.queryByText(/Turno copiado/)).toBeNull();
+    spy.mockRestore();
+  });
+
+  it("copiar para vários dias salta os que já têm turno e diz quantos", async () => {
+    const m = mod();
+    m.rosters.addShift = vi.fn(async () => ({ shift: PUBLISHED, warnings: [] }));
+    renderWith(m);
+    const user = await openRoster();
+    const [, , wed, thu] = daysFrom(MON, 4);
+    const card = within(grid()).getByRole("button", { name: `Ana Teste ${MON}` }).parentElement!;
+    const cell = (d: string) => within(grid()).getAllByRole("button", { name: `Ana Teste ${d}` })[0]!.closest("[role=cell]")!;
+    const data = dt();
+    fireEvent.dragStart(card, { dataTransfer: data });
+    fireEvent.dragEnter(cell(TUE), { dataTransfer: data });
+    fireEvent.dragEnter(cell(thu), { dataTransfer: data });
+    fireEvent.drop(cell(thu), { dataTransfer: data });
+    await user.click(within(screen.getByRole("dialog")).getByRole("button", { name: "Copiar para 3 dias" }));
+    await vi.waitFor(() => expect(m.rosters.addShift).toHaveBeenCalledTimes(2));
+    expect(m.rosters.addShift).not.toHaveBeenCalledWith("r1", expect.objectContaining({ workDate: TUE }));
+    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", expect.objectContaining({ workDate: wed }));
+    expect(await screen.findByText(/1 dia com turno ignorado/)).toBeInTheDocument();
+  });
+
   it("regras da edição direta: retângulo de células, cópia sem a própria célula, pintura", () => {
     const rect = cellRect(["e1", "e2"], [MON, TUE], { employeeId: "e2", workDate: TUE }, { employeeId: "e1", workDate: MON });
     expect(rect).toHaveLength(4);

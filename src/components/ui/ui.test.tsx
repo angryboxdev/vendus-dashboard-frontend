@@ -78,4 +78,14 @@ describe("components/ui — identidade visual Mezza ERP", () => {
     expect(screen.getByRole("button", { name: "Hora de início: 23:03" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "23", selected: true })).toBeInTheDocument();
   });
+
+  it("TimePicker: ao abrir, o foco vai para as horas; Enter fecha e devolve o foco ao campo", async () => {
+    const user = userEvent.setup();
+    render(<TimeHarness />);
+    await user.click(screen.getByRole("button", { name: "Hora de início: 23:58" }));
+    expect(screen.getByRole("listbox", { name: "Horas" })).toHaveFocus();
+    await user.keyboard("{ArrowDown}{Enter}");
+    expect(screen.queryByRole("listbox", { name: "Horas" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Hora de início: 00:58" })).toHaveFocus();
+  });
 });

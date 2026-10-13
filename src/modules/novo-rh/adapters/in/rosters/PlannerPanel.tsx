@@ -56,6 +56,7 @@ import { downloadBlob } from "../download.ts";
 import { AssignPanel } from "./AssignPanel.tsx";
 import { RosterBoard, type BoardMode } from "./RosterBoard.tsx";
 import { useRosterEditing } from "./use-roster-editing.ts";
+import { cellKey } from "../../../domain/services/roster-edit.service.ts";
 
 const KEY = ["novo-rh", "rosters"];
 const ROSTER_KEY = "novo-rh-roster-id";
@@ -253,11 +254,21 @@ export function PlannerPanel({
           .sort((a, b) => a.g.localeCompare(b.g, "pt") || a.i - b.i)
           .map((x) => x.r.employeeId)
       : rows.map((r) => r.employeeId);
+  const occupied = useMemo(
+    () =>
+      new Set(
+        (shifts.data?.shifts ?? [])
+          .filter((s) => !s.deleted)
+          .map(cellKey),
+      ),
+    [shifts.data],
+  );
   const editing = useRosterEditing({
     rosterId,
     enabled: !!rosterId && mode !== "shifts",
     people: order,
     days,
+    occupied,
     paint,
     openShift: selected,
     shiftTitle: (s) =>

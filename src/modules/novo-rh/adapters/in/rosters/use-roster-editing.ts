@@ -60,6 +60,8 @@ export function useRosterEditing(o: {
   enabled: boolean;
   people: string[];
   days: string[];
+  /** Células que já têm turno (em massa, não se põe outro por cima). */
+  occupied: Set<string>;
   paint: string;
   /** Turno aberto no painel lateral (também se copia com Ctrl+C). */
   openShift: RosterShift | null;
@@ -79,10 +81,16 @@ export function useRosterEditing(o: {
   }, []);
   const [drag, setDrag] = useState<{ source: RosterShift; anchor: CellRef | null; targets: Set<string> } | null>(null);
   const [prompt, setPrompt] = useState<DropPrompt | null>(null);
+  const promptOpen = useRef(false);
+  useEffect(() => {
+    promptOpen.current = !!prompt;
+  }, [prompt]);
   const [clipboard, setClipboard] = useState<RosterShift | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [failures, setFailures] = useState<EditFailure[]>([]);
   const [busy, setBusy] = useState(false);
+  // Um lote de cada vez (repetir enquanto o anterior corre criaria duplicados).
+  const running = useRef(false);
   const anchor = useRef<CellRef | null>(null);
   const selecting = useRef(false);
   const hover = useRef<RosterShift | null>(null);
@@ -94,9 +102,16 @@ export function useRosterEditing(o: {
 
   /** Cria os turnos um a um (cada um com as regras da API); junta avisos e recusas. */
   const createAll = useCallback(
-    async (inputs: ShiftInput[], verb: string) => {
-      const { rosterId } = latest.current;
-      if (!rosterId || inputs.length === 0) return 0;
+    async (all: ShiftInput[], verb: string, skipOccupied = true) => {
+      const { rosterId, occupied } = latest.current;
+      if (!rosterId || all.length === 0 || running.current) return 0;
+      const inputs = skipOccupied ? all.filter((i) => !occupied.has(cellKey(i))) : all;
+      const skipped = all.length - inputs.length;
+      if (inputs.length === 0) {
+        setNotice(`Os dias escolhidos já têm turno (${skipped} ignorado${skipped === 1 ? "" : "s"}).`);
+        return 0;
+      }
+      running.current = true;
       setBusy(true);
       setFailures([]);
       const warnings: Violation[] = [];
@@ -112,9 +127,11 @@ export function useRosterEditing(o: {
         }
       }
       await latest.current.refresh();
+      running.current = false;
       setBusy(false);
       setFailures(failed);
-      setNotice(created ? `${created} ${created === 1 ? "turno" : "turnos"} ${verb} (por publicar).` : null);
+      const ignored = skipped ? ` ${skipped} dia${skipped === 1 ? "" : "s"} com turno ignorado${skipped === 1 ? "" : "s"}.` : "";
+      setNotice(created ? `${created} ${created === 1 ? "turno" : "turnos"} ${verb} (por publicar).${ignored}` : ignored.trim() || null);
       if (warnings.length) latest.current.onWarnings(warnings);
       return created;
     },
@@ -170,6 +187,8 @@ export function useRosterEditing(o: {
     const onKey = (e: KeyboardEvent) => {
       if (isTyping(e.target)) return;
       const mod = e.ctrlKey || e.metaKey;
+      // Texto selecionado = cópia normal do browser; com o diálogo aberto, nada atrás dele.
+      if (mod && (window.getSelection()?.toString() || promptOpen.current)) return;
       if (mod && e.key.toLowerCase() === "c") {
         const s = hover.current ?? latest.current.openShift;
         if (s) {
@@ -268,7 +287,8 @@ export function useRosterEditing(o: {
     if (!prompt) return;
     const p = prompt;
     setPrompt(null);
-    await createAll(copyInputs(p.source, p.targets), "copiados");
+    // Um só dia largado à mão: cria mesmo que já tenha turno (a API decide); vários dias: só os livres.
+    await createAll(copyInputs(p.source, p.targets), "copiados", p.targets.length > 1);
   };
 
   /** Mover = criar no novo dia e retirar o original (com motivo se já estava publicado). */
@@ -276,7 +296,7 @@ export function useRosterEditing(o: {
     if (!prompt || prompt.targets.length !== 1) return;
     const { source, targets } = prompt;
     setPrompt(null);
-    const created = await createAll(copyInputs(source, targets), "movidos");
+    const created = await createAll(copyInputs(source, targets), "movidos", false);
     if (!created) return;
     const remove = async (confirm: boolean): Promise<void> => {
       try {

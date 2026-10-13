@@ -1,4 +1,4 @@
-import { useId, type KeyboardEvent, type WheelEvent } from "react";
+import { useEffect, useId, useRef, type KeyboardEvent } from "react";
 import { IconChevronDown, IconClock } from "./icons.tsx";
 import { Popover } from "./Popover.tsx";
 import { FOCUS_RING } from "./ui-classes.ts";
@@ -17,9 +17,29 @@ function split(value: string): [number, number] {
  * cada lado, setas por cima e por baixo. Roda do rato e setas do teclado
  * avançam um; Page Up/Down avançam cinco; clicar num valor escolhe-o.
  */
-function WheelColumn({ label, value, size, onChange }: { label: string; value: number; size: number; onChange: (v: number) => void }) {
+function WheelColumn({ label, value, size, onChange, autoFocus = false }: { label: string; value: number; size: number; onChange: (v: number) => void; autoFocus?: boolean }) {
   const uid = useId();
+  const ref = useRef<HTMLDivElement>(null);
   const step = (d: number) => onChange(wrap(value + d, size));
+  const stepRef = useRef(step);
+  useEffect(() => {
+    stepRef.current = step;
+  });
+  // Roda do rato: não passiva, para a página não rolar enquanto se escolhe a hora.
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY === 0) return;
+      e.preventDefault();
+      stepRef.current(e.deltaY > 0 ? 1 : -1);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+  useEffect(() => {
+    if (autoFocus) ref.current?.focus();
+  }, [autoFocus]);
   const onKey = (e: KeyboardEvent) => {
     const d = { ArrowUp: -1, ArrowDown: 1, PageUp: -5, PageDown: 5 }[e.key];
     if (d !== undefined) {
@@ -30,9 +50,6 @@ function WheelColumn({ label, value, size, onChange }: { label: string; value: n
       onChange(e.key === "Home" ? 0 : size - 1);
     }
   };
-  const onWheel = (e: WheelEvent) => {
-    if (e.deltaY !== 0) step(e.deltaY > 0 ? 1 : -1);
-  };
   const arrow = "flex h-7 w-full items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-surface-soft hover:text-navy-900";
   return (
     <div className="flex w-14 flex-col items-center gap-1">
@@ -40,12 +57,12 @@ function WheelColumn({ label, value, size, onChange }: { label: string; value: n
         <IconChevronDown size={16} className="rotate-180" />
       </button>
       <div
+        ref={ref}
         role="listbox"
         aria-label={label}
         aria-activedescendant={`${uid}-${value}`}
         tabIndex={0}
         onKeyDown={onKey}
-        onWheel={onWheel}
         className={`flex w-full flex-col items-center gap-0.5 rounded-xl border border-line p-1 focus-within:border-brand-500 ${FOCUS_RING}`}
       >
         {[-3, -2, -1, 0, 1, 2, 3].map((d) => {
@@ -82,12 +99,14 @@ function WheelColumn({ label, value, size, onChange }: { label: string; value: n
 export function TimePicker({ label, value, onChange, className = "" }: { label: string; value: string; onChange: (value: string) => void; className?: string }) {
   const [h, m] = split(value);
   const set = (nh: number, nm: number) => onChange(`${pad(nh)}:${pad(nm)}`);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   return (
     <Popover
       label={label}
       width="w-auto"
       trigger={({ open, toggle, id }) => (
         <button
+          ref={triggerRef}
           type="button"
           onClick={toggle}
           aria-haspopup="dialog"
@@ -104,8 +123,18 @@ export function TimePicker({ label, value, onChange, className = "" }: { label: 
       )}
     >
       {(close) => (
-        <div className="flex items-center gap-1 p-2" onKeyDown={(e) => e.key === "Enter" && close()}>
-          <WheelColumn label="Horas" value={h} size={24} onChange={(v) => set(v, m)} />
+        <div
+          className="flex items-center gap-1 p-2"
+          onKeyDown={(e) => {
+            // Enter/Esc fecham e devolvem o foco ao campo.
+            if (e.key === "Enter" || e.key === "Escape") {
+              e.preventDefault();
+              close();
+              triggerRef.current?.focus();
+            }
+          }}
+        >
+          <WheelColumn label="Horas" value={h} size={24} onChange={(v) => set(v, m)} autoFocus />
           <span aria-hidden="true" className="px-0.5 text-base font-semibold text-navy-900">
             :
           </span>
