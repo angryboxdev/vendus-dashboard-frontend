@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "../../../../i18n/I18nProvider.tsx";
 import { AlertBanner, Button } from "../../../../components/ui/index.ts";
 import type { DataMode } from "../../domain/entities/roadmap.ts";
+import type { DemoStatus } from "../../domain/ports/out/demo-api.port.ts";
 import { useDataMode, useNovoRh } from "../../novo-rh.module.tsx";
 
 const KEY = ["novo-rh", "demo-status"] as const;
@@ -13,7 +14,8 @@ export function DataModeSwitch() {
   const { demo } = useNovoRh();
   const { mode, setMode } = useDataMode();
   const qc = useQueryClient();
-  const status = useQuery({ queryKey: KEY, queryFn: () => demo.status() });
+  // Enquanto a atualização corre no servidor, o estado volta a ser pedido a cada 5 s.
+  const status = useQuery({ queryKey: KEY, queryFn: () => demo.status(), refetchInterval: (q) => (q.state.data?.refresh?.running ? 5_000 : false) });
   const [confirming, setConfirming] = useState(false);
   const create = useMutation({
     mutationFn: () => demo.create(),
@@ -27,6 +29,7 @@ export function DataModeSwitch() {
     // Os ecrãs do Novo RH voltam a pedir com as marcações novas.
     onSuccess: (r) => {
       void qc.invalidateQueries({ queryKey: ["novo-rh"] });
+      void qc.invalidateQueries({ queryKey: KEY });
       // A correr em segundo plano: volta a pedir os dados daqui a pouco.
       if (r.running) setTimeout(() => void qc.invalidateQueries({ queryKey: ["novo-rh"] }), 30_000);
     },
@@ -79,6 +82,7 @@ export function DataModeSwitch() {
             {refresh.data ? (refresh.data.running ? t("novoRh.mode.refreshRunning") : t("novoRh.mode.refreshed", { count: refresh.data.punches })) : t("novoRh.mode.refreshHint")}
           </p>
           {refresh.isError && <p className="text-xs text-red-700">{refresh.error.message}</p>}
+          <RefreshStatus s={status.data?.refresh} />
         </div>
       )}
       {status.isSuccess && !exists && !confirming && (
@@ -157,5 +161,37 @@ export function DemoAccessNotice() {
     <AlertBanner tone="info" title={t("novoRh.mode.accessTitle")}>
       {t("novoRh.mode.accessBody")}
     </AlertBanner>
+  );
+}
+
+/** O que a última atualização fez (ou o erro), para se perceber porque faltam dados. */
+function RefreshStatus({ s }: { s: DemoStatus["refresh"] }) {
+  if (!s || (!s.running && !s.lastAt)) return null;
+  const e = s.last?.enriched;
+  const at = s.lastAt ? new Date(s.lastAt).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" }) : null;
+  const parts = [
+    s.last?.punches !== undefined ? `${s.last.punches} marcações novas` : null,
+    e?.periodClosed ? "mês anterior fechado" : null,
+    e && e.rules ? `${e.rules} regras de alerta` : null,
+    e && e.alerts ? `${e.alerts} alertas abertos` : null,
+    e && e.pending ? `${e.pending} pedidos criados` : null,
+  ].filter(Boolean);
+  return (
+    <div className="w-full text-xs text-stone-600" role="status">
+      {s.running ? (
+        <p>A atualizar em segundo plano…</p>
+      ) : (
+        <p>
+          Última atualização{at ? ` às ${at}` : ""}: {s.error ? <span className="text-red-700">falhou — {s.error}</span> : parts.length ? parts.join(" · ") : "nada em falta"}
+        </p>
+      )}
+      {!!e?.errors?.length && (
+        <ul className="mt-1 list-disc pl-4 text-red-700">
+          {e.errors.map((x) => (
+            <li key={x}>{x}</li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
