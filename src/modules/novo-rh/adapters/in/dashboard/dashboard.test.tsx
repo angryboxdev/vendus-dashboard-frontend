@@ -172,3 +172,25 @@ describe("Dashboard — ecrã", () => {
     expect(screen.getByRole("img", { name: "26 colaboradores" })).toBeInTheDocument();
   });
 });
+
+describe("Dashboard — erros e fontes parciais", () => {
+  it("resumo a falhar mostra o código e a mensagem (não fica em branco)", async () => {
+    const m = mod();
+    m.dashboard.snapshot = vi.fn(async () => {
+      throw new ApiError("Erro interno", 500);
+    });
+    renderWith(m);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("Não foi possível carregar o Dashboard agora.");
+    expect(alert).toHaveTextContent("500 · Erro interno");
+    expect(screen.getAllByText("Sem dados (o resumo não carregou).").length).toBeGreaterThan(0);
+  });
+
+  it("cobertura indisponível: o widget avisa e o resto funciona", async () => {
+    const m = mod();
+    m.dashboard.snapshot = vi.fn(async () => ({ ...SNAP, partial: ["coverage" as const] }));
+    renderWith(m);
+    expect(await screen.findByText(/A cobertura não pôde ser calculada agora/)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "26 colaboradores" })).toBeInTheDocument();
+  });
+});

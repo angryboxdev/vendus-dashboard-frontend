@@ -15,6 +15,7 @@ import {
   Skeleton,
 } from "../../../../../components/ui/index.ts";
 import { hasLevel } from "../../../../access/domain/services/access-ui.service.ts";
+import { ApiError } from "../../../../../lib/api.ts";
 import type { TeamCategory, UnitRow, WidgetPref } from "../../../domain/entities/dashboard.ts";
 import {
   defaultLayout,
@@ -148,7 +149,7 @@ export function DashboardView() {
       : undefined;
 
   const body = (id: WidgetId): { icon: ReactNode; node: ReactNode; count?: number; critical?: boolean; subtitle?: ReactNode; action?: ReactNode } => {
-    if (!s) return { icon: null, node: <WidgetSkeleton /> };
+    if (!s) return { icon: null, node: snap.isError ? <WidgetMessage text="Sem dados (o resumo não carregou)." /> : <WidgetSkeleton /> };
     switch (id) {
       case "ATTENTION":
         return { icon: <IconAlert size={18} />, node: <AttentionBody s={s} />, count: s.attention.reduce((n, a) => n + a.count, 0), critical: true };
@@ -255,7 +256,18 @@ export function DashboardView() {
         )}
       </section>
 
-      {snap.isError && !s && <WidgetMessage text="Não foi possível carregar o Dashboard agora." action={<Button onClick={() => void snap.refetch()}>Tentar de novo</Button>} />}
+      {snap.isError && !s && (
+        <div role="alert" className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+          <span>
+            Não foi possível carregar o Dashboard agora.
+            <span className="block text-xs text-red-700/80">{snap.error instanceof ApiError ? `${snap.error.status} · ${snap.error.message}` : snap.error instanceof Error ? snap.error.message : ""}</span>
+          </span>
+          <Button size="sm" onClick={() => void snap.refetch()}>
+            Tentar de novo
+          </Button>
+        </div>
+      )}
+      {s?.partial?.includes("requests") && <p className="text-xs text-amber-800">Os pedidos pendentes não puderam ser contados agora; o resto do Dashboard está atualizado.</p>}
 
       <div className="flex items-start gap-4">
         <div className="grid min-w-0 flex-1 grid-cols-12 gap-4">

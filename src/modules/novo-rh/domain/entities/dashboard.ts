@@ -48,6 +48,8 @@ export interface OperationalSnapshot {
   attention: AttentionItem[];
   locations: UnitRow[];
   holidays: { date: string; name: string }[];
+  /** Fontes que falharam ou demoraram (os widgets delas avisam; o resto funciona). */
+  partial?: ("requests" | "coverage")[];
 }
 
 export interface TeamMember {
