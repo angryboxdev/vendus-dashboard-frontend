@@ -1,7 +1,7 @@
 # Módulo: invoices
 
 > Status: ativo
-> Última atualização: 2026-09-28 (refinamento visual da lista de Faturas: colunas/cores/bordas, ordenação, tamanho de página, Classificação real em vez do CC padrão do fornecedor)
+> Última atualização: 2026-10-14 (Fornecedores/Financeiro/Stock v1.2 · F1: motor único de valores na revisão, descontos, "Diferença para a fatura", conflitos de identidade fiscal, reimportação devolve o documento existente)
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -137,10 +137,17 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
   - Alertas: `getInvoiceAlerts()` → `InvoiceAlertsDTO`
   - Sugestão: `suggestLineClassification(supplierId, description?)` → `SuggestClassificationResult | null`
 
+### Domínio — motor único de valores (F1 v1.2 §1.3)
+
+- `domain/services/decimal.ts`, `document-amounts.ts`, `invoice-amounts.service.ts` — **espelho** do motor do backend (`src/kernel/money` e `invoices/domain/services/invoice-amounts.service.ts`), com os mesmos vetores de teste. Decimal exato (BigInt), arredondamento uma vez, IVA por taxa, desconto de rodapé não duplicado, taxa em falta nunca é 0%. **Alterar sempre os dois lados juntos.**
+- `domain/services/draft-amounts.ts` — ponte formulário → motor: números escritos sem float, texto exato do preço para o servidor (vírgula decimal, todas as casas), quantidade ambígua ("20.000") resolvida pelo bruto impresso, pré-visualização (modo detalhado/simples) e payload `amounts`.
+
 ## Adapters
 
 ### Entrada (UI)
 
+- **Revisão de importação (`ReviewImportedInvoiceDrawer`) — F1**: o antigo "Saldo" (float, tolerância 1 cêntimo) deu lugar ao `AmountsSummary`: Bruto antes de descontos / Desconto / Base após descontos / IVA por taxa / Ajustes / Total calculado / Total da fatura / **Diferença para a fatura**. Desconto por linha e global em % ou €, desconto de rodapé, ajustes documentados e ajuste de arredondamento (≤ 1 cêntimo por taxa, com motivo). Os botões de confirmar ficam bloqueados enquanto a diferença não for 0,00 € (o servidor volta a verificar: 422 `amounts_not_reconciled`). Taxa de IVA extraída em falta aparece "por validar" (antes assumia 23%). Conflitos 409 mostram ações: *Abrir documento existente*, *Completar lançamento existente* (Stock), *Comparar* / *Não é duplicado — confirmar*, *Completar dados*, versão alterada. Envia `expectedVersion`.
+- **`InvoicesView` — importação reutilizada**: `reused` (mesmo ficheiro / mesma identidade fiscal) abre o documento existente (detalhe, ou a revisão se ainda for rascunho) com um aviso, em vez de criar outro rascunho.
 - **`InvoicesView`** — página `/financial/invoices`. Vista Tabela redesenhada por completo pela task
   "Refinamento visual da lista de Faturas" (identidade "ERP financeiro" — Linear/Stripe: fundo branco,
   bordas `stone-200`, sem laranja fora do CTA/tab ativa, hierarquia por peso tipográfico em vez de
@@ -394,10 +401,12 @@ puramente redundante.
 
 ## Como testar
 
-- Domínio: não há lógica de domínio no frontend — entidades são apenas interfaces TypeScript.
-- Testes de UI: a implementar com Vitest + Testing Library.
+- Domínio: `npx vitest run src/modules/invoices` — motor de valores (mesmos vetores do backend, incl. o exemplo Mozzarella), `draft-amounts`.
+- UI: `AmountsSummary.test.tsx` (quadro de valores, bloqueio, ajuste de arredondamento, IVA por validar).
 
 ## Pontos de atenção / dívidas conhecidas
+
+- **F1**: no modo "Editar fatura completa" (`mode="edit"`) o quadro de valores é informativo — a gravação passa por `updateInvoice` + linhas, que o backend ainda não reconcilia com o motor (só criar/confirmar). Não há "Guardar rascunho" com descontos: o rascunho importado mantém-se tal como foi extraído até ser confirmado.
 
 - Testes de UI não implementados. A lógica de filtragem (tabs, filtros avançados,
   agrupamento do calendário) é candidata a extração para funções puras e testes

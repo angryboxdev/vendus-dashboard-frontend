@@ -3079,6 +3079,7 @@ export function InvoicesView() {
   const [showImport, setShowImport] = useState(false);
   const [importResult, setImportResult] =
     useState<InvoiceImportResultDTO | null>(null);
+  const [importNotice, setImportNotice] = useState<string | null>(null);
   const [detail, setDetail] = useState<InvoiceDTO | null>(null);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
   const [markPaidInvoice, setMarkPaidInvoice] = useState<InvoiceDTO | null>(
@@ -4575,7 +4576,18 @@ export function InvoicesView() {
             onClose={() => setShowImport(false)}
             onImported={(result) => {
               setShowImport(false);
-              setImportResult(result);
+              // Documento já existente (mesmo ficheiro ou mesma identidade fiscal, F1 v1.2): abre-se o
+              // existente em vez de criar outro rascunho; se ainda for rascunho, continua a revisão.
+              const isDraft = result.invoice.status === "draft_ai" || result.invoice.status === "pending_review";
+              if (result.reused) {
+                setImportNotice(
+                  result.reused === "same_file"
+                    ? `Este ficheiro já tinha sido importado — a abrir o documento ${result.invoice.invoiceNumber || "existente"}.`
+                    : `Este documento já está lançado (${result.invoice.invoiceNumber}) — a abrir o existente, sem criar cópia.`,
+                );
+              }
+              if (result.reused && !isDraft) setDetail(result.invoice);
+              else setImportResult(result);
             }}
           />
         )}
@@ -4588,7 +4600,20 @@ export function InvoicesView() {
               setImportResult(null);
               setDetail(inv);
             }}
+            onOpenExisting={(id) => {
+              void api.getInvoice(id).then((existing) => {
+                setImportResult(null);
+                setDetail(existing);
+              });
+            }}
           />
+        )}
+
+        {importNotice && (
+          <div role="status" className="fixed bottom-4 left-1/2 z-[120] flex max-w-[90vw] -translate-x-1/2 items-center gap-3 rounded-lg bg-stone-800 px-4 py-2 text-sm text-white shadow-lg">
+            <span>{importNotice}</span>
+            <button type="button" onClick={() => setImportNotice(null)} className="text-stone-300 hover:text-white" aria-label="Fechar aviso">×</button>
+          </div>
         )}
 
         {detail && (

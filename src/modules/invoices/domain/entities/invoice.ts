@@ -150,6 +150,8 @@ export interface InvoiceDTO {
   stockReviewOverrideReason: string | null;
   createdAt: string;
   updatedAt: string;
+  /** Versão (bloqueio otimista) — enviar como `expectedVersion` ao confirmar. */
+  version?: number;
   lines?: InvoiceLineDTO[];
   linesSummary?: {
     subtotalWithoutVat: number;
@@ -186,6 +188,29 @@ export interface AiExtractedLineDTO {
   vatAmount: number | null;
   totalWithoutVat: number | null;
   totalWithVat: number | null;
+  /** Texto tal como impresso (ex.: "20.000", "1,235") — o servidor resolve a leitura que reconcilia. */
+  quantityText?: string | null;
+  unitPriceText?: string | null;
+  /** Bruto da linha antes de descontos (cêntimos), quando impresso. */
+  grossWithoutDiscount?: number | null;
+  /** Desconto comercial da linha: % (10 = 10%) ou valor em cêntimos. */
+  discountPct?: number | null;
+  discountAmount?: number | null;
+}
+
+export interface VatSummaryEntry {
+  rate: number;
+  baseCents: number;
+  vatCents: number;
+}
+
+/** Identidade fiscal do documento importado (F1 v1.2) — avisos na revisão. */
+export interface ImportFiscalInfo {
+  kind: "new" | "ok" | "incomplete" | "existing_finance" | "existing_stock_only" | "possible_duplicate" | string;
+  existingInvoiceId?: string | null;
+  identityId?: string;
+  candidates?: { invoiceId: string | null; seriesNumber: string }[];
+  missing?: string[];
 }
 
 export interface InvoiceImportResultDTO {
@@ -194,6 +219,26 @@ export interface InvoiceImportResultDTO {
   validationIssues: string[];
   supplierMatch: SupplierMatchDTO | null;
   extractedLines: AiExtractedLineDTO[];
+  /** Descontos globais/rodapé e quadro de IVA extraídos. */
+  extractedAmounts?: { globalDiscountPct: number | null; globalDiscountAmount: number | null; footerDiscountAmount: number | null; vatSummary: VatSummaryEntry[] | null };
+  /** O documento já existia (mesmo ficheiro ou mesma identidade fiscal): é devolvido o existente. */
+  reused?: "same_file" | "same_fiscal_identity";
+  fiscal?: ImportFiscalInfo;
+}
+
+export interface AmountDiscountPayload {
+  kind: "pct" | "amount";
+  /** % (10 = 10%) ou cêntimos. */
+  value: number;
+}
+
+/** Valores do documento — o servidor recalcula tudo com o motor único ao finalizar (F1 §1.3). */
+export interface DocumentAmountsPayload {
+  globalDiscount?: AmountDiscountPayload | null;
+  footerDiscountCents?: number | null;
+  adjustmentsCents?: number;
+  vatSummary?: VatSummaryEntry[] | null;
+  roundingAdjustment?: { cents: number; reason: string } | null;
 }
 
 export interface InvoiceAlertsDTO {
@@ -220,6 +265,11 @@ export interface CreateInvoiceLinePayload {
   totalWithVat: number;
   /** Optional (D4): omitted means "organization-wide, no store". Never defaulted. */
   locationId?: string | null;
+  /** Texto exato da quantidade/preço (vírgula decimal) — o servidor recalcula sem perder casas decimais. */
+  quantityText?: string | null;
+  unitPriceText?: string | null;
+  grossCentsPrinted?: number | null;
+  discount?: AmountDiscountPayload | null;
 }
 
 export interface CreateInvoicePayload {
@@ -306,6 +356,13 @@ export interface ConfirmImportedInvoicePayload {
   markAsPaid?: boolean;
   paidAt?: string; // YYYY-MM-DD — used when markAsPaid is true
   lines?: CreateInvoiceLinePayload[];
+  amounts?: DocumentAmountsPayload;
+  /** Bloqueio otimista (409 `version_conflict` se a fatura mudou entretanto). */
+  expectedVersion?: number;
+  /** A pessoa comparou com os documentos parecidos e confirmou que é outro documento. */
+  notADuplicate?: boolean;
+  /** Completar o documento que já existe só no Stock (sem nova revisão de stock). */
+  completeStockIdentityId?: string;
 }
 
 export interface UpdateInvoiceLinePayload {
@@ -362,4 +419,7 @@ export const VALIDATION_ISSUE_LABELS: Record<string, string> = {
   duplicate_invoice: "Fatura duplicada (mesmo número e fornecedor)",
   supplier_is_own_company: "IA identificou a própria empresa como fornecedor — corrige manualmente",
   credit_note_detected: "Identificado como Nota de Crédito — confirma o tipo de documento",
+  exists_in_stock: "Este documento já foi importado no Stock — ao confirmar completa o mesmo lançamento (sem duplicar stock)",
+  possible_duplicate: "Possível duplicado: há um documento parecido do mesmo fornecedor — compare antes de confirmar",
+  fiscal_identity_incomplete: "Falta o NIF do fornecedor ou o número do documento — complete os dados",
 };

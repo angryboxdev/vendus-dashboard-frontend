@@ -20,11 +20,17 @@ import type {
 } from "../../domain/entities/invoice.ts";
 import { VALIDATION_ISSUE_LABELS, INVOICE_LINE_TYPE_LABELS, DOCUMENT_TYPE_LABELS, STOCK_REVIEW_OVERRIDE_LABELS } from "../../domain/entities/invoice.ts";
 import type { CostCenterGroup, CostCenterCategory } from "../../../financial-base/domain/entities/cost-center.ts";
+import {
+  amountsPayload, docPriceToField, docQuantityToField, lineValueFields, previewDetailed, previewSimple, typedToCents,
+  type DraftAmountHeader,
+} from "../../domain/services/draft-amounts.ts";
+import { describeIssues, ROUNDING_CENTS_PER_RATE, type InvoiceAmounts } from "../../domain/services/invoice-amounts.service.ts";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
+/** Euros escritos → cêntimos, em decimal exato (sem float). */
 function toCents(s: string): number {
-  return Math.round(parseFloat(s.replace(",", ".")) * 100);
+  return typedToCents(s) ?? 0;
 }
 
 function fromCents(c: number): string {
@@ -483,8 +489,11 @@ interface DraftLine {
   type: InvoiceLineType;
   quantity: string;
   unit: string;
-  unitCost: string; // preço unitário s/ IVA, em euros (string decimal)
-  vatRate: string;  // "0" | "6" | "13" | "23"
+  unitCost: string; // preço unitário s/ IVA antes de desconto, em euros (string decimal, todas as casas)
+  vatRate: string;  // "0" | "6" | "13" | "23" | "" (por validar — nunca se assume 0%)
+  /** Desconto comercial da linha: % ou € (a mesma operação). */
+  discountKind: "pct" | "amount";
+  discountValue: string;
   catId: string;
   locationId: string | null;
 }
@@ -498,35 +507,20 @@ function newDraftLine(): DraftLine {
     unit: "",
     unitCost: "",
     vatRate: "23",
+    discountKind: "pct",
+    discountValue: "",
     catId: "",
     locationId: null,
   };
 }
 
-function calcLineTotals(l: DraftLine) {
-  const qty = parseFloat(l.quantity || "0") || 0;
-  const unitCost = parseFloat(l.unitCost || "0") || 0;
-  const subtotal = qty * unitCost;
-  const rate = parseFloat(l.vatRate || "0");
-  const vatAmount = Math.round(subtotal * (rate / 100) * 100);
-  const totalWithVat = Math.round(subtotal * 100) + vatAmount;
-  const totalWithoutVat = Math.round(subtotal * 100);
-  return { totalWithoutVat, vatAmount, totalWithVat };
-}
-
-function draftLineToPayload(l: DraftLine): CreateInvoiceLinePayload {
-  const qty = parseFloat(l.quantity || "1") || 1;
-  const unitCost = parseFloat(l.unitCost || "0");
-  const { vatAmount, totalWithVat } = calcLineTotals(l);
+/** Valores vêm do motor único (pré-visualização); o servidor recalcula tudo ao confirmar. */
+function draftLineToPayload(l: DraftLine, preview: InvoiceAmounts | null): CreateInvoiceLinePayload {
   return {
     description: l.description.trim(),
     type: l.type,
-    quantity: qty,
     unit: l.unit.trim() || null,
-    unitCostWithoutVat: Math.round(unitCost * 100),
-    vatRate: parseFloat(l.vatRate || "0"),
-    vatAmount,
-    totalWithVat,
+    ...lineValueFields(l, preview),
     costCenterCategoryId: l.catId || null,
     // Optional (D4): omitted means "organization-wide, no store". Never defaulted.
     locationId: l.locationId,
@@ -535,7 +529,7 @@ function draftLineToPayload(l: DraftLine): CreateInvoiceLinePayload {
 
 // Normaliza uma taxa de IVA extraída pela IA para uma das opções standard do select
 function normalizeVatRate(rate: number | null): string {
-  if (rate == null) return "23";
+  if (rate == null) return "";
   const std = [0, 6, 13, 23];
   const closest = std.reduce((a, b) => Math.abs(b - rate) < Math.abs(a - rate) ? b : a);
   return String(closest);
@@ -546,11 +540,11 @@ function normalizeVatRate(rate: number | null): string {
 interface EditableLinesSectionProps {
   lines: DraftLine[];
   categories: CostCenterCategory[];
-  invoiceTotalCents: number;
+  preview: InvoiceAmounts;
   onChange(lines: DraftLine[]): void;
 }
 
-function EditableLinesSection({ lines, categories, invoiceTotalCents, onChange }: EditableLinesSectionProps) {
+function EditableLinesSection({ lines, categories, preview, onChange }: EditableLinesSectionProps) {
   const [expandedKey, setExpandedKey] = useState<string | null>(null);
   const activeCategories = categories.filter((c) => c.isActive);
   const fieldCls = "w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]";
@@ -570,17 +564,6 @@ function EditableLinesSection({ lines, categories, invoiceTotalCents, onChange }
     setExpandedKey(draft.key);
   }
 
-  // Totais calculados das linhas draft
-  const linesTotals = lines.reduce(
-    (acc, l) => {
-      const { totalWithoutVat, vatAmount, totalWithVat } = calcLineTotals(l);
-      return { subtotal: acc.subtotal + totalWithoutVat, vat: acc.vat + vatAmount, total: acc.total + totalWithVat };
-    },
-    { subtotal: 0, vat: 0, total: 0 },
-  );
-  const saldo = linesTotals.total - invoiceTotalCents;
-  const balanced = Math.abs(saldo) <= 1;
-
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -588,31 +571,14 @@ function EditableLinesSection({ lines, categories, invoiceTotalCents, onChange }
         <span className="text-xs text-stone-400">{lines.length} linha{lines.length !== 1 ? "s" : ""}</span>
       </div>
 
-      {/* Barra de totais */}
-      {lines.length > 0 && (
-        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 rounded-lg border border-stone-200 px-4 py-2.5 text-xs">
-          <span className="text-stone-500">
-            Sem IVA <span className="font-medium text-stone-700">{fromCents(linesTotals.subtotal)}</span>
-          </span>
-          <span className="text-stone-200">|</span>
-          <span className="text-stone-500">
-            IVA <span className="font-medium text-stone-700">{fromCents(linesTotals.vat)}</span>
-          </span>
-          <span className="text-stone-200">|</span>
-          <span className="font-semibold text-stone-700">
-            Total <span className="font-bold">{fromCents(linesTotals.total)}</span>
-          </span>
-          <span className="text-stone-200">|</span>
-          <span className={`font-bold ${balanced ? "text-emerald-600" : "text-red-600"}`}>
-            Saldo {saldo >= 0 ? fromCents(saldo) : `−${fromCents(Math.abs(saldo))}`}
-          </span>
-        </div>
-      )}
-
-      {/* Cards de linhas */}
+      {/* Cards de linhas — valores do motor único (decimal exato) */}
       {lines.map((l) => {
         const isExpanded = expandedKey === l.key;
-        const { totalWithoutVat, vatAmount, totalWithVat } = calcLineTotals(l);
+        const computed = preview.lines.find((x) => x.id === l.key);
+        const totalWithoutVat = computed?.netCents ?? 0;
+        const lineDiscount = (computed?.lineDiscountCents ?? 0) + (computed?.globalDiscountCents ?? 0);
+        const vatAmount = preview.lineVatCents.get(l.key) ?? 0;
+        const totalWithVat = totalWithoutVat + vatAmount;
         const cat = activeCategories.find((c) => c.id === l.catId);
 
         return (
@@ -669,8 +635,11 @@ function EditableLinesSection({ lines, categories, invoiceTotalCents, onChange }
                 <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-stone-500">
                   <span>Qtd: <span className="font-medium text-stone-700">{l.quantity}{l.unit ? ` ${l.unit}` : ""}</span></span>
                   <span>Un s/IVA: <span className="font-medium text-stone-700">{l.unitCost ? `${l.unitCost} €` : "—"}</span></span>
-                  <span>IVA: <span className="font-medium text-stone-700">{l.vatRate}%</span></span>
-                  <span>Total s/IVA: <span className="font-medium text-stone-700">{fromCents(totalWithoutVat)}</span></span>
+                  {lineDiscount > 0 && (
+                    <span>Desconto: <span className="font-medium text-stone-700">−{fromCents(lineDiscount)}</span></span>
+                  )}
+                  <span>IVA: {l.vatRate === "" ? <span className="font-medium text-amber-600">por validar</span> : <span className="font-medium text-stone-700">{l.vatRate}%</span>}</span>
+                  <span>Base: <span className="font-medium text-stone-700">{fromCents(totalWithoutVat)}</span></span>
                   <span>IVA Total: <span className="font-medium text-stone-700">{fromCents(vatAmount)}</span></span>
                   <span>Total: <span className="font-semibold text-stone-800">{fromCents(totalWithVat)}</span></span>
                 </div>
@@ -744,11 +713,33 @@ function EditableLinesSection({ lines, categories, invoiceTotalCents, onChange }
                       onChange={(e) => updateLine(l.key, { vatRate: e.target.value })}
                       className={fieldCls}
                     >
+                      {l.vatRate === "" && <option value="">— por validar —</option>}
                       <option value="0">IVA 0%</option>
                       <option value="6">IVA 6%</option>
                       <option value="13">IVA 13%</option>
                       <option value="23">IVA 23%</option>
                     </select>
+                  </div>
+                </div>
+                {/* Desconto comercial da linha: % ou € (a mesma operação) */}
+                <div>
+                  <label className="mb-1 block text-xs font-medium text-stone-500">Desconto da linha</label>
+                  <div className="grid grid-cols-[auto_1fr] gap-2">
+                    <select
+                      value={l.discountKind}
+                      onChange={(e) => updateLine(l.key, { discountKind: e.target.value as "pct" | "amount" })}
+                      className={fieldCls}
+                      aria-label="Tipo de desconto"
+                    >
+                      <option value="pct">%</option>
+                      <option value="amount">€</option>
+                    </select>
+                    <NumericInput
+                      value={l.discountValue}
+                      onChange={(e) => updateLine(l.key, { discountValue: e.target.value })}
+                      placeholder={l.discountKind === "pct" ? "ex: 10" : "0.00"}
+                      className={fieldCls}
+                    />
                   </div>
                 </div>
                 {/* Subcategoria CC */}
@@ -776,9 +767,11 @@ function EditableLinesSection({ lines, categories, invoiceTotalCents, onChange }
                   className={fieldCls}
                 />
                 {/* Preview do total calculado */}
-                {parseFloat(l.unitCost || "0") > 0 && (
+                {(computed?.grossCents ?? 0) > 0 && (
                   <p className="text-xs text-stone-500 tabular-nums">
-                    Total c/ IVA:{" "}
+                    Bruto {fromCents(computed!.grossCents)}
+                    {lineDiscount > 0 && <> · Desconto −{fromCents(lineDiscount)}</>}
+                    {" "}· Base {fromCents(totalWithoutVat)} · Total c/ IVA:{" "}
                     <span className="font-semibold text-stone-800">{fromCents(totalWithVat)}</span>
                   </p>
                 )}
@@ -795,6 +788,114 @@ function EditableLinesSection({ lines, categories, invoiceTotalCents, onChange }
       >
         <span className="text-base leading-none">+</span> Adicionar linha
       </button>
+    </div>
+  );
+}
+
+// ── AmountsSummary ───────────────────────────────────────────────────────────
+
+interface AmountsSummaryProps {
+  detailed: boolean;
+  /** Modo detalhado: resultado do motor; modo simples: null. */
+  preview: InvoiceAmounts | null;
+  simple: { differenceCents: number; finalDifferenceCents: number; canFinalize: boolean };
+  header: DraftAmountHeader;
+  declaredTotalCents: number;
+  /** Diferença antes de qualquer ajuste de arredondamento. */
+  rawDifferenceCents: number | null;
+  roundingOn: boolean;
+  onHeaderChange(patch: Partial<DraftAmountHeader>): void;
+  onRoundingToggle(on: boolean): void;
+}
+
+/**
+ * Quadro de valores (F1 §1.3): substitui o antigo "Saldo". Bruto − descontos
+ * = base; base + IVA por taxa + ajustes = total calculado; "Diferença para a
+ * fatura" = total do documento − total calculado. Só se finaliza a 0,00 €.
+ */
+export function AmountsSummary({ detailed, preview, simple, header, declaredTotalCents, rawDifferenceCents, roundingOn, onHeaderChange, onRoundingToggle }: AmountsSummaryProps) {
+  const fieldCls = "w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]";
+  const adjustmentsCents = typedToCents(header.adjustments) ?? 0;
+  const finalDifference = detailed ? preview?.finalDifferenceCents ?? null : simple.finalDifferenceCents;
+  const canFinalize = detailed ? !!preview?.canFinalize : simple.canFinalize;
+  const rates = Math.max(1, preview?.vatByRate.length ?? 1);
+  const roundingAllowed = rawDifferenceCents !== null && rawDifferenceCents !== 0 && Math.abs(rawDifferenceCents) <= rates * ROUNDING_CENTS_PER_RATE;
+  const blocking = detailed ? (preview?.blocking ?? []).filter((i) => i.code !== "difference") : [];
+  const signed = (c: number) => (c < 0 ? `−${fromCents(-c)}` : fromCents(c));
+  const row = (label: string, value: string, strong = false) => (
+    <div className={`flex justify-between gap-4 ${strong ? "font-semibold text-stone-800" : "text-stone-600"}`}>
+      <span>{label}</span>
+      <span className="tabular-nums">{value}</span>
+    </div>
+  );
+
+  return (
+    <div className="space-y-3 rounded-lg border border-stone-200 p-3 text-xs">
+      {detailed && (
+        <div className="grid grid-cols-2 gap-2">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-500">Desconto global adicional</label>
+            <div className="grid grid-cols-[auto_1fr] gap-2">
+              <select value={header.globalDiscountKind} onChange={(e) => onHeaderChange({ globalDiscountKind: e.target.value as "pct" | "amount" })} className={fieldCls} aria-label="Tipo de desconto global">
+                <option value="pct">%</option>
+                <option value="amount">€</option>
+              </select>
+              <NumericInput value={header.globalDiscountValue} onChange={(e) => onHeaderChange({ globalDiscountValue: e.target.value })} placeholder="—" className={fieldCls} />
+            </div>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-stone-500" title="Desconto impresso no rodapé do documento. Se for só o resumo dos descontos das linhas, não é aplicado outra vez.">Desconto no rodapé (€)</label>
+            <NumericInput value={header.footerDiscount} onChange={(e) => onHeaderChange({ footerDiscount: e.target.value })} placeholder="—" className={fieldCls} />
+          </div>
+        </div>
+      )}
+      <div>
+        <label className="mb-1 block text-xs font-medium text-stone-500" title="Portes, ecovalor ou outros valores documentados que somam ao total (podem ser negativos).">Ajustes documentados (€)</label>
+        <NumericInput value={header.adjustments} onChange={(e) => onHeaderChange({ adjustments: e.target.value })} placeholder="0.00" className={fieldCls} />
+      </div>
+
+      <div className="space-y-1 border-t border-stone-100 pt-2">
+        {detailed && preview ? (
+          <>
+            {row("Bruto antes de descontos", fromCents(preview.grossCents))}
+            {row("Desconto", preview.discountCents ? `−${fromCents(preview.discountCents)}` : fromCents(0))}
+            {preview.footer === "summary_of_lines" && <p className="text-[11px] text-stone-400">O desconto do rodapé resume os descontos das linhas — não é aplicado outra vez.</p>}
+            {row("Base após descontos", fromCents(preview.netCents))}
+            {preview.vatByRate.map((v) => row(`IVA ${v.rate.replace(".", ",")}% (base ${fromCents(v.baseCents)})`, fromCents(v.vatCents)))}
+            {adjustmentsCents !== 0 && row("Ajustes", signed(adjustmentsCents))}
+            {row("Total calculado", fromCents(preview.totalCents), true)}
+          </>
+        ) : (
+          <>
+            {row("Base + IVA" + (adjustmentsCents ? " + ajustes" : ""), fromCents(declaredTotalCents - simple.differenceCents), true)}
+          </>
+        )}
+        {row("Total da fatura", fromCents(declaredTotalCents))}
+        {header.roundingCents !== 0 && row(`Ajuste de arredondamento (${header.roundingReason.trim() || "sem motivo"})`, signed(header.roundingCents))}
+        <div className={`flex justify-between gap-4 rounded-md px-2 py-1.5 font-bold ${finalDifference === 0 ? "bg-emerald-50 text-emerald-700" : "bg-red-50 text-red-700"}`}>
+          <span>Diferença para a fatura</span>
+          <span className="tabular-nums">{finalDifference === null ? "—" : signed(finalDifference)}</span>
+        </div>
+      </div>
+
+      {roundingAllowed && (
+        <div className="space-y-1.5 rounded-md bg-amber-50 px-2 py-2 text-amber-800">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={roundingOn} onChange={(e) => onRoundingToggle(e.target.checked)} />
+            Registar {signed(rawDifferenceCents!)} como ajuste de arredondamento (máx. {ROUNDING_CENTS_PER_RATE} cêntimo por taxa de IVA)
+          </label>
+          {roundingOn && (
+            <input type="text" value={header.roundingReason} onChange={(e) => onHeaderChange({ roundingReason: e.target.value })} placeholder="Motivo (obrigatório, ex.: IVA arredondado por linha no documento)" className={fieldCls} />
+          )}
+        </div>
+      )}
+
+      {!canFinalize && (
+        <p className="text-red-600">
+          {blocking.length > 0 ? `Por resolver: ${describeIssues(blocking)}. ` : ""}
+          Só pode confirmar quando a diferença for 0,00 €.
+        </p>
+      )}
     </div>
   );
 }
@@ -816,9 +917,20 @@ interface Props {
   existingLineIds?: string[];
   onClose(): void;
   onConfirmed(invoice: InvoiceDTO): void;
+  /** Abrir um documento já existente (conflito de identidade fiscal: original/duplicado parecido). */
+  onOpenExisting?(invoiceId: string): void;
 }
 
-export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", existingLineIds = [], onClose, onConfirmed }: Props) {
+/** 409/422 do backend com `code` (identidade fiscal, versão, valores). */
+interface ConfirmConflict {
+  code: string;
+  message: string;
+  existingInvoiceId?: string | null;
+  identityId?: string;
+  candidates?: { invoiceId: string | null; seriesNumber: string }[];
+}
+
+export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", existingLineIds = [], onClose, onConfirmed, onOpenExisting }: Props) {
   const { api } = useInvoicesModule();
   const fbModule = useFinancialBaseModule();
   const qc = useQueryClient();
@@ -892,27 +1004,61 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
 
   const [lines, setLines] = useState<DraftLine[]>(() =>
     importResult.extractedLines.map((l, i) => {
-      const qty = l.quantity ?? 1;
-      // Calcular preço unitário a partir do que a IA extraiu
-      let unitCost = "";
-      if (l.unitPriceWithoutVat != null) {
-        unitCost = (l.unitPriceWithoutVat / 100).toFixed(2);
-      } else if (l.totalWithoutVat != null && qty > 0) {
-        unitCost = (l.totalWithoutVat / 100 / qty).toFixed(2);
-      }
+      const hasDiscount = (l.discountPct ?? 0) > 0 || (l.discountAmount ?? 0) > 0;
+      // Preço unitário antes de desconto, com todas as casas do documento; só se deriva do
+      // total líquido quando não há desconto (senão o desconto seria aplicado duas vezes).
+      const unitCost = docPriceToField(
+        l.unitPriceText,
+        l.unitPriceWithoutVat,
+        !hasDiscount && l.totalWithoutVat != null ? { totalCents: l.totalWithoutVat, quantity: l.quantity ?? 1 } : undefined,
+      );
       return {
         key: String(i),
         description: l.description,
         type: "other" as InvoiceLineType,
-        quantity: String(qty),
+        // "20.000" resolve-se pelo bruto impresso; sem leitura única fica para validar.
+        quantity: docQuantityToField(l.quantityText, l.quantity, unitCost, l.grossWithoutDiscount),
         unit: "",
         unitCost,
         vatRate: normalizeVatRate(l.vatRate),
+        discountKind: (l.discountPct ?? 0) > 0 ? "pct" : (l.discountAmount ?? 0) > 0 ? "amount" : "pct",
+        discountValue: (l.discountPct ?? 0) > 0 ? String(l.discountPct) : (l.discountAmount ?? 0) > 0 ? (l.discountAmount! / 100).toFixed(2) : "",
         catId: "",
         locationId: null,
       };
     })
   );
+
+  // Valores do documento (F1 §1.3) — descontos globais/rodapé, ajustes e quadro de IVA extraídos.
+  const extracted = importResult.extractedAmounts;
+  const [amountsHeader, setAmountsHeader] = useState<Omit<DraftAmountHeader, "totalStr" | "subtotalStr" | "vatStr" | "roundingCents">>(() => ({
+    globalDiscountKind: (extracted?.globalDiscountPct ?? 0) > 0 ? "pct" : (extracted?.globalDiscountAmount ?? 0) > 0 ? "amount" : "pct",
+    globalDiscountValue: (extracted?.globalDiscountPct ?? 0) > 0 ? String(extracted!.globalDiscountPct) : (extracted?.globalDiscountAmount ?? 0) > 0 ? (extracted!.globalDiscountAmount! / 100).toFixed(2) : "",
+    footerDiscount: (extracted?.footerDiscountAmount ?? 0) > 0 ? (extracted!.footerDiscountAmount! / 100).toFixed(2) : "",
+    adjustments: "",
+    roundingReason: "",
+    vatSummary: extracted?.vatSummary ?? null,
+  }));
+  const [roundingOn, setRoundingOn] = useState(false);
+  // Conflitos devolvidos ao confirmar e as decisões explícitas da pessoa.
+  const [conflict, setConflict] = useState<ConfirmConflict | null>(null);
+  const [notADuplicate, setNotADuplicate] = useState(false);
+  const [completeStockIdentityId, setCompleteStockIdentityId] = useState<string | null>(
+    importResult.fiscal?.kind === "existing_stock_only" ? importResult.fiscal.identityId ?? null : null,
+  );
+  const [lastSaveAsPayable, setLastSaveAsPayable] = useState(false);
+
+  // Pré-visualização com o mesmo motor do servidor (que recalcula ao confirmar).
+  const activeLines = lines.filter((l) => l.description.trim());
+  const baseHeader: DraftAmountHeader = { ...amountsHeader, totalStr, subtotalStr, vatStr, roundingCents: 0 };
+  const rawPreview = detailMode === "detailed" ? previewDetailed(baseHeader, activeLines) : null;
+  const rawSimple = previewSimple(baseHeader);
+  const rawDifferenceCents = rawPreview ? rawPreview.differenceCents : rawSimple.differenceCents;
+  const roundingCents = roundingOn && rawDifferenceCents !== null ? rawDifferenceCents : 0;
+  const header: DraftAmountHeader = { ...baseHeader, roundingCents };
+  const preview = detailMode === "detailed" ? previewDetailed(header, activeLines) : null;
+  const simplePreview = previewSimple(header);
+  const amountsOk = preview ? preview.canFinalize : simplePreview.canFinalize;
 
   function handleLink(
     id: string | null,
@@ -946,7 +1092,24 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
       void qc.invalidateQueries({ queryKey: ["invoice-alerts"] });
       onConfirmed(confirmed);
     },
+    onError: (err) => {
+      const data = err instanceof ApiError ? (err.data as Partial<ConfirmConflict> | null) : null;
+      setConflict(data?.code ? { ...data, code: data.code, message: err.message } : null);
+    },
   });
+
+  function confirm(saveAsPayable: boolean, extra: Partial<ConfirmImportedInvoicePayload> = {}) {
+    setLastSaveAsPayable(saveAsPayable);
+    setConflict(null);
+    confirmMutation.mutate({ ...buildPayload(saveAsPayable), ...extra });
+  }
+
+  /** Decisão explícita depois de um conflito: repete o mesmo pedido com a escolha da pessoa. */
+  function resolveConflict(extra: Partial<ConfirmImportedInvoicePayload>) {
+    if (extra.notADuplicate) setNotADuplicate(true);
+    if (extra.completeStockIdentityId) setCompleteStockIdentityId(extra.completeStockIdentityId);
+    confirm(lastSaveAsPayable, extra);
+  }
 
   // Edit mode: the invoice is already confirmed (any status), so saving goes
   // through the regular update endpoints instead of confirmImportedInvoice
@@ -990,8 +1153,8 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
         for (const lineId of existingLineIds) {
           await api.deleteLine(inv.id, lineId);
         }
-        for (const l of lines.filter((l) => l.description.trim())) {
-          await api.addLine(inv.id, draftLineToPayload(l));
+        for (const l of activeLines) {
+          await api.addLine(inv.id, draftLineToPayload(l, preview));
         }
       }
 
@@ -1042,8 +1205,13 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
       markAsPaid: alreadyPaid,
       paidAt: alreadyPaid ? paidAt : undefined,
     };
+    // O servidor recalcula tudo com o motor único; estes valores só orientam o pedido.
+    payload.amounts = amountsPayload(header, detailMode === "detailed");
+    if (inv.version !== undefined) payload.expectedVersion = inv.version;
+    if (notADuplicate) payload.notADuplicate = true;
+    if (completeStockIdentityId) payload.completeStockIdentityId = completeStockIdentityId;
     if (detailMode === "detailed") {
-      payload.lines = lines.filter((l) => l.description.trim()).map(draftLineToPayload);
+      payload.lines = activeLines.map((l) => draftLineToPayload(l, preview));
       // Em modo detailed não enviamos classificação de fatura — evita sobrescrever categorias per-linha
       payload.costCenterGroupId = null;
       payload.costCenterCategoryId = null;
@@ -1066,7 +1234,10 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   const activeError = isEdit ? editMutation.error : confirmMutation.error;
   // Enquanto o diálogo de confirmação de remoção da revisão de stock está
   // visível, não duplicamos a mesma mensagem no banner de erro normal.
-  const confirmError = stockReviewConfirmMessage ? null : activeError instanceof Error ? activeError.message : null;
+  const confirmError = stockReviewConfirmMessage || conflict ? null : activeError instanceof Error ? activeError.message : null;
+  // Confirmar só com os valores reconciliados ao cêntimo (o servidor volta a verificar).
+  const blockFinalize = !isEdit && !amountsOk;
+  const blockTitle = blockFinalize ? "Os valores não batem com a fatura — a diferença tem de ser 0,00 €." : undefined;
 
   const labelCls = "block text-xs font-medium text-stone-500 mb-1";
   const inputCls =
@@ -1386,10 +1557,23 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
             <EditableLinesSection
               lines={lines}
               categories={categories as CostCenterCategory[]}
-              invoiceTotalCents={toCents(totalStr)}
+              preview={preview!}
               onChange={setLines}
             />
           )}
+
+          {/* Valores: bruto, descontos, base, IVA por taxa, total e diferença para a fatura */}
+          <AmountsSummary
+            detailed={detailMode === "detailed"}
+            preview={preview}
+            simple={simplePreview}
+            header={header}
+            declaredTotalCents={toCents(totalStr)}
+            rawDifferenceCents={rawDifferenceCents}
+            roundingOn={roundingOn}
+            onHeaderChange={(patch) => setAmountsHeader((h) => ({ ...h, ...patch }))}
+            onRoundingToggle={setRoundingOn}
+          />
 
           {/* Origem — no final */}
           <div className="flex items-center gap-2 pt-1 text-xs text-stone-400">
@@ -1405,6 +1589,37 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
         <div className="shrink-0 border-t border-stone-100 px-4 py-3 sm:px-6 sm:py-4">
           {confirmError && (
             <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{confirmError}</p>
+          )}
+          {conflict && (
+            <div className="mb-3 space-y-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+              <p>{conflict.message}</p>
+              <div className="flex flex-wrap gap-2">
+                {conflict.code === "existing_finance" && conflict.existingInvoiceId && onOpenExisting && (
+                  <button type="button" onClick={() => onOpenExisting(conflict.existingInvoiceId!)} className="rounded-md border border-amber-300 bg-white px-2.5 py-1 font-medium hover:bg-amber-100">
+                    Abrir documento existente
+                  </button>
+                )}
+                {conflict.code === "existing_stock_only" && conflict.identityId && (
+                  <button type="button" disabled={saving} onClick={() => resolveConflict({ completeStockIdentityId: conflict.identityId! })} className="rounded-md border border-amber-300 bg-white px-2.5 py-1 font-medium hover:bg-amber-100 disabled:opacity-50">
+                    Completar lançamento existente
+                  </button>
+                )}
+                {conflict.code === "possible_duplicate" && (
+                  <>
+                    {onOpenExisting && (conflict.candidates ?? []).filter((c) => c.invoiceId).map((c) => (
+                      <button key={c.invoiceId} type="button" onClick={() => onOpenExisting(c.invoiceId!)} className="rounded-md border border-amber-300 bg-white px-2.5 py-1 font-medium hover:bg-amber-100">
+                        Comparar com {c.seriesNumber}
+                      </button>
+                    ))}
+                    <button type="button" disabled={saving} onClick={() => resolveConflict({ notADuplicate: true })} className="rounded-md border border-amber-300 bg-white px-2.5 py-1 font-medium hover:bg-amber-100 disabled:opacity-50">
+                      Não é duplicado — confirmar
+                    </button>
+                  </>
+                )}
+                {conflict.code === "identity_incomplete" && <span className="font-medium">Completar dados: NIF do fornecedor e número do documento (acima).</span>}
+                {conflict.code === "version_conflict" && <span className="font-medium">Feche e volte a abrir o documento para ver a versão atual.</span>}
+              </div>
+            </div>
           )}
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-between">
             <button
@@ -1427,8 +1642,9 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
                 <>
                   {alreadyPaid && (
                     <button
-                      onClick={() => confirmMutation.mutate(buildPayload(false))}
-                      disabled={saving}
+                      onClick={() => confirm(false)}
+                      disabled={saving || blockFinalize}
+                      title={blockTitle}
                       className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
                     >
                       {saving ? "A guardar…" : "Salvar como paga"}
@@ -1436,8 +1652,9 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
                   )}
                   {isDirectDebit && (
                     <button
-                      onClick={() => confirmMutation.mutate(buildPayload(false))}
-                      disabled={saving}
+                      onClick={() => confirm(false)}
+                      disabled={saving || blockFinalize}
+                      title={blockTitle}
                       className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
                     >
                       {saving ? "A guardar…" : "Salvar com débito direto"}
@@ -1446,18 +1663,19 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
                   {!alreadyPaid && !isDirectDebit && (
                     <>
                       <button
-                        onClick={() => confirmMutation.mutate(buildPayload(false))}
-                        disabled={saving}
+                        onClick={() => confirm(false)}
+                        disabled={saving || blockFinalize}
+                        title={blockTitle}
                         className="w-full rounded-md border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50 sm:w-auto"
                       >
                         {saving ? "A guardar…" : "Salvar como pendente"}
                       </button>
                       {docType !== "credit_note" && (
                         <button
-                          onClick={() => confirmMutation.mutate(buildPayload(true))}
-                          disabled={saving || !dueDate}
+                          onClick={() => confirm(true)}
+                          disabled={saving || !dueDate || blockFinalize}
                           className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
-                          title={!dueDate ? "Defina a data de vencimento para gerar conta a pagar" : undefined}
+                          title={blockTitle ?? (!dueDate ? "Defina a data de vencimento para gerar conta a pagar" : undefined)}
                         >
                           {saving ? "A guardar…" : "Salvar e gerar conta a pagar"}
                         </button>

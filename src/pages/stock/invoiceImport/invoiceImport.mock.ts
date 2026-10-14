@@ -115,6 +115,7 @@ function mockHeader(): InvoiceImportHeader {
   const sumLines = lines.reduce((s, l) => s + l.line_total, 0);
   return {
     supplier_name: "Fornecedor Demo Lda.",
+    supplier_nif: "503504564",
     invoice_number: "FT 2025/8842",
     invoice_date: "2025-03-15",
     currency: "EUR",

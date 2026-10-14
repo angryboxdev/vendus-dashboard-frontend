@@ -107,6 +107,7 @@ function normalizeHeader(raw: unknown): InvoiceImportHeader {
       h.vendor_name,
       h.seller_name,
     ),
+    supplier_nif: pickNullableStr(h.supplier_nif, h.supplier_tax_id, h.vat_number),
     invoice_number: pickNullableStr(
       h.invoice_number,
       h.number,
