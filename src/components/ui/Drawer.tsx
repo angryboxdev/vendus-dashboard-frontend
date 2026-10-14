@@ -17,6 +17,7 @@ export function Drawer({
   width = "max-w-md",
   as = "div",
   onSubmit,
+  label,
 }: {
   open: boolean;
   title: ReactNode;
@@ -29,6 +30,8 @@ export function Drawer({
   /** "form" quando o rodapé tem o botão de submeter. */
   as?: "div" | "form";
   onSubmit?: (e: React.FormEvent) => void;
+  /** Nome acessível quando o título não é texto simples. */
+  label?: string;
 }) {
   useEffect(() => {
     if (!open) return;
@@ -45,7 +48,7 @@ export function Drawer({
         kind="drawer"
         role="dialog"
         aria-modal="true"
-        aria-label={typeof title === "string" ? title : undefined}
+        aria-label={label ?? (typeof title === "string" ? title : undefined)}
         {...(as === "form" ? { onSubmit } : {})}
         className={`fixed inset-y-0 right-0 z-50 flex w-full ${width} flex-col bg-white shadow-pop`}
       >

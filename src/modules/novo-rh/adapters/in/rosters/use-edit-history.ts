@@ -40,6 +40,10 @@ export function useEditHistory(o: { rosterId: string; refresh: () => Promise<unk
       case "MOVE_SHIFT":
         await removeIds(op.inversePayload.byEmployee, op.inversePayload.from, op.inversePayload.to);
         return void (await restoreIds(Object.values(op.inversePayload.removed).flat()));
+      case "AI_BATCH":
+        await removeIds(op.inversePayload.created, op.inversePayload.from, op.inversePayload.to);
+        if (op.inversePayload.removed.length) await restoreIds(op.inversePayload.removed);
+        return;
     }
   };
   const forward = async (op: EditOp) => {
@@ -53,6 +57,13 @@ export function useEditHistory(o: { rosterId: string; refresh: () => Promise<unk
       case "MOVE_SHIFT":
         await restoreIds(op.affectedIds);
         return removeIds(op.inversePayload.removed, op.inversePayload.from, op.inversePayload.to);
+      case "AI_BATCH": {
+        // Primeiro retira o antigo (uma alteração de horas no mesmo dia sobreporia), depois repõe o novo.
+        await removeIds(op.inversePayload.removedByEmployee, op.inversePayload.from, op.inversePayload.to);
+        const created = Object.values(op.inversePayload.created).flat();
+        if (created.length) await restoreIds(created);
+        return;
+      }
     }
   };
 

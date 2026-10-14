@@ -16,7 +16,9 @@ export type EditOp =
   /** Limpeza dos pendentes de um colaborador no período (uma só operação). */
   | { type: "CLEAR_EMPLOYEE_WEEK"; affectedIds: string[]; inversePayload: { employeeId: string; from: string; to: string } }
   /** Turno pendente movido: criado no destino e retirado da origem. */
-  | { type: "MOVE_SHIFT"; affectedIds: string[]; inversePayload: { removed: IdsByEmployee; byEmployee: IdsByEmployee; from: string; to: string } };
+  | { type: "MOVE_SHIFT"; affectedIds: string[]; inversePayload: { removed: IdsByEmployee; byEmployee: IdsByEmployee; from: string; to: string } }
+  /** Lote do Assistente Mezza: o que criou e o que retirou, numa só operação lógica. */
+  | { type: "AI_BATCH"; label: string; affectedIds: string[]; inversePayload: { created: IdsByEmployee; removed: string[]; removedByEmployee: IdsByEmployee; from: string; to: string } };
 
 export interface EditHistory {
   undo: EditOp[];
@@ -56,4 +58,5 @@ export const opLabel: Record<EditOp["type"], string> = {
   REMOVE_SHIFT: "remoção",
   CLEAR_EMPLOYEE_WEEK: "limpeza da semana",
   MOVE_SHIFT: "mudança de turno",
+  AI_BATCH: "ação do Assistente Mezza",
 };

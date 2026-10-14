@@ -22,16 +22,18 @@ const STOCK_ITEMS: NavItem[] = [
   { kind: "item", path: "/stock/planeamento", label: "Planeamento" },
 ];
 
+/** Ecrãs do RH antigo: juntos em "RH antigo", com separadores no topo (`HrLayout`). */
+export const LEGACY_HR_PATHS = ["/hr/overview", "/hr/people", "/hr/schedules", "/hr/calendar", "/hr/ferias", "/hr/assiduidade", "/hr/pedidos", "/hr/historico", "/hr/employees"] as const;
+
+// Recursos Humanos: as áreas do Novo RH são os módulos principais; o RH antigo fica numa entrada própria.
 const HR_ITEMS: NavItem[] = [
-  { kind: "item", path: "/hr/overview", label: "Visão Geral", end: true },
-  { kind: "item", path: "/hr/people", label: "Colaboradores" },
-  { kind: "item", path: "/hr/schedules", label: "Escalas & Turnos" },
-  { kind: "item", path: "/hr/ferias", label: "Férias & Ausências" },
-  { kind: "item", path: "/hr/assiduidade", label: "Assiduidade" },
-  { kind: "item", path: "/hr/pedidos", label: "Caixa de pedidos", badgeKey: "hr-requests" },
-  { kind: "item", path: "/hr/historico", label: "Histórico de alterações" },
-  // Novo modelo de RH em construção (task RH faseada) — separado do atual; só Admin.
-  { kind: "item", path: "/hr/novo", label: "Novo RH" },
+  { kind: "item", path: "/hr/novo", label: "Visão geral", end: true },
+  { kind: "item", path: "/hr/novo/pessoas", label: "Colaboradores" },
+  { kind: "item", path: "/hr/novo/escalas", label: "Escalas" },
+  { kind: "item", path: "/hr/novo/assiduidade", label: "Assiduidade" },
+  { kind: "item", path: "/hr/novo/ausencias", label: "Ausências" },
+  { kind: "item", path: "/hr/novo/documentos", label: "Documentos" },
+  { kind: "item", path: "/hr/antigo", label: "RH antigo", badgeKey: "hr-requests", match: LEGACY_HR_PATHS },
 ];
 
 const CRM_ITEMS: NavItem[] = [

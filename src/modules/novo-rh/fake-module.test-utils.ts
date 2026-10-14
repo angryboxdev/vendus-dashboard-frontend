@@ -35,6 +35,13 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       googleUnlink: vi.fn(),
       googleLocationReviews: vi.fn(async () => ({ placeName: "", googleMapsUri: null, reviews: [] })),
     },
+    assistant: {
+      status: vi.fn(async () => ({ available: true, voice: false })),
+      chat: vi.fn(),
+      confirm: vi.fn(),
+      cancel: vi.fn(async () => {}),
+      transcribe: vi.fn(async () => ""),
+    },
     overview: { get: vi.fn(async () => { throw new Error("sem painel no teste"); }), plan: vi.fn(async () => ({ from: "", to: "", people: [] })) },
     reminders: { run: vi.fn(async () => ({ people: 0, notices: 0 })) },
     inbox: { list: vi.fn(async () => ({ types: [], counters: {}, items: [] })), decide: vi.fn(async () => []) },

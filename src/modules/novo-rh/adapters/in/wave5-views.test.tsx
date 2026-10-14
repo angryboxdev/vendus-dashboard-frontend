@@ -42,7 +42,7 @@ describe("Onda 5 — regras", () => {
     expect(screenFor("/hr/novo/pessoas/e1")?.label).toBe("novoRh.tab.people");
     expect(screenFor("/hr/novo/nao-existe")).toBeNull();
     const label = (s: { label: string }) => ({ "novoRh.tab.transfers": "Transferências", "novoRh.tab.reports": "Relatórios" })[s.label] ?? s.label;
-    expect(searchScreens("transferencias", label).map((s) => s.path)).toEqual(["/hr/novo/transferencias"]);
+    expect(searchScreens("transferencias", label).map((s) => s.path)).toEqual(["/hr/novo/pessoas/transferencias"]);
     expect(searchScreens("  ", label)).toEqual([]);
   });
 

@@ -52,7 +52,7 @@ export function TransfersView() {
   return (
     <section className={`${SURFACE} space-y-3 p-4`} aria-label={t("transfers.title")}>
       <p className="text-xs text-stone-500">{t("per.exports.hint")}</p>
-      {q.isError && <ErrorPanel error={q.error} route="/hr/novo/transferencias" onRetry={() => void q.refetch()} />}
+      {q.isError && <ErrorPanel error={q.error} route="/hr/novo/pessoas/transferencias" onRetry={() => void q.refetch()} />}
       {q.data?.length === 0 && <p className="text-sm text-stone-500">{t("per.exports.none")}</p>}
       {(q.data?.length ?? 0) > 0 && (
         <div className="overflow-auto">
@@ -100,7 +100,7 @@ export function TransfersView() {
           </table>
         </div>
       )}
-      {(dl.isError || rerun.isError) && <ErrorPanel error={dl.error ?? rerun.error} route="/hr/novo/transferencias" />}
+      {(dl.isError || rerun.isError) && <ErrorPanel error={dl.error ?? rerun.error} route="/hr/novo/pessoas/transferencias" />}
     </section>
   );
 }

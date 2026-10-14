@@ -15,6 +15,7 @@ import { SidebarProvider } from "./modules/sidebar/sidebar.module.tsx";
 import { HrCalendarPage } from "./pages/hr/HrCalendarPage";
 import { HrEmployeeDetailPage } from "./pages/hr/HrEmployeeDetailPage";
 import { HrLayout } from "./pages/hr/HrLayout";
+import { HrHomeRedirect, LegacyHrRedirect } from "./pages/hr/HrRedirects";
 import { HrAuditLogPage } from "./pages/hr/HrAuditLogPage";
 import { AttendanceView } from "./modules/hr/adapters/in/AttendanceView.tsx";
 import { AttendanceEmployeeDetailView } from "./modules/hr/adapters/in/AttendanceEmployeeDetailView.tsx";
@@ -299,7 +300,8 @@ export default function App() {
                   element={<Navigate to="/hr" replace />}
                 />
                 <Route element={<HrLayout />}>
-                  <Route path="/hr" element={<Navigate to="/hr/overview" replace />} />
+                  <Route path="/hr" element={<HrHomeRedirect />} />
+                  <Route path="/hr/antigo" element={<LegacyHrRedirect />} />
                   <Route
                     path="/hr/overview"
                     element={

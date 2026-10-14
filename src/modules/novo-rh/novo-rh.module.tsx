@@ -8,6 +8,8 @@ import type { DataMode } from "./domain/entities/roadmap.ts";
 import type { DataModeStorePort, DemoApiPort } from "./domain/ports/out/demo-api.port.ts";
 import type { OverviewApiPort } from "./domain/ports/out/overview-api.port.ts";
 import type { DashboardApiPort } from "./domain/ports/out/dashboard-api.port.ts";
+import type { AssistantApiPort } from "./domain/ports/out/assistant-api.port.ts";
+import { HttpAssistantApiAdapter } from "./adapters/out/http-assistant-api.adapter.ts";
 import { HttpDashboardApiAdapter } from "./adapters/out/http-dashboard-api.adapter.ts";
 import { HttpOverviewApiAdapter } from "./adapters/out/http-overview-api.adapter.ts";
 import type { RemindersApiPort } from "./domain/ports/out/reminders-api.port.ts";
@@ -80,12 +82,15 @@ import { WorkspaceView } from "./adapters/in/engagement/WorkspaceView.tsx";
 import { ReportsView } from "./adapters/in/engagement/ReportsView.tsx";
 import { NovoRhHomeView, PreviousOverviewView } from "./adapters/in/NovoRhHomeView.tsx";
 import { NovoRhLayout } from "./adapters/in/NovoRhLayout.tsx";
+import { LegacyRedirect } from "./adapters/in/common/LegacyRedirect.tsx";
+import { LEGACY_REDIRECTS, REPORT_GROUPS } from "./domain/services/screens.registry.ts";
 import { SettingsHubView } from "./adapters/in/settings/SettingsHubView.tsx";
 import type { SettingsApiPort } from "./domain/ports/out/settings-api.port.ts";
 
 export interface NovoRhModule {
   overview: OverviewApiPort;
   dashboard: DashboardApiPort;
+  assistant: AssistantApiPort;
   reminders: RemindersApiPort;
   inbox: InboxApiPort;
   demo: DemoApiPort;
@@ -164,6 +169,7 @@ export function NovoRhProvider({ children, module: mod, modeStore }: { children:
       mod ?? {
         overview: new HttpOverviewApiAdapter(),
         dashboard: new HttpDashboardApiAdapter(),
+        assistant: new HttpAssistantApiAdapter(),
         reminders: new HttpRemindersApiAdapter(),
         inbox: new HttpInboxApiAdapter(),
         demo: new HttpDemoApiAdapter(),
@@ -257,16 +263,23 @@ function NovoRhRoutes() {
         <Route path="pedidos" element={<InboxView />} />
         <Route path="pessoas" element={<PeopleListView />} />
         <Route path="pessoas/:id" element={<PersonView />} />
-        <Route path="tempo" element={<TimeView />} />
+        <Route path="pessoas/transferencias" element={<TransfersView />} />
+        <Route path="pessoas/relatorios" element={<ReportsView groups={REPORT_GROUPS.people} />} />
         <Route path="assiduidade" element={<AttendanceView />} />
+        <Route path="assiduidade/registos" element={<TimeView />} />
+        <Route path="assiduidade/banco-de-horas" element={<TimeBankView />} />
+        <Route path="assiduidade/fecho" element={<PeriodsView />} />
+        <Route path="assiduidade/relatorios" element={<ReportsView groups={REPORT_GROUPS.attendance} />} />
         <Route path="ausencias" element={<AbsencesView />} />
-        <Route path="banco-de-horas" element={<TimeBankView />} />
+        <Route path="ausencias/relatorios" element={<ReportsView groups={REPORT_GROUPS.absences} />} />
         <Route path="escalas" element={<RostersView />} />
-        <Route path="fecho" element={<PeriodsView />} />
         <Route path="comunicados" element={<AnnouncementsView />} />
         <Route path="documentos" element={<DocumentsView />} />
         <Route path="notificacoes" element={<NotificationsView />} />
-        <Route path="transferencias" element={<TransfersView />} />
+        {/* Caminhos antigos (bookmarks, notificações): redirecionam mantendo query e hash. */}
+        {Object.keys(LEGACY_REDIRECTS).map((p) => (
+          <Route key={p} path={`${p.slice("/hr/novo/".length)}/*`} element={<LegacyRedirect />} />
+        ))}
         <Route path="alertas" element={<AlertsView />} />
         <Route path="tarefas" element={<WorkspaceView />} />
         <Route path="relatorios" element={<ReportsView />} />

@@ -152,7 +152,7 @@ export function CoverageBody({ s }: { s: OperationalSnapshot }) {
 }
 
 /** Solicitações: as mesmas ações da Caixa de pedidos (o backend revalida tudo). */
-export function RequestsBody({ editing }: { editing: boolean }) {
+export function RequestsBody({ editing, limit = 4 }: { editing: boolean; limit?: number }) {
   const { inbox } = useNovoRh();
   const qc = useQueryClient();
   const photoOf = useEmployeePhotos();
@@ -170,7 +170,7 @@ export function RequestsBody({ editing }: { editing: boolean }) {
   });
   if (q.isLoading) return <WidgetSkeleton />;
   if (q.isError) return <WidgetMessage text="Não foi possível carregar as solicitações agora." />;
-  const items = (q.data?.items ?? []).slice(0, 4);
+  const items = (q.data?.items ?? []).slice(0, limit);
   if (!items.length) return <WidgetMessage text="Sem solicitações pendentes." />;
   return (
     <>
@@ -280,7 +280,7 @@ export function ReportsBody() {
     <ul className="space-y-1">
       {list.map((r) => (
         <li key={r.key}>
-          <Link to="/hr/novo/relatorios" className={ROW_LINK}>
+          <Link to="/hr/novo/assiduidade/relatorios" className={ROW_LINK}>
             <span className="min-w-0 flex-1">
               <span className="block truncate font-medium text-navy-900">{r.label}</span>
               <span className="block truncate text-xs text-ink-secondary">{r.groupLabel}</span>

@@ -35,7 +35,7 @@ export function Tabs<K extends string>({
 /** Tabs por rota (cada aba é um endereço). */
 export function TabNav({ items, label }: { items: Array<{ to: string; label: string; end?: boolean }>; label?: string }) {
   return (
-    <nav aria-label={label} className="flex gap-1 overflow-x-auto">
+    <nav aria-label={label} className="flex gap-1 overflow-x-auto overflow-y-hidden">
       {items.map((t) => (
         <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => tabClass(isActive)}>
           {t.label}

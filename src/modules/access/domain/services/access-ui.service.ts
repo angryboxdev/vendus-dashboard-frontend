@@ -127,6 +127,8 @@ const PATH_PERMISSIONS: Array<[RegExp, PathPermission]> = [
   [/^\/stock\/compras-por-rever/, "stock.purchase_reviews"],
   // Novo RH (em desenvolvimento): só Admin por agora.
   [/^\/hr\/novo/, "admin"],
+  // "RH antigo" (entrada do menu): quem abre pelo menos um ecrã antigo; cada ecrã mantém a sua regra.
+  [/^\/hr\/antigo/, ["hr.overview", "hr.employees", "hr.schedules", "hr.leave", "hr.attendance", "hr.history", "hr.documents"]],
   [/^\/hr\/overview/, "hr.overview"],
   [/^\/hr\/people/, "hr.employees"],
   [/^\/hr\/schedules/, "hr.schedules"],

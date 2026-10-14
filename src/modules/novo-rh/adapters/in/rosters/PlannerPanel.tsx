@@ -58,10 +58,13 @@ import { AssignPanel } from "./AssignPanel.tsx";
 import { RosterBoard, type BoardMode } from "./RosterBoard.tsx";
 import { useRosterEditing } from "./use-roster-editing.ts";
 import { useEditHistory } from "./use-edit-history.ts";
+import { MezzaAssistantButton } from "../assistant/MezzaAssistantButton.tsx";
+import { aiBatchOp } from "../../../domain/services/assistant.service.ts";
 import { PlacementPreview } from "./PlacementPreview.tsx";
 import { cellKey } from "../../../domain/services/roster-edit.service.ts";
 
 const KEY = ["novo-rh", "rosters"];
+const PUBLISH_TRIGGER_ID = "ros-publish-trigger";
 const ROSTER_KEY = "novo-rh-roster-id";
 const MODE_KEY = "novo-rh-roster-board-mode";
 const message = (e: unknown, fallback: string) =>
@@ -794,6 +797,7 @@ export function PlannerPanel({
             width="w-80"
             trigger={({ open, toggle }) => (
               <Button
+                id={PUBLISH_TRIGGER_ID}
                 variant="primary"
                 className="flex-1 px-5 sm:flex-none"
                 onClick={toggle}
@@ -1245,6 +1249,24 @@ export function PlannerPanel({
           ))}
         </ul>
       </Drawer>
+      {rosterId && roster && (
+        <MezzaAssistantButton
+          context={{ rosterId, rosterName: roster.name, from, to, pending }}
+          onApplied={(a) => {
+            // O que a IA fez entra no mesmo Desfazer/Refazer das ações manuais.
+            const op = aiBatchOp(a);
+            if (op) edits.record(op);
+            void refresh();
+          }}
+          onTemplatesChanged={() => void qc.invalidateQueries({ queryKey: [...KEY, "templates"] })}
+          onPublishFlow={() => {
+            // A IA nunca publica: abre o fluxo de publicação de sempre.
+            const b = document.getElementById(PUBLISH_TRIGGER_ID);
+            b?.scrollIntoView?.({ block: "center" });
+            b?.click();
+          }}
+        />
+      )}
     </div>
   );
 }
