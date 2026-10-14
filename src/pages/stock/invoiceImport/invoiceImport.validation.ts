@@ -38,8 +38,12 @@ export function validateInvoiceImportForConfirm(
   if (!header.invoice_date?.trim()) {
     warnings.push("Data da fatura em falta ou não detetada.");
   }
+  // Identidade fiscal partilhada com o Financeiro (F1 v1.2): sem NIF e número o servidor recusa.
   if (!header.invoice_number?.trim()) {
-    warnings.push("Número da fatura em falta ou não detetado.");
+    errors.push("Número da fatura em falta — indique-o no cabeçalho antes de confirmar.");
+  }
+  if (!header.supplier_nif?.trim()) {
+    errors.push("NIF do fornecedor em falta — indique-o no cabeçalho antes de confirmar.");
   }
   if (!header.supplier_name?.trim()) {
     warnings.push("Fornecedor em falta ou não detetado.");

@@ -8,7 +8,6 @@ export function ConfirmImportModal({
   validation,
   activeLinesCount,
   duplicateWarning,
-  overrideDuplicateAcknowledged,
   onOverrideDuplicateAcknowledgedChange,
   movementDate,
   onMovementDateChange,
@@ -143,21 +142,11 @@ export function ConfirmImportModal({
         </label>
 
         {duplicateWarning && (
-          <label className="mt-3 flex cursor-pointer items-start gap-2 text-sm text-slate-800">
-            <input
-              type="checkbox"
-              className="mt-1"
-              checked={overrideDuplicateAcknowledged}
-              disabled={confirming}
-              onChange={(e) =>
-                onOverrideDuplicateAcknowledgedChange(e.target.checked)
-              }
-            />
-            <span>
-              Aceito substituir a importação anterior confirmada e rever as
-              respetivas movimentações de stock.
-            </span>
-          </label>
+          <p className="mt-3 rounded-lg bg-amber-50 p-2 text-sm text-amber-900">
+            Já existe uma importação confirmada deste documento. Não é possível
+            substituí-la (os movimentos de stock não são apagados) — corrija por
+            ajuste de stock.
+          </p>
         )}
 
         <div className="mt-6 flex justify-end gap-3">
@@ -179,7 +168,7 @@ export function ConfirmImportModal({
               !acknowledged ||
               confirming ||
               !validation.canConfirm ||
-              (duplicateWarning && !overrideDuplicateAcknowledged)
+              duplicateWarning
             }
             onClick={onConfirm}
             className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-800 disabled:opacity-40"

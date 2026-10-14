@@ -11,6 +11,8 @@ export type InvoiceLineMatchStatus = "matched" | "needs_review" | "ignored";
 
 export type InvoiceImportHeader = {
   supplier_name: string | null;
+  /** NIF do fornecedor — necessário para a identidade fiscal partilhada com o Financeiro (F1 v1.2). */
+  supplier_nif: string | null;
   invoice_number: string | null;
   invoice_date: string | null;
   /** ISO 4217, ex. EUR */
@@ -69,7 +71,7 @@ export type InvoiceImportDetail = {
   filename?: string | null;
   /**
    * Quando true, já existe importação confirmada com a mesma chave (fornecedor + nº + data).
-   * O confirm deve enviar `override_duplicate: true` para substituir.
+   * Desde F1 v1.2 não é possível substituir (os movimentos não são apagados): corrige-se por ajuste.
    */
   duplicate_warning?: boolean;
   /** Import confirmada duplicada, quando `duplicate_warning` */
@@ -111,8 +113,10 @@ export type ConfirmInvoiceImportLinePayload = {
 };
 
 export type ConfirmInvoiceImportPayload = {
-  /** Obrigatório no backend: `true` para substituir import confirmada duplicada. */
+  /** Sempre false: substituir uma importação confirmada deixou de ser possível (F1 v1.2). */
   override_duplicate: boolean;
+  /** A pessoa comparou com o documento parecido e confirmou que é outro. */
+  not_a_duplicate?: boolean;
   lines: ConfirmInvoiceImportLinePayload[];
   /**
    * Data dos movimentos de stock gerados (`YYYY-MM-DD` ou ISO 8601).
@@ -154,6 +158,7 @@ export type ReviewableInvoiceLine = {
 /** Payload para PATCH /api/stock/invoice-imports/:id — todos os campos opcionais. */
 export type UpdateInvoiceImportPayload = {
   supplier_name?: string | null;
+  supplier_nif?: string | null;
   invoice_number?: string | null;
   invoice_date?: string | null;
   currency?: string;
@@ -165,6 +170,7 @@ export type UpdateInvoiceImportPayload = {
 export function defaultInvoiceImportHeader(): InvoiceImportHeader {
   return {
     supplier_name: null,
+    supplier_nif: null,
     invoice_number: null,
     invoice_date: null,
     currency: "EUR",

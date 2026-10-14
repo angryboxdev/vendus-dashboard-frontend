@@ -267,16 +267,11 @@ export function InvoiceImportModal({
 
   const handleConfirmApply = async () => {
     if (!importId || !validation.canConfirm) return;
-    if (detail?.duplicate_warning && !overrideDuplicateAck) return;
+    if (detail?.duplicate_warning) return;
     setConfirming(true);
     try {
-      const override_duplicate = Boolean(
-        detail?.duplicate_warning && overrideDuplicateAck,
-      );
-      const payload = buildConfirmPayload(
-        override_duplicate,
-        confirmMovementDate,
-      );
+      // Substituir uma importação confirmada deixou de ser possível (F1 v1.2).
+      const payload = buildConfirmPayload(false, confirmMovementDate);
       const result = await confirmInvoiceImport(importId, payload);
       setConfirmResult(result);
       setConfirmOpen(false);
@@ -464,9 +459,8 @@ export function InvoiceImportModal({
                   <p className="font-medium">Possível fatura em duplicado</p>
                   <p className="mt-1 text-amber-900">
                     O servidor detetou uma importação já confirmada para o mesmo
-                    fornecedor, número e data. Para aplicar esta importação terá de
-                    confirmar a <strong>substituição</strong> no passo final (reverte
-                    movimentos da importação anterior).
+                    fornecedor, número e data. Não é possível aplicá-la outra vez
+                    (evita duplicar quantidades); uma correção faz-se por ajuste de stock.
                   </p>
                 </div>
               )}

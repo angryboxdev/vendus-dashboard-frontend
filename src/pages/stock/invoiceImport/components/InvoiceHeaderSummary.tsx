@@ -11,6 +11,7 @@ type Props = {
 
 type FormState = {
   supplier_name: string;
+  supplier_nif: string;
   invoice_number: string;
   invoice_date: string;
   currency: string;
@@ -22,6 +23,7 @@ type FormState = {
 function headerToForm(h: InvoiceImportHeader): FormState {
   return {
     supplier_name: h.supplier_name ?? "",
+    supplier_nif: h.supplier_nif ?? "",
     invoice_number: h.invoice_number ?? "",
     invoice_date: h.invoice_date ?? "",
     currency: h.currency || "EUR",
@@ -45,6 +47,9 @@ function buildPatch(
 
   if ((original.supplier_name ?? "") !== form.supplier_name.trim()) {
     patch.supplier_name = strOrNull(form.supplier_name);
+  }
+  if ((original.supplier_nif ?? "") !== form.supplier_nif.trim()) {
+    patch.supplier_nif = strOrNull(form.supplier_nif);
   }
   if ((original.invoice_number ?? "") !== form.invoice_number.trim()) {
     patch.invoice_number = strOrNull(form.invoice_number);
@@ -123,6 +128,16 @@ export function InvoiceHeaderSummary({ header, onSave }: Props) {
               type="text"
               value={form.supplier_name}
               onChange={set("supplier_name")}
+              className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-slate-500">NIF do fornecedor</label>
+            <input
+              type="text"
+              value={form.supplier_nif}
+              onChange={set("supplier_nif")}
+              placeholder="Obrigatório para confirmar"
               className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm text-slate-800 focus:outline-none focus:ring-1 focus:ring-slate-400"
             />
           </div>
