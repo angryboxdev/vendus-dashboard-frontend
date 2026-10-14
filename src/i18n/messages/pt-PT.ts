@@ -10,7 +10,7 @@ export const ptPT = {
   "common.planned": "Planeada",
 
   "novoRh.title": "Novo RH",
-  "novoRh.description": "O novo modelo de RH e assiduidade. O RH atual continua a funcionar como sempre.",
+  "novoRh.description": "Equipa, escalas, assiduidade e ausências. Os ecrãs anteriores estão em \"RH antigo\".",
   "novoRh.banner.title": "Área separada do RH atual",
   "novoRh.banner.body": "Aqui vê o que está a ser construído. Nada desta área altera os dados ou os ecrãs do RH atual. Quando estiver completo e validado, pode passar a ser o RH principal.",
   "ovw.updatedAt": "Atualizado às {time}",
@@ -337,6 +337,9 @@ export const ptPT = {
   "novoRh.previousOverview.title": "Painel anterior",
   "novoRh.previousOverview.link": "Ver o painel anterior (durante a validação)",
   "novoRh.tab.settings": "Configurações",
+  "novoRh.tab.settingsGeneral": "Geral",
+  "novoRh.inboxButton": "Pedidos",
+  "novoRh.inboxOpenAll": "Abrir caixa de pedidos",
 
   "common.yes": "Sim",
   "common.no": "Não",
@@ -500,7 +503,8 @@ export const ptPT = {
   "notifications.markAll": "Marcar todas como lidas",
   "notifications.unread": "{count} por ler",
 
-  "novoRh.tab.people": "Pessoas",
+  "novoRh.tab.people": "Colaboradores",
+  "novoRh.tab.peopleList": "Lista",
   "people.title": "Colaboradores",
   "people.search": "Pesquisar por nome",
   "people.status.active": "Ativos",
@@ -703,7 +707,7 @@ export const ptPT = {
 
   "settings.domain.legal": "Legal",
   "settings.param.noValue": "Sem valor — não é aplicado",
-  "novoRh.tab.time": "Tempo",
+  "novoRh.tab.time": "Registos de ponto",
   "time.tab.schedules": "Horários",
   "time.tab.holidays": "Feriados",
   "time.tab.vacation": "Férias",
@@ -783,6 +787,7 @@ export const ptPT = {
 
   // Fase 4 — Assiduidade
   "novoRh.tab.attendance": "Assiduidade",
+  "novoRh.tab.attendanceReview": "Conferência",
   "att.tab.days": "Dias",
   "att.tab.incidents": "Incidentes",
   "att.tab.corrections": "Pedidos de correção",
@@ -1378,6 +1383,7 @@ export const ptPT = {
   "novoRh.tab.alerts": "Alertas",
   "novoRh.tab.workspace": "Tarefas",
   "novoRh.tab.reports": "Relatórios",
+  "novoRh.tab.reportsAll": "Todos os relatórios",
   "ann.tab.manage": "Gerir",
   "ann.tab.mine": "Os meus",
   "ann.new": "Novo comunicado",

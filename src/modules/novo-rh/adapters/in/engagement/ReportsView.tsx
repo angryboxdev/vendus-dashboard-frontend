@@ -10,15 +10,20 @@ import { useNovoRh } from "../../../novo-rh.module.tsx";
 const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 const PREVIEW = 50;
 
-/** Novo RH → Relatórios: catálogo por grupos (FE-063) e gerador com filtros, colunas e pré-visualização. */
-export function ReportsView() {
+/**
+ * Novo RH → Relatórios: catálogo por grupos (FE-063) e gerador com filtros,
+ * colunas e pré-visualização. `groups` limita aos relatórios da área
+ * (Assiduidade, Ausências, Colaboradores); sem `groups`, todos.
+ */
+export function ReportsView({ groups }: { groups?: string[] } = {}) {
   const { t } = useI18n();
   const { reports } = useNovoRh();
   const catalog = useQuery({ queryKey: ["novo-rh", "reports", "catalog"], queryFn: () => reports.catalog() });
   const [key, setKey] = useState("");
-  const def = catalog.data?.find((r) => r.key === key);
+  const defs = useMemo(() => (groups ? catalog.data?.filter((d) => groups.includes(d.group)) : catalog.data), [catalog.data, groups]);
+  const def = defs?.find((r) => r.key === key);
   if (def) return <ReportGenerator key={def.key} def={def} onBack={() => setKey("")} />;
-  return <ReportsCatalog defs={catalog.data} loading={catalog.isLoading} error={catalog.isError ? message(catalog.error, t("common.error")) : null} onOpen={setKey} />;
+  return <ReportsCatalog defs={defs} loading={catalog.isLoading} error={catalog.isError ? message(catalog.error, t("common.error")) : null} onOpen={setKey} />;
 }
 
 function ReportsCatalog({ defs, loading, error, onOpen }: { defs: ReportDefinition[] | undefined; loading: boolean; error: string | null; onOpen: (key: string) => void }) {

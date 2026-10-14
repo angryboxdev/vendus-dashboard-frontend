@@ -85,9 +85,9 @@ describe("buildTree com acesso efetivo (Utilizadores & Perfis 2.0)", () => {
       access: { isAdmin: false, portalOnly: false, permissions: { "hr.employees": "MANAGE", "hr.schedules": "READ" } },
     });
     const paths = tree.flatMap((e) => (e.kind === "item" ? [e.path] : e.items.map((i) => i.path)));
-    expect(paths).toContain("/hr/people");
-    expect(paths).toContain("/hr/schedules");
-    expect(paths).not.toContain("/hr/ferias");
+    // RH: os ecrãs antigos estão em "RH antigo" (as áreas do Novo RH continuam só para Admin).
+    expect(paths).toContain("/hr/antigo");
+    expect(paths).not.toContain("/hr/novo/pessoas");
     expect(paths).not.toContain("/financial/invoices");
     expect(paths).not.toContain("/admin/users");
     expect(tree.some((e) => e.kind === "group" && e.id === "financial")).toBe(false);
@@ -95,5 +95,9 @@ describe("buildTree com acesso efetivo (Utilizadores & Perfis 2.0)", () => {
 
     const admin = buildTree({ email: "a@example.com", role: "admin", access: { isAdmin: true, portalOnly: false, permissions: {} } });
     expect(admin.some((e) => e.kind === "item" && e.path === "/admin/users")).toBe(true);
+    const hr = admin.find((e) => e.kind === "group" && e.id === "hr");
+    expect(hr && hr.kind === "group" ? hr.items.map((i) => i.label) : []).toEqual(["Visão geral", "Colaboradores", "Escalas", "Assiduidade", "Ausências", "Documentos", "RH antigo"]);
+    const noHr = buildTree({ email: "x@example.com", role: "manager", access: { isAdmin: false, portalOnly: false, permissions: { "crm.customers": "READ" } } });
+    expect(noHr.some((e) => e.kind === "group" && e.id === "hr")).toBe(false);
   });
 });

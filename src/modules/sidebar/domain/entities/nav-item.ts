@@ -5,6 +5,8 @@ export interface NavItem {
   readonly end?: boolean;
   /** Contador ao lado do rótulo (ex.: pedidos por decidir). */
   readonly badgeKey?: "hr-requests";
+  /** Outros caminhos que também marcam este item como ativo (ex.: "RH antigo" cobre os ecrãs antigos). */
+  readonly match?: readonly string[];
 }
 
 export interface NavGroup {

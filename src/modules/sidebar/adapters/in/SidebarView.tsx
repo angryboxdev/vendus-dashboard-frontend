@@ -1,4 +1,5 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
+import { isItemActive } from "../../domain/services/nav-state.service.ts";
 import { useSidebar } from "./use-sidebar.ts";
 import type { NavGroup, NavItem, SidebarNavEntry } from "../../domain/entities/nav-item.ts";
 import type { UseSidebarResult } from "./use-sidebar.ts";
@@ -57,8 +58,14 @@ function HamburgerIcon() {
 // ── NavItemLink ───────────────────────────────────────────────────────────────
 
 function NavItemLink({ item, onClick, badge = 0 }: { item: NavItem; onClick: () => void; badge?: number }) {
+  const { pathname } = useLocation();
   return (
-    <NavLink to={item.path} end={item.end} className={navLinkClass} onClick={onClick}>
+    <NavLink
+      to={item.path}
+      end={item.end}
+      className={({ isActive }) => navLinkClass({ isActive: isActive || !!item.match?.some((p) => isItemActive(p, pathname)) })}
+      onClick={onClick}
+    >
       <span className="flex items-center justify-between gap-2">
         <span>{item.label}</span>
         {badge > 0 && (
