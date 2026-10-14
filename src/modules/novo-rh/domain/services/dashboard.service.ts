@@ -3,7 +3,7 @@
  * frase "Hoje", rascunho do layout e geometria do donut. Nada aqui decide
  * estados de negócio (vêm do OperationalSnapshot do backend).
  */
-import type { OperationalSnapshot, TeamCategory, TeamCounts, WidgetPref } from "../entities/dashboard.ts";
+import { TEAM_CATEGORIES, type OperationalSnapshot, type TeamCategory, type TeamCounts, type WidgetPref } from "../entities/dashboard.ts";
 
 export type WidgetId =
   | "ATTENTION"
@@ -146,7 +146,7 @@ export const isCalm = (s: OperationalSnapshot) => s.attention.length === 0;
 
 // ── Donut ────────────────────────────────────────────────────────────
 
-export const TEAM_LABEL: Record<TeamCategory, string> = { working: "Trabalhando", remote: "Remoto", break: "Em pausa", vacation: "Férias", absent: "Ausentes" };
+export const TEAM_LABEL: Record<TeamCategory, string> = { working: "Trabalhando", remote: "Remoto", break: "Em pausa", finished: "Terminaram", not_started: "Por entrar", vacation: "Férias", absent: "Ausentes" };
 
 export interface DonutSegment {
   category: TeamCategory;
@@ -158,16 +158,21 @@ export interface DonutSegment {
 
 /** Arcos do donut (circunferência `c`); pequenos espaços entre segmentos. */
 export function donutSegments(team: TeamCounts, c: number, gap = 2): DonutSegment[] {
-  const cats: TeamCategory[] = ["working", "remote", "break", "vacation", "absent"];
-  const total = cats.reduce((s, k) => s + team[k], 0);
+  const cats = TEAM_CATEGORIES;
+  const total = cats.reduce((s, k) => s + (team[k] ?? 0), 0);
   if (!total) return [];
-  const used = cats.filter((k) => team[k] > 0);
+  const used = cats.filter((k) => (team[k] ?? 0) > 0);
   const g = used.length > 1 ? gap : 0;
   let acc = 0;
   return used.map((k) => {
-    const raw = (team[k] / total) * c;
-    const seg = { category: k, value: team[k], length: Math.max(raw - g, 0.5), offset: -acc };
+    const raw = ((team[k] ?? 0) / total) * c;
+    const seg = { category: k, value: (team[k] ?? 0), length: Math.max(raw - g, 0.5), offset: -acc };
     acc += raw;
     return seg;
   });
+}
+
+/** Nota Google com uma casa decimal e vírgula ("4,7"); "—" sem nota. */
+export function formatRating(r: number | null): string {
+  return r === null || !Number.isFinite(r) ? "—" : r.toFixed(1).replace(".", ",");
 }

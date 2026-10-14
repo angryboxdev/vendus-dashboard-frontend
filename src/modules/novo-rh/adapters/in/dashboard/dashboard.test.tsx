@@ -17,7 +17,7 @@ const SNAP: OperationalSnapshot = {
   localDate: "2026-10-13",
   tomorrow: "2026-10-14",
   units: { operational: 2, requiringAttention: 1 },
-  team: { total: 26, working: 18, remote: 2, break: 1, vacation: 3, absent: 2, late: 1, missing: 0 },
+  team: { total: 29, working: 18, remote: 2, break: 1, finished: 2, not_started: 1, vacation: 3, absent: 2, late: 1, missing: 0 },
   coverage: { uncoveredToday: 1, uncoveredTomorrow: 2, uncoveredTotal: 3 },
   requests: { pending: 3, decidable: 3 },
   attention: [
@@ -69,9 +69,9 @@ describe("Dashboard — regras puras", () => {
 
   it("donut: arcos proporcionais, só categorias com valor", () => {
     const segs = donutSegments(SNAP.team, 100, 0);
-    expect(segs.map((s) => s.category)).toEqual(["working", "remote", "break", "vacation", "absent"]);
+    expect(segs.map((s) => s.category)).toEqual(["working", "remote", "break", "finished", "not_started", "vacation", "absent"]);
     expect(segs.reduce((n, s) => n + s.length, 0)).toBeCloseTo(100);
-    expect(donutSegments({ ...SNAP.team, total: 0, working: 0, remote: 0, break: 0, vacation: 0, absent: 0 }, 100)).toEqual([]);
+    expect(donutSegments({ ...SNAP.team, total: 0, working: 0, remote: 0, break: 0, finished: 0, not_started: 0, vacation: 0, absent: 0 }, 100)).toEqual([]);
   });
 
   it("registo: sem fonte, sem permissão, sem multiunidade ou oculto não aparece; layout nunca dá acesso", () => {
@@ -105,7 +105,7 @@ describe("Dashboard — ecrã", () => {
     expect(within(summary).getByRole("button", { name: /3 pedidos pendentes/ })).toBeInTheDocument();
     const attention = screen.getByRole("region", { name: "Requer atenção" });
     expect(within(attention).getByRole("link", { name: /1 turno sem cobertura hoje/ })).toHaveAttribute("href", "/hr/novo/escalas");
-    expect(screen.getByRole("img", { name: "26 colaboradores" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "29 colaboradores" })).toBeInTheDocument();
     expect(within(screen.getByRole("region", { name: "Estado das unidades" })).getByRole("button", { name: /Loja Porto/ })).toBeInTheDocument();
     expect(m.dashboard.snapshot).toHaveBeenCalledTimes(1);
     await vi.waitFor(() => expect(m.dashboard.birthdays).toHaveBeenCalled());
@@ -117,7 +117,7 @@ describe("Dashboard — ecrã", () => {
     const m = mod();
     renderWith(m);
     const user = userEvent.setup();
-    await screen.findByRole("img", { name: "26 colaboradores" });
+    await screen.findByRole("img", { name: "29 colaboradores" });
     expect(m.dashboard.team).not.toHaveBeenCalled();
     await user.click(screen.getByRole("button", { name: "Trabalhando: 18. Ver lista" }));
     const drawer = await screen.findByRole("dialog", { name: "Trabalhando hoje" });
@@ -139,7 +139,7 @@ describe("Dashboard — ecrã", () => {
     const m = mod();
     renderWith(m);
     const user = userEvent.setup();
-    await screen.findByRole("img", { name: "26 colaboradores" });
+    await screen.findByRole("img", { name: "29 colaboradores" });
     const before = (m.dashboard.snapshot as ReturnType<typeof vi.fn>).mock.calls.length;
     await user.click(screen.getByRole("button", { name: "Personalizar" }));
     const panel = screen.getByRole("complementary", { name: "Personalizar painel" });
@@ -169,7 +169,7 @@ describe("Dashboard — ecrã", () => {
     });
     renderWith(m);
     expect(await screen.findByText("Não foi possível carregar os relatórios.")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "26 colaboradores" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "29 colaboradores" })).toBeInTheDocument();
   });
 });
 
@@ -191,7 +191,7 @@ describe("Dashboard — erros e fontes parciais", () => {
     m.dashboard.snapshot = vi.fn(async () => ({ ...SNAP, partial: ["coverage" as const] }));
     renderWith(m);
     expect(await screen.findByText(/A cobertura não pôde ser calculada agora/)).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "26 colaboradores" })).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "29 colaboradores" })).toBeInTheDocument();
   });
 });
 
@@ -205,7 +205,7 @@ describe("Dashboard — a preparar", () => {
     });
     renderWith(m);
     expect(await screen.findByText(/está a demorar mais do que o normal/)).toBeInTheDocument();
-    expect(await screen.findByRole("img", { name: "26 colaboradores" }, { timeout: 6000 })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: "29 colaboradores" }, { timeout: 6000 })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).toBeNull();
   }, 10_000);
 });

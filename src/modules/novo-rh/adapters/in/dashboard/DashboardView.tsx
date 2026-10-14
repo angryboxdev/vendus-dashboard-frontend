@@ -34,7 +34,8 @@ import {
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { DashboardWidget, WidgetMessage, WidgetSkeleton } from "./DashboardWidget.tsx";
 import { TeamDrawer, UnitDrawer } from "./DashboardDrawers.tsx";
-import { AttentionBody, BirthdaysBody, CoverageBody, GoogleReviewsBody, HolidaysBody, ReportsBody, RequestsBody, TeamBody, UnitsBody } from "./Widgets.tsx";
+import { GoogleReviewsBody } from "./GoogleReviews.tsx";
+import { AttentionBody, BirthdaysBody, CoverageBody, HolidaysBody, ReportsBody, RequestsBody, TeamBody, UnitsBody } from "./Widgets.tsx";
 
 /** "A preparar" (503: o cálculo de hoje continua no servidor) ou falha de rede: tenta de novo sozinho. */
 const warming = (e: unknown) => e instanceof ApiError && e.status === 503;
@@ -354,7 +355,7 @@ const emptySnapshot = {
   localDate: "",
   tomorrow: "",
   units: { operational: 0, requiringAttention: 0 },
-  team: { total: 0, working: 0, remote: 0, break: 0, vacation: 0, absent: 0, late: 0, missing: 0 },
+  team: { total: 0, working: 0, remote: 0, break: 0, finished: 0, not_started: 0, vacation: 0, absent: 0, late: 0, missing: 0 },
   coverage: { uncoveredToday: 0, uncoveredTomorrow: 0, uncoveredTotal: 0 },
   requests: { pending: 0, decidable: 0 },
   attention: [],

@@ -224,10 +224,6 @@ export function RequestsBody({ editing }: { editing: boolean }) {
   );
 }
 
-export function GoogleReviewsBody() {
-  return <WidgetMessage text="Integração Google ainda não configurada." />;
-}
-
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
 export function BirthdaysBody({ today }: { today: string }) {

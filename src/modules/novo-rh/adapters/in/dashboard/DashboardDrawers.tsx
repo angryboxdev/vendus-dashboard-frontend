@@ -2,12 +2,13 @@ import { useState } from "react";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Avatar, Button, Drawer, SearchInput, SearchableSelect, Skeleton, Tabs } from "../../../../../components/ui/index.ts";
-import type { OperationalSnapshot, TeamCategory, UnitRow } from "../../../domain/entities/dashboard.ts";
+import { TEAM_CATEGORIES, type OperationalSnapshot, type TeamCategory, type UnitRow } from "../../../domain/entities/dashboard.ts";
 import { TEAM_LABEL } from "../../../domain/services/dashboard.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { useEmployeePhotos } from "../common/use-employee-photos.ts";
 import { TeamStatusDonut } from "./TeamStatusDonut.tsx";
-import { CoverageBody, GoogleReviewsBody } from "./Widgets.tsx";
+import { GoogleReviewsBody } from "./GoogleReviews.tsx";
+import { CoverageBody } from "./Widgets.tsx";
 
 const hm = (iso: string | null) => (iso ? new Date(iso).toLocaleTimeString("pt-PT", { hour: "2-digit", minute: "2-digit" }) : null);
 
@@ -167,9 +168,9 @@ export function UnitDrawer({ unit, onClose, onFocusUnit }: { unit: UnitRow | nul
           {tab === "team" && (
             <div className="space-y-3">
               <div className="flex flex-wrap gap-1.5">
-                {(["working", "remote", "break", "vacation", "absent"] as TeamCategory[]).map((c) => (
+                {TEAM_CATEGORIES.map((c) => (
                   <button key={c} type="button" onClick={() => setCat(c)} aria-pressed={cat === c} className={`rounded-full px-3 py-1 text-xs font-medium ${cat === c ? "bg-navy-900 text-white" : "bg-surface-soft text-ink-secondary hover:text-navy-900"}`}>
-                    {TEAM_LABEL[c]} {s ? s.team[c] : ""}
+                    {TEAM_LABEL[c]} {s ? (s.team[c] ?? 0) : ""}
                   </button>
                 ))}
               </div>
@@ -189,7 +190,7 @@ export function UnitDrawer({ unit, onClose, onFocusUnit }: { unit: UnitRow | nul
               <Link to="/hr/novo/pedidos" className="inline-block pt-1 text-sm font-medium text-brand-600 hover:underline">Ver Caixa de pedidos ›</Link>
             </ul>
           )}
-          {tab === "reviews" && <GoogleReviewsBody />}
+          {tab === "reviews" && <GoogleReviewsBody locationId={unit.locationId} />}
         </div>
       )}
     </Drawer>
