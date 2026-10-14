@@ -25,8 +25,8 @@ const STOCK_ITEMS: NavItem[] = [
 /** Ecrãs do RH antigo: juntos em "RH antigo", com separadores no topo (`HrLayout`). */
 export const LEGACY_HR_PATHS = ["/hr/overview", "/hr/people", "/hr/schedules", "/hr/calendar", "/hr/ferias", "/hr/assiduidade", "/hr/pedidos", "/hr/historico", "/hr/employees"] as const;
 
-// Recursos Humanos: as áreas do Novo RH são a única navegação. "RH antigo" só aparece a quem
-// não pode abrir o Novo RH (as suas permissões continuam iguais e mantém o acesso que já tinha).
+// Recursos Humanos: as áreas do Novo RH são os módulos principais; "RH antigo" fica no fim
+// (pedido do utilizador em 2026-10-14: manter visível para consulta).
 const HR_ITEMS: NavItem[] = [
   { kind: "item", path: "/hr/novo", label: "Visão geral", end: true },
   { kind: "item", path: "/hr/novo/pessoas", label: "Colaboradores" },
@@ -107,8 +107,7 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
 
   return entries.flatMap((entry): SidebarNavEntry[] => {
     if (entry.kind === "item") return allowed(entry.path) ? [entry] : [];
-    let items = entry.items.filter((i) => allowed(i.path));
-    if (items.some((i) => i.path.startsWith("/hr/novo"))) items = items.filter((i) => i.path !== "/hr/antigo");
+    const items = entry.items.filter((i) => allowed(i.path));
     return items.length > 0 ? [{ ...entry, items }] : [];
   });
 }
