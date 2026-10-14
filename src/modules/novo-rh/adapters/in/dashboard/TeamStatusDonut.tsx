@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { memo, useEffect, useRef, useState } from "react";
 import { TEAM_CATEGORIES, type TeamCategory, type TeamCounts } from "../../../domain/entities/dashboard.ts";
 import { donutSegments, TEAM_LABEL } from "../../../domain/services/dashboard.service.ts";
 
@@ -21,9 +21,11 @@ const reduced = () => typeof window !== "undefined" && !!window.matchMedia?.("(p
  * Donut em SVG leve (stroke-dasharray), sem biblioteca de gráficos. Anima
  * uma só vez por montagem (preenchimento ~750 ms + contagem do total), sem
  * estado React por frame; com movimento reduzido mostra logo o final.
- * Segmento e legenda chamam a mesma ação.
+ * Segmento e legenda chamam a mesma ação. `memo`: só volta a desenhar
+ * quando os números mudam (o snapshot partilha a mesma referência de `team`
+ * entre atualizações iguais; pedidos, avaliações ou aniversários não tocam aqui).
  */
-export function TeamStatusDonut({ team, onSelect }: { team: TeamCounts; onSelect: (c: TeamCategory) => void }) {
+export const TeamStatusDonut = memo(function TeamStatusDonut({ team, onSelect }: { team: TeamCounts; onSelect: (c: TeamCategory) => void }) {
   const segs = donutSegments(team, C);
   const [hover, setHover] = useState<TeamCategory | null>(null);
   const svg = useRef<SVGSVGElement>(null);
@@ -116,4 +118,4 @@ export function TeamStatusDonut({ team, onSelect }: { team: TeamCounts; onSelect
       </ul>
     </div>
   );
-}
+});
