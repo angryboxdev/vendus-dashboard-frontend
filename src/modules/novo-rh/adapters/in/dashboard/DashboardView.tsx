@@ -171,12 +171,12 @@ export function DashboardView() {
       case "LOCATIONS_STATUS":
         return { icon: <IconStore size={18} />, node: <UnitsBody s={s} onOpen={setUnit} onlyAttention={onlyAttention} onClearFilter={() => setOnlyAttention(false)} /> };
       case "COVERAGE":
-        return { icon: <IconCalendar size={18} />, node: <CoverageBody s={s} /> };
+        return { icon: <IconCalendar size={18} />, node: <CoverageBody s={s} onRetry={() => void snap.refetch()} /> };
       case "REQUESTS":
         return {
           icon: <IconFile size={18} />,
-          node: <RequestsBody editing={editing} />,
-          count: s.requests.decidable,
+          node: <RequestsBody editing={editing} unavailable={!!s.partial?.includes("requests")} onRetry={() => void snap.refetch()} />,
+          count: s.partial?.includes("requests") ? undefined : s.requests.decidable,
           critical: true,
           action: (
             <Link to="/hr/novo/pedidos" className="text-sm font-medium text-brand-600 hover:underline">
@@ -285,10 +285,10 @@ export function DashboardView() {
           A calcular o estado de hoje para toda a equipa — está a demorar mais do que o normal. Os dados aparecem assim que terminar.
         </p>
       )}
-      {s?.partial?.includes("requests") && <p className="text-xs text-amber-800">Os pedidos pendentes não puderam ser contados agora; o resto do Dashboard está atualizado.</p>}
 
       <div className="flex items-start gap-4">
-        <div className="grid min-w-0 flex-1 grid-cols-12 gap-4">
+        {/* Cada cartão com a altura do seu conteúdo (sem esticar ao vizinho). */}
+        <div className="grid min-w-0 flex-1 grid-cols-12 items-start gap-4">
           {shown
             .filter((w) => !hide(w.widgetId))
             .map((w) => {

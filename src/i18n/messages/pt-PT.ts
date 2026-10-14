@@ -1311,7 +1311,7 @@ export const ptPT = {
   "le.noEntity": "Sem entidade",
   "novoRh.tab.legalEntities": "Entidades legais",
   "novoRh.tab.invitations": "Convites",
-  "novoRh.search": "Ir para…",
+  "novoRh.search": "Pesquisar no Mezza ERP...",
   "novoRh.tab.transfers": "Transferências",
   "notifications.viewAll": "Ver todas as notificações",
   "notifications.tab.unread": "Não lidas",

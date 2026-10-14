@@ -25,7 +25,8 @@ const STOCK_ITEMS: NavItem[] = [
 /** Ecrãs do RH antigo: juntos em "RH antigo", com separadores no topo (`HrLayout`). */
 export const LEGACY_HR_PATHS = ["/hr/overview", "/hr/people", "/hr/schedules", "/hr/calendar", "/hr/ferias", "/hr/assiduidade", "/hr/pedidos", "/hr/historico", "/hr/employees"] as const;
 
-// Recursos Humanos: as áreas do Novo RH são os módulos principais; o RH antigo fica numa entrada própria.
+// Recursos Humanos: as áreas do Novo RH são os módulos principais; "RH antigo" fica no fim
+// (pedido do utilizador em 2026-10-14: manter visível para consulta).
 const HR_ITEMS: NavItem[] = [
   { kind: "item", path: "/hr/novo", label: "Visão geral", end: true },
   { kind: "item", path: "/hr/novo/pessoas", label: "Colaboradores" },

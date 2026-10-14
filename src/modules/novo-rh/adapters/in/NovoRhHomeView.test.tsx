@@ -10,7 +10,7 @@ import type { DataMode } from "../../domain/entities/roadmap.ts";
 import { fakeNovoRhModule } from "../../fake-module.test-utils.ts";
 import { NovoRhProvider, type NovoRhModule } from "../../novo-rh.module.tsx";
 import { novoRhModeHeaders } from "../out/http-demo-api.adapter.ts";
-import { DemoModeBanner } from "./DemoMode.tsx";
+import { DataModeCard, DemoModeBanner } from "./DemoMode.tsx";
 import { NovoRhHomeView } from "./NovoRhHomeView.tsx";
 import { NovoRhLayout } from "./NovoRhLayout.tsx";
 
@@ -35,19 +35,20 @@ const inLayout = (ui: ReactNode, mod: NovoRhModule = fakeNovoRhModule(), store =
 afterEach(() => setRequestHeaderProvider(null));
 
 describe("Novo RH — entrada", () => {
-  it("Visão geral = Dashboard executivo + modo de dados; o painel anterior continua acessível", () => {
+  it("Visão geral = só o Dashboard: sem cabeçalho 'Novo RH', sem 'Em desenvolvimento', sem elementos de migração", () => {
     render(inLayout(<NovoRhHomeView />));
-    expect(screen.getByRole("heading", { level: 1, name: "Novo RH" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 1, name: "Novo RH" })).toBeNull();
+    expect(screen.queryByText("Em desenvolvimento")).toBeNull();
     expect(screen.getByRole("heading", { level: 1, name: "Dashboard" })).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Ver o painel anterior (durante a validação)" })).toHaveAttribute("href", "/hr/novo/painel-anterior");
+    expect(screen.queryByRole("link", { name: "Ver o painel anterior (durante a validação)" })).toBeNull();
     expect(screen.getByRole("link", { name: "Configurações" })).toHaveAttribute("href", "/hr/novo/configuracoes");
-    expect(screen.getByRole("heading", { level: 2, name: "Modo de dados" })).toBeInTheDocument();
-    expect(screen.queryByText("Plano por fases")).toBeNull();
+    expect(screen.getByRole("combobox", { name: "Pesquisar no Mezza ERP..." })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 2, name: "Modo de dados" })).toBeNull();
   });
 
   it("sem organização fictícia: Demonstração indisponível e oferece criar (com confirmação)", async () => {
     const mod = fakeNovoRhModule();
-    render(inLayout(<NovoRhHomeView />, mod));
+    render(inLayout(<DataModeCard />, mod));
     expect(screen.getByRole("radio", { name: "Real" })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("radio", { name: "Demonstração" })).toHaveAttribute("aria-disabled", "true");
     await userEvent.click(await screen.findByRole("button", { name: "Criar organização de demonstração" }));
@@ -61,7 +62,7 @@ describe("Novo RH — entrada", () => {
   it("trocar para Demonstração: guarda o modo, mostra a faixa e volta ao Real", async () => {
     const mod = fakeNovoRhModule({ demo: { status: vi.fn(async () => ({ exists: true, name: "Mezza — Demonstração" })), create: vi.fn(), refresh: vi.fn(async () => ({ punches: 12, scenario: false })) } });
     const store = memoryStore();
-    render(inLayout(<NovoRhHomeView />, mod, store));
+    render(inLayout(<DataModeCard />, mod, store));
     const demo = await screen.findByRole("radio", { name: "Demonstração" });
     await vi.waitFor(() => expect(demo).not.toBeDisabled());
     await userEvent.click(demo);
@@ -85,9 +86,8 @@ describe("Novo RH — entrada", () => {
 
   it("em es-ES usa o que já está traduzido e pt-PT no resto", () => {
     render(
-      <I18nProvider locale="es-ES">{inLayout(<NovoRhHomeView />)}</I18nProvider>,
+      <I18nProvider locale="es-ES">{inLayout(<DataModeCard />)}</I18nProvider>,
     );
-    expect(screen.getByRole("heading", { level: 1, name: "Nuevo RR. HH." })).toBeInTheDocument();
     expect(screen.getByText("Modo de dados")).toBeInTheDocument();
   });
 });

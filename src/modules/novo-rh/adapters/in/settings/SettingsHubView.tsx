@@ -6,6 +6,7 @@ import { AlertBanner, Button, SECTION_TITLE, SURFACE } from "../../../../../comp
 import { TOPICS, topicDefinitions, type Topic, type TopicKey } from "../../../domain/services/settings-topics.service.ts";
 import { useDataMode, useNovoRh } from "../../../novo-rh.module.tsx";
 import { ProfilePanel } from "./ProfilePanel.tsx";
+import { DataModeCard } from "../DemoMode.tsx";
 import { SettingsView } from "./SettingsView.tsx";
 
 type Section = TopicKey | "catalogs" | "company" | "advanced";
@@ -57,7 +58,9 @@ export function SettingsHubView() {
   );
 
   return (
-    <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
+    <div className="space-y-4">
+      <DataModeCard />
+      <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
       <nav aria-label={t("cfg.nav")} className={`${SURFACE} h-fit space-y-3 p-2`}>
         <div>
           <p className="px-3 pt-1 text-[11px] font-semibold uppercase tracking-wide text-stone-400">{t("cfg.group.rules")}</p>
@@ -78,6 +81,7 @@ export function SettingsHubView() {
         {section === "catalogs" && <LinkCards title={t("cfg.catalogs")} intro={t("cfg.catalogs.intro")} items={CATALOGS} />}
         {section === "company" && <CompanyPage />}
         {section === "advanced" && <SettingsView />}
+      </div>
       </div>
     </div>
   );

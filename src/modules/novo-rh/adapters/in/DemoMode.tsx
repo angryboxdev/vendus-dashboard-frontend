@@ -1,12 +1,25 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "../../../../i18n/I18nProvider.tsx";
-import { AlertBanner, Button } from "../../../../components/ui/index.ts";
+import { AlertBanner, Button, IconAlert, IconInfo, SURFACE } from "../../../../components/ui/index.ts";
 import type { DataMode } from "../../domain/entities/roadmap.ts";
 import type { DemoStatus } from "../../domain/ports/out/demo-api.port.ts";
 import { useDataMode, useNovoRh } from "../../novo-rh.module.tsx";
 
 const KEY = ["novo-rh", "demo-status"] as const;
+
+/** Modo de dados (Real / Demonstração) — em Configurações → Geral. */
+export function DataModeCard() {
+  const { t } = useI18n();
+  return (
+    <section className={`${SURFACE} p-4`} aria-labelledby="novo-rh-mode">
+      <h2 id="novo-rh-mode" className="text-sm font-semibold text-stone-800">
+        {t("novoRh.mode.label")}
+      </h2>
+      <DataModeSwitch />
+    </section>
+  );
+}
 
 /** Escolha Real / Demonstração (Visão geral). Demonstração só depois de criada a organização fictícia. */
 export function DataModeSwitch() {
@@ -139,18 +152,21 @@ export function DemoModeBanner() {
   const { t } = useI18n();
   const { mode, setMode } = useDataMode();
   if (mode !== "demo") return null;
+  // Uma só linha discreta; o texto completo fica no ícone de informação.
   return (
-    <AlertBanner
-      tone="warning"
-      title={t("novoRh.mode.bannerTitle")}
-      action={
-        <Button size="sm" onClick={() => setMode("real")}>
-          {t("novoRh.mode.backToReal")}
-        </Button>
-      }
-    >
-      {t("novoRh.mode.bannerBody")}
-    </AlertBanner>
+    <div role="status" className="flex items-center gap-3 rounded-xl border border-amber-200/80 bg-[#FFFBF2] px-3 py-1.5 text-sm">
+      <IconAlert size={16} className="shrink-0 text-amber-600" />
+      <p className="min-w-0 flex-1 truncate">
+        <strong className="font-semibold text-amber-900">{t("novoRh.mode.bannerTitle")}</strong>
+        <span className="hidden text-ink-secondary sm:inline"> · Está a visualizar a organização de demonstração.</span>
+      </p>
+      <span title={t("novoRh.mode.bannerBody")} aria-label={t("novoRh.mode.bannerBody")} className="hidden shrink-0 cursor-help text-ink-muted md:inline">
+        <IconInfo size={16} />
+      </span>
+      <button type="button" onClick={() => setMode("real")} className="shrink-0 rounded-lg border border-line bg-white px-2.5 py-1 text-xs font-medium text-navy-900 hover:bg-surface-soft">
+        {t("novoRh.mode.backToReal")}
+      </button>
+    </div>
   );
 }
 
