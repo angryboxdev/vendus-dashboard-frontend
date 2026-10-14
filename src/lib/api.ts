@@ -187,3 +187,15 @@ export async function apiPostFormDataFile(
   const fileName = res.headers.get("Content-Disposition")?.match(/filename="?([^";]+)"?/)?.[1] ?? null;
   return { blob: await res.blob(), fileName };
 }
+
+/** POST de um ficheiro em bruto (ex.: áudio para transcrever) com o seu Content-Type. */
+export async function apiPostBinary<T>(path: string, body: Blob, contentType: string): Promise<T> {
+  const url = path.startsWith("http") ? path : `${API_BASE}${path}`;
+  const authHeaders = await getAuthHeaders();
+  const res = await fetch(url, { method: "POST", headers: { ...authHeaders, ...extraHeaders(path), "Content-Type": contentType }, body });
+  if (!res.ok) {
+    const { message, data } = await readErrorBody(res);
+    throw new ApiError(message, res.status, data);
+  }
+  return res.json() as Promise<T>;
+}
