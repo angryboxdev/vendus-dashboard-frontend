@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { TeamCategory, TeamCounts } from "../../../domain/entities/dashboard.ts";
+import { TEAM_CATEGORIES, type TeamCategory, type TeamCounts } from "../../../domain/entities/dashboard.ts";
 import { donutSegments, TEAM_LABEL } from "../../../domain/services/dashboard.service.ts";
 
 /** Cores semânticas das categorias (estados, não identidade da marca). */
@@ -7,6 +7,8 @@ const TEAM_COLOR: Record<TeamCategory, { stroke: string; bg: string }> = {
   working: { stroke: "stroke-emerald-500", bg: "bg-emerald-500" },
   remote: { stroke: "stroke-sky-400", bg: "bg-sky-400" },
   break: { stroke: "stroke-amber-400", bg: "bg-amber-400" },
+  finished: { stroke: "stroke-slate-400", bg: "bg-slate-400" },
+  not_started: { stroke: "stroke-slate-200", bg: "bg-slate-200" },
   vacation: { stroke: "stroke-indigo-300", bg: "bg-indigo-300" },
   absent: { stroke: "stroke-red-400", bg: "bg-red-400" },
 };
@@ -53,7 +55,7 @@ export function TeamStatusDonut({ team, onSelect }: { team: TeamCounts; onSelect
     return () => cancelAnimationFrame(frame);
   }, [segs.length, team.total]);
 
-  const cats: TeamCategory[] = ["working", "remote", "break", "vacation", "absent"];
+  const cats = TEAM_CATEGORIES;
   return (
     <div className="flex flex-col items-center gap-5 sm:flex-row sm:items-center sm:gap-8">
       <div className="relative h-40 w-40 shrink-0">
@@ -101,12 +103,12 @@ export function TeamStatusDonut({ team, onSelect }: { team: TeamCounts; onSelect
               onMouseLeave={() => setHover(null)}
               onFocus={() => setHover(c)}
               onBlur={() => setHover(null)}
-              aria-label={`${TEAM_LABEL[c]}: ${team[c]}. Ver lista`}
+              aria-label={`${TEAM_LABEL[c]}: ${team[c] ?? 0}. Ver lista`}
               className={`flex w-full items-center gap-3 rounded-lg px-2 py-1.5 text-left text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${hover === c ? "bg-surface-soft" : "hover:bg-surface-soft"}`}
             >
               <span aria-hidden="true" className={`h-3 w-3 shrink-0 rounded-full ${TEAM_COLOR[c].bg}`} />
               <span className="flex-1 text-ink">{TEAM_LABEL[c]}</span>
-              <span className="font-semibold tabular-nums text-navy-900">{team[c]}</span>
+              <span className="font-semibold tabular-nums text-navy-900">{team[c] ?? 0}</span>
               <span aria-hidden="true" className="text-ink-muted">›</span>
             </button>
           </li>

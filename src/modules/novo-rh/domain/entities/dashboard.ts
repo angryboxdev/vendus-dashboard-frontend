@@ -1,13 +1,15 @@
 /** Contrato com `/api/novo-rh/dashboard` (backend, módulo dashboard). Só leitura + layout pessoal. */
 
-export type TeamCategory = "working" | "remote" | "break" | "vacation" | "absent";
-export const TEAM_CATEGORIES: TeamCategory[] = ["working", "remote", "break", "vacation", "absent"];
+export type TeamCategory = "working" | "remote" | "break" | "finished" | "not_started" | "vacation" | "absent";
+export const TEAM_CATEGORIES: TeamCategory[] = ["working", "remote", "break", "finished", "not_started", "vacation", "absent"];
 
 export interface TeamCounts {
   total: number;
   working: number;
   remote: number;
   break: number;
+  finished: number;
+  not_started: number;
   vacation: number;
   absent: number;
   late: number;
@@ -91,4 +93,47 @@ export interface DashboardLayout {
   layoutVersion: number;
   widgets: WidgetPref[];
   custom: boolean;
+}
+
+/** Contrato com `/api/novo-rh/google-reviews` (backend, módulo google-reviews). */
+export interface GoogleLocationRating {
+  locationId: string;
+  locationName: string;
+  placeId: string;
+  placeName: string;
+  rating: number | null;
+  userRatingCount: number | null;
+  googleMapsUri: string | null;
+  /** O Google não respondeu agora para este local. */
+  unavailable: boolean;
+}
+
+export interface GoogleReviewsOverview {
+  configured: boolean;
+  average: { rating: number | null; count: number };
+  locations: GoogleLocationRating[];
+  unlinked: { locationId: string; locationName: string }[];
+}
+
+export interface GooglePlaceCandidate {
+  placeId: string;
+  name: string;
+  address: string | null;
+  rating: number | null;
+  userRatingCount: number | null;
+}
+
+export interface GoogleReview {
+  author: string;
+  authorUri: string | null;
+  rating: number | null;
+  text: string | null;
+  relativeTime: string | null;
+  publishTime: string | null;
+}
+
+export interface GoogleLocationReviews {
+  placeName: string;
+  googleMapsUri: string | null;
+  reviews: GoogleReview[];
 }

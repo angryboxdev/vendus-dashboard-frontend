@@ -1,8 +1,19 @@
 import { apiDeleteJson, apiGet, apiPut } from "../../../../lib/api.ts";
-import type { Birthday, DashboardLayout, OperationalSnapshot, TeamCategory, TeamPage, WidgetPref } from "../../domain/entities/dashboard.ts";
+import type {
+  Birthday,
+  DashboardLayout,
+  GoogleLocationReviews,
+  GooglePlaceCandidate,
+  GoogleReviewsOverview,
+  OperationalSnapshot,
+  TeamCategory,
+  TeamPage,
+  WidgetPref,
+} from "../../domain/entities/dashboard.ts";
 import type { DashboardApiPort } from "../../domain/ports/out/dashboard-api.port.ts";
 
 const B = "/api/novo-rh/dashboard";
+const G = "/api/novo-rh/google-reviews";
 const qs = (o: Record<string, string | number | null | undefined>) =>
   new URLSearchParams(Object.entries(o).filter((e): e is [string, string | number] => e[1] !== null && e[1] !== undefined && e[1] !== "").map(([k, v]) => [k, String(v)])).toString();
 
@@ -24,5 +35,20 @@ export class HttpDashboardApiAdapter implements DashboardApiPort {
   }
   resetLayout() {
     return apiDeleteJson<DashboardLayout>(`${B}/layout`);
+  }
+  googleReviews() {
+    return apiGet<GoogleReviewsOverview>(G);
+  }
+  googleSearch(q: string) {
+    return apiGet<GooglePlaceCandidate[]>(`${G}/search?${qs({ q })}`);
+  }
+  googleLink(locationId: string, place: { placeId: string; placeName: string }) {
+    return apiPut<GoogleReviewsOverview>(`${G}/locations/${encodeURIComponent(locationId)}`, place);
+  }
+  googleUnlink(locationId: string) {
+    return apiDeleteJson<GoogleReviewsOverview>(`${G}/locations/${encodeURIComponent(locationId)}`);
+  }
+  googleLocationReviews(locationId: string) {
+    return apiGet<GoogleLocationReviews>(`${G}/locations/${encodeURIComponent(locationId)}/reviews`);
   }
 }
