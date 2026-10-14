@@ -190,8 +190,22 @@ describe("Dashboard — erros e fontes parciais", () => {
     const m = mod();
     m.dashboard.snapshot = vi.fn(async () => ({ ...SNAP, partial: ["coverage" as const] }));
     renderWith(m);
-    expect(await screen.findByText(/A cobertura não pôde ser calculada agora/)).toBeInTheDocument();
+    expect(await screen.findByText("Cobertura temporariamente indisponível.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Tentar novamente" })).toBeInTheDocument();
     expect(screen.getByRole("img", { name: "29 colaboradores" })).toBeInTheDocument();
+  });
+
+  it("pedidos indisponíveis: erro só no widget (com 'Tentar novamente'), sem aviso global; cartões com a altura do conteúdo", async () => {
+    const m = mod();
+    m.dashboard.snapshot = vi.fn(async () => ({ ...SNAP, partial: ["requests" as const] }));
+    renderWith(m);
+    expect(await screen.findByText("Pedidos temporariamente indisponíveis.")).toBeInTheDocument();
+    expect(screen.queryByText(/não puderam ser contados/)).toBeNull();
+    expect(screen.getByRole("img", { name: "29 colaboradores" })).toBeInTheDocument();
+    const before = vi.mocked(m.dashboard.snapshot).mock.calls.length;
+    await userEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
+    expect(vi.mocked(m.dashboard.snapshot).mock.calls.length).toBeGreaterThan(before);
+    expect(document.querySelector("#widget-ATTENTION")!.parentElement!.className).toMatch(/items-start/);
   });
 });
 

@@ -12,7 +12,7 @@ const SIDEBAR_BG = "bg-[#141B2D]";
 function navLinkClass({ isActive }: { isActive: boolean }) {
   return `block rounded-lg px-3 py-2 text-sm transition-colors ${
     isActive
-      ? "bg-white/10 font-semibold text-white shadow-[inset_3px_0_0_#ED5C32]"
+      ? "bg-[#24324F] font-semibold text-white shadow-[inset_3px_0_0_#C9643A]"
       : "font-medium text-slate-300 hover:bg-white/5 hover:text-white"
   }`;
 }
@@ -226,7 +226,7 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className={`hidden w-56 flex-shrink-0 flex-col ${SIDEBAR_BG} md:flex`}>
+      <aside className={`hidden w-60 flex-shrink-0 flex-col ${SIDEBAR_BG} md:flex`}>
         <SidebarBody {...bodyProps} onNavClick={() => {}} />
       </aside>
 
@@ -259,7 +259,7 @@ export function Sidebar() {
 
       {/* Mobile drawer */}
       <aside
-        className={`fixed inset-y-0 left-0 z-50 flex w-56 flex-col ${SIDEBAR_BG} shadow-xl transition-transform duration-200 md:hidden ${
+        className={`fixed inset-y-0 left-0 z-50 flex w-60 flex-col ${SIDEBAR_BG} shadow-xl transition-transform duration-200 md:hidden ${
           mobileOpen ? "translate-x-0" : "-translate-x-full"
         }`}
       >

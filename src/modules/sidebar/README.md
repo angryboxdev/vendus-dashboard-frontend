@@ -50,6 +50,7 @@ grupos inactivos manualmente; esse estado local é gerido no hook `useSidebar`.
 ## Decisões de design (ADR resumido)
 - **Contador** (`badgeKey`, 2026-10-07): itens podem mostrar um número (ex.: Caixa de pedidos); `BadgeCountsPort` → `HttpBadgeCountsAdapter` (`GET /api/hr/requests`), só pedido quando o item está visível, a cada 60 s.
 - **Recursos Humanos** (2026-10-14): as áreas do Novo RH são os itens principais (Visão geral, Colaboradores, Escalas, Assiduidade, Ausências, Documentos); os ecrãs antigos ficam em **RH antigo** (`/hr/antigo`, item com `match` = `LEGACY_HR_PATHS` para ficar ativo em qualquer ecrã antigo; separadores lado a lado em `pages/hr/HrLayout`). `/hr` abre o Novo RH a quem o pode abrir; senão o primeiro ecrã antigo permitido.
+- 2026-10-14 (visual): "RH antigo" deixa de aparecer a quem pode abrir o Novo RH (os restantes mantêm-no — permissões inalteradas); largura 240 px; item ativo navy mais claro com detalhe cobre.
 
 - **Tema escuro (teste, 2026-10-06)** — fundo azul-noite `#141B2D` (constante `SIDEBAR_BG`), texto claro, item ativo com barra laranja da marca; rodapé "by" + logótipo Mezza ERP (`public/mezza-erp.png`, 320 px) alinhado à direita, discreto (opacidade 80%). Só a barra lateral muda — as páginas mantêm o tema claro e o laranja.
 

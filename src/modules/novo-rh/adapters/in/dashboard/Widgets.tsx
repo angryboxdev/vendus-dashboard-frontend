@@ -120,8 +120,24 @@ export function UnitsBody({ s, onOpen, onlyAttention, onClearFilter }: { s: Oper
   );
 }
 
-export function CoverageBody({ s }: { s: OperationalSnapshot }) {
-  if (s.partial?.includes("coverage")) return <WidgetMessage text="A cobertura não pôde ser calculada agora (fica disponível na próxima atualização)." action={<Link to="/hr/novo/escalas" className={MORE}>Ver nas Escalas ›</Link>} />;
+/** Erro local de um widget (o resto do Dashboard continua normal). */
+function RetryMessage({ text, onRetry }: { text: string; onRetry?: () => void }) {
+  return (
+    <WidgetMessage
+      text={text}
+      action={
+        onRetry && (
+          <Button size="sm" onClick={onRetry}>
+            Tentar novamente
+          </Button>
+        )
+      }
+    />
+  );
+}
+
+export function CoverageBody({ s, onRetry }: { s: OperationalSnapshot; onRetry?: () => void }) {
+  if (s.partial?.includes("coverage")) return <RetryMessage text="Cobertura temporariamente indisponível." onRetry={onRetry} />;
   const row = (label: string, n: number) => (
     <Link to="/hr/novo/escalas" className="flex items-center justify-between rounded-xl border border-line-subtle px-3 py-2 text-sm hover:bg-surface-soft">
       <span className="text-ink">{label}</span>
@@ -152,7 +168,7 @@ export function CoverageBody({ s }: { s: OperationalSnapshot }) {
 }
 
 /** Solicitações: as mesmas ações da Caixa de pedidos (o backend revalida tudo). */
-export function RequestsBody({ editing, limit = 4 }: { editing: boolean; limit?: number }) {
+export function RequestsBody({ editing, limit = 4, unavailable = false, onRetry }: { editing: boolean; limit?: number; unavailable?: boolean; onRetry?: () => void }) {
   const { inbox } = useNovoRh();
   const qc = useQueryClient();
   const photoOf = useEmployeePhotos();
@@ -169,7 +185,7 @@ export function RequestsBody({ editing, limit = 4 }: { editing: boolean; limit?:
     },
   });
   if (q.isLoading) return <WidgetSkeleton />;
-  if (q.isError) return <WidgetMessage text="Não foi possível carregar as solicitações agora." />;
+  if (q.isError || unavailable) return <RetryMessage text="Pedidos temporariamente indisponíveis." onRetry={() => (void q.refetch(), onRetry?.())} />;
   const items = (q.data?.items ?? []).slice(0, limit);
   if (!items.length) return <WidgetMessage text="Sem solicitações pendentes." />;
   return (

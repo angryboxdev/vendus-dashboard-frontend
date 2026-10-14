@@ -22,9 +22,9 @@ export function ClockWidget() {
   const next = nextActions(s.state)[0];
   const since = s.since && s.state !== "off" ? timeIn(s.since, s.timeZone) : null;
   return (
-    <div className="flex items-center gap-2" role="group" aria-label={t("att.widget.label")}>
+    <div className="flex shrink-0 items-center gap-2 whitespace-nowrap" role="group" aria-label={t("att.widget.label")}>
       <StatusBadge tone={s.state === "off" ? "neutral" : "success"}>{t(`att.segment.${s.state}` as MessageKey)}</StatusBadge>
-      <span className="hidden text-xs text-stone-500 sm:inline">
+      <span className="hidden text-xs text-ink-secondary lg:inline">
         {since && `${t("att.since", { time: since })} · `}
         {t("att.widget.today", { worked: formatDuration(s.today.workedSeconds) })}
       </span>
@@ -33,7 +33,7 @@ export function ClockWidget() {
           {busy || pending > 0 ? t("att.widget.confirming") : t(`att.action.${next}` as MessageKey)}
         </Button>
       )}
-      <Link to="/hr/novo/assiduidade?tab=myClock" className="text-xs text-[#C2410C] hover:underline">
+      <Link to="/hr/novo/assiduidade?tab=myClock" className="hidden text-sm font-medium text-brand-600 hover:underline md:inline">
         {t("att.widget.more")}
       </Link>
       {error && (

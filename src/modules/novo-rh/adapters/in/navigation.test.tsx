@@ -61,11 +61,12 @@ describe("Navegação RH (MVP)", () => {
     expect(legacyTarget("/hr/novo/escalas")).toBeNull();
   });
 
-  it("barra principal com 6 áreas + Pedidos + Configurações; separadores da área atual", async () => {
+  it("sem abas horizontais das áreas (a barra lateral é a navegação); topo com sino e Configurações; separadores da área atual", async () => {
     renderAt("/hr/novo/assiduidade/fecho");
-    const nav = screen.getByRole("navigation", { name: "Novo RH" });
-    expect(within(nav).getAllByRole("link").map((a) => a.textContent)).toEqual(["Visão geral", "Colaboradores", "Escalas", "Assiduidade", "Ausências", "Documentos"]);
+    expect(screen.queryByRole("navigation", { name: "Novo RH" })).toBeNull();
+    expect(screen.queryByRole("link", { name: "Colaboradores" })).toBeNull();
     expect(screen.getByRole("link", { name: "Configurações" })).toHaveAttribute("href", "/hr/novo/configuracoes");
+    expect(screen.getByRole("button", { name: "Pedidos" })).toBeInTheDocument();
     const sub = screen.getByRole("navigation", { name: "Assiduidade" });
     expect(within(sub).getAllByRole("link").map((a) => a.textContent)).toEqual(["Conferência", "Registos de ponto", "Banco de horas", "Fecho", "Relatórios"]);
     expect(screen.queryByRole("link", { name: "Comunicados" })).toBeNull();
@@ -85,7 +86,7 @@ describe("Navegação RH (MVP)", () => {
       items: [{ key: "k1", employeeId: "e1", employeeName: "Pessoa Teste", title: "Férias 20–24 out", canDecide: true, locationName: null } as never],
     }));
     renderAt("/hr/novo", m);
-    const btn = await screen.findByRole("button", { name: "Pedidos — 1" });
+    const btn = await screen.findByRole("button", { name: "Pedidos — 1" }); // pedidos + notificações por ler
     await userEvent.click(btn);
     expect(await screen.findByText("Pessoa Teste")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Abrir caixa de pedidos" })).toHaveAttribute("href", "/hr/novo/pedidos");

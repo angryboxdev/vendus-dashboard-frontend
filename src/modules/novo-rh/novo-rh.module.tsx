@@ -27,7 +27,8 @@ import { HttpAccessGovernanceApiAdapter, HttpAuditApiAdapter, HttpNotificationsA
 import { StructureView } from "./adapters/in/structure/StructureView.tsx";
 import { AccessView } from "./adapters/in/access/AccessView.tsx";
 import { AuditView } from "./adapters/in/audit/AuditView.tsx";
-import { NotificationsBell } from "./adapters/in/NotificationsBell.tsx";
+import { UserMenu } from "./adapters/in/UserMenu.tsx";
+import { useAuth } from "../../contexts/AuthContext.tsx";
 import type { PeopleApiPort } from "./domain/ports/out/people-api.port.ts";
 import { HttpPeopleApiAdapter } from "./adapters/out/http-people-api.adapter.ts";
 import { PeopleListView } from "./adapters/in/people/PeopleListView.tsx";
@@ -231,14 +232,7 @@ export function NovoRhPage() {
         <NovoRhSlotsContext.Provider value={SLOTS}>
           {/* Design System Mezza só aqui dentro (classe `ds`); o resto da aplicação mantém o aspeto anterior. */}
           <div className="ds">
-            <NovoRhLayout
-              extraActions={
-                <>
-                  <ClockWidget />
-                  <NotificationsBell />
-                </>
-              }
-            >
+            <NovoRhLayout extraActions={<ClockWidget />} userMenu={<AccountMenu />}>
               <MfaGate>
                 <NovoRhRoutes />
               </MfaGate>
@@ -248,6 +242,13 @@ export function NovoRhPage() {
       </NovoRhProvider>
     </I18nProvider>
   );
+}
+
+/** Conta na barra de topo (sessão da aplicação). */
+function AccountMenu() {
+  const { user, signOut } = useAuth();
+  if (!user) return null;
+  return <UserMenu email={user.email} onSignOut={() => void signOut()} />;
 }
 
 /** Rotas do Novo RH; voltam a montar ao trocar de modo (sem estado do outro modo). */
