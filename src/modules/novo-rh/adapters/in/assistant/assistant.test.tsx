@@ -64,20 +64,31 @@ describe("Assistente Mezza — bolinha e chat", () => {
     expect(m.assistant.status).toHaveBeenCalledTimes(1);
   });
 
-  it("3/4: arrastar não abre o chat e, ao soltar, volta ao canto", async () => {
+  it("3/4: arrastar não abre o chat; ao soltar volta à lateral direita, à altura onde foi largada (dentro do ecrã)", async () => {
     const { button } = setup();
-    fireEvent.pointerDown(button, { button: 0, pointerId: 1, clientX: 500, clientY: 500 });
-    fireEvent.pointerMove(button, { pointerId: 1, clientX: 420, clientY: 380 });
-    expect(button.style.transform).toMatch(/translate3d\(-?\d+(\.\d+)?px, -?\d+(\.\d+)?px, 0\)/);
-    expect(button.style.transform).not.toBe("translate3d(0px, 0px, 0)");
-    fireEvent.pointerUp(button, { pointerId: 1, clientX: 420, clientY: 380 });
+    // Posição base: canto inferior direito de um ecrã 1024×768 (bolinha de 40 px).
+    const off = () => {
+      const m = /translate3d\((-?[\d.]+)px, (-?[\d.]+)px/.exec(button.style.transform);
+      return m ? { x: Number(m[1]), y: Number(m[2]) } : { x: 0, y: 0 };
+    };
+    button.getBoundingClientRect = () => ({ left: 960 + off().x, top: 704 + off().y, width: 40, height: 40, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) }) as DOMRect;
+    fireEvent.pointerDown(button, { button: 0, pointerId: 1, clientX: 980, clientY: 724 });
+    fireEvent.pointerMove(button, { pointerId: 1, clientX: 300, clientY: 300 });
+    expect(button.style.transform).toBe("translate3d(-680px, -424px, 0)");
+    fireEvent.pointerUp(button, { pointerId: 1, clientX: 300, clientY: 300 });
     fireEvent.click(button);
-    expect(button.style.transform).toBe("translate3d(0px, 0px, 0)");
+    expect(button.style.transform).toBe("translate3d(0px, -424px, 0)");
     await act(() => new Promise((r) => setTimeout(r, 30)));
     expect(screen.queryByRole("dialog")).toBeNull();
+    // Novo arrasto parte da altura atual e não sai do ecrã (topo a 8 px).
+    fireEvent.pointerDown(button, { button: 0, pointerId: 2, clientX: 980, clientY: 300 });
+    fireEvent.pointerMove(button, { pointerId: 2, clientX: 100, clientY: -500 });
+    fireEvent.pointerUp(button, { pointerId: 2, clientX: 100, clientY: -500 });
+    fireEvent.click(button);
+    expect(button.style.transform).toBe("translate3d(0px, -696px, 0)");
     // Um toque sem mover continua a abrir.
-    fireEvent.pointerDown(button, { button: 0, pointerId: 2, clientX: 500, clientY: 500 });
-    fireEvent.pointerUp(button, { pointerId: 2, clientX: 501, clientY: 501 });
+    fireEvent.pointerDown(button, { button: 0, pointerId: 3, clientX: 980, clientY: 30 });
+    fireEvent.pointerUp(button, { pointerId: 3, clientX: 981, clientY: 31 });
     fireEvent.click(button);
     expect(await screen.findByRole("dialog", { name: "Assistente Mezza" })).toBeInTheDocument();
   });
