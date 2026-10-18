@@ -3,23 +3,28 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
-import { Avatar, Button, FIELD, IconDownload, IconPlus, IconSearch, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR, Tabs } from "../../../../../components/ui/index.ts";
+import { Avatar, Button, EmptyState, FIELD, IconDownload, IconPlus, IconSearch, Skeleton, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR, Tabs } from "../../../../../components/ui/index.ts";
+import type { PersonDayView } from "../../../domain/entities/overview.ts";
 import type { Person } from "../../../domain/entities/people.ts";
+import { formatDuration } from "../../../domain/services/attendance.service.ts";
+import { mergeStoredColumns, todayHours, todaySchedule, weeklyHoursLabel } from "../../../domain/services/people-list.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { downloadBlob } from "../download.ts";
 import { ImportPeopleDrawer } from "./ImportPeopleDrawer.tsx";
 import { NewPersonDrawer } from "./NewPersonDrawer.tsx";
 
 type Status = "active" | "inactive" | "all";
-type Column = "nif" | "position" | "location" | "hire" | "email" | "phone" | "status";
-const COLUMNS: Column[] = ["nif", "position", "location", "hire", "email", "phone", "status"];
-const DEFAULT_COLUMNS: Column[] = ["nif", "position", "location", "hire", "status"];
+type Column = "nif" | "position" | "location" | "schedule" | "hoursToday" | "hire" | "email" | "phone" | "status";
+const COLUMNS: Column[] = ["nif", "position", "location", "schedule", "hoursToday", "hire", "email", "phone", "status"];
+const DEFAULT_COLUMNS: Column[] = ["nif", "position", "location", "schedule", "hoursToday", "hire", "status"];
+/** Colunas acrescentadas depois de haver escolhas guardadas: aparecem uma vez a quem já tinha escolhido. */
+const INTRODUCED: Column[] = ["schedule", "hoursToday"];
 const COLUMNS_KEY = "novo-rh.people.columns";
 
 function loadColumns(): Column[] {
   try {
     const raw = JSON.parse(localStorage.getItem(COLUMNS_KEY) ?? "null") as unknown;
-    if (Array.isArray(raw)) return COLUMNS.filter((c) => raw.includes(c));
+    return mergeStoredColumns(raw, COLUMNS, DEFAULT_COLUMNS, INTRODUCED) ?? DEFAULT_COLUMNS;
   } catch {
     // Sem armazenamento: colunas por omissão.
   }
@@ -33,7 +38,7 @@ function loadColumns(): Column[] {
  */
 export function PeopleListView() {
   const { t } = useI18n();
-  const { people, settings } = useNovoRh();
+  const { people, settings, overview } = useNovoRh();
   const [params, setParams] = useSearchParams();
   const status = (["active", "inactive", "all"].includes(params.get("status") ?? "") ? params.get("status") : "active") as Status;
   const location = params.get("local") ?? "";
@@ -58,8 +63,22 @@ export function PeopleListView() {
   const list = useQuery({ queryKey: ["novo-rh", "people", status, q], queryFn: () => people.list({ status, ...(q.trim() && { q: q.trim() }) }) });
   const locations = useQuery({ queryKey: ["novo-rh", "settings", "locations"], queryFn: () => settings.listLocations() });
   const positions = useQuery({ queryKey: ["novo-rh", "catalog", "positions"], queryFn: () => people.listPositions() });
+  // «Horário» e «Horas hoje»: a mesma vista do dia da Visão geral (um pedido para todos, mesma cache).
+  const wantsToday = status !== "inactive" && (columns.includes("schedule") || columns.includes("hoursToday"));
+  const today = useQuery({ queryKey: ["novo-rh", "overview", "today"], queryFn: () => overview.get(), enabled: wantsToday, retry: false });
+  const dayOf = new Map<string, PersonDayView>((today.data?.people ?? []).map((o) => [o.employeeId, o]));
   const locationName = (id: string | null) => (id ? (locations.data?.find((l) => l.id === id)?.label ?? "—") : "—");
   const positionName = (id: string | null) => (id ? (positions.data?.find((x) => x.id === id)?.name ?? "—") : "—");
+  const missingText = (p: Person) => t("people.missingList", { fields: p.missing.map((f) => t(`people.field.${f}` as MessageKey)).join(", ") });
+  const filtered = !!(location || position || incomplete || q.trim());
+  const clearFilters = () => {
+    setQ("");
+    setParams((p) => {
+      const n = new URLSearchParams(p);
+      for (const k of ["local", "cargo", "completar"]) n.delete(k);
+      return n;
+    }, { replace: true });
+  };
 
   const all = list.data ?? [];
   const rows = all.filter((p) => (!location || (location === "none" ? !p.primaryLocationId : p.primaryLocationId === location)) && (!position || p.positionId === position) && (!incomplete || p.missing.length > 0));
@@ -72,7 +91,7 @@ export function PeopleListView() {
     const next = columns.includes(c) ? columns.filter((x) => x !== c) : COLUMNS.filter((x) => x === c || columns.includes(x));
     setColumns(next);
     try {
-      localStorage.setItem(COLUMNS_KEY, JSON.stringify(next));
+      localStorage.setItem(COLUMNS_KEY, JSON.stringify({ cols: next, known: COLUMNS }));
     } catch {
       // Sem armazenamento: vale só nesta página.
     }
@@ -85,6 +104,38 @@ export function PeopleListView() {
         return positionName(p.positionId);
       case "location":
         return locationName(p.primaryLocationId);
+      case "schedule": {
+        const s = p.status === "active" ? todaySchedule(dayOf.get(p.id)) : { kind: "unknown" as const };
+        const weekly = weeklyHoursLabel(p.weeklyHours);
+        const main =
+          s.kind === "hours" ? <span className="tabular-nums text-stone-800">{s.text}</span>
+          : s.kind === "flexible" ? <span className="text-stone-800">{t("people.schedule.flexible", { hours: formatDuration(s.theoreticalSeconds) })}</span>
+          : s.kind === "day_off" ? <span className="text-stone-500">{t("people.schedule.dayOff")}</span>
+          : s.kind === "absent" ? <span className="text-stone-500">{s.absenceType ?? t("people.schedule.absent")}</span>
+          : s.kind === "none" ? <span className="text-stone-400">{t("people.schedule.none")}</span>
+          : today.isLoading && wantsToday && p.status === "active" ? <Skeleton className="h-3.5 w-20" />
+          : <span className="text-stone-400">—</span>;
+        return (
+          <div className="leading-tight">
+            {main}
+            {weekly && <p className="mt-0.5 text-xs text-stone-400">{t("people.schedule.weekly", { hours: weekly })}</p>}
+          </div>
+        );
+      }
+      case "hoursToday": {
+        const h = p.status === "active" ? todayHours(dayOf.get(p.id)) : null;
+        if (!h) return today.isLoading && wantsToday && p.status === "active" ? <Skeleton className="h-3.5 w-16" /> : <span className="text-stone-400">—</span>;
+        return (
+          <div className="min-w-[7rem]" title={h.theoreticalSeconds > 0 ? t("people.hoursToday.of", { hours: formatDuration(h.theoreticalSeconds) }) : undefined}>
+            <span className="tabular-nums text-stone-800">{formatDuration(h.workedSeconds)}</span>
+            {h.ratio !== null && (
+              <div className="mt-1 h-1 w-full overflow-hidden rounded-full bg-stone-100" role="progressbar" aria-label={t("people.column.hoursToday")} aria-valuemin={0} aria-valuemax={100} aria-valuenow={Math.round(h.ratio * 100)}>
+                <div className="h-full rounded-full bg-[#ED5C32]" style={{ width: `${Math.round(h.ratio * 100)}%` }} />
+              </div>
+            )}
+          </div>
+        );
+      }
       case "hire":
         return p.hireDate ?? "—";
       case "email":
@@ -95,7 +146,11 @@ export function PeopleListView() {
         return (
           <div className="flex flex-wrap gap-1">
             <StatusBadge tone={p.status === "active" ? "success" : "neutral"}>{p.status === "active" ? t("people.active") : t("people.inactive")}</StatusBadge>
-            {p.missing.length > 0 && <StatusBadge tone="warning">{t("people.toComplete")}</StatusBadge>}
+            {p.missing.length > 0 && (
+              <Link to={`/hr/novo/pessoas/${p.id}`} title={missingText(p)} aria-label={`${t("people.toComplete")} — ${missingText(p)}`} className="rounded-full focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ED5C32]">
+                <StatusBadge tone="warning">{t("people.toComplete")}</StatusBadge>
+              </Link>
+            )}
           </div>
         );
     }
@@ -182,11 +237,33 @@ export function PeopleListView() {
 
       <section className={`${SURFACE} overflow-x-auto`}>
         {list.isLoading ? (
-          <p className="p-4 text-sm text-stone-400">{t("common.loading")}</p>
+          <div className="space-y-3 p-4" aria-busy="true" aria-label={t("common.loading")}>
+            {[0, 1, 2, 3, 4].map((i) => (
+              <div key={i} className="flex items-center gap-3">
+                <Skeleton className="h-8 w-8 rounded-full" />
+                <Skeleton className="h-3.5 w-40" />
+                <Skeleton className="ml-auto h-3.5 w-24" />
+              </div>
+            ))}
+          </div>
         ) : list.isError ? (
-          <p className="p-4 text-sm text-red-700">{t("common.loadError")}</p>
+          <div className="flex flex-wrap items-center gap-3 p-4">
+            <p className="text-sm text-red-700">{t("common.loadError")}</p>
+            <Button size="sm" onClick={() => void list.refetch()}>
+              {t("people.retry")}
+            </Button>
+          </div>
         ) : rows.length === 0 ? (
-          <p className="p-4 text-sm text-stone-500">{t("people.empty")}</p>
+          <EmptyState
+            title={filtered ? t("people.emptyFiltered") : t("people.empty")}
+            action={
+              filtered ? (
+                <Button size="sm" onClick={clearFilters}>
+                  {t("people.clearFilters")}
+                </Button>
+              ) : undefined
+            }
+          />
         ) : (
           <table className={TABLE}>
             <thead className={THEAD}>
