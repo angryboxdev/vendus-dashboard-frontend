@@ -1,4 +1,4 @@
-import { apiGet, apiGetBlob, apiPost, apiPatch, apiPut } from "../../../../lib/api.ts";
+import { apiDeleteNoContent, apiGet, apiGetBlob, apiPost, apiPatch, apiPut } from "../../../../lib/api.ts";
 import type {
   FinancialBaseApiPort,
   ListCostCenterGroupsParams,
@@ -21,6 +21,8 @@ import type {
   SupplierDetail,
   CreateSupplierPayload,
   UpdateSupplierPayload,
+  SupplierLocationRule,
+  UpsertSupplierLocationRulePayload,
 } from "../../domain/entities/supplier.ts";
 import type {
   SupplierDeliveryScheduleDTO,
@@ -151,6 +153,18 @@ export class HttpFinancialBaseApiAdapter implements FinancialBaseApiPort {
   }
 
   // ── Delivery schedule (módulo Stock — Planeamento, D10) ──────────────────────
+
+  async listSupplierLocationRules(supplierId: string): Promise<SupplierLocationRule[]> {
+    return apiGet(`${BASE}/suppliers/${encodeURIComponent(supplierId)}/location-rules`);
+  }
+
+  async upsertSupplierLocationRule(supplierId: string, locationId: string, payload: UpsertSupplierLocationRulePayload): Promise<SupplierLocationRule> {
+    return apiPut(`${BASE}/suppliers/${encodeURIComponent(supplierId)}/location-rules/${encodeURIComponent(locationId)}`, payload);
+  }
+
+  async deleteSupplierLocationRule(supplierId: string, locationId: string): Promise<void> {
+    return apiDeleteNoContent(`${BASE}/suppliers/${encodeURIComponent(supplierId)}/location-rules/${encodeURIComponent(locationId)}`);
+  }
 
   async listSupplierDeliverySchedules(supplierId: string): Promise<SupplierDeliveryScheduleDTO[]> {
     return apiGet(`${BASE}/suppliers/${encodeURIComponent(supplierId)}/delivery-schedule`);

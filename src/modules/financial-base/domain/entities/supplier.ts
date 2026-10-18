@@ -1,13 +1,40 @@
 export type SupplierStatus = "active" | "inactive";
 
 /** Módulo Stock (Compra por rever) — só preferência complementar; nunca ignora uma classificação financeira explícita da categoria. */
-export type DefaultStockPolicy = "inherit" | "usually_creates_review" | "usually_skips_review";
+export type DefaultStockPolicy = "inherit" | "usually_creates_review" | "usually_skips_review" | "decide_per_document";
 
+/** Política «Enviar para Stock» da ficha (F2 v1.2 §2.1). */
 export const DEFAULT_STOCK_POLICY_LABELS: Record<DefaultStockPolicy, string> = {
-  inherit: "Seguir preferência da categoria",
-  usually_creates_review: "Normalmente gera revisão de stock",
-  usually_skips_review: "Normalmente não afeta stock",
+  inherit: "Seguir a subcategoria",
+  usually_creates_review: "Enviar por defeito",
+  usually_skips_review: "Não enviar",
+  decide_per_document: "Decidir no documento",
 };
+
+/** Modo de classificação financeira (F2 §2.2). */
+export type FinancialMode = "single" | "by_item" | "by_values";
+export const FINANCIAL_MODE_LABELS: Record<FinancialMode, string> = {
+  single: "Única",
+  by_item: "Por artigo",
+  by_values: "Por valores",
+};
+
+/** Exceção por loja da ficha do fornecedor (prevalece sobre a regra geral para essa loja). */
+export interface SupplierLocationRule {
+  id: string;
+  supplierId: string;
+  locationId: string;
+  stockPolicy: DefaultStockPolicy | null;
+  costCenterGroupId: string | null;
+  costCenterCategoryId: string | null;
+  updatedAt: string;
+}
+
+export interface UpsertSupplierLocationRulePayload {
+  stockPolicy?: DefaultStockPolicy | null;
+  costCenterGroupId?: string | null;
+  costCenterCategoryId?: string | null;
+}
 
 export interface Supplier {
   id: string;
@@ -23,6 +50,11 @@ export interface Supplier {
   notes: string | null;
   status: SupplierStatus;
   defaultStockPolicy: DefaultStockPolicy;
+  defaultFinancialType?: string | null;
+  /** Modo financeiro preferido (fornecedor misto pode preferir «Por valores»). */
+  defaultFinancialMode?: FinancialMode | null;
+  /** Destino habitual — uma loja concreta, nunca «todas». */
+  defaultLocationId?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -78,6 +110,9 @@ export interface CreateSupplierPayload {
   paymentTermsDays?: number | null;
   notes?: string | null;
   defaultStockPolicy?: DefaultStockPolicy;
+  defaultFinancialType?: string | null;
+  defaultFinancialMode?: FinancialMode | null;
+  defaultLocationId?: string | null;
 }
 
 export interface UpdateSupplierPayload {
@@ -92,4 +127,7 @@ export interface UpdateSupplierPayload {
   paymentTermsDays?: number | null;
   notes?: string | null;
   defaultStockPolicy?: DefaultStockPolicy;
+  defaultFinancialType?: string | null;
+  defaultFinancialMode?: FinancialMode | null;
+  defaultLocationId?: string | null;
 }

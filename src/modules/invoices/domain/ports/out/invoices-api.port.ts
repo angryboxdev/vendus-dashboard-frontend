@@ -14,6 +14,12 @@ import type {
   LineDetailMode,
   InvoiceDocumentType,
   SetLineDeductibilityOverridePayload,
+  AllocationPayload,
+  InvoiceAllocationDTO,
+  PayablesSummaryDTO,
+  PayablesSummaryParams,
+  SaveDraftResultDTO,
+  StockRoutingSuggestion,
 } from "../../entities/invoice.ts";
 
 export interface AddInvoiceLinePayload {
@@ -49,4 +55,10 @@ export interface InvoicesApiPort {
   confirmImportedInvoice(id: string, payload: ConfirmImportedInvoicePayload): Promise<InvoiceDTO>;
   getInvoiceAlerts(): Promise<InvoiceAlertsDTO>;
   suggestLineClassification(supplierId: string, description?: string): Promise<SuggestClassificationResult | null>;
+  // F2 v1.2
+  getStockRoutingSuggestion(input: { supplierId: string | null; locationId: string | null; categoryIds: string[] }): Promise<StockRoutingSuggestion>;
+  saveInvoiceDraft(id: string, payload: ConfirmImportedInvoicePayload): Promise<SaveDraftResultDTO>;
+  replaceInvoiceAllocations(id: string, allocations: AllocationPayload[], expectedVersion?: number): Promise<InvoiceDTO>;
+  listInvoiceAllocations(): Promise<InvoiceAllocationDTO[]>;
+  getPayablesSummary(params: PayablesSummaryParams): Promise<PayablesSummaryDTO>;
 }
