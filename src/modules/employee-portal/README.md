@@ -63,6 +63,8 @@ Spec e tickets: backend `.scratch/portal-colaborador/`.
 ### Saída
 - `HttpPortalEngagementApiAdapter` — erros RFC 7807 do Novo RH → `PortalRequestError` com a mensagem do servidor; escritas com `Idempotency-Key`.
 - `HttpPortalApiAdapter` — `lib/api`; traduz 409/403/404/rede para os erros do domínio.
+- `ModeAwarePortalApiAdapter` (Fase 2 do Portal ligado ao Novo RH) — lê uma vez `GET /api/me/portal-mode` (interruptor `time_tracking.portal.uses_novo_rh`, por organização ou centro) e delega no adapter certo; se a leitura falhar, fica o sistema de sempre.
+- `HttpNovoRhPortalApiAdapter` — o mesmo contrato sobre o Novo RH: ponto `/api/me/clock`, escala `/api/me/roster` (+ colegas), pedidos `/api/me/absences` com os tipos «Folga» e «Falta justificada» (`/api/me/absences/portal-types`; motivo no comentário «motivo — texto»; anexo por `/api/me/absence-attachments`); documentos delegados no adapter de sempre (motor partilhado). Mapeamentos puros em `domain/services/novo-rh-portal.service.ts`.
 - `BrowserGeolocationAdapter` — `navigator.geolocation.getCurrentPosition`
   (alta precisão, `maximumAge: 0`, timeout 12 s). Nunca `watchPosition`.
 
@@ -97,3 +99,4 @@ Spec e tickets: backend `.scratch/portal-colaborador/`.
 - Escala, Documentos/Recibos e Ausências ainda são "em breve" (tickets 07–09).
 - Sem notificações (ticket 10, adiado).
 - Ícones provisórios.
+- Portal sobre o Novo RH (Fase 2): sem geofence nem «bloqueado porque…» no Início (o servidor recusa e a mensagem aparece ao picar); a nota da decisão do gestor ainda não é mostrada; o centro do turno é o principal da ficha.
