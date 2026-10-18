@@ -4,6 +4,7 @@ import { useSidebar } from "./use-sidebar.ts";
 import type { NavGroup, NavItem, SidebarNavEntry } from "../../domain/entities/nav-item.ts";
 import type { UseSidebarResult } from "./use-sidebar.ts";
 import { AppIcon } from "../../../../components/ui/app-icons.tsx";
+import { CollapsedSidebarBody } from "./CollapsedSidebar.tsx";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -138,6 +139,8 @@ interface SidebarBodyProps {
   onNavClick: () => void;
   onSignOut: () => void;
   badges: UseSidebarResult["badges"];
+  /** Só desktop: botão para recolher a barra. */
+  onCollapse?: () => void;
 }
 
 function SidebarBody({
@@ -149,6 +152,7 @@ function SidebarBody({
   onNavClick,
   onSignOut,
   badges,
+  onCollapse,
 }: SidebarBodyProps) {
   return (
     <>
@@ -159,6 +163,18 @@ function SidebarBody({
           <h1 className="text-base font-bold tracking-tight text-white">
             Angry Box Hub
           </h1>
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              aria-label="Recolher barra lateral"
+              aria-expanded={true}
+              title="Recolher"
+              className="ml-auto rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ED5C32]"
+            >
+              <AppIcon name="collapse" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -217,6 +233,8 @@ export function Sidebar() {
     closeMobile,
     signOut,
     badges,
+    collapsed,
+    toggleCollapsed,
   }: UseSidebarResult = useSidebar();
 
   const bodyProps: SidebarBodyProps = {
@@ -233,8 +251,13 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className={`hidden w-60 flex-shrink-0 flex-col ${SIDEBAR_BG} md:flex`}>
-        <SidebarBody {...bodyProps} onNavClick={() => {}} />
+      {/* Recolhida: 72 px só com ícones; o conteúdo ocupa a largura libertada (main é flex-1). */}
+      <aside className={`hidden flex-shrink-0 flex-col ${SIDEBAR_BG} md:flex ${collapsed ? "w-[72px]" : "w-60"}`}>
+        {collapsed ? (
+          <CollapsedSidebarBody tree={tree} isGroupActive={isGroupActive} badges={badges} onExpand={toggleCollapsed} onSignOut={signOut} />
+        ) : (
+          <SidebarBody {...bodyProps} onNavClick={() => {}} onCollapse={toggleCollapsed} />
+        )}
       </aside>
 
       {/* Mobile top bar */}

@@ -17,6 +17,7 @@ import {
   LayoutDashboard,
   Mail,
   MapPinOff,
+  LogOut,
   Package,
   PanelLeftClose,
   PanelLeftOpen,
@@ -74,6 +75,7 @@ export const APP_ICONS = {
   noLocation: wrap(MapPinOff),
   collapse: wrap(PanelLeftClose),
   expand: wrap(PanelLeftOpen),
+  logout: wrap(LogOut),
 } as const;
 
 export type AppIconKey = keyof typeof APP_ICONS;
