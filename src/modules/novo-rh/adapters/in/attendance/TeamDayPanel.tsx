@@ -1,25 +1,15 @@
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
-import type { MessageKey } from "../../../../../i18n/i18n.ts";
 import { Avatar, Button, FIELD, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR } from "../../../../../components/ui/index.ts";
 import type { PersonOverview } from "../../../domain/entities/overview.ts";
-import { dateIn, formatDuration } from "../../../domain/services/attendance.service.ts";
+import { formatDuration } from "../../../domain/services/attendance.service.ts";
+import { DayTimeline, TimelineLegend } from "./DayTimeline.tsx";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { STATUS } from "../overview/overview-status.ts";
 import { PersonDayDrawer } from "../overview/PersonDayDrawer.tsx";
 import { useEmployeePhotos } from "../common/use-employee-photos.ts";
 
-/** Minutos desde a meia-noite local do dia (pode passar de 1440 em jornadas noturnas). */
-function minuteOfDay(iso: string, date: string, timeZone: string): number {
-  const parts = new Intl.DateTimeFormat("en-GB", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(new Date(iso));
-  const get = (type: string) => Number(parts.find((p) => p.type === type)!.value);
-  const dayShift = dateIn(iso, timeZone) > date ? 1440 : dateIn(iso, timeZone) < date ? -1440 : 0;
-  return get("hour") * 60 + get("minute") + dayShift;
-}
-const hhmm = (s: string) => Number(s.slice(0, 2)) * 60 + Number(s.slice(3, 5));
-const pct = (m: number) => `${(Math.min(Math.max(m, 0), 1440) / 1440) * 100}%`;
-const SEG_COLOR: Record<string, string> = { work: "bg-emerald-500", remote: "bg-sky-500", break_paid: "bg-amber-300", break_unpaid: "bg-amber-400" };
 
 /**
  * Assiduidade → Dia da equipa (FE-030): de uma vez, o planeado e o que cada
@@ -93,20 +83,7 @@ export function TeamDayPanel() {
                   </div>
                 </td>
                 <td className={TD}>
-                  <div className="relative h-6 rounded bg-stone-100" role="img" aria-label={t("att.team.timeline", { name: p.name })}>
-                    {p.plannedStart && (
-                      <div
-                        className="absolute inset-y-0 rounded border-2 border-dashed border-stone-400"
-                        style={{ left: pct(hhmm(p.plannedStart)), width: `calc(${pct((p.plannedEnd ? hhmm(p.plannedEnd) + (hhmm(p.plannedEnd) <= hhmm(p.plannedStart) ? 1440 : 0) : 1440) - hhmm(p.plannedStart))})` }}
-                        title={`${p.plannedStart}–${p.plannedEnd ?? "?"}`}
-                      />
-                    )}
-                    {p.segments.map((s) => {
-                      const a = minuteOfDay(s.start, o.date, o.timeZone);
-                      const b = minuteOfDay(s.end, o.date, o.timeZone);
-                      return <div key={s.start} className={`absolute inset-y-1 rounded-sm ${SEG_COLOR[s.type] ?? "bg-stone-400"}`} style={{ left: pct(a), width: `calc(${pct(Math.max(b - a, 4))})` }} title={t(`att.segment.${s.type}` as MessageKey)} />;
-                    })}
-                  </div>
+                  <DayTimeline segments={p.segments} date={o.date} timeZone={o.timeZone} planned={p.plannedStart ? { start: p.plannedStart, end: p.plannedEnd } : null} label={t("att.team.timeline", { name: p.name })} />
                 </td>
                 <td className={TD}>{`${formatDuration(p.workedSeconds)} / ${formatDuration(p.theoreticalSeconds)}`}</td>
               </tr>
@@ -121,20 +98,7 @@ export function TeamDayPanel() {
           </tbody>
         </table>
       </div>
-      <p className="flex flex-wrap gap-3 text-[11px] text-stone-500">
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-3 rounded-sm border-2 border-dashed border-stone-400" /> {t("att.team.legend.planned")}
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-3 rounded-sm bg-emerald-500" /> {t("att.segment.work")}
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-3 rounded-sm bg-sky-500" /> {t("att.segment.remote")}
-        </span>
-        <span className="flex items-center gap-1">
-          <span className="h-2 w-3 rounded-sm bg-amber-400" /> {t("att.team.legend.break")}
-        </span>
-      </p>
+      <TimelineLegend withPlanned />
       {open && <PersonDayDrawer person={open} date={o.date} timeZone={o.timeZone} onClose={() => setOpen(null)} />}
     </section>
   );

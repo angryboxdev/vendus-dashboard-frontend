@@ -20,6 +20,7 @@ import {
   auditChangedFields,
   fieldHistory,
   monthStats,
+  statsNotes,
 } from "../../../domain/services/person-stats.service.ts";
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
 import type { Person } from "../../../domain/entities/people.ts";
@@ -65,6 +66,7 @@ export function PersonStatsTab({ personId }: { personId: string }) {
       }),
   });
   const s = q.data ? monthStats(q.data) : null;
+  const notes = q.data ? statsNotes(q.data) : null;
   const byType = new Map<string, { amount: number; unit: string }>();
   for (const r of abs.data ?? []) {
     const cur = byType.get(r.typeName) ?? { amount: 0, unit: r.unit };
@@ -136,6 +138,12 @@ export function PersonStatsTab({ personId }: { personId: string }) {
             {card(t("people.stats.avgInOut"), `${s.avgIn} – ${s.avgOut}`)}
             {card(t("people.stats.avgBreak"), formatDuration(s.avgBreak))}
           </div>
+          {notes && (notes.noSchedule || notes.openBreakDays > 0) && (
+            <ul className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800" aria-label={t("people.stats.notes")}>
+              {notes.noSchedule && <li>{t("people.stats.note.noSchedule")}</li>}
+              {notes.openBreakDays > 0 && <li>{t("people.stats.note.openBreaks", { count: notes.openBreakDays })}</li>}
+            </ul>
+          )}
           <div>
             <h4 className={SECTION_TITLE}>{t("people.stats.daysStrip")}</h4>
             <div className="mt-2 flex flex-wrap gap-1">
