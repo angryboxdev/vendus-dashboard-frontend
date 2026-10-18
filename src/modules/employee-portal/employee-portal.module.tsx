@@ -1,5 +1,8 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
+import { apiGet } from "../../lib/api.ts";
 import { HttpPortalApiAdapter } from "./adapters/out/http-portal-api.adapter.ts";
+import { HttpNovoRhPortalApiAdapter } from "./adapters/out/http-novo-rh-portal-api.adapter.ts";
+import { ModeAwarePortalApiAdapter, type PortalSource } from "./adapters/out/mode-aware-portal-api.adapter.ts";
 import { BrowserGeolocationAdapter } from "./adapters/out/browser-geolocation.adapter.ts";
 import { GetPortalHomeUseCase, PortalSelfServiceUseCase, RegisterPunchUseCase } from "./application/use-cases/portal.use-cases.ts";
 import type { GetPortalHomePort, PortalEngagementPort, PortalSelfServicePort, RegisterPunchPort } from "./domain/ports/in/portal.ports.ts";
@@ -18,7 +21,9 @@ export interface EmployeePortalModule {
 
 /** Composition root — o único sítio que conhece os adapters concretos (nos testes entram fakes). */
 function buildModule(): EmployeePortalModule {
-  const api = new HttpPortalApiAdapter();
+  const legacy = new HttpPortalApiAdapter();
+  // Portal ligado ao Novo RH (Fase 2): a fonte vem do interruptor por organização/centro.
+  const api = new ModeAwarePortalApiAdapter(legacy, new HttpNovoRhPortalApiAdapter(legacy), async () => (await apiGet<{ source: PortalSource }>("/api/me/portal-mode")).source);
   const geolocation = new BrowserGeolocationAdapter();
   return {
     getHome: new GetPortalHomeUseCase(api),
