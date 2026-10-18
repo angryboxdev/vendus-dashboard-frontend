@@ -171,6 +171,26 @@ export function PersonView() {
       {p.status === "active" && (
         <p className="text-xs text-stone-500">{t("people.deactivateHint")}</p>
       )}
+      {p.missing.length > 0 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+          <span>
+            {t("people.missingList", {
+              fields: p.missing
+                .map((f) => t(`people.field.${f}` as MessageKey))
+                .join(", "),
+            })}
+          </span>
+          {tab !== "data" && (
+            <button
+              type="button"
+              onClick={() => setTab("data")}
+              className="font-medium underline"
+            >
+              {t("people.complete")}
+            </button>
+          )}
+        </div>
+      )}
       {toggle.isError && (
         <AlertBanner tone="danger" title={t("common.error")}>
           {toggle.error instanceof Error ? toggle.error.message : ""}

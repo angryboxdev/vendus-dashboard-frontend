@@ -37,9 +37,11 @@ export interface Person {
   hidden: string[];
   /** Obrigatórios em falta (ficha "a completar"). */
   missing: string[];
+  /** Só na lista: horas semanais do contrato vigente hoje (null = sem contrato ou sem horas). */
+  weeklyHours?: number | null;
 }
 
-export type PersonField = Exclude<keyof Person, "id" | "fullName" | "photoUrl" | "status" | "deactivatedAt" | "deactivationReason" | "userId" | "version" | "hidden" | "missing">;
+export type PersonField = Exclude<keyof Person, "id" | "fullName" | "photoUrl" | "status" | "deactivatedAt" | "deactivationReason" | "userId" | "version" | "hidden" | "missing" | "weeklyHours">;
 
 export interface Contract {
   id: string;
