@@ -5,6 +5,8 @@ export interface RostersApiPort {
   listTemplates(): Promise<ShiftTemplate[]>;
   createTemplate(input: Omit<ShiftTemplate, "id" | "archived">): Promise<ShiftTemplate>;
   archiveTemplate(id: string): Promise<void>;
+  /** Só a cor do modelo (null = automática). */
+  setTemplateColor(id: string, color: string | null): Promise<ShiftTemplate>;
   listRosters(): Promise<Roster[]>;
   /** Visão macro: escalas com pessoas, por publicar e última publicação no período. */
   summary(from: string, to: string): Promise<RosterSummary[]>;

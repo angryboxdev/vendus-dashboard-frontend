@@ -10,6 +10,7 @@ import {
   LABEL,
   SECTION_TITLE,
   StatusBadge,
+  ShiftTypeChip,
   SURFACE,
   TimePicker,
 } from "../../../../../components/ui/index.ts";
@@ -19,11 +20,71 @@ import {
   formatSegments,
 } from "../../../domain/services/rosters.service.ts";
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
+import {
+  templateTone,
+  TONE_COLOR,
+  TONE_LABEL,
+  TONES,
+  toneOfColor,
+  type RosterTone,
+} from "../../../domain/services/roster-board.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 
 const KEY = ["novo-rh", "rosters"];
 const message = (e: unknown, fallback: string) =>
   e instanceof Error ? e.message : fallback;
+
+const SWATCH: Record<RosterTone, string> = {
+  morning: "bg-shift-morning-bg border-shift-morning-line",
+  afternoon: "bg-shift-afternoon-bg border-shift-afternoon-line",
+  night: "bg-shift-night-bg border-shift-night-line",
+  split: "bg-shift-split-bg border-shift-split-line",
+  other: "bg-shift-other-bg border-shift-other-line",
+};
+
+/** Cores da escala (os mesmos pastéis); «Automática» = pelo nome/horário. */
+function TonePicker({
+  value,
+  onChange,
+  label,
+  disabled = false,
+}: {
+  value: string | null;
+  onChange: (color: string | null) => void;
+  label: string;
+  disabled?: boolean;
+}) {
+  const { t } = useI18n();
+  const current = toneOfColor(value);
+  const swatch =
+    "h-6 w-6 rounded-full border-2 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand-500 disabled:opacity-50";
+  const ring = (on: boolean) => (on ? "ring-2 ring-navy-900 ring-offset-2" : "");
+  return (
+    <div role="group" aria-label={label} className="flex items-center gap-1.5">
+      <button
+        type="button"
+        title={t("ros.template.colorAuto")}
+        aria-label={t("ros.template.colorAuto")}
+        aria-pressed={current === null}
+        disabled={disabled}
+        onClick={() => onChange(null)}
+        className={`${swatch} border-dashed border-line bg-surface-card ${ring(current === null)}`}
+      />
+      {TONES.map((tone) => (
+        <button
+          key={tone}
+          type="button"
+          title={TONE_LABEL[tone]}
+          aria-label={TONE_LABEL[tone]}
+          aria-pressed={current === tone}
+          disabled={disabled}
+          onClick={() => onChange(TONE_COLOR[tone])}
+          className={`${swatch} ${SWATCH[tone]} ${ring(current === tone)}`}
+        />
+      ))}
+    </div>
+  );
+}
 
 /** Modelos de turno (RE-15): nome e abreviatura obrigatórios, uma ou mais faixas. */
 export function TemplatesPanel() {
@@ -37,7 +98,7 @@ export function TemplatesPanel() {
   const [v, setV] = useState({
     name: "",
     abbreviation: "",
-    color: "#ED5C32",
+    color: null as string | null,
     onCall: false,
   });
   // Faixas escolhidas no relógio (sem escrever); até 3 por modelo.
@@ -62,6 +123,11 @@ export function TemplatesPanel() {
       await qc.invalidateQueries({ queryKey: KEY });
     },
   });
+  const recolor = useMutation({
+    mutationFn: (x: { id: string; color: string | null }) =>
+      rosters.setTemplateColor(x.id, x.color),
+    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+  });
   const archive = useMutation({
     mutationFn: (id: string) => rosters.archiveTemplate(id),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
@@ -72,15 +138,10 @@ export function TemplatesPanel() {
       {q.data && list.length === 0 && (
         <p className="text-sm text-stone-500">{t("ros.templates.none")}</p>
       )}
-      <ul className="space-y-1 text-sm">
+      <ul className="space-y-2 text-sm">
         {list.map((x) => (
           <li key={x.id} className="flex flex-wrap items-center gap-2">
-            <span
-              className="inline-flex h-6 min-w-[2rem] items-center justify-center rounded px-1 text-xs font-semibold text-white"
-              style={{ backgroundColor: x.color ?? "#78716c" }}
-            >
-              {x.abbreviation}
-            </span>
+            <ShiftTypeChip tone={templateTone(x)}>{x.abbreviation}</ShiftTypeChip>
             <span className="font-medium text-stone-900">{x.name}</span>
             <span className="text-stone-500">{formatSegments(x.segments)}</span>
             {x.onCall && (
@@ -88,6 +149,12 @@ export function TemplatesPanel() {
                 {t("ros.template.onCall")}
               </StatusBadge>
             )}
+            <TonePicker
+              label={t("ros.template.colorOf", { name: x.name })}
+              value={x.color}
+              disabled={recolor.isPending}
+              onChange={(color) => recolor.mutate({ id: x.id, color })}
+            />
             <Button
               size="sm"
               variant="tertiary"
@@ -170,6 +237,16 @@ export function TemplatesPanel() {
             )}
           </div>
         </fieldset>
+        <div>
+          <span className={LABEL}>{t("ros.template.color")}</span>
+          <div className="flex h-10 items-center">
+            <TonePicker
+              label={t("ros.template.color")}
+              value={v.color}
+              onChange={(color) => setV({ ...v, color })}
+            />
+          </div>
+        </div>
         <label className="flex items-center gap-1 pb-2 text-sm text-stone-700">
           <input
             type="checkbox"
@@ -189,6 +266,11 @@ export function TemplatesPanel() {
       {!valid && (
         <p className="text-sm text-red-700">
           {t("ros.template.invalidSegments")}
+        </p>
+      )}
+      {recolor.isError && (
+        <p className="text-sm text-red-700">
+          {message(recolor.error, t("common.error"))}
         </p>
       )}
       {create.isError && (

@@ -79,6 +79,9 @@ describe("Escalas — regras do ecrã", () => {
     expect(segmentsTone([{ start: "22:00", end: "04:00" }])).toBe("night");
     expect(segmentsTone([{ start: "09:00", end: "14:00" }, { start: "15:00", end: "18:30" }])).toBe("split");
     expect(templateTone({ name: "Serviço", segments: [{ start: "09:30", end: "14:30" }] })).toBe("other");
+    // A cor escolhida no modelo manda (a mesma na escala); fora da paleta = automática.
+    expect(templateTone({ name: "Dia", color: "#e2c470", segments: [{ start: "10:00", end: "20:00" }] })).toBe("night");
+    expect(templateTone({ name: "Dia", color: "#ED5C32", segments: [{ start: "10:00", end: "20:00" }] })).toBe("morning");
     expect(hoursLabel(510)).toBe("8h 30min");
     expect(chipLabel({ abbreviation: "", name: "manhã" })).toBe("Man");
     const rows = rosterRows([PUBLISHED], ["e2"], [{ id: "e1", label: "Ana Teste" }, { id: "e2", label: "Bruno Teste" }], [TPL], { search: "", sort: "asc" });
@@ -116,7 +119,8 @@ describe("Escalas — ecrãs", () => {
     expect(await screen.findByText("Turnos da escala")).toBeInTheDocument();
     expect(screen.getByText("1 turnos atribuídos")).toBeInTheDocument();
     expect(screen.getByText("12h 00min")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: `Ana Teste ${MON}` })[0]!.querySelector("img")).not.toBeNull();
+    // Às segundas o cartão de hoje tem o mesmo nome: basta que um dos botões seja o avatar com foto.
+    expect(screen.getAllByRole("button", { name: `Ana Teste ${MON}` }).some((b) => b.querySelector("img"))).toBe(true);
   });
 
   it("sem escalas: estado vazio com 'Nova escala'", async () => {

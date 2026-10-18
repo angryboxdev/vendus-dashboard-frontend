@@ -170,6 +170,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       listTemplates: none(),
       createTemplate: vi.fn(),
       archiveTemplate: vi.fn(),
+      setTemplateColor: vi.fn(),
       listRosters: none(),
       summary: none(),
       createRoster: vi.fn(),
