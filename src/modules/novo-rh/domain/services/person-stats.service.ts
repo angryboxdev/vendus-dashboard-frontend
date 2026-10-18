@@ -50,6 +50,19 @@ export function monthStats(data: AttendanceDays) {
   };
 }
 
+/**
+ * Explicações para números que parecem errados (não os corrige — o motor de
+ * ponto é a fonte): trabalho sem nenhum previsto no período (sem horário nem
+ * turnos publicados) e dias com pausa em curso ou fechada automaticamente
+ * (a pausa conta inteira, o que puxa a pausa média para cima).
+ */
+export function statsNotes(data: AttendanceDays): { noSchedule: boolean; openBreakDays: number } {
+  const worked = data.days.some((d) => d.workedSeconds > 0);
+  const anyPlanned = data.days.some((d) => d.theoreticalSeconds > 0);
+  const openBreakDays = data.days.filter((d) => d.segments.some((s) => (s.type === "break_paid" || s.type === "break_unpaid") && (s.open || s.autoClosed))).length;
+  return { noSchedule: worked && !anyPlanned, openBreakDays };
+}
+
 /** Campos alterados entre `before` e `after` (só os nomes — os valores ficam na Auditoria). */
 export function auditChangedFields(before: unknown, after: unknown): string[] {
   const b = (before && typeof before === "object" ? before : {}) as Record<

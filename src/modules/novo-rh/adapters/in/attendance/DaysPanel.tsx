@@ -8,6 +8,7 @@ import { dateIn, formatDuration, timeIn, weekOf } from "../../../domain/services
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { ReviseDrawer, type ReviseTarget } from "./ReviseDrawer.tsx";
+import { DayTimeline, TimelineLegend } from "./DayTimeline.tsx";
 
 /** Dias de um colaborador: totais do motor, marcações, correções e ajustes (TK-13). */
 export function DaysPanel({ fixedEmployeeId }: { fixedEmployeeId?: string } = {}) {
@@ -57,11 +58,13 @@ export function DaysPanel({ fixedEmployeeId }: { fixedEmployeeId?: string } = {}
               pending: formatDuration(q.data.totals.pendingSeconds),
             })}
           </p>
+          {q.data.days.some((d) => d.segments.length > 0) && <TimelineLegend />}
           <div className="overflow-auto">
             <table className={TABLE}>
               <thead className={THEAD}>
                 <tr>
                   <th className={TH}>{t("common.date")}</th>
+                  <th className={`${TH} min-w-[180px]`}>{t("att.col.timeline")}</th>
                   <th className={TH}>{t("att.col.worked")}</th>
                   <th className={TH}>{t("att.col.theoretical")}</th>
                   <th className={TH}>{t("att.col.excess")}</th>
@@ -78,6 +81,7 @@ export function DaysPanel({ fixedEmployeeId }: { fixedEmployeeId?: string } = {}
                           {d.workDate}
                         </button>
                       </td>
+                      <td className={TD}>{d.segments.length > 0 ? <DayTimeline size="sm" segments={d.segments} date={d.workDate} timeZone={q.data.timeZone} label={t("att.timeline.dayLabel", { date: d.workDate })} /> : <span className="text-stone-400">—</span>}</td>
                       <td className={`${TD} font-semibold`}>{formatDuration(d.workedSeconds)}</td>
                       <td className={TD}>{formatDuration(d.theoreticalSeconds)}</td>
                       <td className={TD}>{formatDuration(d.excessSeconds)}</td>
@@ -94,7 +98,7 @@ export function DaysPanel({ fixedEmployeeId }: { fixedEmployeeId?: string } = {}
                     </tr>
                     {open === d.workDate && (
                       <tr>
-                        <td colSpan={6} className="bg-stone-50/60 px-3 py-3">
+                        <td colSpan={7} className="bg-stone-50/60 px-3 py-3">
                           <DayDetail data={q.data} date={d.workDate} onRevise={setRevise} />
                         </td>
                       </tr>
@@ -128,8 +132,19 @@ function DayDetail({ data, date, onRevise }: { data: AttendanceDays; date: strin
   const revisions = data.revisions.filter((r) => dateIn(r.anchorAt, tz) === date);
   const voided = new Set(revisions.filter((r) => r.state === "active" && r.operation === "void").map((r) => r.targetEventId));
   const changed = new Set(revisions.filter((r) => r.state === "active" && r.operation === "update").map((r) => r.targetEventId));
+  const segments = data.days.find((d) => d.workDate === date)?.segments ?? [];
   return (
     <div className="space-y-3">
+      {segments.length > 0 && (
+        <div className="space-y-1">
+          <DayTimeline segments={segments} date={date} timeZone={tz} label={t("att.timeline.dayLabel", { date })} />
+          <div className="flex justify-between text-[10px] text-stone-400" aria-hidden="true">
+            {[0, 6, 12, 18, 24].map((h) => (
+              <span key={h}>{String(h).padStart(2, "0")}h</span>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="flex items-center justify-between">
         <h3 className={SECTION_TITLE}>{t("att.events.title", { date })}</h3>
         <Button size="sm" icon={<IconPlus />} onClick={() => onRevise({ operation: "add", event: null, date })}>
