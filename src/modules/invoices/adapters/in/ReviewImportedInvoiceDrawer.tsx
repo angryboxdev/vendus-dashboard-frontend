@@ -32,6 +32,7 @@ import {
 import {
   FINANCIAL_MODE_OF, LINE_DETAIL_MODE_OF, initialStockChoice, stockDecision, stockRoutingInput,
 } from "../../domain/services/stock-decision.ts";
+import { restoreDraftHeader, restoreDraftLines } from "../../domain/services/stored-draft.ts";
 import { CostCenterCascadeSelect } from "./CostCenterCascadeSelect.tsx";
 import { AllocationsEditor } from "./AllocationsEditor.tsx";
 import { SendToStockField } from "./SendToStockField.tsx";
@@ -841,6 +842,12 @@ interface Props {
   mode?: "confirm" | "edit";
   /** mode "edit" only: ids of the invoice's current lines, replaced wholesale on save. */
   existingLineIds?: string[];
+  /**
+   * mode "confirm": reabrir um rascunho gravado (F2 §2.2) — `importResult.invoice`
+   * é o detalhe (`getInvoice`) e o formulário parte das linhas reais, dos
+   * valores gravados (`storedAmounts`) e das repartições, não da extração.
+   */
+  reopenDraft?: boolean;
   onClose(): void;
   onConfirmed(invoice: InvoiceDTO): void;
   /** Abrir um documento já existente (conflito de identidade fiscal: original/duplicado parecido). */
@@ -856,7 +863,7 @@ interface ConfirmConflict {
   candidates?: { invoiceId: string | null; seriesNumber: string }[];
 }
 
-export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", existingLineIds = [], onClose, onConfirmed, onOpenExisting }: Props) {
+export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", existingLineIds = [], reopenDraft = false, onClose, onConfirmed, onOpenExisting }: Props) {
   const { api } = useInvoicesModule();
   const fbModule = useFinancialBaseModule();
   const qc = useQueryClient();
@@ -934,7 +941,9 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   // reenviamos o mesmo pedido com `confirmRemoveStockReview: true`.
   const [stockReviewConfirmMessage, setStockReviewConfirmMessage] = useState<string | null>(null);
 
+  const restoring = reopenDraft && !isEdit;
   const [lines, setLines] = useState<DraftLine[]>(() =>
+    restoring && (inv.lines?.length ?? 0) > 0 ? restoreDraftLines(inv.lines!, inv.storedAmounts) :
     importResult.extractedLines.map((l, i) => {
       const hasDiscount = (l.discountPct ?? 0) > 0 || (l.discountAmount ?? 0) > 0;
       // Preço unitário antes de desconto, com todas as casas do documento; só se deriva do
@@ -963,7 +972,15 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
 
   // Valores do documento (F1 §1.3) — descontos globais/rodapé, ajustes e quadro de IVA extraídos.
   const extracted = importResult.extractedAmounts;
-  const [amountsHeader, setAmountsHeader] = useState<Omit<DraftAmountHeader, "totalStr" | "subtotalStr" | "vatStr" | "roundingCents">>(() => ({
+  const restoredHeader = restoring ? restoreDraftHeader(inv.storedAmounts) : null;
+  const [amountsHeader, setAmountsHeader] = useState<Omit<DraftAmountHeader, "totalStr" | "subtotalStr" | "vatStr" | "roundingCents">>(() => restoredHeader ? {
+    globalDiscountKind: restoredHeader.globalDiscountKind,
+    globalDiscountValue: restoredHeader.globalDiscountValue,
+    footerDiscount: restoredHeader.footerDiscount,
+    adjustments: restoredHeader.adjustments,
+    roundingReason: restoredHeader.roundingReason,
+    vatSummary: null,
+  } : ({
     globalDiscountKind: (extracted?.globalDiscountPct ?? 0) > 0 ? "pct" : (extracted?.globalDiscountAmount ?? 0) > 0 ? "amount" : "pct",
     globalDiscountValue: (extracted?.globalDiscountPct ?? 0) > 0 ? String(extracted!.globalDiscountPct) : (extracted?.globalDiscountAmount ?? 0) > 0 ? (extracted!.globalDiscountAmount! / 100).toFixed(2) : "",
     footerDiscount: (extracted?.footerDiscountAmount ?? 0) > 0 ? (extracted!.footerDiscountAmount! / 100).toFixed(2) : "",
@@ -971,7 +988,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
     roundingReason: "",
     vatSummary: extracted?.vatSummary ?? null,
   }));
-  const [roundingOn, setRoundingOn] = useState(false);
+  const [roundingOn, setRoundingOn] = useState(restoredHeader?.roundingOn ?? false);
   // Conflitos devolvidos ao confirmar e as decisões explícitas da pessoa.
   const [conflict, setConflict] = useState<ConfirmConflict | null>(null);
   const [notADuplicate, setNotADuplicate] = useState(false);

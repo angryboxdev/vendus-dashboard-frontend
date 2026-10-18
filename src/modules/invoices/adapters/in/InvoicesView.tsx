@@ -27,6 +27,8 @@ import type {
 } from "../../../bank-accounts/domain/entities/bank-account.ts";
 import { ImportInvoiceModal } from "./ImportInvoiceModal.tsx";
 import { ReviewImportedInvoiceDrawer } from "./ReviewImportedInvoiceDrawer.tsx";
+import { PayablesSummaryBar } from "./PayablesSummaryBar.tsx";
+import { payablesSummaryParams } from "../../domain/services/payables-summary.ts";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
 import type {
   CostCenterGroup,
@@ -1052,8 +1054,7 @@ function InvoiceDetailDrawer({
       const updated = await api.setLineDetailMode(invoice.id, mode);
       void qc.invalidateQueries({ queryKey: ["invoices"] });
       if (onInvoiceUpdated) onInvoiceUpdated(updated);
-      // Ao voltar para simple, o backend apaga as linhas — limpar estado local
-      if (mode === "simple") setLines([]);
+      // F2 §2.2: trocar de modo já não apaga linhas no backend — o estado local mantém-se.
     } finally {
       setSettingLineMode("idle");
     }
@@ -1942,7 +1943,48 @@ function InvoiceDetailDrawer({
                       >
                         {settingLineMode === "loading"
                           ? "A activar…"
-                          : "Ativar detalhamento por linhas"}
+                          : "Mudar para «Por artigo»"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── «POR VALORES» (F2 §2.2) — repartições, não artigos ── */}
+                {invoice.lineDetailMode === "by_values" && (
+                  <div className="space-y-3">
+                    <div className="rounded-lg border border-stone-200">
+                      <p className="border-b border-stone-100 px-4 py-3 text-xs font-semibold text-stone-500">
+                        Repartição por valores (montantes líquidos)
+                      </p>
+                      {(inv.allocations ?? []).length === 0 ? (
+                        <p className="px-4 py-3 text-xs italic text-stone-400">Sem repartições.</p>
+                      ) : (
+                        <ul className="divide-y divide-stone-100">
+                          {(inv.allocations ?? []).map((a) => {
+                            const cat = categories.find((c) => c.id === a.costCenterCategoryId);
+                            return (
+                              <li key={a.id} className="flex items-center justify-between gap-3 px-4 py-2 text-xs">
+                                <span className="min-w-0 truncate text-stone-700">
+                                  {a.description}
+                                  {cat && <span className="text-stone-400"> · {cat.code} — {cat.name}</span>}
+                                </span>
+                                <span className="shrink-0 font-medium tabular-nums text-stone-800">{fromCents(a.netCents)}</span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                      )}
+                    </div>
+                    <p className="text-xs text-stone-400">
+                      As {lines.length} linhas do documento continuam guardadas. Para alterar a repartição use «Editar fatura completa».
+                    </p>
+                    <div className="flex justify-end">
+                      <button
+                        onClick={() => void handleToggleLineDetailMode("detailed")}
+                        disabled={settingLineMode === "loading"}
+                        className="rounded-lg border border-[#ED5C32] px-4 py-3 text-xs font-medium text-[#ED5C32] hover:bg-[#ED5C32]/5 disabled:opacity-50"
+                      >
+                        {settingLineMode === "loading" ? "A mudar…" : "Mudar para «Por artigo»"}
                       </button>
                     </div>
                   </div>
@@ -2249,7 +2291,7 @@ function InvoiceDetailDrawer({
                               >
                                 {settingLineMode === "loading"
                                   ? "A desativar…"
-                                  : "Desativar detalhamento por linhas"}
+                                  : "Mudar para «Única»"}
                               </button>
                             </div>
                           </div>
@@ -2328,15 +2370,16 @@ function InvoiceDetailDrawer({
                   </svg>
                 </div>
                 <h3 className="mb-1 text-sm font-semibold text-stone-800">
-                  Voltar ao modo resumo?
+                  Mudar para «Única»?
                 </h3>
                 <p className="mb-5 text-sm text-stone-500">
                   As{" "}
                   <span className="font-medium text-stone-700">
                     {lines.length} {lines.length === 1 ? "linha" : "linhas"}
                   </span>{" "}
-                  do modo detalhado serão apagadas permanentemente. Pode voltar
-                  ao modo detalhado quando quiser e recomeçar do zero.
+                  ficam guardadas (não são apagadas), mas deixam de contar para a
+                  análise por centro de custo — passa a valer a classificação
+                  única da fatura. Pode voltar a «Por artigo» quando quiser.
                 </p>
                 <div className="flex gap-2">
                   <button
@@ -2350,9 +2393,9 @@ function InvoiceDetailDrawer({
                       setShowSimpleConfirm(false);
                       void handleToggleLineDetailMode("simple");
                     }}
-                    className="flex-1 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700"
+                    className="flex-1 rounded-lg bg-[#ED5C32] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
                   >
-                    Apagar e simplificar
+                    Mudar para «Única»
                   </button>
                 </div>
               </div>
@@ -3079,6 +3122,8 @@ export function InvoicesView() {
   const [showImport, setShowImport] = useState(false);
   const [importResult, setImportResult] =
     useState<InvoiceImportResultDTO | null>(null);
+  // Revisão aberta a partir da lista (rascunho gravado) — parte das linhas/valores gravados.
+  const [reopenDraft, setReopenDraft] = useState(false);
   const [importNotice, setImportNotice] = useState<string | null>(null);
   const [detail, setDetail] = useState<InvoiceDTO | null>(null);
   const [markingPaidId, setMarkingPaidId] = useState<string | null>(null);
@@ -3260,8 +3305,11 @@ export function InvoicesView() {
     }
   }
 
+  // F2 §2.2: o detalhe traz linhas reais, repartições e valores gravados
+  // (`storedAmounts`); a revisão reconstrói o rascunho a partir deles.
   async function handleRowReview(inv: InvoiceDTO) {
     const full = await api.getInvoice(inv.id);
+    setReopenDraft(true);
     setImportResult({
       invoice: full,
       aiConfidence: full.aiConfidence ?? 0,
@@ -3724,6 +3772,13 @@ export function InvoicesView() {
               </span>
             )}
           </button>
+
+          {/* «Total a pagar | Em atraso» (F2 §2.3) — mesmos filtros, agregado no servidor */}
+          <div className="ml-auto">
+            <PayablesSummaryBar
+              params={payablesSummaryParams({ search, month: monthFilter, supplierId: supplierFilter })}
+            />
+          </div>
         </div>
 
         {/* Filters panel — portal to escape overflow context */}
@@ -4587,14 +4642,19 @@ export function InvoicesView() {
                 );
               }
               if (result.reused && !isDraft) setDetail(result.invoice);
-              else setImportResult(result);
+              else {
+                setReopenDraft(false);
+                setImportResult(result);
+              }
             }}
           />
         )}
 
         {importResult && (
           <ReviewImportedInvoiceDrawer
+            key={importResult.invoice.id}
             importResult={importResult}
+            reopenDraft={reopenDraft}
             onClose={() => setImportResult(null)}
             onConfirmed={(inv) => {
               setImportResult(null);

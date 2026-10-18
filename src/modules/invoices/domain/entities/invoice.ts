@@ -158,6 +158,8 @@ export interface InvoiceDTO {
   financialMode?: FinancialModeName;
   /** Modo «Por valores»: repartições financeiras (não são artigos). */
   allocations?: InvoiceAllocationDTO[];
+  /** Detalhe: valores gravados (descontos, textos originais, ajustes) — reabrir rascunho sem perder nada. */
+  storedAmounts?: StoredAmountsDTO | null;
   lines?: InvoiceLineDTO[];
   linesSummary?: {
     subtotalWithoutVat: number;
@@ -232,6 +234,18 @@ export interface InvoiceImportResultDTO {
   /** O documento já existia (mesmo ficheiro ou mesma identidade fiscal): é devolvido o existente. */
   reused?: "same_file" | "same_fiscal_identity";
   fiscal?: ImportFiscalInfo;
+}
+
+/** Valores gravados do documento (espelho de `StoredAmountsView` no backend). Desconto: % (10 = 10%) ou cêntimos. */
+export interface StoredAmountsDTO {
+  globalDiscountKind: "pct" | "amount" | null;
+  globalDiscountValue: number | null;
+  footerDiscountCents: number | null;
+  adjustmentsCents: number;
+  roundingAdjustmentCents: number;
+  roundingAdjustmentReason: string | null;
+  differenceCents: number | null;
+  lines: { lineId: string; quantityText: string | null; unitPriceText: string | null; discountKind: "pct" | "amount" | null; discountValue: number | null }[];
 }
 
 /** Repartição «Por valores»: descrição + subcategoria (+ loja) + montante líquido em cêntimos. */
