@@ -1,9 +1,16 @@
 import { useEffect, useId, useState, type ReactNode } from "react";
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useI18n } from "../../../../i18n/I18nProvider.tsx";
-import { IconSearch, IconSettings, TabNav } from "../../../../components/ui/index.ts";
+import { AppIcon, IconSearch, IconSettings, TabNav, type AppIconKey } from "../../../../components/ui/index.ts";
 import { MAIN_NAV, areaFor, areaTabs, screenFor, searchScreens } from "../../domain/services/screens.registry.ts";
 import { InboxButton } from "./inbox/InboxButton.tsx";
+
+/** Ícones dos separadores da área Colaboradores (teste de ícones Lucide). */
+const TAB_ICONS: Record<string, AppIconKey> = {
+  "/hr/novo/pessoas": "people",
+  "/hr/novo/pessoas/transferencias": "transfers",
+  "/hr/novo/pessoas/relatorios": "reports",
+};
 
 /**
  * Moldura do RH: uma só barra de topo operacional (pesquisa à esquerda; à
@@ -45,7 +52,7 @@ export function NovoRhLayout({ children, extraActions, userMenu }: { children: R
       <div className="flex-1 space-y-4 p-4 sm:p-6">
         {sub.length > 0 && (
           <div className="border-b border-line-subtle">
-            <TabNav label={t(MAIN_NAV.find((m) => m.area === area)?.label ?? "novoRh.tab.settings")} items={sub.map((s) => ({ to: s.path, label: t(s.label), end: s.end }))} />
+            <TabNav label={t(MAIN_NAV.find((m) => m.area === area)?.label ?? "novoRh.tab.settings")} items={sub.map((s) => ({ to: s.path, label: t(s.label), end: s.end, ...(TAB_ICONS[s.path] && { icon: <AppIcon name={TAB_ICONS[s.path]!} size={18} /> }) }))} />
           </div>
         )}
         {children}

@@ -3,6 +3,7 @@ import { isItemActive } from "../../domain/services/nav-state.service.ts";
 import { useSidebar } from "./use-sidebar.ts";
 import type { NavGroup, NavItem, SidebarNavEntry } from "../../domain/entities/nav-item.ts";
 import type { UseSidebarResult } from "./use-sidebar.ts";
+import { AppIcon } from "../../../../components/ui/app-icons.tsx";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,10 @@ function NavItemLink({ item, onClick, badge = 0 }: { item: NavItem; onClick: () 
       onClick={onClick}
     >
       <span className="flex items-center justify-between gap-2">
-        <span>{item.label}</span>
+        <span className="flex min-w-0 items-center gap-2.5">
+          {item.icon && <AppIcon name={item.icon} size={18} className="shrink-0 opacity-90" />}
+          <span>{item.label}</span>
+        </span>
         {badge > 0 && (
           <span className="rounded-full bg-[#ED5C32] px-1.5 text-[10px] font-semibold leading-4 text-white" aria-label={`${badge} por decidir`}>
             {badge}
@@ -106,7 +110,10 @@ function NavGroupSection({
             : "font-medium text-slate-300 hover:bg-white/5 hover:text-white"
         }`}
       >
-        <span>{group.label}</span>
+        <span className="flex min-w-0 items-center gap-2.5">
+          {group.icon && <AppIcon name={group.icon} size={18} className="shrink-0 opacity-90" />}
+          <span>{group.label}</span>
+        </span>
         <ChevronIcon open={expanded} active={active} />
       </button>
       {expanded && (

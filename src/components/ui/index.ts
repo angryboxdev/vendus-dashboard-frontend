@@ -13,3 +13,4 @@ export { PageHeader, Toolbar, ToolbarGroup, ToolbarDivider, DateNavigator, Skele
 export { Dialog } from "./Dialog.tsx";
 export { TimePicker } from "./TimePicker.tsx";
 export { ShiftCard, ShiftGroup, ShiftToneBar, ShiftTypeChip, type ShiftTone } from "./ShiftCard.tsx";
+export { AppIcon, APP_ICONS, type AppIconKey, type AppIconProps } from "./app-icons.tsx";
