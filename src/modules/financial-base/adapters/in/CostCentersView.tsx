@@ -16,7 +16,8 @@ import {
 } from "../../domain/entities/cost-center.ts";
 import type { Supplier } from "../../domain/entities/supplier.ts";
 import { useInvoicesModule } from "../../../invoices/invoices.module.tsx";
-import type { InvoiceDTO, InvoiceLineDTO } from "../../../invoices/domain/entities/invoice.ts";
+import type { InvoiceAllocationDTO, InvoiceDTO, InvoiceLineDTO } from "../../../invoices/domain/entities/invoice.ts";
+import { aggregateByCategory } from "../../domain/services/cost-center-application.ts";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -885,40 +886,19 @@ function Tab3Aplicacao({ groups, categories, suppliers, invoices }: Tab3Props) {
     queryKey: ["invoice-lines-all"],
     queryFn: () => invoicesApi.listInvoiceLines(),
   });
+  // F2 §2.2: faturas «Por valores» classificam-se por repartições (o feed de linhas só traz «Por artigo»).
+  const { data: allocations = [] } = useQuery<InvoiceAllocationDTO[]>({
+    queryKey: ["invoices", "allocations-all"],
+    queryFn: () => invoicesApi.listInvoiceAllocations(),
+  });
 
   const invoiceMap   = new Map(invoices.map((inv) => [inv.id, inv]));
   const supplierMap  = new Map(suppliers.map((s) => [s.id, s]));
   const groupMap     = new Map(groups.map((g) => [g.id, g]));
   const categoryMap  = new Map(categories.map((c) => [c.id, c]));
 
-  // Aggregate lines by costCenterCategoryId
-  type CatRow = {
-    categoryId: string;
-    totalWithoutVat: number;
-    invoiceIds: Set<string>;
-    supplierNames: Set<string>;
-    // invoice breakdown for expand: invoiceId → subtotal in this category
-    byInvoice: Map<string, number>;
-  };
-
-  const catMap = new Map<string, CatRow>();
-  for (const line of lines) {
-    if (!line.costCenterCategoryId) continue;
-    const inv = invoiceMap.get(line.invoiceId);
-    if (!inv) continue;
-    const catId = line.costCenterCategoryId;
-    if (!catMap.has(catId)) {
-      catMap.set(catId, { categoryId: catId, totalWithoutVat: 0, invoiceIds: new Set(), supplierNames: new Set(), byInvoice: new Map() });
-    }
-    const row = catMap.get(catId)!;
-    const lineSubtotal = line.unitCostWithoutVat * line.quantity;
-    row.totalWithoutVat += lineSubtotal;
-    row.invoiceIds.add(line.invoiceId);
-    if (inv.supplierName) row.supplierNames.add(inv.supplierName);
-    row.byInvoice.set(line.invoiceId, (row.byInvoice.get(line.invoiceId) ?? 0) + lineSubtotal);
-  }
-
-  const rows = [...catMap.values()]
+  // Líquido sem IVA por subcategoria: linhas «Por artigo» + repartições «Por valores».
+  const rows = aggregateByCategory(lines, allocations, invoices)
     .map((r) => ({ ...r, category: categoryMap.get(r.categoryId), group: undefined as CostCenterGroup | undefined }))
     .map((r) => ({ ...r, group: r.category ? groupMap.get(r.category.groupId) : undefined }))
     .filter((r) => r.category && r.group)
@@ -932,8 +912,8 @@ function Tab3Aplicacao({ groups, categories, suppliers, invoices }: Tab3Props) {
       <div className="border-b border-[#F5C992]/40 px-5 py-3">
         <h3 className="text-sm font-semibold text-stone-800">Lançamentos classificados</h3>
         <p className="mt-0.5 text-xs text-stone-400">
-          Despesas agrupadas por subcategoria de centro de custo, com base nas linhas de fatura reais.
-          Clique numa linha para ver as faturas que a compõem.
+          Despesas (líquido sem IVA) agrupadas por subcategoria de centro de custo: linhas das faturas
+          «Por artigo» e repartições das faturas «Por valores». Clique numa linha para ver as faturas que a compõem.
         </p>
       </div>
       {rows.length === 0 ? (
@@ -1012,11 +992,12 @@ function Tab3Aplicacao({ groups, categories, suppliers, invoices }: Tab3Props) {
                               <th className="pb-1.5 pr-8">Documento</th>
                               <th className="pb-1.5 pr-8">Fornecedor</th>
                               <th className="pb-1.5 pr-8">Data</th>
+                              <th className="pb-1.5 pr-8">Origem</th>
                               <th className="pb-1.5 text-right">Valor s/ IVA nesta cat.</th>
                             </tr>
                           </thead>
                           <tbody className="divide-y divide-stone-100">
-                            {[...row.byInvoice.entries()].map(([invId, subtotal]) => {
+                            {[...row.byInvoice.entries()].map(([invId, { cents: subtotal, source }]) => {
                               const inv = invoiceMap.get(invId);
                               if (!inv) return null;
                               const sup = inv.supplierId ? supplierMap.get(inv.supplierId) : null;
@@ -1027,6 +1008,7 @@ function Tab3Aplicacao({ groups, categories, suppliers, invoices }: Tab3Props) {
                                     {sup?.name ?? inv.supplierName}
                                   </td>
                                   <td className="py-1.5 pr-8 text-stone-500">{inv.invoiceDate}</td>
+                                  <td className="py-1.5 pr-8 text-stone-500">{source === "allocations" ? "Por valores" : "Por artigo"}</td>
                                   <td className="py-1.5 text-right tabular-nums font-medium text-stone-800">
                                     {fmt(subtotal)}
                                   </td>
