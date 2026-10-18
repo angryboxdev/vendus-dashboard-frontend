@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Link, useSearchParams } from "react-router-dom";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
-import { Avatar, Button, EmptyState, FIELD, IconDownload, IconPlus, IconSearch, Skeleton, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR, Tabs } from "../../../../../components/ui/index.ts";
+import { AppIcon, Avatar, Button, EmptyState, FIELD, IconDownload, IconPlus, IconSearch, Skeleton, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR, Tabs, type AppIconKey } from "../../../../../components/ui/index.ts";
 import type { PersonDayView } from "../../../domain/entities/overview.ts";
 import type { Person } from "../../../domain/entities/people.ts";
 import { formatDuration } from "../../../domain/services/attendance.service.ts";
@@ -83,9 +83,9 @@ export function PeopleListView() {
   const all = list.data ?? [];
   const rows = all.filter((p) => (!location || (location === "none" ? !p.primaryLocationId : p.primaryLocationId === location)) && (!position || p.positionId === position) && (!incomplete || p.missing.length > 0));
   const kpis = [
-    { key: "total", label: t("people.kpi.total"), value: all.length, active: !location && !incomplete, onClick: () => (set("local", null), set("completar", null)) },
-    { key: "incomplete", label: t("people.kpi.incomplete"), value: all.filter((p) => p.missing.length > 0).length, active: incomplete, onClick: () => set("completar", incomplete ? null : "1") },
-    { key: "noLocation", label: t("people.kpi.noLocation"), value: all.filter((p) => !p.primaryLocationId).length, active: location === "none", onClick: () => set("local", location === "none" ? null : "none") },
+    { key: "total", icon: "people" as AppIconKey, label: t("people.kpi.total"), value: all.length, active: !location && !incomplete, onClick: () => (set("local", null), set("completar", null)) },
+    { key: "incomplete", icon: "incomplete" as AppIconKey, label: t("people.kpi.incomplete"), value: all.filter((p) => p.missing.length > 0).length, active: incomplete, onClick: () => set("completar", incomplete ? null : "1") },
+    { key: "noLocation", icon: "noLocation" as AppIconKey, label: t("people.kpi.noLocation"), value: all.filter((p) => !p.primaryLocationId).length, active: location === "none", onClick: () => set("local", location === "none" ? null : "none") },
   ];
   const toggleColumn = (c: Column) => {
     const next = columns.includes(c) ? columns.filter((x) => x !== c) : COLUMNS.filter((x) => x === c || columns.includes(x));
@@ -169,13 +169,14 @@ export function PeopleListView() {
           ]}
         />
         <div className="flex flex-wrap gap-2">
-          <Button size="sm" onClick={() => setImporting(true)}>
+          <Button size="sm" icon={<AppIcon name="upload" size={18} />} onClick={() => setImporting(true)}>
             {t("people.import")}
           </Button>
           <Button size="sm" icon={<IconDownload />} onClick={() => void people.exportCsv().then((b) => downloadBlob(b, "colaboradores.csv"))}>
             {t("people.export")}
           </Button>
-          <Link to="/hr/novo/convites" className="self-center text-sm font-medium text-[#C2410C] hover:underline">
+          <Link to="/hr/novo/convites" className="inline-flex items-center gap-1.5 self-center text-sm font-medium text-[#C2410C] hover:underline">
+            <AppIcon name="invite" size={18} />
             {t("people.invitations")}
           </Link>
           <Button size="sm" variant="primary" icon={<IconPlus />} onClick={() => setCreating(true)}>
@@ -187,7 +188,10 @@ export function PeopleListView() {
       <div className="grid grid-cols-3 gap-3 md:max-w-xl" role="group" aria-label={t("people.kpis")}>
         {kpis.map((k) => (
           <button key={k.key} type="button" aria-pressed={k.active} onClick={k.onClick} className={`${SURFACE} p-3 text-left hover:border-[#ED5C32]/60 ${k.active && k.key !== "total" ? "ring-2 ring-[#ED5C32]/50" : ""}`}>
-            <p className="text-xs text-stone-500">{k.label}</p>
+            <p className="flex items-center gap-1.5 text-xs text-stone-500">
+              <AppIcon name={k.icon} size={18} className="text-stone-400" />
+              {k.label}
+            </p>
             <p className="mt-1 text-xl font-semibold text-stone-900">{k.value}</p>
           </button>
         ))}
@@ -218,7 +222,7 @@ export function PeopleListView() {
           ))}
         </select>
         <div className="relative ml-auto">
-          <Button size="sm" aria-expanded={choosing} onClick={() => setChoosing(!choosing)}>
+          <Button size="sm" icon={<AppIcon name="columns" size={18} />} aria-expanded={choosing} onClick={() => setChoosing(!choosing)}>
             {t("people.columns")}
           </Button>
           {choosing && (

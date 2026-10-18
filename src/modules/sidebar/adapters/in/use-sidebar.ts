@@ -16,6 +16,19 @@ export interface UseSidebarResult {
   signOut: () => void;
   /** Contadores por `badgeKey` (0 = sem contador). */
   badges: Partial<Record<"hr-requests", number>>;
+  /** Desktop: barra recolhida (só ícones). Preferência deste navegador. */
+  collapsed: boolean;
+  toggleCollapsed: () => void;
+}
+
+const COLLAPSED_KEY = "sidebar.collapsed";
+
+function loadCollapsed(): boolean {
+  try {
+    return localStorage.getItem(COLLAPSED_KEY) === "1";
+  } catch {
+    return false;
+  }
 }
 
 export function useSidebar(): UseSidebarResult {
@@ -25,6 +38,18 @@ export function useSidebar(): UseSidebarResult {
   const [manualExpanded, setManualExpanded] = useState<Set<string>>(new Set());
   const [manualCollapsed, setManualCollapsed] = useState<Set<string>>(new Set());
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(loadCollapsed);
+
+  function toggleCollapsed(): void {
+    setCollapsed((c) => {
+      try {
+        localStorage.setItem(COLLAPSED_KEY, c ? "0" : "1");
+      } catch {
+        // Sem armazenamento: vale só nesta página.
+      }
+      return !c;
+    });
+  }
 
   const state = getNavState.execute(location.pathname);
   const showsRequests = state.tree.some((e) => (e.kind === "group" ? e.items.some((i) => i.badgeKey === "hr-requests") : e.badgeKey === "hr-requests"));
@@ -92,5 +117,7 @@ export function useSidebar(): UseSidebarResult {
     closeMobile: () => setMobileOpen(false),
     signOut,
     badges: { "hr-requests": pendingRequests ?? 0 },
+    collapsed,
+    toggleCollapsed,
   };
 }
