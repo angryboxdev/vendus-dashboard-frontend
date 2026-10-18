@@ -504,4 +504,5 @@ export const VALIDATION_ISSUE_LABELS: Record<string, string> = {
   exists_in_stock: "Este documento já foi importado no Stock — ao confirmar completa o mesmo lançamento (sem duplicar stock)",
   possible_duplicate: "Possível duplicado: há um documento parecido do mesmo fornecedor — compare antes de confirmar",
   fiscal_identity_incomplete: "Falta o NIF do fornecedor ou o número do documento — complete os dados",
+  supplier_nif_invalid: "NIF do fornecedor inválido (dígito de controlo) — confirme os dígitos com o documento",
 };

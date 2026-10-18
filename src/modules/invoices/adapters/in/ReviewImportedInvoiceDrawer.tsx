@@ -33,6 +33,7 @@ import {
   FINANCIAL_MODE_OF, LINE_DETAIL_MODE_OF, initialStockChoice, stockDecision, stockRoutingInput,
 } from "../../domain/services/stock-decision.ts";
 import { restoreDraftHeader, restoreDraftLines } from "../../domain/services/stored-draft.ts";
+import { checkNif, sameNif } from "../../domain/services/nif.ts";
 import { CostCenterCascadeSelect } from "./CostCenterCascadeSelect.tsx";
 import { AllocationsEditor } from "./AllocationsEditor.tsx";
 import { SendToStockField } from "./SendToStockField.tsx";
@@ -741,6 +742,7 @@ interface AmountsSummaryProps {
  * fatura" = total do documento − total calculado. Só se finaliza a 0,00 €.
  */
 export function AmountsSummary({ detailed, preview, simple, header, declaredTotalCents, rawDifferenceCents, roundingOn, onHeaderChange, onRoundingToggle }: AmountsSummaryProps) {
+  const [openFields, setOpenFields] = useState({ global: false, footer: false, adjustments: false });
   const fieldCls = "w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]";
   const adjustmentsCents = typedToCents(header.adjustments) ?? 0;
   const finalDifference = detailed ? preview?.finalDifferenceCents ?? null : simple.finalDifferenceCents;
@@ -756,32 +758,60 @@ export function AmountsSummary({ detailed, preview, simple, header, declaredTota
     </div>
   );
 
+  // Campos opcionais (descontos/ajustes): só um link até serem precisos; abertos se já tiverem valor.
+  const optional = {
+    global: openFields.global || header.globalDiscountValue.trim() !== "",
+    footer: openFields.footer || header.footerDiscount.trim() !== "",
+    adjustments: openFields.adjustments || header.adjustments.trim() !== "",
+  };
+  const closedLinks = [
+    detailed && !optional.global && { key: "global" as const, label: "Desconto global" },
+    detailed && !optional.footer && { key: "footer" as const, label: "Desconto no rodapé" },
+    !optional.adjustments && { key: "adjustments" as const, label: "Ajustes (portes, ecovalor…)" },
+  ].filter((x): x is { key: "global" | "footer" | "adjustments"; label: string } => !!x);
+  const openField = (key: "global" | "footer" | "adjustments") => setOpenFields((o) => ({ ...o, [key]: true }));
+
   return (
     <div className="space-y-3 rounded-lg border border-stone-200 p-3 text-xs">
-      {detailed && (
-        <div className="grid grid-cols-2 gap-2">
-          <div>
-            <label className="mb-1 block text-xs font-medium text-stone-500">Desconto global adicional</label>
-            <div className="grid grid-cols-[auto_1fr] gap-2">
-              <select value={header.globalDiscountKind} onChange={(e) => onHeaderChange({ globalDiscountKind: e.target.value as "pct" | "amount" })} className={fieldCls} aria-label="Tipo de desconto global">
-                <option value="pct">%</option>
-                <option value="amount">€</option>
-              </select>
-              <NumericInput value={header.globalDiscountValue} onChange={(e) => onHeaderChange({ globalDiscountValue: e.target.value })} placeholder="—" className={fieldCls} />
-            </div>
-          </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-stone-500" title="Desconto impresso no rodapé do documento. Se for só o resumo dos descontos das linhas, não é aplicado outra vez.">Desconto no rodapé (€)</label>
-            <NumericInput value={header.footerDiscount} onChange={(e) => onHeaderChange({ footerDiscount: e.target.value })} placeholder="—" className={fieldCls} />
-          </div>
+      {closedLinks.length > 0 && (
+        <div className="flex flex-wrap gap-x-4 gap-y-1">
+          {closedLinks.map((l) => (
+            <button key={l.key} type="button" onClick={() => openField(l.key)} className="font-medium text-[#ED5C32] hover:underline">
+              + {l.label}
+            </button>
+          ))}
         </div>
       )}
-      <div>
-        <label className="mb-1 block text-xs font-medium text-stone-500" title="Portes, ecovalor ou outros valores documentados que somam ao total (podem ser negativos).">Ajustes documentados (€)</label>
-        <NumericInput value={header.adjustments} onChange={(e) => onHeaderChange({ adjustments: e.target.value })} placeholder="0.00" className={fieldCls} />
-      </div>
+      {detailed && (optional.global || optional.footer) && (
+        <div className="grid grid-cols-2 gap-2">
+          {optional.global && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-stone-500">Desconto global adicional</label>
+              <div className="grid grid-cols-[auto_1fr] gap-2">
+                <select value={header.globalDiscountKind} onChange={(e) => onHeaderChange({ globalDiscountKind: e.target.value as "pct" | "amount" })} className={fieldCls} aria-label="Tipo de desconto global">
+                  <option value="pct">%</option>
+                  <option value="amount">€</option>
+                </select>
+                <NumericInput value={header.globalDiscountValue} onChange={(e) => onHeaderChange({ globalDiscountValue: e.target.value })} placeholder="—" className={fieldCls} aria-label="Desconto global adicional" autoFocus={openFields.global && !header.globalDiscountValue} />
+              </div>
+            </div>
+          )}
+          {optional.footer && (
+            <div>
+              <label className="mb-1 block text-xs font-medium text-stone-500" title="Desconto impresso no rodapé do documento. Se for só o resumo dos descontos das linhas, não é aplicado outra vez.">Desconto no rodapé (€)</label>
+              <NumericInput value={header.footerDiscount} onChange={(e) => onHeaderChange({ footerDiscount: e.target.value })} placeholder="—" className={fieldCls} aria-label="Desconto no rodapé" autoFocus={openFields.footer && !header.footerDiscount} />
+            </div>
+          )}
+        </div>
+      )}
+      {optional.adjustments && (
+        <div>
+          <label className="mb-1 block text-xs font-medium text-stone-500" title="Portes, ecovalor ou outros valores documentados que somam ao total (podem ser negativos).">Ajustes documentados (€)</label>
+          <NumericInput value={header.adjustments} onChange={(e) => onHeaderChange({ adjustments: e.target.value })} placeholder="0.00" className={fieldCls} aria-label="Ajustes documentados" autoFocus={openFields.adjustments && !header.adjustments} />
+        </div>
+      )}
 
-      <div className="space-y-1 border-t border-stone-100 pt-2">
+      <div className={`space-y-1 ${closedLinks.length > 0 || optional.global || optional.footer || optional.adjustments ? "border-t border-stone-100 pt-2" : ""}`}>
         {detailed && preview ? (
           <>
             {row("Bruto antes de descontos", fromCents(preview.grossCents))}
@@ -923,6 +953,9 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
     return inv.lineDetailMode && inv.lineDetailMode !== "simple" ? inv.lineDetailMode : null;
   });
   const linkedSupplier = suppliers.find((s) => s.id === supplierId);
+  // NIF escrito vs. NIF da ficha do fornecedor ligado (a IA pode trocar dígitos).
+  const nifState = checkNif(supplierNif);
+  const fileNif = linkedSupplier?.nif ?? (importResult.supplierMatch?.id === supplierId ? importResult.supplierMatch?.nif ?? null : null);
   const supplierPreferredMode = linkedSupplier?.defaultFinancialMode ? LINE_DETAIL_MODE_OF[linkedSupplier.defaultFinancialMode] : null;
   const detailMode: LineDetailMode =
     manualDetailMode ?? supplierPreferredMode ?? (linkedSupplier?.defaultStockPolicy === "usually_creates_review" ? "detailed" : "simple");
@@ -1257,7 +1290,8 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   // valores» toda distribuída e a decisão de Stock tomada (o servidor volta a
   // verificar). «Guardar rascunho» não exige nada disto.
   const blockReason =
-    !isEdit && !amountsOk ? "Os valores não batem com a fatura — a diferença tem de ser 0,00 €."
+    !isEdit && nifState.kind === "invalid" ? "O NIF do fornecedor é inválido — corrija-o antes de lançar."
+    : !isEdit && !amountsOk ? "Os valores não batem com a fatura — a diferença tem de ser 0,00 €."
     : detailMode === "by_values" && !allocState.ok ? "A repartição «Por valores» tem de somar a base líquida (Por distribuir 0,00 €)."
     : stock.blocking;
   const blockFinalize = blockReason !== null;
@@ -1319,6 +1353,8 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
             <ValidationIssues issues={importResult.validationIssues.filter((issue) => {
               if (issue === "no_supplier_match" && (supplierId !== null || newSupplierData !== null)) return false;
               if (issue === "no_due_date" && (dueDate !== "" || alreadyPaid || isDirectDebit)) return false;
+              // NIF/número corrigidos no formulário: a pendência desaparece.
+              if ((issue === "supplier_nif_invalid" || issue === "fiscal_identity_incomplete") && nifState.kind !== "invalid" && nifState.kind !== "empty" && invoiceNumber.trim()) return false;
               return true;
             })} />
           )}
@@ -1343,9 +1379,28 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
                     type="text"
                     value={supplierNif}
                     onChange={(e) => setSupplierNif(e.target.value)}
-                    className={inputCls}
+                    className={`${inputCls} ${nifState.kind === "invalid" ? "border-red-300" : ""}`}
                     placeholder="Opcional"
+                    aria-invalid={nifState.kind === "invalid"}
                   />
+                  {nifState.kind === "invalid" && (
+                    <p className="mt-1 text-xs text-red-600">
+                      NIF inválido (dígito de controlo) — confirme os dígitos com o documento.
+                      {fileNif && checkNif(fileNif).kind === "valid" && (
+                        <>
+                          {" "}
+                          <button type="button" onClick={() => setSupplierNif(fileNif)} className="font-medium underline">
+                            Usar o NIF da ficha ({fileNif})
+                          </button>
+                        </>
+                      )}
+                    </p>
+                  )}
+                  {nifState.kind === "valid" && fileNif && !sameNif(supplierNif, fileNif) && (
+                    <p className="mt-1 text-xs text-amber-600">
+                      Diferente do NIF da ficha do fornecedor ({fileNif}) — confirme com o documento.
+                    </p>
+                  )}
                 </div>
               </div>
               <SupplierPanel
