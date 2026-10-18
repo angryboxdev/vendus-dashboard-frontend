@@ -28,13 +28,13 @@ export const LEGACY_HR_PATHS = ["/hr/overview", "/hr/people", "/hr/schedules", "
 // Recursos Humanos: as áreas do Novo RH são os módulos principais; "RH antigo" fica no fim
 // (pedido do utilizador em 2026-10-14: manter visível para consulta).
 const HR_ITEMS: NavItem[] = [
-  { kind: "item", path: "/hr/novo", label: "Visão geral", end: true },
-  { kind: "item", path: "/hr/novo/pessoas", label: "Colaboradores" },
-  { kind: "item", path: "/hr/novo/escalas", label: "Escalas" },
-  { kind: "item", path: "/hr/novo/assiduidade", label: "Assiduidade" },
-  { kind: "item", path: "/hr/novo/ausencias", label: "Ausências" },
-  { kind: "item", path: "/hr/novo/documentos", label: "Documentos" },
-  { kind: "item", path: "/hr/antigo", label: "RH antigo", badgeKey: "hr-requests", match: LEGACY_HR_PATHS },
+  { kind: "item", path: "/hr/novo", label: "Visão geral", end: true, icon: "overview" },
+  { kind: "item", path: "/hr/novo/pessoas", label: "Colaboradores", icon: "people" },
+  { kind: "item", path: "/hr/novo/escalas", label: "Escalas", icon: "rosters" },
+  { kind: "item", path: "/hr/novo/assiduidade", label: "Assiduidade", icon: "attendance" },
+  { kind: "item", path: "/hr/novo/ausencias", label: "Ausências", icon: "absences" },
+  { kind: "item", path: "/hr/novo/documentos", label: "Documentos", icon: "documents" },
+  { kind: "item", path: "/hr/antigo", label: "RH antigo", icon: "legacy", badgeKey: "hr-requests", match: LEGACY_HR_PATHS },
 ];
 
 const CRM_ITEMS: NavItem[] = [
@@ -59,6 +59,7 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
       kind: "group",
       id: "dre",
       label: "Mapa de rentabilidade",
+      icon: "profitability",
       basePath: "/dre",
       items: DRE_ITEMS,
     },
@@ -66,6 +67,7 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
       kind: "group",
       id: "stock",
       label: "Gestão de Stock",
+      icon: "stock",
       basePath: "/stock",
       items: STOCK_ITEMS,
     },
@@ -73,6 +75,7 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
       kind: "group",
       id: "hr",
       label: "Recursos Humanos",
+      icon: "people",
       basePath: "/hr",
       items: HR_ITEMS,
     },
@@ -80,6 +83,7 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
       kind: "group",
       id: "crm",
       label: "CRM",
+      icon: "crm",
       basePath: "/crm",
       items: CRM_ITEMS,
     },
@@ -87,18 +91,19 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
       kind: "group",
       id: "financial",
       label: "Financeiro",
+      icon: "financial",
       basePath: "/financial",
       items: FINANCIAL_ITEMS,
     },
-    { kind: "item", path: "/cash-closings", label: "Fechos de Caixa" },
-    { kind: "item", path: "/air-menu", label: "Air Menu" },
-    { kind: "item", path: "/vendus", label: "Vendus" },
+    { kind: "item", path: "/cash-closings", label: "Fechos de Caixa", icon: "cashClosings" },
+    { kind: "item", path: "/air-menu", label: "Air Menu", icon: "airMenu" },
+    { kind: "item", path: "/vendus", label: "Vendus", icon: "vendus" },
     // Base Organizacional — fora de RH; abas internas (Empresa | …) na própria página.
-    { kind: "item", path: "/empresa", label: "Empresa & Estrutura" },
+    { kind: "item", path: "/empresa", label: "Empresa & Estrutura", icon: "company" },
   ];
 
-  entries.push({ kind: "item", path: "/admin/users", label: "Utilizadores" });
-  entries.push({ kind: "item", path: "/admin/location-tokens", label: "Tokens de dispositivo" });
+  entries.push({ kind: "item", path: "/admin/users", label: "Utilizadores", icon: "users" });
+  entries.push({ kind: "item", path: "/admin/location-tokens", label: "Tokens de dispositivo", icon: "deviceTokens" });
 
   const access = user.access;
   // Sem acesso efetivo carregado: comportamento antigo (itens de administração só para admin).

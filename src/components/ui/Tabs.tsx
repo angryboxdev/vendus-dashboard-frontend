@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { NavLink } from "react-router-dom";
 
 /** Tabs compactas: texto com sublinhado laranja (nunca "pills"). */
@@ -33,12 +34,19 @@ export function Tabs<K extends string>({
 }
 
 /** Tabs por rota (cada aba é um endereço). */
-export function TabNav({ items, label }: { items: Array<{ to: string; label: string; end?: boolean }>; label?: string }) {
+export function TabNav({ items, label }: { items: Array<{ to: string; label: string; end?: boolean; icon?: ReactNode }>; label?: string }) {
   return (
     <nav aria-label={label} className="flex gap-1 overflow-x-auto overflow-y-hidden">
       {items.map((t) => (
         <NavLink key={t.to} to={t.to} end={t.end} className={({ isActive }) => tabClass(isActive)}>
-          {t.label}
+          {t.icon ? (
+            <span className="inline-flex items-center gap-1.5">
+              {t.icon}
+              {t.label}
+            </span>
+          ) : (
+            t.label
+          )}
         </NavLink>
       ))}
     </nav>

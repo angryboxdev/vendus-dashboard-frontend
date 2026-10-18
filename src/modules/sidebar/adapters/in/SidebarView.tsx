@@ -3,6 +3,8 @@ import { isItemActive } from "../../domain/services/nav-state.service.ts";
 import { useSidebar } from "./use-sidebar.ts";
 import type { NavGroup, NavItem, SidebarNavEntry } from "../../domain/entities/nav-item.ts";
 import type { UseSidebarResult } from "./use-sidebar.ts";
+import { AppIcon } from "../../../../components/ui/app-icons.tsx";
+import { CollapsedSidebarBody } from "./CollapsedSidebar.tsx";
 
 // ── helpers ───────────────────────────────────────────────────────────────────
 
@@ -67,7 +69,10 @@ function NavItemLink({ item, onClick, badge = 0 }: { item: NavItem; onClick: () 
       onClick={onClick}
     >
       <span className="flex items-center justify-between gap-2">
-        <span>{item.label}</span>
+        <span className="flex min-w-0 items-center gap-2.5">
+          {item.icon && <AppIcon name={item.icon} size={18} className="shrink-0 opacity-90" />}
+          <span>{item.label}</span>
+        </span>
         {badge > 0 && (
           <span className="rounded-full bg-[#ED5C32] px-1.5 text-[10px] font-semibold leading-4 text-white" aria-label={`${badge} por decidir`}>
             {badge}
@@ -106,7 +111,10 @@ function NavGroupSection({
             : "font-medium text-slate-300 hover:bg-white/5 hover:text-white"
         }`}
       >
-        <span>{group.label}</span>
+        <span className="flex min-w-0 items-center gap-2.5">
+          {group.icon && <AppIcon name={group.icon} size={18} className="shrink-0 opacity-90" />}
+          <span>{group.label}</span>
+        </span>
         <ChevronIcon open={expanded} active={active} />
       </button>
       {expanded && (
@@ -131,6 +139,8 @@ interface SidebarBodyProps {
   onNavClick: () => void;
   onSignOut: () => void;
   badges: UseSidebarResult["badges"];
+  /** Só desktop: botão para recolher a barra. */
+  onCollapse?: () => void;
 }
 
 function SidebarBody({
@@ -142,6 +152,7 @@ function SidebarBody({
   onNavClick,
   onSignOut,
   badges,
+  onCollapse,
 }: SidebarBodyProps) {
   return (
     <>
@@ -152,6 +163,18 @@ function SidebarBody({
           <h1 className="text-base font-bold tracking-tight text-white">
             Angry Box Hub
           </h1>
+          {onCollapse && (
+            <button
+              type="button"
+              onClick={onCollapse}
+              aria-label="Recolher barra lateral"
+              aria-expanded={true}
+              title="Recolher"
+              className="ml-auto rounded-lg p-1.5 text-slate-400 transition-colors hover:bg-white/5 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ED5C32]"
+            >
+              <AppIcon name="collapse" />
+            </button>
+          )}
         </div>
       </div>
 
@@ -210,6 +233,8 @@ export function Sidebar() {
     closeMobile,
     signOut,
     badges,
+    collapsed,
+    toggleCollapsed,
   }: UseSidebarResult = useSidebar();
 
   const bodyProps: SidebarBodyProps = {
@@ -226,8 +251,13 @@ export function Sidebar() {
   return (
     <>
       {/* Desktop sidebar */}
-      <aside className={`hidden w-60 flex-shrink-0 flex-col ${SIDEBAR_BG} md:flex`}>
-        <SidebarBody {...bodyProps} onNavClick={() => {}} />
+      {/* Recolhida: 72 px só com ícones; o conteúdo ocupa a largura libertada (main é flex-1). */}
+      <aside className={`hidden flex-shrink-0 flex-col ${SIDEBAR_BG} md:flex ${collapsed ? "w-[72px]" : "w-60"}`}>
+        {collapsed ? (
+          <CollapsedSidebarBody tree={tree} isGroupActive={isGroupActive} badges={badges} onExpand={toggleCollapsed} onSignOut={signOut} />
+        ) : (
+          <SidebarBody {...bodyProps} onNavClick={() => {}} onCollapse={toggleCollapsed} />
+        )}
       </aside>
 
       {/* Mobile top bar */}
