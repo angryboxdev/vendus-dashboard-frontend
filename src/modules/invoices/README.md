@@ -1,7 +1,7 @@
 # Módulo: invoices
 
 > Status: ativo
-> Última atualização: 2026-10-14 (Fornecedores/Financeiro/Stock v1.2 · F1: motor único de valores na revisão, descontos, "Diferença para a fatura", conflitos de identidade fiscal, reimportação devolve o documento existente)
+> Última atualização: 2026-10-18 (v1.2 · F2: revisão com «Única | Por artigo | Por valores», repartições, «Enviar para Stock», «Guardar rascunho»; F1: motor único de valores, conflitos de identidade fiscal)
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -140,6 +140,8 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 ### Domínio — motor único de valores (F1 v1.2 §1.3)
 
 - `domain/services/decimal.ts`, `document-amounts.ts`, `invoice-amounts.service.ts` — **espelho** do motor do backend (`src/kernel/money` e `invoices/domain/services/invoice-amounts.service.ts`), com os mesmos vetores de teste. Decimal exato (BigInt), arredondamento uma vez, IVA por taxa, desconto de rodapé não duplicado, taxa em falta nunca é 0%. **Alterar sempre os dois lados juntos.**
+- `domain/services/allocations-draft.ts` (F2) — repartições «Por valores»: «Por distribuir», validação, payload, «Propor a partir das linhas» (soma por subcategoria fiável; o resto fica por distribuir), deteção de mistura de subcategorias.
+- `domain/services/stock-decision.ts` (F2) — «Enviar para Stock», espelho de `resolveStockRouting` do backend: escolha explícita vs. sugestão («auto»), «Decidir no documento» exige escolha, desmarcar contra «Enviar» exige motivo; entrada da sugestão (loja única das linhas → destino habitual do fornecedor) e mapa modo financeiro ↔ `lineDetailMode`.
 - `domain/services/draft-amounts.ts` — ponte formulário → motor: números escritos sem float, texto exato do preço para o servidor (vírgula decimal, todas as casas), quantidade ambígua ("20.000") resolvida pelo bruto impresso, pré-visualização (modo detalhado/simples) e payload `amounts`.
 
 ## Adapters
@@ -147,6 +149,7 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 ### Entrada (UI)
 
 - **Revisão de importação (`ReviewImportedInvoiceDrawer`) — F1**: o antigo "Saldo" (float, tolerância 1 cêntimo) deu lugar ao `AmountsSummary`: Bruto antes de descontos / Desconto / Base após descontos / IVA por taxa / Ajustes / Total calculado / Total da fatura / **Diferença para a fatura**. Desconto por linha e global em % ou €, desconto de rodapé, ajustes documentados e ajuste de arredondamento (≤ 1 cêntimo por taxa, com motivo). Os botões de confirmar ficam bloqueados enquanto a diferença não for 0,00 € (o servidor volta a verificar: 422 `amounts_not_reconciled`). Taxa de IVA extraída em falta aparece "por validar" (antes assumia 23%). Conflitos 409 mostram ações: *Abrir documento existente*, *Completar lançamento existente* (Stock), *Comparar* / *Não é duplicado — confirmar*, *Completar dados*, versão alterada. Envia `expectedVersion`.
+- **Revisão — F2 (v1.2 §2.1/§2.2)**: seletor **«Única | Por artigo | Por valores»** (inicial: modo gravado; numa importação nova, modo preferido do fornecedor → «normalmente gera revisão de stock» = «Por artigo» → «Única»). As linhas reais são **sempre** enviadas (`lines` + `financialMode`) e a pré-visualização/`AmountsSummary` usa-as em qualquer modo (o servidor reconcilia com elas); fora de «Por artigo» ficam ocultas, com aviso e atalho se não baterem. «Por valores» → `AllocationsEditor` (descrição, grupo/subcategoria, loja, montante líquido; «Por distribuir»; bloqueia lançar ≠ 0,00 €). Seletor «Tipo» retirado do editor de linha (o dado mantém-se). «Impacto no stock» → `SendToStockField` («Enviar para Stock» com sugestão de `POST /invoices/stock-routing-suggestion`, motivo obrigatório ao contrariar «Enviar», escolha obrigatória em «Decidir no documento»). **«Guardar rascunho»** (`POST /invoices/:id/draft`): grava sem lançar e sem exigir reconciliação; mostra `blockingReason`/`remainingCents` e atualiza a versão local (o confirmar seguinte envia o `expectedVersion` novo). `CostCenterCascadeSelect` passou para ficheiro próprio (usado também no editor de repartições).
 - **`InvoicesView` — importação reutilizada**: `reused` (mesmo ficheiro / mesma identidade fiscal) abre o documento existente (detalhe, ou a revisão se ainda for rascunho) com um aviso, em vez de criar outro rascunho.
 - **`InvoicesView`** — página `/financial/invoices`. Vista Tabela redesenhada por completo pela task
   "Refinamento visual da lista de Faturas" (identidade "ERP financeiro" — Linear/Stripe: fundo branco,
@@ -403,9 +406,12 @@ puramente redundante.
 
 - Domínio: `npx vitest run src/modules/invoices` — motor de valores (mesmos vetores do backend, incl. o exemplo Mozzarella), `draft-amounts`.
 - UI: `AmountsSummary.test.tsx` (quadro de valores, bloqueio, ajuste de arredondamento, IVA por validar).
+- F2: `allocations-draft.test.ts`, `stock-decision.test.ts`, `AllocationsEditor.test.tsx` (650 € = 100+250+300; 649/651 não fecham; propor a partir das linhas), `SendToStockField.test.tsx`.
 
 ## Pontos de atenção / dívidas conhecidas
 
+- **F2 — edição «Por valores»**: em `mode="edit"` a gravação são vários pedidos (modo de passagem «Por artigo» → `updateInvoice` → linhas → «Por valores» → `PUT /allocations`), porque o servidor recusa mudar a base de uma fatura «Por valores» antes de rever a repartição e não há endpoint atómico. Se o último passo falhar, a fatura fica «Por valores» com a repartição anterior (o drawer mostra o erro; pode repetir-se). Candidato: aceitar `allocations` no `PATCH /invoices/:id`.
+- **F2 — sugestão de Stock em «Por valores»**: tal como no servidor, considera só as subcategorias das linhas/cabeçalho, não as das repartições.
 - **F1**: no modo "Editar fatura completa" (`mode="edit"`) o quadro de valores é informativo — a gravação passa por `updateInvoice` + linhas, que o backend ainda não reconcilia com o motor (só criar/confirmar). Não há "Guardar rascunho" com descontos: o rascunho importado mantém-se tal como foi extraído até ser confirmado.
 
 - Testes de UI não implementados. A lógica de filtragem (tabs, filtros avançados,

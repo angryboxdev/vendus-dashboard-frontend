@@ -16,15 +16,25 @@ import type {
   LineDetailMode,
   InvoiceLineType,
   InvoiceDocumentType,
-  StockReviewOverride,
+  SaveDraftResultDTO,
 } from "../../domain/entities/invoice.ts";
-import { VALIDATION_ISSUE_LABELS, INVOICE_LINE_TYPE_LABELS, DOCUMENT_TYPE_LABELS, STOCK_REVIEW_OVERRIDE_LABELS } from "../../domain/entities/invoice.ts";
+import { VALIDATION_ISSUE_LABELS, DOCUMENT_TYPE_LABELS } from "../../domain/entities/invoice.ts";
 import type { CostCenterGroup, CostCenterCategory } from "../../../financial-base/domain/entities/cost-center.ts";
+import { FINANCIAL_MODE_LABELS } from "../../../financial-base/domain/entities/supplier.ts";
 import {
   amountsPayload, docPriceToField, docQuantityToField, lineValueFields, previewDetailed, previewSimple, typedToCents,
   type DraftAmountHeader,
 } from "../../domain/services/draft-amounts.ts";
 import { describeIssues, ROUNDING_CENTS_PER_RATE, type InvoiceAmounts } from "../../domain/services/invoice-amounts.service.ts";
+import {
+  allocationsFromDTO, allocationsPayload, allocationsState, hasMixedCategories, type DraftAllocation,
+} from "../../domain/services/allocations-draft.ts";
+import {
+  FINANCIAL_MODE_OF, LINE_DETAIL_MODE_OF, initialStockChoice, stockDecision, stockRoutingInput,
+} from "../../domain/services/stock-decision.ts";
+import { CostCenterCascadeSelect } from "./CostCenterCascadeSelect.tsx";
+import { AllocationsEditor } from "./AllocationsEditor.tsx";
+import { SendToStockField } from "./SendToStockField.tsx";
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
@@ -53,75 +63,6 @@ function ConfidenceBadge({ value }: { value: number }) {
     <span className={`inline-flex shrink-0 items-center gap-1 whitespace-nowrap rounded-full px-2.5 py-0.5 text-xs font-medium ${color}`}>
       IA {pct}%
     </span>
-  );
-}
-
-// ── CostCenterCascadeSelect ───────────────────────────────────────────────────
-
-interface CostCenterCascadeSelectProps {
-  groups: CostCenterGroup[];
-  categories: CostCenterCategory[];
-  groupId: string | null;
-  categoryId: string | null;
-  onChange(groupId: string | null, categoryId: string | null): void;
-  inputCls: string;
-}
-
-function CostCenterCascadeSelect({
-  groups,
-  categories,
-  groupId,
-  categoryId,
-  onChange,
-  inputCls,
-}: CostCenterCascadeSelectProps) {
-  const activeGroups = groups.filter((g) => g.isActive);
-  const filteredCats = categories.filter(
-    (c) => c.isActive && (groupId === null || c.groupId === groupId),
-  );
-
-  function handleGroupChange(newGroupId: string) {
-    const gId = newGroupId || null;
-    // clear category if it no longer belongs to the new group
-    const currentCat = categories.find((c) => c.id === categoryId);
-    const catStillValid = currentCat && (gId === null || currentCat.groupId === gId);
-    onChange(gId, catStillValid ? categoryId : null);
-  }
-
-  function handleCategoryChange(newCatId: string) {
-    const cId = newCatId || null;
-    if (cId) {
-      const cat = categories.find((c) => c.id === cId);
-      // auto-populate group when category is selected
-      onChange(cat?.groupId ?? groupId, cId);
-    } else {
-      onChange(groupId, null);
-    }
-  }
-
-  return (
-    <div className="grid grid-cols-2 gap-2">
-      <select
-        value={groupId ?? ""}
-        onChange={(e) => handleGroupChange(e.target.value)}
-        className={inputCls}
-      >
-        <option value="">— Grupo CC —</option>
-        {activeGroups.map((g) => (
-          <option key={g.id} value={g.id}>{g.code} — {g.name}</option>
-        ))}
-      </select>
-      <select
-        value={categoryId ?? ""}
-        onChange={(e) => handleCategoryChange(e.target.value)}
-        className={inputCls}
-      >
-        <option value="">— Subcategoria —</option>
-        {filteredCats.map((c) => (
-          <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
-        ))}
-      </select>
-    </div>
   );
 }
 
@@ -643,10 +584,7 @@ function EditableLinesSection({ lines, categories, preview, onChange }: Editable
                   <span>IVA Total: <span className="font-medium text-stone-700">{fromCents(vatAmount)}</span></span>
                   <span>Total: <span className="font-semibold text-stone-800">{fromCents(totalWithVat)}</span></span>
                 </div>
-                <div className="flex items-center justify-between gap-2 text-xs">
-                  <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-stone-600">
-                    {INVOICE_LINE_TYPE_LABELS[l.type]}
-                  </span>
+                <div className="flex items-center justify-end gap-2 text-xs">
                   {cat ? (
                     <span className="truncate font-medium text-stone-700">{cat.code} — {cat.name}</span>
                   ) : (
@@ -659,19 +597,7 @@ function EditableLinesSection({ lines, categories, preview, onChange }: Editable
             {/* Expanded: form completo */}
             {isExpanded && (
               <div className="space-y-2.5 pt-1">
-                {/* Tipo */}
-                <div>
-                  <label className="mb-1 block text-xs font-medium text-stone-500">Tipo</label>
-                  <select
-                    value={l.type}
-                    onChange={(e) => updateLine(l.key, { type: e.target.value as InvoiceLineType })}
-                    className={fieldCls}
-                  >
-                    {(Object.entries(INVOICE_LINE_TYPE_LABELS) as [InvoiceLineType, string][]).map(([k, v]) => (
-                      <option key={k} value={k}>{v}</option>
-                    ))}
-                  </select>
-                </div>
+                {/* Sem seletor «Tipo» (F2 §2.2): o dado mantém-se na linha, o Financeiro não precisa dele. */}
                 {/* Qtd + Unidade */}
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -970,30 +896,36 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   const [totalStr, setTotalStr] = useState((Math.abs(inv.totalWithVat) / 100).toFixed(2));
   const [docType, setDocType] = useState<InvoiceDocumentType>(inv.documentType ?? "invoice");
   const [notes, setNotes] = useState(inv.notes ?? "");
-  const [stockReviewOverride, setStockReviewOverride] = useState<StockReviewOverride>(inv.stockReviewOverride ?? "auto");
-  const [stockReviewOverrideReason, setStockReviewOverrideReason] = useState(inv.stockReviewOverrideReason ?? "");
+  // «Enviar para Stock» (F2 §2.1): null = segue a sugestão (o servidor aplica a predefinição).
+  const [stockChoice, setStockChoice] = useState<boolean | null>(() => initialStockChoice(inv.stockReviewOverride));
+  const [stockReason, setStockReason] = useState(inv.stockReviewOverride === "force_skip" ? inv.stockReviewOverrideReason ?? "" : "");
   const [costCenterGroupId, setCostCenterGroupId] = useState<string | null>(inv.costCenterGroupId ?? null);
   const [costCenterCategoryId, setCostCenterCategoryId] = useState<string | null>(inv.costCenterCategoryId ?? null);
   const [alreadyPaid, setAlreadyPaid] = useState(false);
   const [paidAt, setPaidAt] = useState(inv.invoiceDate ?? todayStr());
   const [isDirectDebit, setIsDirectDebit] = useState(false);
   const [directDebitDate, setDirectDebitDate] = useState(inv.dueDate ?? "");
-  // Em edição, mantém o heurístico antigo (reflete o estado real já
-  // gravado — `importResult.extractedLines` é sintetizado a partir das
-  // linhas atuais da fatura nesse modo). Numa importação nova, enquanto o
-  // utilizador não escolher manualmente (`manualDetailMode`), o modo é
-  // derivado da preferência do fornecedor: "normalmente gera revisão de
-  // stock" → "Detalhar por linha" (sem linhas, o Stock nunca consegue
-  // resolver a revisão — ver RecordInvoiceFinalizedForStockUseCase);
-  // qualquer outra preferência (ou nenhuma) → "Classificação única" (o
-  // default do `main`; a preferência do fornecedor só o muda para quem
-  // normalmente gera revisão de stock).
-  const [manualDetailMode, setManualDetailMode] = useState<LineDetailMode | null>(
-    isEdit ? (importResult.extractedLines.length > 0 ? "detailed" : "simple") : null
-  );
-  const supplierDefaultStockPolicy = suppliers.find((s) => s.id === supplierId)?.defaultStockPolicy;
+  // Modo financeiro (F2 §2.2): «Única» | «Por artigo» | «Por valores».
+  // Em edição vale o modo gravado. Num rascunho reaberto vale o modo gravado
+  // quando não é o «Única» por defeito. Numa importação nova, enquanto o
+  // utilizador não escolher (`manualDetailMode`), vem da ficha do fornecedor:
+  // modo preferido; senão "normalmente gera revisão de stock" → «Por artigo»
+  // (sem linhas classificadas o Stock não resolve a revisão); senão «Única».
+  const [manualDetailMode, setManualDetailMode] = useState<LineDetailMode | null>(() => {
+    if (isEdit) return inv.lineDetailMode ?? (importResult.extractedLines.length > 0 ? "detailed" : "simple");
+    return inv.lineDetailMode && inv.lineDetailMode !== "simple" ? inv.lineDetailMode : null;
+  });
+  const linkedSupplier = suppliers.find((s) => s.id === supplierId);
+  const supplierPreferredMode = linkedSupplier?.defaultFinancialMode ? LINE_DETAIL_MODE_OF[linkedSupplier.defaultFinancialMode] : null;
   const detailMode: LineDetailMode =
-    manualDetailMode ?? (supplierDefaultStockPolicy === "usually_creates_review" ? "detailed" : "simple");
+    manualDetailMode ?? supplierPreferredMode ?? (linkedSupplier?.defaultStockPolicy === "usually_creates_review" ? "detailed" : "simple");
+  // Repartições «Por valores» (mantidas em memória ao trocar de modo — nada se perde).
+  const [allocRows, setAllocRows] = useState<DraftAllocation[]>(() => allocationsFromDTO(inv.allocations ?? []));
+  // Versão atual: «Guardar rascunho» incrementa-a; confirmar a seguir tem de enviar a nova.
+  const [version, setVersion] = useState<number | undefined>(inv.version);
+  const [draftResult, setDraftResult] = useState<SaveDraftResultDTO | null>(null);
+  // Linhas alteradas pela pessoa (edição: só então se substituem fora de «Por artigo»).
+  const [linesDirty, setLinesDirty] = useState(false);
   // Módulo Stock (Compra por rever) — mudar "Impacto no stock" ou descartar
   // linhas detalhadas pode tornar órfã uma revisão de stock já criada para
   // esta fatura ainda não aplicada. O backend responde 409 com
@@ -1049,16 +981,48 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   const [lastSaveAsPayable, setLastSaveAsPayable] = useState(false);
 
   // Pré-visualização com o mesmo motor do servidor (que recalcula ao confirmar).
+  // F2 §2.2: as linhas reais são guardadas em todos os modos, e o servidor
+  // reconcilia com elas sempre que existem — a pré-visualização também.
   const activeLines = lines.filter((l) => l.description.trim());
+  const hasLines = activeLines.length > 0;
   const baseHeader: DraftAmountHeader = { ...amountsHeader, totalStr, subtotalStr, vatStr, roundingCents: 0 };
-  const rawPreview = detailMode === "detailed" ? previewDetailed(baseHeader, activeLines) : null;
+  const rawPreview = hasLines ? previewDetailed(baseHeader, activeLines) : null;
   const rawSimple = previewSimple(baseHeader);
   const rawDifferenceCents = rawPreview ? rawPreview.differenceCents : rawSimple.differenceCents;
   const roundingCents = roundingOn && rawDifferenceCents !== null ? rawDifferenceCents : 0;
   const header: DraftAmountHeader = { ...baseHeader, roundingCents };
-  const preview = detailMode === "detailed" ? previewDetailed(header, activeLines) : null;
+  const preview = hasLines ? previewDetailed(header, activeLines) : null;
   const simplePreview = previewSimple(header);
   const amountsOk = preview ? preview.canFinalize : simplePreview.canFinalize;
+
+  // «Por valores»: a base líquida é a do motor (com linhas) ou a do cabeçalho.
+  // Em edição o servidor compara com o subtotal do cabeçalho gravado.
+  const netBaseCents = !isEdit && preview ? preview.netCents : toCents(subtotalStr);
+  const allocState = allocationsState(allocRows, netBaseCents);
+  const lineNet = activeLines.map((l) => ({
+    key: l.key,
+    categoryId: l.catId || null,
+    locationId: l.locationId,
+    netCents: preview?.lines.find((x) => x.id === l.key)?.netCents ?? 0,
+  }));
+
+  // «Enviar para Stock»: mesma entrada que o servidor usa ao lançar.
+  const routingInput = stockRoutingInput(
+    activeLines.map((l) => ({ locationId: l.locationId, categoryId: l.catId || null })),
+    detailMode === "simple" ? costCenterCategoryId : null,
+    linkedSupplier?.defaultLocationId ?? null,
+  );
+  const { data: stockSuggestion = null } = useQuery({
+    queryKey: ["stock-routing-suggestion", supplierId, routingInput.locationId, routingInput.categoryIds],
+    queryFn: () => api.getStockRoutingSuggestion({ supplierId, ...routingInput }),
+    staleTime: 60_000,
+  });
+  const stock = stockDecision(stockSuggestion, stockChoice, stockReason);
+
+  function changeLines(next: DraftLine[]) {
+    setLines(next);
+    setLinesDirty(true);
+  }
 
   function handleLink(
     id: string | null,
@@ -1101,7 +1065,31 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   function confirm(saveAsPayable: boolean, extra: Partial<ConfirmImportedInvoicePayload> = {}) {
     setLastSaveAsPayable(saveAsPayable);
     setConflict(null);
+    draftMutation.reset();
     confirmMutation.mutate({ ...buildPayload(saveAsPayable), ...extra });
+  }
+
+  // «Guardar rascunho» (F2 §2.2): grava sem lançar — sem obrigação, sem
+  // revisão de Stock, sem exigir reconciliação. O drawer fica aberto.
+  const draftMutation = useMutation({
+    mutationFn: (payload: ConfirmImportedInvoicePayload) => api.saveInvoiceDraft(inv.id, payload),
+    onSuccess: (result) => {
+      setDraftResult(result);
+      if (result.invoice.version !== undefined) setVersion(result.invoice.version);
+      void qc.invalidateQueries({ queryKey: ["invoices"] });
+    },
+    onError: (err) => {
+      setDraftResult(null);
+      const data = err instanceof ApiError ? (err.data as Partial<ConfirmConflict> | null) : null;
+      setConflict(data?.code ? { ...data, code: data.code, message: err.message } : null);
+    },
+  });
+
+  function saveDraft() {
+    setConflict(null);
+    setDraftResult(null);
+    confirmMutation.reset();
+    draftMutation.mutate(buildPayload(false));
   }
 
   /** Decisão explícita depois de um conflito: repete o mesmo pedido com a escolha da pessoa. */
@@ -1115,9 +1103,14 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   // through the regular update endpoints instead of confirmImportedInvoice
   // (which requires draft_ai/pending_review and has import-only side effects
   // like creating a payable entry or marking as paid). Lines are replaced
-  // wholesale — deleted then re-added from the draft — matching the "as if
-  // freshly imported" framing: type/category/unit/location reset to blank,
-  // same as a fresh import's extracted lines, for the user to reclassify.
+  // wholesale — deleted then re-added from the draft — in «Por artigo», or
+  // in «Por valores» when the user edited them; «Única» keeps the stored lines
+  // (changing mode no longer deletes lines, F2 §2.2).
+  //
+  // Ordem: (1) modo de passagem — «Por valores» passa primeiro por «Por
+  // artigo», porque o servidor recusa mudar a base de uma fatura «Por valores»
+  // sem a repartição já rever e só aceita linhas fora de «Única»; (2)
+  // cabeçalho; (3) linhas; (4) «Por valores» + repartições (soma = nova base).
   const editMutation = useMutation({
     // `confirmRemove` chega como variável do `mutate(confirmRemove)`, nunca
     // de estado React — evita o problema clássico de `setState` + `mutate()`
@@ -1129,6 +1122,9 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
         const created = await fbModule.api.createSupplier(newSupplierData);
         resolvedSupplierId = created.id;
       }
+
+      const replaceLines = detailMode === "detailed" || (detailMode === "by_values" && linesDirty);
+      await api.setLineDetailMode(inv.id, detailMode === "by_values" ? "detailed" : detailMode, confirmRemove || undefined);
 
       await api.updateInvoice(inv.id, {
         supplierId: resolvedSupplierId,
@@ -1143,19 +1139,22 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
         notes: notes.trim() || null,
         costCenterGroupId: detailMode === "simple" ? (costCenterGroupId || null) : null,
         costCenterCategoryId: detailMode === "simple" ? (costCenterCategoryId || null) : null,
-        stockReviewOverride,
-        stockReviewOverrideReason: stockReviewOverride === "force_skip" ? (stockReviewOverrideReason.trim() || null) : null,
+        stockReviewOverride: stock.override,
+        stockReviewOverrideReason: stock.overrideReason,
         confirmRemoveStockReview: confirmRemove || undefined,
       });
 
-      await api.setLineDetailMode(inv.id, detailMode, confirmRemove || undefined);
-      if (detailMode === "detailed") {
+      if (replaceLines) {
         for (const lineId of existingLineIds) {
           await api.deleteLine(inv.id, lineId);
         }
         for (const l of activeLines) {
           await api.addLine(inv.id, draftLineToPayload(l, preview));
         }
+      }
+      if (detailMode === "by_values") {
+        await api.setLineDetailMode(inv.id, "by_values", confirmRemove || undefined);
+        await api.replaceInvoiceAllocations(inv.id, allocationsPayload(allocRows));
       }
 
       return api.getInvoice(inv.id);
@@ -1199,27 +1198,29 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
       totalWithVat: toCents(totalStr),
       documentType: docType,
       notes: notes.trim() || null,
-      stockReviewOverride,
-      stockReviewOverrideReason: stockReviewOverride === "force_skip" ? (stockReviewOverrideReason.trim() || null) : null,
+      stockReviewOverride: stock.override,
+      stockReviewOverrideReason: stock.overrideReason,
       saveAsPayable: (alreadyPaid || isDirectDebit || docType === "credit_note") ? false : saveAsPayable,
       markAsPaid: alreadyPaid,
       paidAt: alreadyPaid ? paidAt : undefined,
     };
     // O servidor recalcula tudo com o motor único; estes valores só orientam o pedido.
-    payload.amounts = amountsPayload(header, detailMode === "detailed");
-    if (inv.version !== undefined) payload.expectedVersion = inv.version;
+    payload.amounts = amountsPayload(header, hasLines);
+    if (version !== undefined) payload.expectedVersion = version;
     if (notADuplicate) payload.notADuplicate = true;
     if (completeStockIdentityId) payload.completeStockIdentityId = completeStockIdentityId;
-    if (detailMode === "detailed") {
-      payload.lines = activeLines.map((l) => draftLineToPayload(l, preview));
-      // Em modo detailed não enviamos classificação de fatura — evita sobrescrever categorias per-linha
-      payload.costCenterGroupId = null;
-      payload.costCenterCategoryId = null;
-    } else {
-      payload.lines = [];
+    // F2 §2.2: linhas reais enviadas em todos os modos (substituem as do rascunho).
+    payload.lines = activeLines.map((l) => draftLineToPayload(l, preview));
+    payload.financialMode = FINANCIAL_MODE_OF[detailMode];
+    if (detailMode === "simple") {
       payload.costCenterGroupId = costCenterGroupId || null;
       payload.costCenterCategoryId = costCenterCategoryId || null;
+    } else {
+      // Fora de «Única» não enviamos classificação de fatura — vale a das linhas ou das repartições.
+      payload.costCenterGroupId = null;
+      payload.costCenterCategoryId = null;
     }
+    if (detailMode === "by_values") payload.allocations = allocationsPayload(allocRows);
     if (newSupplierData) {
       payload.newSupplier = newSupplierData;
     } else {
@@ -1230,14 +1231,20 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
 
   const [showPdf, setShowPdf] = useState(!!inv.attachmentUrl);
 
-  const saving = isEdit ? editMutation.isPending : confirmMutation.isPending;
-  const activeError = isEdit ? editMutation.error : confirmMutation.error;
+  const saving = isEdit ? editMutation.isPending : confirmMutation.isPending || draftMutation.isPending;
+  const activeError = isEdit ? editMutation.error : confirmMutation.error ?? draftMutation.error;
   // Enquanto o diálogo de confirmação de remoção da revisão de stock está
   // visível, não duplicamos a mesma mensagem no banner de erro normal.
   const confirmError = stockReviewConfirmMessage || conflict ? null : activeError instanceof Error ? activeError.message : null;
-  // Confirmar só com os valores reconciliados ao cêntimo (o servidor volta a verificar).
-  const blockFinalize = !isEdit && !amountsOk;
-  const blockTitle = blockFinalize ? "Os valores não batem com a fatura — a diferença tem de ser 0,00 €." : undefined;
+  // Lançar só com os valores reconciliados ao cêntimo, a repartição «Por
+  // valores» toda distribuída e a decisão de Stock tomada (o servidor volta a
+  // verificar). «Guardar rascunho» não exige nada disto.
+  const blockReason =
+    !isEdit && !amountsOk ? "Os valores não batem com a fatura — a diferença tem de ser 0,00 €."
+    : detailMode === "by_values" && !allocState.ok ? "A repartição «Por valores» tem de somar a base líquida (Por distribuir 0,00 €)."
+    : stock.blocking;
+  const blockFinalize = blockReason !== null;
+  const blockTitle = blockReason ?? undefined;
 
   const labelCls = "block text-xs font-medium text-stone-500 mb-1";
   const inputCls =
@@ -1485,56 +1492,49 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
             />
           </div>
 
-          {/* Impacto no stock — largura total */}
-          <div>
-            <label className={labelCls}>Impacto no stock</label>
-            <select
-              value={stockReviewOverride}
-              onChange={(e) => setStockReviewOverride(e.target.value as StockReviewOverride)}
-              className={inputCls}
-            >
-              {(Object.entries(STOCK_REVIEW_OVERRIDE_LABELS) as [StockReviewOverride, string][]).map(([value, label]) => (
-                <option key={value} value={value}>{label}</option>
-              ))}
-            </select>
-            {stockReviewOverride === "force_skip" && (
-              <input
-                type="text"
-                value={stockReviewOverrideReason}
-                onChange={(e) => setStockReviewOverrideReason(e.target.value)}
-                className={`${inputCls} mt-2`}
-                placeholder="Motivo (opcional)"
-              />
-            )}
-          </div>
+          {/* Enviar para Stock (F2 §2.1) — substitui «Impacto no stock» */}
+          <SendToStockField
+            suggestion={stockSuggestion}
+            decision={stock}
+            choice={stockChoice}
+            reason={stockReason}
+            onChoice={setStockChoice}
+            onReason={setStockReason}
+            inputCls={inputCls}
+          />
 
-          {/* Modo de classificação — largura total */}
-          <div className="space-y-3">
+          {/* Modo de classificação (F2 §2.2) — trocar de modo não apaga linhas nem repartições */}
+          <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Modo de classificação</p>
-            <div className="flex rounded-lg border border-stone-200 p-0.5 bg-stone-50">
-              <button
-                type="button"
-                onClick={() => setManualDetailMode("simple")}
-                className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                  detailMode === "simple"
-                    ? "bg-white text-stone-800 shadow-sm"
-                    : "text-stone-500 hover:text-stone-700"
-                }`}
-              >
-                Classificação única
-              </button>
-              <button
-                type="button"
-                onClick={() => setManualDetailMode("detailed")}
-                className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                  detailMode === "detailed"
-                    ? "bg-white text-stone-800 shadow-sm"
-                    : "text-stone-500 hover:text-stone-700"
-                }`}
-              >
-                Detalhar por linha
-              </button>
+            <div role="radiogroup" aria-label="Modo de classificação" className="flex rounded-lg border border-stone-200 p-0.5 bg-stone-50">
+              {(["simple", "detailed", "by_values"] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={detailMode === m}
+                  onClick={() => setManualDetailMode(m)}
+                  className={`flex-1 rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                    detailMode === m
+                      ? "bg-white text-stone-800 shadow-sm"
+                      : "text-stone-500 hover:text-stone-700"
+                  }`}
+                >
+                  {FINANCIAL_MODE_LABELS[FINANCIAL_MODE_OF[m]]}
+                </button>
+              ))}
             </div>
+            {detailMode === "simple" && hasMixedCategories(activeLines.map((l) => ({ categoryId: l.catId || null }))) && (
+              <p className="text-xs text-amber-600">As linhas têm subcategorias diferentes — considere «Por artigo» ou «Por valores».</p>
+            )}
+            {detailMode !== "detailed" && hasLines && preview && !preview.canFinalize && (
+              <p className="text-xs text-amber-600">
+                As {activeLines.length} linhas do documento são sempre guardadas e não batem com o total.{" "}
+                <button type="button" onClick={() => setManualDetailMode("detailed")} className="font-medium underline">
+                  Rever em «Por artigo»
+                </button>
+              </p>
+            )}
           </div>
 
           {/* Modo simples: centro de custo global */}
@@ -1557,14 +1557,26 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
             <EditableLinesSection
               lines={lines}
               categories={categories as CostCenterCategory[]}
-              preview={preview!}
-              onChange={setLines}
+              preview={preview ?? previewDetailed(header, [])}
+              onChange={changeLines}
+            />
+          )}
+
+          {/* Modo «Por valores»: repartições por subcategoria (+ loja), soma = base líquida */}
+          {detailMode === "by_values" && (
+            <AllocationsEditor
+              rows={allocRows}
+              netBaseCents={netBaseCents}
+              groups={groups as CostCenterGroup[]}
+              categories={categories as CostCenterCategory[]}
+              lines={lineNet}
+              onChange={setAllocRows}
             />
           )}
 
           {/* Valores: bruto, descontos, base, IVA por taxa, total e diferença para a fatura */}
           <AmountsSummary
-            detailed={detailMode === "detailed"}
+            detailed={hasLines}
             preview={preview}
             simple={simplePreview}
             header={header}
@@ -1589,6 +1601,21 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
         <div className="shrink-0 border-t border-stone-100 px-4 py-3 sm:px-6 sm:py-4">
           {confirmError && (
             <p className="mb-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{confirmError}</p>
+          )}
+          {draftResult && (
+            <p
+              role="status"
+              className={`mb-3 rounded-lg px-3 py-2 text-xs ${draftResult.readyToFinalize ? "bg-emerald-50 text-emerald-700" : "bg-amber-50 text-amber-800"}`}
+            >
+              {draftResult.readyToFinalize
+                ? "Rascunho guardado — pronto a lançar."
+                : `Rascunho guardado (sem conta a pagar nem revisão de Stock). Por resolver: ${draftResult.blockingReason ?? "conferência dos valores"}${
+                    draftResult.remainingCents ? ` · Por distribuir ${fromCents(draftResult.remainingCents)}` : ""
+                  }.`}
+            </p>
+          )}
+          {!isEdit && blockReason && !confirmError && !conflict && (
+            <p className="mb-3 text-xs text-stone-500">{blockReason} Pode guardar como rascunho e voltar mais tarde.</p>
           )}
           {conflict && (
             <div className="mb-3 space-y-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
@@ -1633,13 +1660,22 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
               {isEdit ? (
                 <button
                   onClick={() => editMutation.mutate(false)}
-                  disabled={saving}
+                  disabled={saving || blockFinalize}
+                  title={blockTitle}
                   className="w-full rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50 sm:w-auto"
                 >
                   {saving ? "A guardar…" : "Guardar alterações"}
                 </button>
               ) : (
                 <>
+                  <button
+                    onClick={saveDraft}
+                    disabled={saving}
+                    title="Grava sem lançar: não cria conta a pagar nem revisão de Stock"
+                    className="w-full rounded-md border border-stone-200 bg-white px-4 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50 sm:w-auto"
+                  >
+                    {draftMutation.isPending ? "A guardar…" : "Guardar rascunho"}
+                  </button>
                   {alreadyPaid && (
                     <button
                       onClick={() => confirm(false)}
