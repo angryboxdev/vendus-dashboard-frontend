@@ -4,6 +4,7 @@ import {
   apiPatch,
   apiDeleteNoContent,
   apiPostFormData,
+  apiPut,
 } from "../../../../lib/api.ts";
 import type { InvoicesApiPort, AddInvoiceLinePayload } from "../../domain/ports/out/invoices-api.port.ts";
 import type {
@@ -22,6 +23,12 @@ import type {
   LineDetailMode,
   InvoiceDocumentType,
   SetLineDeductibilityOverridePayload,
+  AllocationPayload,
+  InvoiceAllocationDTO,
+  PayablesSummaryDTO,
+  PayablesSummaryParams,
+  SaveDraftResultDTO,
+  StockRoutingSuggestion,
 } from "../../domain/entities/invoice.ts";
 
 const BASE = "/api/invoices";
@@ -129,5 +136,29 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
   async suggestLineClassification(supplierId: string, description?: string): Promise<SuggestClassificationResult | null> {
     const qs = description ? `?description=${encodeURIComponent(description)}` : "";
     return apiGet(`${BASE}/suggest-classification/${encodeURIComponent(supplierId)}${qs}`);
+  }
+
+  // ── F2 v1.2 ──────────────────────────────────────────────────────────────
+  async getStockRoutingSuggestion(input: { supplierId: string | null; locationId: string | null; categoryIds: string[] }): Promise<StockRoutingSuggestion> {
+    return apiPost(`${BASE}/stock-routing-suggestion`, input);
+  }
+
+  async saveInvoiceDraft(id: string, payload: ConfirmImportedInvoicePayload): Promise<SaveDraftResultDTO> {
+    return apiPost(`${BASE}/${encodeURIComponent(id)}/draft`, payload);
+  }
+
+  async replaceInvoiceAllocations(id: string, allocations: AllocationPayload[], expectedVersion?: number): Promise<InvoiceDTO> {
+    return apiPut(`${BASE}/${encodeURIComponent(id)}/allocations`, { allocations, ...(expectedVersion !== undefined && { expectedVersion }) });
+  }
+
+  async listInvoiceAllocations(): Promise<InvoiceAllocationDTO[]> {
+    return apiGet(`${BASE}/allocations`);
+  }
+
+  async getPayablesSummary(params: PayablesSummaryParams): Promise<PayablesSummaryDTO> {
+    const q = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) if (typeof v === "string" && v.trim()) q.set(k, v.trim());
+    const qs = q.toString();
+    return apiGet(`${BASE}/payables-summary${qs ? `?${qs}` : ""}`);
   }
 }

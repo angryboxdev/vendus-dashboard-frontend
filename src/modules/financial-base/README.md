@@ -1,7 +1,7 @@
 # Módulo: financial-base
 
 > Status: ativo
-> Última atualização: 2026-09-30
+> Última atualização: 2026-10-18 (v1.2 · F2: ficha do fornecedor com «Enviar para Stock», modo financeiro preferido, destino habitual e exceções por loja; «Aplicação em Faturas» com repartições «Por valores»)
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -166,9 +166,12 @@ do fornecedor mostra as suas faturas, mas só lê — não gere o ciclo de vida 
     (módulo `accounting`, default ligado) no mesmo `FLAGS` array dos
     outros flags de impacto; decisão sempre manual do gestor, nunca
     inferida automaticamente.
-  - *Tab 3 — Análise*: tabela de analytics por subcategoria cruzando linhas de fatura
-    classificadas com `costCenterCategoryId`. Dados vindos do módulo `invoices` via
-    `useInvoicesModule()`. Rows expandíveis mostram o detalhe das linhas individuais.
+  - *Tab 3 — Aplicação em Faturas*: despesa **líquida sem IVA** por subcategoria, somando
+    as linhas de faturas «Por artigo» (`listInvoiceLines()`, que o servidor já limita a
+    esse modo) e as repartições de faturas «Por valores» (`listInvoiceAllocations()`),
+    via `domain/services/cost-center-application.ts`. Notas de crédito subtraem. Rows
+    expandíveis mostram as faturas com a origem («Por artigo» / «Por valores»). Faturas
+    «Única» não entram (lacuna anterior, igual à do backend).
 
 - **`SuppliersView`** — página `/financial/suppliers`:
   - 4 KPI cards globais (Fornecedores ativos, Inativos, Com faturas pendentes,
@@ -180,7 +183,11 @@ do fornecedor mostra as suas faturas, mas só lê — não gere o ciclo de vida 
     Faturas. Paginação client-side (10 por página).
   - Ações por linha: olho (navega para detalhe), editar (abre drawer), toggle de estado.
   - Drawer lateral para criar/editar fornecedor (inclui seleção de grupo e subcategoria
-    por defeito, IBAN, prazo de pagamento, notas).
+    por defeito, IBAN, prazo de pagamento, notas). F2: política «Enviar para Stock»
+    (seguir a subcategoria / enviar por defeito / não enviar / decidir no documento),
+    modo financeiro preferido («Única | Por artigo | Por valores»), destino habitual
+    (uma loja) e `SupplierLocationRulesPanel` — exceções por loja, só com mais de uma
+    loja ativa; prevalecem sobre a regra geral para essa loja.
 
 - **`ExportStatementModal`** — modal de exportação de extrato PDF. Campos opcionais de
   `startDate`/`endDate`; ao confirmar chama `downloadSupplierStatement` e força download do PDF.
@@ -256,8 +263,12 @@ Aceitável para o volume actual da Angrybox. Se a lista crescer além de ~500 fo
 os filtros devem ser delegados ao backend (query params `status`, `search`).
 
 **Tab 3 (Análise) usa dados do módulo `invoices` via `useInvoicesModule()`.**
-Os totais por subcategoria vêm de `listInvoiceLines()` (endpoint `GET /api/invoices/lines`),
-cruzado com `cost_center_category_id`. Para aceder sem duplicar a query, o `InvoicesProvider`
+Os totais por subcategoria vêm de `listInvoiceLines()` (endpoint `GET /api/invoices/lines`)
+e, desde a F2, de `listInvoiceAllocations()` (`GET /api/invoices/allocations`), cruzados com
+`cost_center_category_id`. Desde a F2 conta-se o **líquido** (total c/ IVA − IVA da linha,
+já com descontos) em vez de `preço unitário × quantidade` (bruto antes de descontos) —
+necessário para somar com as repartições, que são líquidas; os totais de linhas com
+desconto descem em conformidade. Para aceder sem duplicar a query, o `InvoicesProvider`
 envolve toda a rota `/financial/*` no `App.tsx`. Qualquer vista dentro do grupo financeiro
 pode usar `useInvoicesModule()`.
 
@@ -290,7 +301,8 @@ compradas" com uma nota explícita em vez de um gráfico vazio ou inventado.
 
 ## Como testar
 
-- Domínio: não há lógica de domínio no frontend — entidades são interfaces TypeScript.
+- Domínio: `npx vitest run src/modules/financial-base` — `cost-center-application.test.ts`
+  (líquido com descontos, linhas + repartições, nota de crédito).
 - Testes de UI: a implementar com Vitest + Testing Library.
 
 ## Pontos de atenção / dívidas conhecidas

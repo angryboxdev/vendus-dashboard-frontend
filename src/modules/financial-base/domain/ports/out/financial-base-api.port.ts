@@ -14,6 +14,8 @@ import type {
   SupplierDetail,
   CreateSupplierPayload,
   UpdateSupplierPayload,
+  SupplierLocationRule,
+  UpsertSupplierLocationRulePayload,
 } from "../../entities/supplier.ts";
 import type {
   SupplierDeliveryScheduleDTO,
@@ -68,5 +70,9 @@ export interface FinancialBaseApiPort {
 
   // Delivery schedule (módulo Stock — Planeamento, D10)
   listSupplierDeliverySchedules(supplierId: string): Promise<SupplierDeliveryScheduleDTO[]>;
+  // Exceções por loja (F2 v1.2 §2.1)
+  listSupplierLocationRules(supplierId: string): Promise<SupplierLocationRule[]>;
+  upsertSupplierLocationRule(supplierId: string, locationId: string, payload: UpsertSupplierLocationRulePayload): Promise<SupplierLocationRule>;
+  deleteSupplierLocationRule(supplierId: string, locationId: string): Promise<void>;
   upsertSupplierDeliverySchedule(supplierId: string, payload: UpsertSupplierDeliverySchedulePayload): Promise<SupplierDeliveryScheduleDTO>;
 }

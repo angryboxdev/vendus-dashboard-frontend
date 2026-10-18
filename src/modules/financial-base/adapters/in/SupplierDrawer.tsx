@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from "react";
 import { NumericInput } from "../../../../components/NumericInput.tsx";
 import type { CostCenterGroup, CostCenterCategory } from "../../domain/entities/cost-center.ts";
-import type { Supplier, CreateSupplierPayload, UpdateSupplierPayload, DefaultStockPolicy } from "../../domain/entities/supplier.ts";
-import { DEFAULT_STOCK_POLICY_LABELS } from "../../domain/entities/supplier.ts";
+import type { Supplier, CreateSupplierPayload, UpdateSupplierPayload, DefaultStockPolicy, FinancialMode } from "../../domain/entities/supplier.ts";
+import { DEFAULT_STOCK_POLICY_LABELS, FINANCIAL_MODE_LABELS } from "../../domain/entities/supplier.ts";
+import { LocationSelect } from "../../../../components/LocationSelect.tsx";
+import { SupplierLocationRulesPanel } from "./SupplierLocationRulesPanel.tsx";
 
 const inputCls =
   "w-full rounded-lg border border-stone-200 px-3 py-2 text-sm text-stone-800 outline-none transition focus:border-[#ED5C32] focus:ring-1 focus:ring-[#ED5C32]/30";
@@ -33,6 +35,8 @@ export function SupplierDrawer({ open, editing, groups, categories, onClose, onS
   );
   const [notes, setNotes] = useState(editing?.notes ?? "");
   const [defaultStockPolicy, setDefaultStockPolicy] = useState<DefaultStockPolicy>(editing?.defaultStockPolicy ?? "inherit");
+  const [defaultFinancialMode, setDefaultFinancialMode] = useState<FinancialMode | "">(editing?.defaultFinancialMode ?? "");
+  const [defaultLocationId, setDefaultLocationId] = useState<string | null>(editing?.defaultLocationId ?? null);
 
   const filteredCategories = categories.filter(
     (c) => c.isActive && (!defaultGroupId || c.groupId === defaultGroupId),
@@ -57,6 +61,8 @@ export function SupplierDrawer({ open, editing, groups, categories, onClose, onS
       paymentTermsDays: paymentTermsDays ? Number(paymentTermsDays) : null,
       notes: notes || null,
       defaultStockPolicy,
+      defaultFinancialMode: defaultFinancialMode || null,
+      defaultLocationId,
     };
     onSave(payload, isEdit ? editing!.id : undefined);
   }
@@ -156,7 +162,7 @@ export function SupplierDrawer({ open, editing, groups, categories, onClose, onS
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-stone-700">Impacto no stock (por defeito)</label>
+            <label className="mb-1.5 block text-sm font-medium text-stone-700">Enviar para Stock</label>
             <select
               value={defaultStockPolicy}
               onChange={(e) => setDefaultStockPolicy(e.target.value as DefaultStockPolicy)}
@@ -167,9 +173,24 @@ export function SupplierDrawer({ open, editing, groups, categories, onClose, onS
               ))}
             </select>
             <p className="mt-1 text-xs text-stone-400">
-              Aplica-se apenas como sugestão ao criar novas faturas deste fornecedor — pode ser alterado em cada fatura.
+              Sugestão em cada fatura deste fornecedor (pode ser alterada no lançamento). «Decidir no documento» obriga a escolher em cada fatura.
             </p>
           </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-stone-700">Modo financeiro preferido</label>
+              <select value={defaultFinancialMode} onChange={(e) => setDefaultFinancialMode(e.target.value as FinancialMode | "")} className={inputCls}>
+                <option value="">Sem preferência</option>
+                {(Object.entries(FINANCIAL_MODE_LABELS) as [FinancialMode, string][]).map(([value, label]) => (
+                  <option key={value} value={value}>{label}</option>
+                ))}
+              </select>
+            </div>
+            <LocationSelect value={defaultLocationId} onChange={setDefaultLocationId} allowUnset label="Destino habitual" className={inputCls} />
+          </div>
+
+          {isEdit && <SupplierLocationRulesPanel supplierId={editing!.id} categories={categories} />}
 
           <div>
             <label className="mb-1.5 block text-sm font-medium text-stone-700">Notas</label>

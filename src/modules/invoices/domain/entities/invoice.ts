@@ -25,7 +25,9 @@ export type InvoiceSource = "manual" | "pdf_import" | "image_import";
 export type InvoiceDocumentType = "invoice" | "credit_note";
 export type AiExtractionStatus = "processing" | "done" | "failed";
 export type ReconciliationStatus = "none" | "pending_reconciliation" | "partially_reconciled" | "reconciled";
-export type LineDetailMode = "simple" | "detailed";
+/** simple = «Única», detailed = «Por artigo», by_values = «Por valores» (F2 §2.2). */
+export type LineDetailMode = "simple" | "detailed" | "by_values";
+export type FinancialModeName = "single" | "by_item" | "by_values";
 export type PaymentMethod = "bank_transfer" | "direct_debit" | "mbway" | "card" | "cash" | "cheque" | "other";
 
 /** Módulo "Compra por rever" (stock-purchase-review) — decide se a fatura força/ignora a geração de revisão de stock, ou deixa a decisão automática (categoria/fornecedor). */
@@ -152,6 +154,12 @@ export interface InvoiceDTO {
   updatedAt: string;
   /** Versão (bloqueio otimista) — enviar como `expectedVersion` ao confirmar. */
   version?: number;
+  /** F2 §2.2: «Única» | «Por artigo» | «Por valores». */
+  financialMode?: FinancialModeName;
+  /** Modo «Por valores»: repartições financeiras (não são artigos). */
+  allocations?: InvoiceAllocationDTO[];
+  /** Detalhe: valores gravados (descontos, textos originais, ajustes) — reabrir rascunho sem perder nada. */
+  storedAmounts?: StoredAmountsDTO | null;
   lines?: InvoiceLineDTO[];
   linesSummary?: {
     subtotalWithoutVat: number;
@@ -161,6 +169,8 @@ export interface InvoiceDTO {
   };
   classificationSummary: {
     mode: "unique" | "mixed" | "none";
+    /** "net" = montantes líquidos sem IVA (modo «Por valores»). */
+    basis?: "net";
     entries: Array<{
       costCenterCategoryId: string;
       code: string;
@@ -224,6 +234,75 @@ export interface InvoiceImportResultDTO {
   /** O documento já existia (mesmo ficheiro ou mesma identidade fiscal): é devolvido o existente. */
   reused?: "same_file" | "same_fiscal_identity";
   fiscal?: ImportFiscalInfo;
+}
+
+/** Valores gravados do documento (espelho de `StoredAmountsView` no backend). Desconto: % (10 = 10%) ou cêntimos. */
+export interface StoredAmountsDTO {
+  globalDiscountKind: "pct" | "amount" | null;
+  globalDiscountValue: number | null;
+  footerDiscountCents: number | null;
+  adjustmentsCents: number;
+  roundingAdjustmentCents: number;
+  roundingAdjustmentReason: string | null;
+  differenceCents: number | null;
+  lines: { lineId: string; quantityText: string | null; unitPriceText: string | null; discountKind: "pct" | "amount" | null; discountValue: number | null }[];
+}
+
+/** Repartição «Por valores»: descrição + subcategoria (+ loja) + montante líquido em cêntimos. */
+export interface AllocationPayload {
+  description: string;
+  costCenterGroupId?: string | null;
+  costCenterCategoryId: string;
+  locationId?: string | null;
+  netCents: number;
+}
+
+export interface InvoiceAllocationDTO extends AllocationPayload {
+  id: string;
+  invoiceId: string;
+  position: number;
+  costCenterGroupId: string | null;
+  locationId: string | null;
+}
+
+/** Sugestão «Enviar para Stock» (F2 §2.1). */
+export interface StockRoutingSuggestion {
+  send: boolean | null;
+  source: "supplier_location" | "supplier" | "category" | "none";
+  reason: string;
+  requiresDecision: boolean;
+}
+
+/** «Guardar rascunho»: estado da conferência. */
+export interface SaveDraftResultDTO {
+  invoice: InvoiceDTO;
+  differenceCents: number | null;
+  remainingCents: number | null;
+  readyToFinalize: boolean;
+  blockingReason: string | null;
+}
+
+/** «Total a pagar | Em atraso» (F2 §2.3). */
+export interface PayablesSummaryDTO {
+  currency: string;
+  today: string;
+  totalOpenCents: number;
+  overdueCents: number;
+  documents: number;
+  missingDueDate: { count: number; cents: number };
+  multiLocationDocuments: number;
+  suspectedDuplicates: number;
+  unappliedCreditCents: number;
+  otherCurrencies: string[];
+}
+
+export interface PayablesSummaryParams {
+  search?: string;
+  from?: string;
+  to?: string;
+  supplierId?: string;
+  locationId?: string;
+  currency?: string;
 }
 
 export interface AmountDiscountPayload {
@@ -363,6 +442,9 @@ export interface ConfirmImportedInvoicePayload {
   notADuplicate?: boolean;
   /** Completar o documento que já existe só no Stock (sem nova revisão de stock). */
   completeStockIdentityId?: string;
+  /** F2 §2.2: modo financeiro; «Por valores» exige `allocations` (soma = base líquida). */
+  financialMode?: FinancialModeName;
+  allocations?: AllocationPayload[];
 }
 
 export interface UpdateInvoiceLinePayload {
