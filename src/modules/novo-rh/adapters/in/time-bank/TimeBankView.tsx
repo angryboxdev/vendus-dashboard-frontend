@@ -127,13 +127,16 @@ export function LedgerPanel({ initialEmployeeId = "", fixedEmployeeId }: { initi
           </select>
         )}
         {employeeId && (
-          <Button size="sm" disabled={sync.isPending} onClick={() => sync.mutate()}>
+          // Abrir o banco de horas já sincroniza no servidor: não deixar sincronizar ao mesmo tempo
+          // (dois syncs simultâneos podiam lançar o mesmo ajuste/expiração duas vezes).
+          <Button size="sm" disabled={sync.isPending || q.isFetching} title={q.isFetching ? t("tb.sync.busy") : undefined} onClick={() => sync.mutate()}>
             {t("tb.sync")}
           </Button>
         )}
         {sync.data && <span className="text-xs text-stone-500">{t("tb.sync.done", { count: sync.data.posted })}</span>}
       </div>
       {q.isError && <p className="text-sm text-red-700">{message(q.error, t("common.loadError"))}</p>}
+      {q.isLoading && employeeId && <p className="text-sm text-stone-400">{t("common.loading")}</p>}
       {l && (
         <>
           <dl className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -147,7 +150,7 @@ export function LedgerPanel({ initialEmployeeId = "", fixedEmployeeId }: { initi
             ).map(([k, v]) => (
               <div key={k} className="rounded-md border border-stone-200 p-2">
                 <dt className="text-xs text-stone-500">{t(k)}</dt>
-                <dd className="font-mono text-sm font-semibold text-stone-900">{formatBank(v)}</dd>
+                <dd className={`font-mono text-sm font-semibold ${k === "tb.kpi.balance" ? (v < 0 ? "text-red-700" : v > 0 ? "text-emerald-700" : "text-stone-900") : "text-stone-900"}`}>{formatBank(v)}</dd>
               </div>
             ))}
           </dl>
@@ -155,7 +158,8 @@ export function LedgerPanel({ initialEmployeeId = "", fixedEmployeeId }: { initi
           {l.pendingValidation.length > 0 && <Validations employeeId={employeeId} rows={l.pendingValidation} />}
           <Compensate employeeId={employeeId} ledger={l} />
           <Adjust employeeId={employeeId} />
-          <div className="max-h-[420px] overflow-auto">
+          {l.entries.length === 0 && <p className="text-sm text-stone-500">{t("tb.entries.none")}</p>}
+          <div className={`max-h-[420px] overflow-auto ${l.entries.length === 0 ? "hidden" : ""}`}>
             <table className={TABLE}>
               <thead className={THEAD}>
                 <tr>

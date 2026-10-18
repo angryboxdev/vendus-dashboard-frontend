@@ -4,7 +4,7 @@ import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
 import { AlertBanner, Button, FIELD, LABEL, SECTION_TITLE, SURFACE } from "../../../../../components/ui/index.ts";
 import type { AbsenceRequest, RequestStatus } from "../../../domain/entities/absences.ts";
-import { formatAmount } from "../../../domain/services/absences.service.ts";
+import { balanceUsage, formatAmount } from "../../../domain/services/absences.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { RequestForm } from "./RequestForm.tsx";
 import { RequestsTable } from "./RequestsTable.tsx";
@@ -59,7 +59,8 @@ export function RequestsPanel({ fixedEmployeeId }: { fixedEmployeeId?: string } 
   const { absences } = useNovoRh();
   const qc = useQueryClient();
   const employees = useEmployees();
-  const [status, setStatus] = useState<RequestStatus | "">("pending");
+  // Na ficha mostra o histórico todo da pessoa; na área de Ausências, os pendentes.
+  const [status, setStatus] = useState<RequestStatus | "">(fixedEmployeeId ? "" : "pending");
   const [employeeId, setEmployeeId] = useState(fixedEmployeeId ?? "");
   const types = useQuery({ queryKey: [...KEY, "types"], queryFn: () => absences.listTypes() });
   const q = useQuery({
@@ -85,7 +86,7 @@ export function RequestsPanel({ fixedEmployeeId }: { fixedEmployeeId?: string } 
             </select>
           )}
           <select aria-label={t("abs.col.status")} className={FIELD} value={status} onChange={(e) => setStatus(e.target.value as RequestStatus | "")}>
-            <option value="">{t("common.none")}</option>
+            <option value="">{t("abs.status.all")}</option>
             {(["pending", "approved", "rejected", "cancelled"] as const).map((s) => (
               <option key={s} value={s}>
                 {t(`abs.status.${s}` as MessageKey)}
@@ -94,6 +95,7 @@ export function RequestsPanel({ fixedEmployeeId }: { fixedEmployeeId?: string } 
           </select>
         </div>
         {q.isError && <p className="text-sm text-red-700">{message(q.error, t("common.loadError"))}</p>}
+        {q.isLoading && <p className="text-sm text-stone-400">{t("common.loading")}</p>}
         {q.data?.length === 0 && <p className="text-sm text-stone-500">{t("abs.requests.none")}</p>}
         {!!q.data?.length && <RequestsTable rows={q.data} employeeName={employees.name} actions={(r) => (r.status === "pending" || r.status === "approved" ? <CancelRequest request={r} /> : null)} />}
       </section>
@@ -161,6 +163,7 @@ export function BalancesPanel({ fixedEmployeeId }: { fixedEmployeeId?: string } 
         </select>
       )}
       {q.isError && <p className="text-sm text-red-700">{message(q.error, t("common.loadError"))}</p>}
+      {q.isLoading && <p className="text-sm text-stone-400">{t("common.loading")}</p>}
       {q.data && <BalanceList balances={q.data} />}
       {q.data && q.data.length > 0 && (
         <div className="flex flex-wrap items-end gap-2" aria-label={t("abs.adjust")} role="group">
@@ -214,11 +217,27 @@ function BalanceList({ balances }: { balances: Awaited<ReturnType<ReturnType<typ
   const { t } = useI18n();
   if (!balances.length) return <p className="text-sm text-stone-500">{t("abs.balances.none")}</p>;
   return (
-    <ul className="space-y-2">
-      {balances.map((b) => (
-        <li key={b.typeId} className="rounded-md border border-stone-200 p-3">
-          <p className="text-sm font-semibold text-stone-900">
-            {t("abs.balance.row", { type: b.typeName, available: formatAmount(b.available, b.unit), used: formatAmount(b.used, b.unit), pending: formatAmount(b.pending, b.unit) })}
+    <ul className="grid gap-3 sm:grid-cols-2">
+      {balances.map((b) => {
+        const usage = balanceUsage(b);
+        return (
+        <li key={b.typeId} className="rounded-lg border border-stone-200 p-3">
+          <p className="text-xs font-medium text-stone-500">
+            {b.typeName}
+            <span className="ml-1 text-stone-400">· {b.period}</span>
+          </p>
+          <p className={`mt-1 text-2xl font-semibold tabular-nums ${b.available < 0 ? "text-red-700" : "text-stone-900"}`}>
+            {b.limited ? formatAmount(b.available, b.unit) : t("abs.balance.unlimited")}
+            {b.limited && <span className="ml-1.5 text-xs font-normal text-stone-500">{t("abs.balance.availableSuffix")}</span>}
+          </p>
+          {usage && (
+            <div className="mt-2 flex h-1.5 w-full overflow-hidden rounded-full bg-stone-100" role="img" aria-label={t("abs.balance.bar", { used: formatAmount(b.used, b.unit), pending: formatAmount(b.pending, b.unit) })}>
+              <div className="h-full bg-[#ED5C32]" style={{ width: `${Math.round(usage.used * 100)}%` }} />
+              <div className="h-full bg-amber-300" style={{ width: `${Math.round(usage.pending * 100)}%` }} />
+            </div>
+          )}
+          <p className="mt-1.5 text-xs text-stone-600">
+            {t("abs.balance.usedPending", { used: formatAmount(b.used, b.unit), pending: formatAmount(b.pending, b.unit) })}
           </p>
           <details className="mt-1 text-xs text-stone-600">
             <summary className="cursor-pointer">{t("abs.balance.movements")}</summary>
@@ -232,7 +251,8 @@ function BalanceList({ balances }: { balances: Awaited<ReturnType<ReturnType<typ
             </ul>
           </details>
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }
