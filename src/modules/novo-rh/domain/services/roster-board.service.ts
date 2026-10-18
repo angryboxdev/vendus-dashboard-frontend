@@ -34,10 +34,33 @@ export function segmentsTone(segments: Segment[]): RosterTone {
   return min(s.start) < 12 * 60 ? "morning" : "afternoon";
 }
 
-/** Tipo de um modelo: o nome manda quando é conhecido (ex.: "Serviço"); senão, pelas faixas. */
+/**
+ * Cor guardada no modelo para cada tipo visual (a linha do pastel da escala).
+ * O modelo guarda o hex; a escala e a página dos modelos pintam com o mesmo tipo.
+ */
+export const TONE_COLOR: Record<RosterTone, string> = {
+  morning: "#ECB0A0",
+  afternoon: "#96BAE4",
+  night: "#E2C470",
+  split: "#8CCCAC",
+  other: "#C8B0BA",
+};
+
+export const TONES = Object.keys(TONE_COLOR) as RosterTone[];
+
+/** Tipo correspondente à cor escolhida no modelo; null = cor automática (ou antiga, fora da paleta). */
+export function toneOfColor(color: string | null | undefined): RosterTone | null {
+  if (!color) return null;
+  const c = color.toUpperCase();
+  return TONES.find((t) => TONE_COLOR[t] === c) ?? null;
+}
+
+/** Tipo de um modelo: a cor escolhida manda; senão o nome quando é conhecido (ex.: "Serviço"); senão, pelas faixas. */
 export function templateTone(
-  t: Pick<ShiftTemplate, "name" | "segments">,
+  t: Pick<ShiftTemplate, "name" | "segments"> & { color?: string | null },
 ): RosterTone {
+  const chosen = toneOfColor(t.color);
+  if (chosen) return chosen;
   const n = t.name.trim().toLowerCase();
   if (n.startsWith("serv")) return "other";
   if (n.startsWith("parti") || n.startsWith("repart")) return "split";
