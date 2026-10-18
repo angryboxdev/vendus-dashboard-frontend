@@ -58,4 +58,22 @@ describe("AmountsSummary (quadro de valores da revisão)", () => {
     renderSummary(header(), [{ ...mozzarella, vatRate: "" }]);
     expect(screen.getByText(/Por resolver: linha sem taxa de IVA/)).toBeTruthy();
   });
+
+  it("descontos e ajustes são opcionais: só links até serem abertos", async () => {
+    const user = userEvent.setup();
+    renderSummary(header(), [mozzarella]);
+    expect(screen.queryByLabelText("Desconto global adicional")).toBeNull();
+    expect(screen.queryByLabelText("Desconto no rodapé")).toBeNull();
+    expect(screen.queryByLabelText("Ajustes documentados")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "+ Ajustes (portes, ecovalor…)" }));
+    expect(screen.getByLabelText("Ajustes documentados")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: /Ajustes/ })).toBeNull();
+    expect(screen.getByRole("button", { name: "+ Desconto global" })).toBeTruthy();
+  });
+
+  it("campo com valor gravado/extraído aparece aberto", () => {
+    renderSummary(header({ footerDiscount: "12.40" }), [mozzarella]);
+    expect((screen.getByLabelText("Desconto no rodapé") as HTMLInputElement).value).toBe("12.40");
+    expect(screen.queryByRole("button", { name: "+ Desconto no rodapé" })).toBeNull();
+  });
 });
