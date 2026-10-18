@@ -119,7 +119,8 @@ describe("Escalas — ecrãs", () => {
     expect(await screen.findByText("Turnos da escala")).toBeInTheDocument();
     expect(screen.getByText("1 turnos atribuídos")).toBeInTheDocument();
     expect(screen.getByText("12h 00min")).toBeInTheDocument();
-    expect(screen.getAllByRole("button", { name: `Ana Teste ${MON}` })[0]!.querySelector("img")).not.toBeNull();
+    // Às segundas o cartão de hoje tem o mesmo nome: basta que um dos botões seja o avatar com foto.
+    expect(screen.getAllByRole("button", { name: `Ana Teste ${MON}` }).some((b) => b.querySelector("img"))).toBe(true);
   });
 
   it("sem escalas: estado vazio com 'Nova escala'", async () => {
