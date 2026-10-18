@@ -1,4 +1,4 @@
-import type { AbsenceRequest, AbsenceTypeInput, FlowLevel } from "../entities/absences.ts";
+import type { AbsenceRequest, AbsenceTypeInput, Balance, FlowLevel } from "../entities/absences.ts";
 
 /** Tipo novo com os valores seguros (ADR-0028): pede aprovação, sem limite, sem valores legais. */
 export function emptyType(): AbsenceTypeInput {
@@ -32,6 +32,18 @@ export function emptyType(): AbsenceTypeInput {
 export function formatAmount(amount: number, unit: "days" | "hours"): string {
   const n = amount.toLocaleString("pt-PT", { maximumFractionDigits: 2 });
   return unit === "days" ? `${n} ${Math.abs(amount) === 1 ? "dia" : "dias"}` : `${n} h`;
+}
+
+/**
+ * Barra do saldo (só visual, a partir do que o ledger já devolve): gozado e
+ * pendente face ao direito do período (atribuído + ajustes). Tipos sem limite
+ * ou sem direito não têm barra.
+ */
+export function balanceUsage(b: Pick<Balance, "limited" | "accrued" | "adjusted" | "used" | "pending">): { used: number; pending: number } | null {
+  const total = b.accrued + b.adjusted;
+  if (!b.limited || total <= 0) return null;
+  const used = Math.min(1, Math.max(0, b.used / total));
+  return { used, pending: Math.min(1 - used, Math.max(0, b.pending / total)) };
 }
 
 /** Período do pedido para mostrar: "19/10 – 23/10/2026" ou "19/10/2026 09:00–12:00". */

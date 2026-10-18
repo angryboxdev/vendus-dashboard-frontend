@@ -458,13 +458,21 @@ function ReceivedDistributions({ personId }: { personId: string }) {
   return (
     <section className={`${SURFACE} space-y-2 p-4`} aria-label={t("people.documents.received")}>
       <h3 className={SECTION_TITLE}>{t("people.documents.received")}</h3>
+      {q.isLoading && <p className="text-sm text-stone-400">{t("common.loading")}</p>}
       {q.data && q.data.length === 0 && <p className="text-sm text-stone-500">{t("people.documents.receivedNone")}</p>}
       <ul className="divide-y divide-stone-100">
         {(q.data ?? []).map((d) => (
           <li key={d.id} className="flex flex-wrap items-center justify-between gap-2 py-2 text-sm">
             <span className="text-stone-800">{d.title}</span>
-            <span className="text-xs text-stone-500">
-              {d.createdAt.slice(0, 10)} · {d.confirmedAt ? t("docs.status.confirmed") : d.readAt ? t("docs.status.read") : t("docs.status.delivered")}
+            <span className="flex items-center gap-2 text-xs text-stone-500">
+              {d.createdAt.slice(0, 10)}
+              {d.confirmedAt ? (
+                <StatusBadge tone="success">{t("docs.status.confirmed")}</StatusBadge>
+              ) : d.readAt ? (
+                <StatusBadge tone="neutral">{t("docs.status.read")}</StatusBadge>
+              ) : (
+                <StatusBadge tone="warning">{t("docs.status.delivered")}</StatusBadge>
+              )}
             </span>
           </li>
         ))}
