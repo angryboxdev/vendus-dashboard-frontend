@@ -7,6 +7,7 @@ import type { VersionedPerson } from "../../../domain/entities/people.ts";
 import type { Option } from "../../../domain/ports/out/settings-api.port.ts";
 import { changedFields, draftOf, MANDATORY, needsReason, PERSON_SECTIONS, type PersonDraft } from "../../../domain/services/people-form.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
+import { PersonFieldInput, SPECIAL_FIELDS } from "./PersonFieldInput.tsx";
 
 /** Separador Dados: campos por secção; sem permissão → "Sem permissão"; sensíveis pedem motivo. */
 export function PersonDataTab({ data, locations }: { data: VersionedPerson; locations: Option[] }) {
@@ -70,6 +71,8 @@ export function PersonDataTab({ data, locations }: { data: VersionedPerson; loca
                       </select>
                       {p.primaryLocationId && <p className="mt-1 text-xs text-stone-500">{t("people.transferHint")}</p>}
                     </>
+                  ) : SPECIAL_FIELDS.has(field) ? (
+                    <PersonFieldInput field={field} id={id} value={draft[field] ?? ""} invalid={missing} onChange={(v) => setDraft({ ...draft, [field]: v })} />
                   ) : (
                     <input
                       id={id}
