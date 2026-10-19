@@ -27,6 +27,9 @@ export class HttpRostersApiAdapter implements RostersApiPort {
   coverageStatus() {
     return apiGet<{ enabled: boolean }>(`${R}/coverage/status`);
   }
+  async setCoverageEnabled(enabled: boolean) {
+    return (await apiWrite<{ enabled: boolean }>(`${R}/coverage/status`, { method: "PUT", body: { enabled } })).data;
+  }
   listCoverageRules(locationId: string) {
     return apiGet<CoverageRule[]>(`${R}/coverage/rules?locationId=${encodeURIComponent(locationId)}`);
   }

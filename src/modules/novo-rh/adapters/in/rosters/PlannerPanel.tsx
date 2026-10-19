@@ -955,7 +955,8 @@ export function PlannerPanel({
                   icon: <IconLayers size={16} />,
                   onSelect: onOpenTemplates,
                 },
-                ...(onOpenCoverage && coverageOn.data?.enabled
+                // Sempre no menu: é lá que se liga/desliga (opcional por empresa).
+                ...(onOpenCoverage
                   ? [
                       {
                         label: t("ros.tab.coverage"),

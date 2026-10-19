@@ -1,10 +1,8 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
 import {
-  AlertBanner,
   Button,
   FIELD,
   IconPlus,
@@ -65,21 +63,50 @@ export function CoveragePanel() {
     },
   });
   const remove = useMutation({ mutationFn: (id: string) => rosters.deleteCoverageRule(id), onSuccess: done });
+  // Ligar/desligar aqui mesmo (opcional por empresa): a escala e o menu reagem logo.
+  const toggle = useMutation({
+    mutationFn: (enabled: boolean) => rosters.setCoverageEnabled(enabled),
+    onSuccess: (r) => {
+      qc.setQueryData([...KEY, "coverage", "status"], r);
+      return done();
+    },
+  });
 
   if (status.isLoading) return <p className="text-sm text-ink-secondary">{t("common.loading")}</p>;
-  if (!status.data?.enabled)
-    return (
-      <AlertBanner
-        tone="info"
-        title={t("ros.cov.off.title")}
-        action={
-          <Link to="/hr/novo/configuracoes?tema=features" className="text-sm font-medium text-brand-600 hover:underline">
-            {t("ros.cov.off.link")}
-          </Link>
-        }
+  const on = status.data?.enabled === true;
+  const switchCard = (
+    <div className={`${SURFACE} flex flex-wrap items-start gap-4 p-4`}>
+      <div className="min-w-0 flex-1">
+        <p className="text-base font-semibold text-navy-900">{t("ros.cov.switch")}</p>
+        <p className="mt-1 max-w-2xl text-sm text-ink-secondary">{t("ros.cov.switchHint")}</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={on}
+        aria-label={t("ros.cov.switch")}
+        disabled={toggle.isPending}
+        onClick={() => toggle.mutate(!on)}
+        className="flex items-center gap-2.5 rounded-full text-sm font-medium text-navy-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 disabled:opacity-60"
       >
-        {t("ros.cov.off.body")}
-      </AlertBanner>
+        <span className={`relative inline-flex h-6 w-11 shrink-0 rounded-full transition-colors duration-150 ${on ? "bg-brand-600" : "bg-line"}`}>
+          <span className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform duration-150 ${on ? "translate-x-5" : "translate-x-0.5"}`} />
+        </span>
+        {on ? t("ros.cov.switchOn") : t("ros.cov.switchOff")}
+      </button>
+      {toggle.isError && (
+        <p className="w-full text-sm text-red-700" role="alert">
+          {message(toggle.error, t("common.error"))}
+        </p>
+      )}
+    </div>
+  );
+  if (!on)
+    return (
+      <div className="space-y-4">
+        {switchCard}
+        <p className="text-sm text-ink-secondary">{t("ros.cov.offNote")}</p>
+      </div>
     );
 
   const activeAreas = (areas.data ?? []).filter((a) => a.active).sort((a, b) => a.sortOrder - b.sortOrder);
@@ -134,6 +161,8 @@ export function CoveragePanel() {
   );
 
   return (
+    <div className="space-y-4">
+      {switchCard}
     <section className={`${SURFACE} space-y-5 p-4`}>
       <p className="text-sm text-ink-secondary">{t("ros.cov.hint")}</p>
       <div className="flex flex-wrap gap-3">
@@ -260,5 +289,6 @@ export function CoveragePanel() {
         </p>
       )}
     </section>
+    </div>
   );
 }

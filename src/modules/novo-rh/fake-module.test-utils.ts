@@ -175,6 +175,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       createArea: vi.fn(),
       updateArea: vi.fn(),
       coverageStatus: vi.fn(async () => ({ enabled: false })),
+      setCoverageEnabled: vi.fn(async (enabled: boolean) => ({ enabled })),
       listCoverageRules: vi.fn(async () => []),
       createCoverageRule: vi.fn(),
       updateCoverageRule: vi.fn(),

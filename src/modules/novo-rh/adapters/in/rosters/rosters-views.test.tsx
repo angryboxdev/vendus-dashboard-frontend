@@ -776,14 +776,30 @@ describe("Escalas — plano de cobertura", () => {
     expect(topicDefinitions(topic("rosters"), [def, rest])).toEqual([rest]);
   });
 
-  it("desligado (por omissão): sem alertas, sem pedido de cobertura e sem entrada no menu", async () => {
+  it("desligado (por omissão): sem alertas nem pedido de cobertura; liga-se nas Escalas e a escala passa a mostrar os défices", async () => {
     const m = mod();
+    let on = false;
+    m.rosters.coverageStatus = vi.fn(async () => ({ enabled: on }));
+    m.rosters.setCoverageEnabled = vi.fn(async (v: boolean) => ((on = v), { enabled: v }));
+    m.rosters.coverage = vi.fn(async () => REPORT);
     renderWith(m);
     const user = await openRoster();
-    await user.click(screen.getByRole("button", { name: "Adicionar" }));
-    expect(screen.queryByRole("menuitem", { name: "Plano de cobertura" })).toBeNull();
     expect(m.rosters.coverage).not.toHaveBeenCalled();
     expect(screen.queryByText(/abaixo do mínimo de cobertura/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Adicionar" }));
+    await user.click(screen.getByRole("menuitem", { name: "Plano de cobertura" }));
+    const sw = await screen.findByRole("switch", { name: "Plano de cobertura" });
+    expect(sw).toHaveAttribute("aria-checked", "false");
+    expect(m.rosters.listCoverageRules).not.toHaveBeenCalled();
+    await user.click(sw);
+    expect(m.rosters.setCoverageEnabled).toHaveBeenCalledWith(true);
+    expect(await screen.findByRole("switch", { name: "Plano de cobertura" })).toHaveAttribute("aria-checked", "true");
+    expect(await screen.findByRole("form", { name: "Adicionar mínimo" })).toBeInTheDocument();
+    // Desligar: volta a esconder os mínimos (ficam guardados no servidor).
+    await user.click(screen.getByRole("switch", { name: "Plano de cobertura" }));
+    expect(m.rosters.setCoverageEnabled).toHaveBeenLastCalledWith(false);
+    expect(await screen.findByText("Ligue o plano de cobertura para definir mínimos e ver os défices na escala.")).toBeInTheDocument();
+    expect(m.rosters.deleteCoverageRule).not.toHaveBeenCalled();
   });
 
   it("ligado: alerta com os défices da semana; publicar avisa mas não bloqueia", async () => {
@@ -846,7 +862,7 @@ describe("Escalas — plano de cobertura", () => {
     expect(m.rosters.createCoverageRule).toHaveBeenLastCalledWith({ locationId: "l1", areaId: "a1", weekday: null, date: "2026-12-31", start: "12:00", end: "15:00", minPeople: 2 });
   });
 
-  it("painel com a funcionalidade desligada: explica e leva às Funcionalidades (sem pedir regras)", async () => {
+  it("painel com a funcionalidade desligada: interruptor desligado, explicação e sem pedir regras", async () => {
     const m = mod();
     const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
     render(
@@ -858,8 +874,8 @@ describe("Escalas — plano de cobertura", () => {
         </NovoRhProvider>
       </QueryClientProvider>,
     );
-    expect(await screen.findByText("O plano de cobertura está desligado")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Abrir Funcionalidades" })).toHaveAttribute("href", "/hr/novo/configuracoes?tema=features");
+    expect(await screen.findByRole("switch", { name: "Plano de cobertura" })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByText(/Funcionalidade opcional da empresa/)).toBeInTheDocument();
     expect(m.rosters.listCoverageRules).not.toHaveBeenCalled();
   });
 });

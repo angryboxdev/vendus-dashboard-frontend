@@ -11,6 +11,8 @@ export interface RostersApiPort {
   updateArea(id: string, patch: { name?: string; sortOrder?: number; active?: boolean }): Promise<WorkArea>;
   /** Plano de Cobertura (opcional por empresa). */
   coverageStatus(): Promise<{ enabled: boolean }>;
+  /** Ligar/desligar nas Escalas (vale para a empresa a partir de hoje; desligar mantém os mínimos). */
+  setCoverageEnabled(enabled: boolean): Promise<{ enabled: boolean }>;
   listCoverageRules(locationId: string): Promise<CoverageRule[]>;
   createCoverageRule(input: Omit<CoverageRule, "id">): Promise<CoverageRule>;
   updateCoverageRule(id: string, patch: { start?: string; end?: string; minPeople?: number }): Promise<CoverageRule>;
