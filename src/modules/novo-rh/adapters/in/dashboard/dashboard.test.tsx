@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../../../../lib/api.ts";
 import type { OperationalSnapshot, WidgetPref } from "../../../domain/entities/dashboard.ts";
-import { dashboardRows, defaultLayout, donutSegments, moveBy, moveTo, setSpan, setTeamChart, summaryParts, TEAM_CHARTS, teamChartOf, teamShare, toggleHidden, visibleWidgets } from "../../../domain/services/dashboard.service.ts";
+import { dashboardRows, defaultLayout, rowColumns, donutSegments, moveBy, moveTo, setSpan, setTeamChart, summaryParts, TEAM_CHARTS, teamChartOf, teamShare, toggleHidden, visibleWidgets } from "../../../domain/services/dashboard.service.ts";
 import { fakeNovoRhModule } from "../../../fake-module.test-utils.ts";
 import { NovoRhProvider, type NovoRhModule } from "../../../novo-rh.module.tsx";
 import { DashboardView } from "./DashboardView.tsx";
@@ -134,60 +134,71 @@ describe("Estado da equipa — formatos do gráfico", () => {
   });
 });
 
-describe("Dashboard V2 — duas colunas e detalhe inline", () => {
+describe("Dashboard — expansão horizontal na própria linha", () => {
   const w = (widgetId: string, span: number) => ({ widgetId, span });
 
-  it("linhas de duas colunas pela ordem do layout; «Largo» fica sozinho", () => {
+  it("linhas de duas colunas pela ordem do layout; 50/50 e ~72/28 a favor do expandido", () => {
     const rows = dashboardRows([w("A", 4), w("B", 6), w("C", 12), w("D", 4), w("E", 12), w("F", 6)]);
     expect(rows.map((r) => r.map((x) => x.widgetId))).toEqual([["A", "B"], ["C"], ["D"], ["E"], ["F"]]);
+    expect(rowColumns(2, -1)).toBe("minmax(0, 1fr) minmax(0, 1fr)");
+    expect(rowColumns(2, 0)).toBe("minmax(0, 2.6fr) minmax(15rem, 1fr)");
+    expect(rowColumns(2, 1)).toBe("minmax(15rem, 1fr) minmax(0, 2.6fr)");
+    expect(rowColumns(1, 0)).toBe("minmax(0, 1fr)");
   });
 
-  it("Expandir abre o detalhe logo a seguir à linha (um de cada vez); Escape e clique fora recolhem; menus no detalhe não", async () => {
+  it("expande o próprio cartão (sem segundo bloco nem cabeçalho repetido); o vizinho fica compacto; trocar e recolher", async () => {
+    const m = mod();
+    // Pares pela posição visual depois de reordenar: Cobertura ao lado de Avaliações Google.
+    const order = ["TEAM_STATUS", "LOCATIONS_STATUS", "COVERAGE", "GOOGLE_REVIEWS", "ATTENTION", "REQUESTS"];
+    m.dashboard.layout = vi.fn(async () => ({ layoutVersion: 1, custom: true, widgets: defaultLayout().map((x) => ({ ...x, order: order.includes(x.widgetId) ? order.indexOf(x.widgetId) : 10 + x.order })) }));
+    renderWith(m);
+    const user = userEvent.setup();
+    await screen.findByRole("img", { name: "29 colaboradores" });
+    const card = (name: string) => screen.getByRole("region", { name });
+    const row = () => card("Cobertura da escala").parentElement!;
+    expect(row().style.getPropertyValue("--cols")).toBe("minmax(0, 1fr) minmax(0, 1fr)");
+
+    await user.click(screen.getByRole("button", { name: "Expandir Cobertura da escala" }));
+    // Mesmo cartão, mesmo cabeçalho: o detalhe substitui o resumo lá dentro.
+    expect(card("Cobertura da escala")).toHaveAttribute("data-state", "expanded");
+    expect(within(card("Cobertura da escala")).getByText("Hoje, por centro")).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { name: "Cobertura da escala" })).toHaveLength(1);
+    expect(screen.queryByRole("region", { name: /— detalhe/ })).toBeNull();
+    expect(card("Avaliações Google")).toHaveAttribute("data-state", "compact");
+    expect(row().style.getPropertyValue("--cols")).toBe("minmax(0, 2.6fr) minmax(15rem, 1fr)");
+    expect(screen.getByRole("button", { name: "Recolher Cobertura da escala" })).toHaveAttribute("aria-expanded", "true");
+
+    // Clicar dentro do cartão expandido não recolhe.
+    await user.click(within(card("Cobertura da escala")).getByText("Hoje, por centro"));
+    expect(card("Cobertura da escala")).toHaveAttribute("data-state", "expanded");
+
+    // O vizinho compacto expande-se diretamente (troca sem passar por 50/50).
+    await user.click(screen.getByRole("button", { name: "Expandir Avaliações Google" }));
+    expect(card("Avaliações Google")).toHaveAttribute("data-state", "expanded");
+    expect(card("Cobertura da escala")).toHaveAttribute("data-state", "compact");
+    expect(row().style.getPropertyValue("--cols")).toBe("minmax(15rem, 1fr) minmax(0, 2.6fr)");
+
+    // Escape volta a 50/50 e devolve o foco ao botão.
+    await user.keyboard("{Escape}");
+    expect(row().style.getPropertyValue("--cols")).toBe("minmax(0, 1fr) minmax(0, 1fr)");
+    expect(card("Avaliações Google")).toHaveAttribute("data-state", "normal");
+    await vi.waitFor(() => expect(screen.getByRole("button", { name: "Expandir Avaliações Google" })).toHaveFocus());
+
+    // Clique fora (noutro cartão de outra linha) recolhe.
+    await user.click(screen.getByRole("button", { name: "Expandir Cobertura da escala" }));
+    await user.click(card("Estado da equipa"));
+    expect(card("Cobertura da escala")).toHaveAttribute("data-state", "normal");
+  });
+
+  it("Personalizar: sem expansão; nada da expansão vai para o layout guardado", async () => {
     const m = mod();
     renderWith(m);
     const user = userEvent.setup();
     await screen.findByRole("img", { name: "29 colaboradores" });
-    // Procura sempre de novo (a linha volta a ser desenhada ao abrir/fechar).
-    const units = () => screen.getByRole("region", { name: "Estado das unidades" });
-    await user.click(within(units()).getByRole("button", { name: "Expandir" }));
-    const detail = await screen.findByRole("region", { name: "Estado das unidades — detalhe" });
-    // A tabela completa está no detalhe; o widget continua a mostrar o resumo.
-    expect(within(detail).getByRole("table")).toBeInTheDocument();
-    expect(within(units()).queryByRole("table")).toBeNull();
-    // O detalhe fica no fluxo, a seguir à linha do widget (não é modal).
-    expect(units().parentElement).toBe(detail.parentElement);
-    expect(screen.queryByRole("dialog")).toBeNull();
-    // Escape recolhe.
-    await user.keyboard("{Escape}");
-    expect(screen.queryByRole("region", { name: "Estado das unidades — detalhe" })).toBeNull();
-    // Só um aberto: abrir outro fecha o primeiro.
-    await user.click(within(units()).getByRole("button", { name: "Expandir" }));
-    await user.click(within(screen.getByRole("region", { name: "Cobertura da escala" })).getByRole("button", { name: "Expandir" }));
-    expect(screen.queryByRole("region", { name: "Estado das unidades — detalhe" })).toBeNull();
-    expect(screen.getByRole("region", { name: "Cobertura da escala — detalhe" })).toBeInTheDocument();
-    await user.keyboard("{Escape}");
-    // Clicar dentro do detalhe não recolhe; clicar noutro widget recolhe; Escape também.
-    await user.click(within(units()).getByRole("button", { name: "Expandir" }));
-    const again = await screen.findByRole("region", { name: "Estado das unidades — detalhe" });
-    await user.click(within(again).getAllByRole("cell")[0]!);
-    expect(screen.getByRole("region", { name: "Estado das unidades — detalhe" })).toBeInTheDocument();
-    await user.click(screen.getByRole("region", { name: "Estado da equipa" }));
-    expect(screen.queryByRole("region", { name: "Estado das unidades — detalhe" })).toBeNull();
-    // Foco volta ao «Expandir» do widget.
-    await user.click(within(units()).getByRole("button", { name: "Expandir" }));
-    await user.keyboard("{Escape}");
-    await vi.waitFor(() => expect(within(units()).getByRole("button", { name: "Expandir" })).toHaveFocus());
-  });
-
-  it("em Personalizar não há Expandir e o detalhe fecha; nada de expandido vai para o layout", async () => {
-    const m = mod();
-    renderWith(m);
-    const user = userEvent.setup();
-    await screen.findByRole("img", { name: "29 colaboradores" });
-    await user.click(within(screen.getByRole("region", { name: "Estado das unidades" })).getByRole("button", { name: "Expandir" }));
+    await user.click(screen.getByRole("button", { name: "Expandir Cobertura da escala" }));
     await user.click(screen.getByRole("button", { name: "Personalizar" }));
-    expect(screen.queryByRole("region", { name: "Estado das unidades — detalhe" })).toBeNull();
-    expect(screen.queryByRole("button", { name: "Expandir" })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^Expandir / })).toBeNull();
+    expect(screen.getByRole("region", { name: "Cobertura da escala" })).toHaveAttribute("data-state", "normal");
     await user.click(screen.getByRole("button", { name: "Guardar layout" }));
     await vi.waitFor(() => expect(m.dashboard.saveLayout).toHaveBeenCalledTimes(1));
     const sent = (m.dashboard.saveLayout as ReturnType<typeof vi.fn>).mock.calls[0]![0] as WidgetPref[];

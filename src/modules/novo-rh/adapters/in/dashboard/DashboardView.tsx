@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { useOptionalAuth } from "../../../../../contexts/AuthContext.tsx";
@@ -19,9 +19,9 @@ import { hasLevel } from "../../../../access/domain/services/access-ui.service.t
 import { ApiError } from "../../../../../lib/api.ts";
 import type { TeamCategory, TeamChart, UnitRow, WidgetPref } from "../../../domain/entities/dashboard.ts";
 import {
+  rowColumns,
   dashboardRows,
   defaultLayout,
-  isFullWidth,
   SUMMARY_ITEMS,
   setTeamChart,
   TEAM_CHART_LABEL,
@@ -42,8 +42,8 @@ import {
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { DashboardWidget, WidgetMessage, WidgetSkeleton } from "./DashboardWidget.tsx";
 import { TeamDrawer, UnitDrawer } from "./DashboardDrawers.tsx";
-import { GoogleReviewsBody } from "./GoogleReviews.tsx";
-import { AttentionBody, BirthdaysBody, CoverageBody, CoverageDetail, HolidaysBody, ReportsBody, RequestsBody, TeamBody, UnitsBody, UnitsSummary } from "./Widgets.tsx";
+import { GoogleReviewsBody, GoogleReviewsCompact } from "./GoogleReviews.tsx";
+import { AttentionBody, BirthdaysBody, CompactKpi, CoverageBody, CoverageDetail, HolidaysBody, ReportsBody, RequestsBody, TeamBody, UnitsBody, UnitsSummary } from "./Widgets.tsx";
 
 /** "A preparar" (503: o cálculo de hoje continua no servidor) ou falha de rede: tenta de novo sozinho. */
 const warming = (e: unknown) => e instanceof ApiError && e.status === 503;
@@ -208,7 +208,7 @@ export function DashboardView() {
       // Só cliques na grelha do Dashboard contam como «fora»: menus, popovers e diálogos
       // em portal (fora da grelha) e o próprio detalhe ou o seu botão nunca recolhem.
       if (!root.current.contains(t)) return;
-      if (t.closest("[data-widget-detail]") || t.closest(`[data-expand]`)) return;
+      if (t.closest(`#widget-${expanded}`) || t.closest('[data-state="compact"]') || t.closest("[data-expand]")) return;
       collapse();
     };
     document.addEventListener("keydown", onKey);
@@ -223,6 +223,31 @@ export function DashboardView() {
   useEffect(() => {
     if (editing) setExpanded(null);
   }, [editing]);
+
+  const compactOf = (id: WidgetId): ReactNode => {
+    if (!s) return null;
+    const present = s.team.working + s.team.remote + s.team.break;
+    switch (id) {
+      case "ATTENTION":
+        return <CompactKpi value={s.attention.reduce((n, a) => n + a.count, 0)} label="ocorrências" sub={s.attention[0] ? `${s.attention[0].count} ${s.attention[0].label}` : "Sem pendências críticas"} tone="critical" />;
+      case "TEAM_STATUS":
+        return <CompactKpi value={s.team.total} label="colaboradores" sub={`${present} presentes · ${s.team.absent} ausentes`} />;
+      case "LOCATIONS_STATUS":
+        return <CompactKpi value={s.units.operational} label="unidades" sub={s.units.requiringAttention ? `${s.units.requiringAttention} com exceções` : "Sem exceções"} />;
+      case "COVERAGE":
+        return s.partial?.includes("coverage") ? <p className="text-sm text-ink-secondary">Indisponível agora.</p> : <CompactKpi value={s.coverage.uncoveredTotal} label="turnos a rever" sub={`Hoje ${s.coverage.uncoveredToday} · Amanhã ${s.coverage.uncoveredTomorrow}`} tone="critical" />;
+      case "REQUESTS":
+        return s.partial?.includes("requests") ? <p className="text-sm text-ink-secondary">Indisponível agora.</p> : <CompactKpi value={s.requests.decidable} label="pendentes" sub="Aprovar ou recusar ao expandir" />;
+      case "GOOGLE_REVIEWS":
+        return <GoogleReviewsCompact />;
+      case "BIRTHDAYS":
+        return birthdays.data ? <CompactKpi value={birthdays.data.length} label="nos próximos 30 dias" sub={birthdays.data[0] ? `Próximo: ${birthdays.data[0].name}` : undefined} /> : null;
+      case "HOLIDAYS":
+        return <CompactKpi value={s.holidays.length} label="próximos" sub={s.holidays[0] ? `${s.holidays[0].name} (${s.holidays[0].date.slice(8, 10)}/${s.holidays[0].date.slice(5, 7)})` : "Sem feriados próximos"} />;
+      default:
+        return null;
+    }
+  };
 
   const body = (id: WidgetId): { icon: ReactNode; node: ReactNode; detail?: ReactNode; count?: number; critical?: boolean; subtitle?: ReactNode; action?: ReactNode } => {
     if (!s) return { icon: null, node: snap.isError ? <WidgetMessage text="Sem dados (o resumo não carregou)." /> : <WidgetSkeleton /> };
@@ -375,46 +400,34 @@ export function DashboardView() {
         */}
         <div ref={root} className="min-w-0 flex-1 space-y-4">
           {dashboardRows(shown.filter((w) => !hide(w.widgetId))).map((row) => {
-            const open = !editing ? row.find((w) => w.widgetId === expanded) : undefined;
-            const openIndex = open ? row.indexOf(open) : -1;
+            const open = editing ? -1 : row.findIndex((w) => w.widgetId === expanded);
             return (
-              <div key={row.map((w) => w.widgetId).join("|")} className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
+              <div
+                key={row.map((w) => w.widgetId).join("|")}
+                data-row=""
+                style={{ "--cols": rowColumns(row.length, open) } as CSSProperties}
+                className="grid grid-cols-1 items-stretch gap-4 lg:[grid-template-columns:var(--cols)] motion-safe:transition-[grid-template-columns] motion-safe:duration-[240ms] motion-safe:ease-[cubic-bezier(.2,.7,.2,1)]"
+              >
                 {row.map((w, i) => {
                   const b = body(w.widgetId as WidgetId);
-                  const detailId = `widget-detail-${w.widgetId}`;
+                  const state = open < 0 ? "normal" : open === i ? "expanded" : "compact";
                   return (
-                    <Fragment key={w.widgetId}>
-                      <DashboardWidget
-                        def={w.def}
-                        full={isFullWidth(w.span) || row.length === 1}
-                        className={i === 0 ? "order-1" : "order-3 lg:order-2"}
-                        icon={b.icon}
-                        count={b.count}
-                        countTone={b.critical ? "critical" : "neutral"}
-                        subtitle={b.subtitle}
-                        action={b.action}
-                        edit={editProps(w)}
-                        expand={!editing && b.detail ? { expanded: expanded === w.widgetId, detailId, onToggle: () => toggleExpanded(w.widgetId) } : undefined}
-                      >
-                        {b.node}
-                      </DashboardWidget>
-                      {open === w && b.detail && (
-                        <section
-                          id={detailId}
-                          data-widget-detail=""
-                          aria-label={`${w.def.title} — detalhe`}
-                          className={`${openIndex === 0 ? "order-2 lg:order-3" : "order-4 lg:order-3"} min-w-0 rounded-2.5xl border border-brand-100 bg-surface-card p-5 shadow-card motion-safe:animate-motion-fade-up lg:col-span-2`}
-                        >
-                          <header className="mb-3 flex items-center justify-between gap-3">
-                            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-navy-900">{w.def.title}</h2>
-                            <Button size="sm" variant="tertiary" onClick={() => collapse()}>
-                              Recolher
-                            </Button>
-                          </header>
-                          {b.detail}
-                        </section>
-                      )}
-                    </Fragment>
+                    <DashboardWidget
+                      key={w.widgetId}
+                      def={w.def}
+                      full={false}
+                      icon={b.icon}
+                      count={b.count}
+                      countTone={b.critical ? "critical" : "neutral"}
+                      subtitle={b.subtitle}
+                      action={b.action}
+                      edit={editProps(w)}
+                      detail={b.detail}
+                      compact={compactOf(w.widgetId as WidgetId)}
+                      expand={editing ? undefined : { state, canExpand: !!b.detail, onToggle: () => toggleExpanded(w.widgetId) }}
+                    >
+                      {b.node}
+                    </DashboardWidget>
                   );
                 })}
               </div>

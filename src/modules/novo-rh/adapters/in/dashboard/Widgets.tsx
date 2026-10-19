@@ -402,3 +402,23 @@ export function ReportsBody({ limit = 4 }: { limit?: number }) {
     </ul>
   );
 }
+
+/**
+ * Vizinho compacto (quando o outro cartão da linha está expandido): só o
+ * essencial — um número e uma linha de apoio, truncada com tooltip.
+ */
+export function CompactKpi({ value, label, sub, tone = "neutral" }: { value: number | string; label: string; sub?: string; tone?: "neutral" | "critical" }) {
+  return (
+    <div className="min-w-0 space-y-1">
+      <p className="flex items-baseline gap-1.5">
+        <strong className={`text-2xl font-bold tabular-nums ${tone === "critical" && value ? "text-red-600" : "text-navy-900"}`}>{value}</strong>
+        <span className="truncate text-sm text-ink-secondary">{label}</span>
+      </p>
+      {sub && (
+        <p className="truncate text-xs text-ink-secondary" title={sub}>
+          {sub}
+        </p>
+      )}
+    </div>
+  );
+}

@@ -65,6 +65,8 @@ export function DashboardWidget({
   children,
   edit,
   expand,
+  detail,
+  compact,
 }: {
   def: WidgetDefinition;
   /** Ocupa as duas colunas («Largo»). */
@@ -78,10 +80,26 @@ export function DashboardWidget({
   action?: ReactNode;
   children: ReactNode;
   edit?: EditProps;
-  /** «Expandir» (detalhe por baixo da linha); ausente = o resumo já é tudo. */
-  expand?: { expanded: boolean; onToggle: () => void; detailId: string };
+  /**
+   * Expansão horizontal na própria linha (estado visual transitório):
+   * «expanded» mostra o detalhe dentro deste cartão; «compact» é o vizinho
+   * encolhido (só o essencial; clicar expande-o). Ausente = não expande.
+   */
+  expand?: { state: "normal" | "expanded" | "compact"; onToggle: () => void; canExpand: boolean };
+  /** Conteúdo completo quando expandido (substitui o resumo, no mesmo cartão). */
+  detail?: ReactNode;
+  /** O essencial quando o vizinho está expandido (só em desktop; abaixo mostra o resumo). */
+  compact?: ReactNode;
 }) {
   const editing = !!edit?.editing;
+  const state = editing ? "normal" : (expand?.state ?? "normal");
+  const bodyId = `widget-body-${def.id}`;
+  // Vizinho compacto: clicar no cartão (em desktop) troca a expansão para ele.
+  const compactClick = () => {
+    if (state !== "compact" || !expand?.canExpand) return;
+    if (typeof window !== "undefined" && window.matchMedia && !window.matchMedia("(min-width: 1024px)").matches) return;
+    expand.onToggle();
+  };
   return (
     <section
       id={`widget-${def.id}`}
@@ -89,8 +107,9 @@ export function DashboardWidget({
       tabIndex={-1}
       onDragOver={edit?.onDragOver}
       onDrop={edit?.onDrop}
-      onClick={editing ? edit!.onSelect : undefined}
-      className={`${full ? "lg:col-span-2" : ""} ${className} relative flex h-full min-w-0 scroll-mt-24 flex-col rounded-2.5xl border bg-surface-card p-5 shadow-card transition duration-150 motion-safe:animate-motion-fade-up ${expand?.expanded ? "ring-2 ring-brand-500/20" : ""} ${
+      data-state={state}
+      onClick={editing ? edit!.onSelect : state === "compact" ? compactClick : undefined}
+      className={`${full ? "lg:col-span-2" : ""} ${className} relative flex h-full min-w-0 scroll-mt-24 flex-col rounded-2.5xl border bg-surface-card p-5 shadow-card transition duration-150 motion-safe:animate-motion-fade-up ${state === "expanded" ? "ring-2 ring-brand-500/20" : ""} ${state === "compact" && expand?.canExpand ? "lg:cursor-pointer lg:hover:border-brand-500/40" : ""} ${
         editing ? `cursor-default ${edit!.selected ? "border-brand-500 ring-2 ring-brand-500/20" : "border-line"} ${edit!.hidden ? "opacity-50" : ""}` : "border-line"
       } ${edit?.dragging ? "scale-[0.99] opacity-40" : ""} ${edit?.dropTarget ? "outline-dashed outline-2 outline-offset-2 outline-brand-500" : ""}`}
     >
@@ -115,13 +134,13 @@ export function DashboardWidget({
           )}
           <span className="mt-0.5 text-navy-900">{icon}</span>
           <div className="min-w-0">
-            <h2 className="flex items-center gap-2 text-[13px] font-semibold uppercase tracking-wide text-navy-900">
-              {def.title}
+            <h2 className="flex min-w-0 items-center gap-2 text-[13px] font-semibold uppercase tracking-wide text-navy-900" title={def.title}>
+              <span className={state === "compact" ? "lg:truncate" : ""}>{def.title}</span>
               {count !== undefined && count > 0 && (
                 <span className={`rounded-full px-2 py-0.5 text-xs font-semibold normal-case tracking-normal tabular-nums ${countTone === "critical" ? "bg-red-50 text-red-700" : "bg-surface-soft text-ink-secondary"}`}>{count}</span>
               )}
             </h2>
-            {subtitle && <p className="mt-0.5 text-xs text-ink-secondary">{subtitle}</p>}
+            {subtitle && <p className={`mt-0.5 text-xs text-ink-secondary ${state === "compact" ? "lg:hidden" : ""}`}>{subtitle}</p>}
           </div>
         </div>
         {editing ? (
@@ -130,25 +149,37 @@ export function DashboardWidget({
           </IconButton>
         ) : (
           <span className="flex shrink-0 items-center gap-2">
-            {action}
-            {expand && (
+            {action && <span className={state === "compact" ? "lg:hidden" : ""}>{action}</span>}
+            {expand?.canExpand && (
               <button
                 type="button"
                 data-expand={def.id}
-                aria-expanded={expand.expanded}
-                aria-controls={expand.detailId}
-                onClick={expand.onToggle}
+                aria-expanded={state === "expanded"}
+                aria-controls={bodyId}
+                aria-label={state === "expanded" ? `Recolher ${def.title}` : `Expandir ${def.title}`}
+                onClick={(e) => (e.stopPropagation(), expand.onToggle())}
                 className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-brand-600 transition-colors hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
               >
-                {expand.expanded ? "Recolher" : "Expandir"}
-                <IconChevronDown size={14} className={`transition-transform duration-150 motion-reduce:transition-none ${expand.expanded ? "rotate-180" : ""}`} />
+                <span className={state === "compact" ? "lg:sr-only" : ""}>{state === "expanded" ? "Recolher" : "Expandir"}</span>
+                <IconChevronDown size={14} className={`transition-transform duration-150 motion-reduce:transition-none ${state === "expanded" ? "rotate-180" : state === "compact" ? "lg:-rotate-90" : ""}`} />
               </button>
             )}
           </span>
         )}
       </header>
-      <div className={`flex-1 ${editing ? "pointer-events-none select-none" : ""}`} inert={editing || undefined}>
-        <WidgetBoundary title={def.title}>{children}</WidgetBoundary>
+      <div id={bodyId} className={`min-w-0 flex-1 ${editing ? "pointer-events-none select-none" : ""}`} inert={editing || undefined}>
+        <WidgetBoundary title={def.title}>
+          {state === "expanded" && detail ? (
+            <div className="motion-safe:animate-motion-fade-up">{detail}</div>
+          ) : state === "compact" && compact ? (
+            <>
+              <div className="hidden lg:block">{compact}</div>
+              <div className="lg:hidden">{children}</div>
+            </>
+          ) : (
+            children
+          )}
+        </WidgetBoundary>
       </div>
     </section>
   );
