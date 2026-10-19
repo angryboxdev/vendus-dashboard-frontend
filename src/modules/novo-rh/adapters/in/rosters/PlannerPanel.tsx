@@ -73,6 +73,8 @@ const KEY = ["novo-rh", "rosters"];
 const PUBLISH_TRIGGER_ID = "ros-publish-trigger";
 const ROSTER_KEY = "novo-rh-roster-id";
 const MODE_KEY = "novo-rh-roster-board-mode";
+/** «Atribuir turnos» recolhido (preferência local, só em ecrã largo). */
+const ASSIGN_KEY = "novo-rh-assign-collapsed";
 const message = (e: unknown, fallback: string) =>
   e instanceof Error ? e.message : fallback;
 const plus = (d: string, n: number) => daysFrom(d, n + 1).at(-1)!;
@@ -211,8 +213,22 @@ export function PlannerPanel({
     () =>
       typeof window === "undefined" ||
       !window.matchMedia ||
-      window.matchMedia("(min-width: 1280px)").matches,
+      (window.matchMedia("(min-width: 1280px)").matches && load(ASSIGN_KEY) !== "1"),
   );
+  // Modelo escolhido antes de recolher: volta ao expandir. Recolhido, o pincel fica desligado
+  // (um clique na grelha nunca atribui um turno com o painel recolhido).
+  const [savedPaint, setSavedPaint] = useState("");
+  const collapseAssign = () => {
+    setSavedPaint(paint);
+    setPaint("");
+    setAssignOpen(false);
+    save(ASSIGN_KEY, "1");
+  };
+  const expandAssign = (templateId?: string) => {
+    setPaint(templateId ?? savedPaint);
+    setAssignOpen(true);
+    save(ASSIGN_KEY, "0");
+  };
   const [extraRows, setExtraRows] = useState<string[]>([]);
   const [selected, setSelected] = useState<RosterShift | null>(null);
   const [reason, setReason] = useState("");
@@ -468,6 +484,7 @@ export function PlannerPanel({
   useEffect(() => {
     edits.reset();
     setPaint("");
+    setSavedPaint("");
     setPaintArea("");
     // O aviso da última operação era desse período: não fica de pé noutra semana.
     setProblem(null);
@@ -930,7 +947,7 @@ export function PlannerPanel({
                 {
                   label: t("ros.assign.title"),
                   icon: <IconLayers size={16} />,
-                  onSelect: () => setAssignOpen(true),
+                  onSelect: () => expandAssign(),
                 },
                 {
                   label: t("ros.addEmployee"),
@@ -1280,11 +1297,17 @@ export function PlannerPanel({
             </section>
           )}
         </div>
-        {assignOpen && rosterId && (
+        {rosterId && (
+          // A coluna encolhe/estica com uma transição curta; a grelha ocupa o espaço libertado.
+          <div
+            className={`shrink-0 self-stretch overflow-x-clip transition-[width] duration-200 ease-out motion-reduce:transition-none ${assignOpen ? "w-[272px] lg:w-[324px]" : "w-[76px]"}`}
+          >
           <AssignPanel
+            collapsed={!assignOpen}
+            onExpand={expandAssign}
             templates={templates.data ?? []}
             loading={templates.isLoading}
-            value={paint}
+            value={assignOpen ? paint : savedPaint}
             onChange={setPaint}
             areas={areaOptions}
             area={paintArea}
@@ -1292,11 +1315,9 @@ export function PlannerPanel({
             onManageAreas={onOpenAreas}
             onCreate={onOpenTemplates}
             onSettings={onOpenTemplates}
-            onClose={() => {
-              setAssignOpen(false);
-              setPaint("");
-            }}
+            onClose={collapseAssign}
           />
+          </div>
         )}
       </div>
 
