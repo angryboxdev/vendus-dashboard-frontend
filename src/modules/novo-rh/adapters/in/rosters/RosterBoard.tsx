@@ -73,6 +73,10 @@ export interface RosterBoardProps {
     onClearWeek: (employeeId: string) => void;
     period: "week" | "period";
   };
+  /** Turnos com conflito encontrado pelo servidor (borda vermelha + ponto com texto). */
+  conflictIds?: Set<string>;
+  /** Turno aberto a partir de «Ver conflitos» (destaque até fechar). */
+  focusId?: string | null;
 }
 
 function Cell({
@@ -169,7 +173,7 @@ function CellBody({
       status={s.dirty ? "draft" : "published"}
       onClick={() => p.onOpen(s)}
       tooltip={`${title}${s.dirty ? " · por publicar" : ""}${s.onCall ? " · prevenção" : ""}${overlap ? " · sobreposto a outro turno: retire um deles" : ""}`}
-      className={`motion-safe:animate-motion-pop-in ${overlap ? "ring-2 ring-red-500/70" : ""}`}
+      className={`motion-safe:animate-motion-pop-in ${overlap ? "ring-2 ring-red-500/70" : ""} ${p.focusId === s.id ? "outline outline-2 outline-offset-2 outline-brand-500" : ""}`}
       indicator={overlap ? { className: "bg-red-500", label: "Sobreposto a outro turno" } : undefined}
       style={{ animationDelay: `${Math.min(index, 8) * 25}ms` }}
       ariaLabel={label}
@@ -189,7 +193,12 @@ export function RosterBoard(p: RosterBoardProps) {
   };
   const firstBatch = useFirstBatch(p.rows.map((r) => r.employeeId));
   const byShift = p.mode === "shifts" ? shiftRows(p.shifts, p.templates) : [];
-  const overlapIds = useMemo(() => overlappingIds(p.shifts, p.templates), [p.shifts, p.templates]);
+  // Sobrepostos na grelha + conflitos que o servidor encontrou (também com turnos de outras escalas).
+  const overlapIds = useMemo(() => {
+    const ids = overlappingIds(p.shifts, p.templates);
+    for (const id of p.conflictIds ?? []) ids.add(id);
+    return ids;
+  }, [p.shifts, p.templates, p.conflictIds]);
 
   const header = (
     <div role="row" className="grid border-b border-line-subtle" style={grid}>

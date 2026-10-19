@@ -62,6 +62,9 @@ import { MezzaAssistantButton } from "../assistant/MezzaAssistantButton.tsx";
 import { aiBatchOp } from "../../../domain/services/assistant.service.ts";
 import { PlacementPreview } from "./PlacementPreview.tsx";
 import { cellKey } from "../../../domain/services/roster-edit.service.ts";
+import { conflictShiftIds, conflictSummary, conflictTarget, weekLabel } from "../../../domain/services/roster-conflicts.service.ts";
+import { AddEmployeesBody, AddEmployeesPicker } from "./AddEmployeesPicker.tsx";
+import { ConflictsDrawer } from "./ConflictsDrawer.tsx";
 
 const KEY = ["novo-rh", "rosters"];
 const PUBLISH_TRIGGER_ID = "ros-publish-trigger";
@@ -86,38 +89,72 @@ function save(key: string, value: string): void {
   }
 }
 
-/** Avisos (pedem confirmação) ou bloqueios devolvidos pela API (RE-16). */
-function ViolationsBox({
+/**
+ * Aviso compacto junto à operação (substitui a lista vermelha gigante): uma
+ * só ocorrência mostra-se por inteiro («Horário indisponível…», com «Ver
+ * turno existente»); várias mostram o resumo e «Ver conflitos» (painel).
+ */
+function ConflictNotice({
   kind,
   violations,
   name,
+  onView,
+  onOpenOther,
   onConfirm,
+  confirmLabel,
+  onDismiss,
 }: {
   kind: "confirm" | "blocked";
   violations: Violation[];
   name: (id: string) => string;
-  onConfirm?: () => void;
+  onView: () => void;
+  onOpenOther: (v: Violation) => void;
+  onConfirm: (() => void) | null;
+  confirmLabel: string;
+  onDismiss: () => void;
 }) {
-  const { t } = useI18n();
+  const s = conflictSummary(violations);
+  const one = violations.length === 1 ? violations[0]! : null;
+  const title = one
+    ? one.rule === "overlap"
+      ? `Horário indisponível — ${name(one.employeeId)}`
+      : `${name(one.employeeId)} · ${one.workDate}`
+    : `${s.total} ${kind === "blocked" ? "conflitos encontrados" : "avisos de restrições"}`;
   return (
     <AlertBanner
       tone={kind === "blocked" ? "danger" : "warning"}
-      title={kind === "blocked" ? t("ros.blocked") : t("ros.warnings")}
+      title={title}
       action={
-        kind === "confirm" && onConfirm ? (
-          <Button size="sm" onClick={onConfirm}>
-            {t("ros.publish.confirm")}
+        <span className="flex flex-wrap gap-1.5">
+          {one?.conflict?.shiftId && (
+            <Button size="sm" onClick={() => onOpenOther(one)}>
+              Ver turno existente
+            </Button>
+          )}
+          {!one && (
+            <Button size="sm" onClick={onView}>
+              Ver conflitos
+            </Button>
+          )}
+          {onConfirm && (
+            <Button size="sm" variant="primary" onClick={onConfirm}>
+              {confirmLabel}
+            </Button>
+          )}
+          <Button size="sm" variant="tertiary" onClick={onDismiss}>
+            {onConfirm ? "Cancelar" : "Fechar"}
           </Button>
-        ) : undefined
+        </span>
       }
     >
-      <ul className="list-disc pl-4">
-        {violations.map((v, i) => (
-          <li key={i}>
-            {name(v.employeeId)}: {v.message}
-          </li>
-        ))}
-      </ul>
+      {one ? (
+        <p>{one.message}</p>
+      ) : (
+        <p>
+          {s.employees} {s.employees === 1 ? "colaborador afetado" : "colaboradores afetados"}
+          {s.weeks.length === 1 ? ` · ${weekLabel(s.weeks[0]!)}` : ` · ${s.weeks.length} semanas`}
+        </p>
+      )}
     </AlertBanner>
   );
 }
@@ -147,7 +184,7 @@ export function PlannerPanel({
   const [chosen, setChosen] = useState(() => params.get("escala") || load(ROSTER_KEY));
   const [from, setFrom] = useState(() => {
     const w = params.get("semana");
-    return w && /^d{4}-d{2}-d{2}$/.test(w) ? weekOf(w).from : weekOf(today).from;
+    return w && /^\d{4}-\d{2}-\d{2}$/.test(w) ? weekOf(w).from : weekOf(today).from;
   });
   const [span, setSpan] = useState<7 | 14>(7);
   const to = plus(from, span - 1);
@@ -170,11 +207,17 @@ export function PlannerPanel({
   const [selected, setSelected] = useState<RosterShift | null>(null);
   const [reason, setReason] = useState("");
   const [publishNote, setPublishNote] = useState("");
+  // Conflitos/avisos da última operação: `retry` repete-a com confirmação (null = só informar).
   const [problem, setProblem] = useState<{
     kind: "confirm" | "blocked";
     violations: Violation[];
-    retry: () => void;
+    retry: (() => void) | null;
+    confirmLabel?: string;
   } | null>(null);
+  // Painel «Ver conflitos»: da última operação ou da verificação da semana.
+  const [conflictsOf, setConflictsOf] = useState<"problem" | "check" | null>(null);
+  // Turno a abrir depois de navegar a partir de um conflito (escala/semana podem mudar primeiro).
+  const [focus, setFocus] = useState<string | null>(null);
   const [drawer, setDrawer] = useState<
     "new" | "bulk" | "history" | "add" | null
   >(null);
@@ -214,9 +257,10 @@ export function PlannerPanel({
     queryFn: () => rosters.history(rosterId),
     enabled: !!rosterId && drawer === "history",
   });
+  // Verificação do período visível (o mesmo que se publica); refaz-se a cada alteração.
   const check = useQuery({
-    queryKey: [...KEY, "check", rosterId, shifts.dataUpdatedAt],
-    queryFn: () => rosters.check(rosterId),
+    queryKey: [...KEY, "check", rosterId, from, span, shifts.dataUpdatedAt],
+    queryFn: () => rosters.check(rosterId, { from, to }),
     enabled: !!rosterId && !!shifts.data,
   });
   const name = (id: string) =>
@@ -244,16 +288,29 @@ export function PlannerPanel({
       }),
     [shifts.data, extraRows, peopleIndex, tpls, search, sort],
   );
-  const hidden = useMemo(
-    () =>
-      search.trim()
-        ? rosterRows(shifts.data?.shifts ?? [], extraRows, peopleIndex, tpls, {
-            search: "",
-            sort,
-          }).length - rows.length
-        : 0,
-    [shifts.data, extraRows, peopleIndex, tpls, search, sort, rows.length],
+  // Quem está na escala (sem o filtro da pesquisa): quem a pesquisa esconde não passa a «por adicionar».
+  const inRoster = useMemo(
+    () => new Set(rosterRows(shifts.data?.shifts ?? [], extraRows, peopleIndex, tpls, { search: "", sort }).map((r) => r.employeeId)),
+    [shifts.data, extraRows, peopleIndex, tpls, sort],
   );
+  const hidden = search.trim() ? inRoster.size - rows.length : 0;
+  const locationOptions = useQuery({
+    queryKey: ["novo-rh", "settings", "locations"],
+    queryFn: () => settings.listLocations(),
+  });
+  const locationName = (id: string | null) => (id ? (locationOptions.data?.find((l) => l.id === id)?.label ?? null) : null);
+  const pickerPeople = useMemo(
+    () =>
+      (employees.data ?? []).map((e) => ({
+        id: e.id,
+        name: e.label,
+        photoUrl: e.photoUrl ?? null,
+        primaryLocationId: persons.data?.find((p) => p.id === e.id)?.primaryLocationId ?? null,
+      })),
+    [employees.data, persons.data],
+  );
+  const addPeople = (ids: string[]) => setExtraRows((cur) => [...cur, ...ids.filter((id) => !cur.includes(id))]);
+  const rosterLabel = roster ? (roster.targetType === "location" ? (locationName(roster.targetId) ?? roster.name) : roster.name) : "";
   const person = (id: string) => {
     const e = employees.data?.find((x) => x.id === id);
     return { name: e?.label ?? id, photoUrl: e?.photoUrl ?? null };
@@ -289,9 +346,10 @@ export function PlannerPanel({
     openShift: selected,
     shiftTitle: (s) =>
       `${name(s.employeeId)} · ${cellLabel(s, tpls)} · ${s.workDate}`,
-    onWarnings: (v) =>
-      setProblem({ kind: "confirm", violations: v, retry: () => setProblem(null) }),
-    onConfirm: (v, retry) => setProblem({ kind: "confirm", violations: v, retry }),
+    // Avisos de turnos já criados: só informam (não há nada a «publicar mesmo assim»).
+    onWarnings: (v) => setProblem({ kind: "confirm", violations: v, retry: null }),
+    onConfirm: (v, retry) => setProblem({ kind: "confirm", violations: v, retry, confirmLabel: "Confirmar" }),
+    onBlocked: (v) => setProblem({ kind: "blocked", violations: v, retry: null }),
     refresh,
   });
   const [moveReason, setMoveReason] = useState("");
@@ -319,8 +377,41 @@ export function PlannerPanel({
   useEffect(() => {
     edits.reset();
     setPaint("");
+    // O aviso da última operação era desse período: não fica de pé noutra semana.
+    setProblem(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rosterId, from, span]);
+  // Depois de navegar a partir de um conflito: abre o turno quando a semana certa carregar.
+  const [focusOpened, setFocusOpened] = useState(false);
+  useEffect(() => {
+    if (!focus || focusOpened || !shifts.data) return;
+    const hit = shifts.data.shifts.find((s) => s.id === focus);
+    if (hit) {
+      setReason("");
+      setSelected(hit);
+      setFocusOpened(true);
+    }
+  }, [focus, focusOpened, shifts.data]);
+  // Fechou a edição do turno aberto a partir do conflito: acaba o destaque.
+  useEffect(() => {
+    if (focusOpened && !selected) {
+      setFocus(null);
+      setFocusOpened(false);
+    }
+  }, [focusOpened, selected]);
+  /** Abre um conflito: escala e semana certas, turno destacado e em edição. */
+  const openConflict = (v: Violation, which: "self" | "other") => {
+    const target = conflictTarget(v, which, rosterId);
+    setConflictsOf(null);
+    if (target.rosterId !== rosterId && active.some((r) => r.id === target.rosterId)) {
+      setChosen(target.rosterId);
+      save(ROSTER_KEY, target.rosterId);
+      setExtraRows([]);
+    }
+    if (target.weekFrom < from || target.weekFrom > to) setFrom(target.weekFrom);
+    setFocusOpened(false);
+    setFocus(target.shiftId);
+  };
   useEffect(() => {
     if (!rosterId) return;
     setParams(
@@ -345,6 +436,7 @@ export function PlannerPanel({
   const guarded = async (
     action: (opts: PublishOptions) => Promise<unknown>,
     opts: PublishOptions,
+    confirmLabel = "Confirmar",
   ) => {
     setProblem(null);
     try {
@@ -356,7 +448,9 @@ export function PlannerPanel({
       if (!v) throw e;
       setProblem({
         ...v,
-        retry: () => void guarded(action, { ...opts, confirm: true }),
+        // Bloqueios não se confirmam: corrige-se e tenta-se de novo.
+        retry: v.kind === "confirm" ? () => void guarded(action, { ...opts, confirm: true }, confirmLabel) : null,
+        confirmLabel,
       });
       return false;
     }
@@ -371,14 +465,15 @@ export function PlannerPanel({
         templateId: paint === "day_off" ? null : paint,
         segments: [],
       }),
+    onMutate: () => setProblem(null),
     onSuccess: (r) => {
-      if (r.warnings.length)
-        setProblem({
-          kind: "confirm",
-          violations: r.warnings,
-          retry: () => setProblem(null),
-        });
+      if (r.warnings.length) setProblem({ kind: "confirm", violations: r.warnings, retry: null });
       return refresh();
+    },
+    // Sobreposição (ou outra regra obrigatória): aviso junto à operação, com o turno incompatível.
+    onError: (e) => {
+      const v = violationsOf(e);
+      if (v) setProblem({ ...v, retry: null });
     },
   });
   const change = useMutation({
@@ -407,14 +502,19 @@ export function PlannerPanel({
   const publish = useMutation({
     mutationFn: () =>
       // Publicação concluída = novo ponto de partida: o histórico de edição limpa-se.
+      // Publica só o período visível: problemas de outras semanas não bloqueiam esta.
       guarded((o) => rosters.publish(rosterId, o).then((r) => (edits.reset(), r)), {
         reason: publishNote.trim() || null,
         confirm: false,
-      }),
+        from,
+        to,
+      }, t("ros.publish.confirm")),
   });
 
-  const pending = shifts.data?.pending ?? 0;
-  const warnings = check.data?.violations ?? [];
+  // Pendentes do período visível (é o que «Publicar» publica).
+  const pending = check.data?.pending ?? (shifts.data?.shifts ?? []).filter((s) => s.dirty && s.workDate >= from && s.workDate <= to).length;
+  const warnings = useMemo(() => check.data?.violations ?? [], [check.data]);
+  const conflictIds = useMemo(() => conflictShiftIds([...warnings, ...(problem?.violations ?? [])]), [warnings, problem]);
   const exportCsv = () => {
     const cell = (v: string) => (/^[=+\-@]/.test(v) ? `'${v}` : v);
     const lines = [
@@ -605,9 +705,15 @@ export function PlannerPanel({
             <IconRedo size={18} />
           </IconButton>
           <ToolbarDivider />
-          <Popover
-            label={t("ros.addEmployee")}
-            width="w-72"
+          <AddEmployeesPicker
+            rosterId={rosterId}
+            rosterLabel={rosterLabel}
+            from={from}
+            to={to}
+            people={pickerPeople}
+            inRoster={inRoster}
+            locationName={locationName}
+            onAdd={addPeople}
             trigger={({ open, toggle }) => (
               <IconButton
                 label={t("ros.addEmployee")}
@@ -619,31 +725,7 @@ export function PlannerPanel({
                 <IconUserPlus size={18} />
               </IconButton>
             )}
-          >
-            {(close) => (
-              <ul
-                className="max-h-72 overflow-y-auto"
-                aria-label={t("ros.addEmployee")}
-              >
-                {(employees.data ?? [])
-                  .filter((e) => !rows.some((r) => r.employeeId === e.id))
-                  .map((e) => (
-                    <li key={e.id}>
-                      <button
-                        type="button"
-                        className="flex w-full items-center rounded-xl px-3 py-2 text-left text-sm text-ink hover:bg-surface-soft"
-                        onClick={() => {
-                          setExtraRows([...extraRows, e.id]);
-                          close();
-                        }}
-                      >
-                        {e.label}
-                      </button>
-                    </li>
-                  ))}
-              </ul>
-            )}
-          </Popover>
+          />
           <IconButton
             label={t("ros.board.export")}
             className={`${iconBtn} text-navy-900`}
@@ -695,27 +777,32 @@ export function PlannerPanel({
             </span>
           )}
         >
-          {() =>
-            warnings.length ? (
-              <ul className="max-h-80 space-y-2 overflow-y-auto p-1.5 text-sm">
-                {warnings.map((v, i) => (
-                  <li
-                    key={i}
-                    className={`rounded-xl border p-2.5 text-xs ${v.severity === "block" ? "border-red-100 bg-red-50/50" : "border-amber-100 bg-amber-50/50"}`}
-                  >
-                    <p className="font-semibold text-navy-900">
-                      {name(v.employeeId)} · {v.workDate}
-                    </p>
-                    <p className="text-ink">{v.message}</p>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="px-3 py-4 text-sm text-ink-secondary">
-                {t("ros.board.noWarnings")}
-              </p>
-            )
-          }
+          {(close) => {
+            if (!warnings.length) return <p className="px-3 py-4 text-sm text-ink-secondary">{t("ros.board.noWarnings")}</p>;
+            const s = conflictSummary(warnings);
+            return (
+              <div className="space-y-2 p-2.5 text-sm">
+                <p className="font-semibold text-navy-900">
+                  {s.total} {s.total === 1 ? "problema encontrado" : "problemas encontrados"}
+                  {s.blocking > 0 && <span className="font-normal text-red-700"> · {s.blocking} {s.blocking === 1 ? "bloqueia" : "bloqueiam"} a publicação</span>}
+                </p>
+                <p className="text-xs text-ink-secondary">
+                  {s.employees} {s.employees === 1 ? "colaborador afetado" : "colaboradores afetados"} · {weekLabel(from)}
+                  {span === 14 && ` e seguinte`}
+                </p>
+                <Button
+                  size="sm"
+                  className="w-full"
+                  onClick={() => {
+                    close();
+                    setConflictsOf("check");
+                  }}
+                >
+                  Ver conflitos
+                </Button>
+              </div>
+            );
+          }}
         </Popover>
 
         <div className="flex w-full items-center gap-1.5 sm:ml-auto sm:w-auto">
@@ -840,11 +927,15 @@ export function PlannerPanel({
       </Toolbar>
 
       {problem && (
-        <ViolationsBox
+        <ConflictNotice
           kind={problem.kind}
           violations={problem.violations}
           name={name}
+          onView={() => setConflictsOf("problem")}
+          onOpenOther={(v) => openConflict(v, "other")}
           onConfirm={problem.retry}
+          confirmLabel={problem.confirmLabel ?? "Confirmar"}
+          onDismiss={() => setProblem(null)}
         />
       )}
       {publish.isError && (
@@ -853,7 +944,7 @@ export function PlannerPanel({
           title={message(publish.error, t("common.error"))}
         />
       )}
-      {add.isError && (
+      {add.isError && !violationsOf(add.error) && (
         <AlertBanner
           tone="danger"
           title={message(add.error, t("common.error"))}
@@ -957,6 +1048,8 @@ export function PlannerPanel({
                 onClearWeek: setClearFor,
                 period: span === 7 ? "week" : "period",
               }}
+              conflictIds={conflictIds}
+              focusId={selected ? focus : null}
             />
           ) : list.isLoading ? (
             <div className="h-96 animate-pulse rounded-2.5xl bg-surface-card motion-reduce:animate-none" />
@@ -1192,25 +1285,35 @@ export function PlannerPanel({
         title={t("ros.addEmployee")}
         onClose={() => setDrawer(null)}
       >
-        <ul className="space-y-1">
-          {(employees.data ?? [])
-            .filter((e) => !rows.some((r) => r.employeeId === e.id))
-            .map((e) => (
-              <li key={e.id}>
-                <button
-                  type="button"
-                  className="flex w-full items-center rounded-xl px-3 py-2.5 text-left text-sm text-ink hover:bg-surface-soft"
-                  onClick={() => {
-                    setExtraRows([...extraRows, e.id]);
-                    setDrawer(null);
-                  }}
-                >
-                  {e.label}
-                </button>
-              </li>
-            ))}
-        </ul>
+        {drawer === "add" && (
+          <AddEmployeesBody
+            rosterId={rosterId}
+            rosterLabel={rosterLabel}
+            from={from}
+            to={to}
+            people={pickerPeople}
+            inRoster={inRoster}
+            locationName={locationName}
+            onAdd={addPeople}
+            onClose={() => setDrawer(null)}
+          />
+        )}
       </Drawer>
+
+      <ConflictsDrawer
+        open={!!conflictsOf}
+        title={conflictsOf === "check" ? "Conflitos da escala" : problem?.kind === "blocked" ? "Conflitos encontrados" : "Avisos de restrições"}
+        violations={conflictsOf === "check" ? warnings : (problem?.violations ?? [])}
+        name={name}
+        currentRosterName={roster?.name ?? ""}
+        onClose={() => setConflictsOf(null)}
+        onOpenShift={openConflict}
+        confirm={
+          conflictsOf === "problem" && problem?.retry
+            ? { label: problem.confirmLabel ?? "Confirmar", onConfirm: () => (setConflictsOf(null), problem.retry!()) }
+            : null
+        }
+      />
 
       <Drawer
         open={drawer === "bulk"}
@@ -1419,6 +1522,9 @@ function BulkAssign({
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
+  // Tudo ou nada: com conflitos nada é gravado — resumo antes de tentar de novo.
+  const blocked = m.isError ? violationsOf(m.error) : null;
+  const nameOf = (id: string) => employees.data?.find((e) => e.id === id)?.label ?? id;
   const WD = ["1", "2", "3", "4", "5", "6", "7"];
   return (
     <div className="space-y-4">
@@ -1510,12 +1616,30 @@ function BulkAssign({
       {m.data && (
         <p className="text-sm text-ink-secondary">
           {t("ros.bulk.done", { count: m.data.created })}
+          {m.data.warnings.length > 0 && ` · ${m.data.warnings.length} ${m.data.warnings.length === 1 ? "aviso" : "avisos"} de restrições (ver o alerta da barra)`}
         </p>
       )}
-      {m.isError && (
-        <p className="text-sm text-red-700">
-          {message(m.error, t("common.error"))}
-        </p>
+      {blocked ? (
+        <div className="rounded-xl border border-red-200 bg-red-50/60 p-3 text-sm text-red-800" role="alert">
+          <p className="font-semibold">
+            {blocked.violations.length} {blocked.violations.length === 1 ? "conflito" : "conflitos"} — nada foi gravado.
+          </p>
+          <ul className="mt-1 space-y-0.5 text-xs">
+            {blocked.violations.slice(0, 5).map((x, i) => (
+              <li key={i}>
+                {nameOf(x.employeeId)} · {x.workDate}
+                {x.overlap ? ` · ${x.conflict?.rosterName ?? "outra escala"} ${x.conflict?.hours ?? ""} (sobreposição ${x.overlap})` : ` · ${x.message}`}
+              </li>
+            ))}
+            {blocked.violations.length > 5 && <li>e mais {blocked.violations.length - 5}…</li>}
+          </ul>
+        </div>
+      ) : (
+        m.isError && (
+          <p className="text-sm text-red-700">
+            {message(m.error, t("common.error"))}
+          </p>
+        )
       )}
     </div>
   );

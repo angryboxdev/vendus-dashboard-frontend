@@ -173,9 +173,12 @@ describe("Escalas — ecrãs", () => {
     const user = await openRoster();
     await user.click(screen.getByRole("button", { name: "Publicar escala" }));
     await user.click(await screen.findByRole("button", { name: "Publicar agora" }));
-    expect(await screen.findByText("Ana Teste: Só 8h00 de descanso")).toBeInTheDocument();
+    // Aviso compacto junto à operação (uma ocorrência: por inteiro, com o colaborador e o dia).
+    expect(await screen.findByText(`Ana Teste · ${TUE}`)).toBeInTheDocument();
+    expect(screen.getByText("Só 8h00 de descanso")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Publicar mesmo assim" }));
-    expect(m.rosters.publish).toHaveBeenLastCalledWith("r1", { reason: null, confirm: true });
+    // Publica só a semana visível.
+    expect(m.rosters.publish).toHaveBeenLastCalledWith("r1", { reason: null, confirm: true, from: MON, to: daysFrom(MON, 7)[6] });
   });
 
   it("TK_16_alterar_turno_publicado_exige_motivo", async () => {
@@ -459,5 +462,83 @@ describe("Escalas — ecrãs", () => {
     expect(await screen.findByRole("button", { name: "Recusar troca" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "Aprovar troca" }));
     expect(m.rosters.decideSwap).toHaveBeenCalledWith("w1", "approve", null, true);
+  });
+});
+
+describe("Escalas — seletor inteligente e conflitos", () => {
+  const OVERLAP = {
+    rule: "overlap" as const,
+    severity: "block" as const,
+    employeeId: "e1",
+    workDate: TUE,
+    message: "Horário indisponível: já tem um turno na escala «Centro Braga» (16:00–22:00). Sobreposição entre 16:00 e 22:00.",
+    shiftId: "s2",
+    rosterId: "r1",
+    conflict: { shiftId: "s9", rosterId: "r2", rosterName: "Centro Braga", workDate: TUE, hours: "16:00–22:00", published: true },
+    overlap: "16:00–22:00",
+  };
+
+  it("adicionar colaboradores: centro primeiro (já na escala marcado), outros centros recolhidos, pesquisa em todos, vários de uma vez", async () => {
+    const m = mod();
+    m.settings.listEmployees = vi.fn(async () => [
+      { id: "e1", label: "Ana Teste" },
+      { id: "e2", label: "Bruno Teste" },
+      { id: "e3", label: "Carla Teste" },
+    ]);
+    m.people.list = vi.fn(async () => [
+      { id: "e1", primaryLocationId: "l1" },
+      { id: "e2", primaryLocationId: "l1" },
+      { id: "e3", primaryLocationId: "l2" },
+    ]) as never;
+    m.rosters.candidates = vi.fn(async () => ({ roster: { id: "r1", targetType: "location" as const, targetId: "l1" }, members: [], busy: [] }));
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(screen.getByRole("button", { name: "Adicionar colaborador à grelha" }));
+    const center = await screen.findByRole("region", { name: "Porto" });
+    expect(within(center).getByRole("checkbox", { name: "Ana Teste" })).toBeDisabled(); // já está na escala
+    expect(screen.getByRole("button", { name: /Outros centros/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("checkbox", { name: "Carla Teste" })).toBeNull();
+    await user.type(screen.getByRole("searchbox", { name: "Pesquisar colaborador ou centro..." }), "carla");
+    await user.click(await screen.findByRole("checkbox", { name: "Carla Teste" }));
+    await user.clear(screen.getByRole("searchbox", { name: "Pesquisar colaborador ou centro..." }));
+    await user.click(within(screen.getByRole("region", { name: "Porto" })).getByRole("checkbox", { name: "Bruno Teste" }));
+    await user.click(screen.getByRole("button", { name: "Adicionar (2)" }));
+    expect(await within(grid()).findAllByText("Carla Teste")).not.toHaveLength(0);
+    expect(within(grid()).getAllByText("Bruno Teste")).not.toHaveLength(0);
+    expect(m.rosters.candidates).toHaveBeenCalledWith("r1", MON, daysFrom(MON, 7)[6]);
+  });
+
+  it("turno sobreposto: aviso junto à operação com o turno incompatível; nada de lista gigante", async () => {
+    const m = mod();
+    m.rosters.addShift = vi.fn(async () => {
+      throw new ApiError("A escala não cumpre restrições obrigatórias.", 422, { violations: [{ ...OVERLAP, shiftId: null }] });
+    });
+    renderWith(m);
+    const user = await openRoster();
+    const wed = daysFrom(MON, 3)[2]!;
+    await user.click(within(panel()).getByRole("button", { name: /Tarde/ }));
+    await user.click(within(grid()).getByRole("button", { name: `Ana Teste ${wed}` }));
+    expect(await screen.findByText("Horário indisponível — Ana Teste")).toBeInTheDocument();
+    expect(screen.getByText(/Sobreposição entre 16:00 e 22:00/)).toBeInTheDocument();
+    const notice = screen.getByText("Horário indisponível — Ana Teste").closest<HTMLElement>("[role=alert]")!;
+    expect(within(notice).getByRole("button", { name: "Ver turno existente" })).toBeInTheDocument();
+    expect(screen.queryByText(/Não é possível publicar/)).toBeNull();
+    await user.click(within(notice).getByRole("button", { name: "Fechar" }));
+    expect(screen.queryByText("Horário indisponível — Ana Teste")).toBeNull();
+  });
+
+  it("conflitos da semana: contador na barra, painel agrupado por colaborador e «Abrir turno» abre a edição", async () => {
+    const m = mod();
+    m.rosters.check = vi.fn(async () => ({ pending: 1, violations: [OVERLAP, { ...OVERLAP, workDate: MON, shiftId: "s1" }] }));
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(await screen.findByRole("button", { name: "2 avisos na escala" }));
+    await user.click(await screen.findByRole("button", { name: "Ver conflitos" }));
+    const drawer = await screen.findByRole("dialog", { name: "Conflitos da escala" });
+    expect(within(drawer).getByText(/2 ocorrências · 1 colaborador afetado/)).toBeInTheDocument();
+    expect(within(drawer).getByRole("region", { name: "Ana Teste" })).toBeInTheDocument();
+    expect(m.rosters.check).toHaveBeenCalledWith("r1", { from: MON, to: daysFrom(MON, 7)[6] });
+    await user.click(within(drawer).getAllByRole("button", { name: "Abrir turno" })[0]!);
+    expect(await screen.findByRole("dialog", { name: /Ana Teste/ })).toBeInTheDocument();
   });
 });

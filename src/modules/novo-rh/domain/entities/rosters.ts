@@ -53,12 +53,37 @@ export interface RosterShift extends ShiftState {
   publishedVersion: number | null;
 }
 
+/** O outro turno de uma sobreposição (onde está, a que horas, se já foi publicado). */
+export interface ConflictRef {
+  shiftId: string | null;
+  rosterId: string | null;
+  rosterName: string | null;
+  workDate: string;
+  hours: string;
+  published: boolean;
+}
+
 export interface Violation {
   rule: "overlap" | "min_rest" | "max_daily" | "max_weekly" | "max_annual" | "absence";
   severity: "warning" | "block";
   employeeId: string;
   workDate: string;
   message: string;
+  /** Turno afetado (ausente num turno ainda por criar). */
+  shiftId?: string | null;
+  rosterId?: string | null;
+  /** Só sobreposição: o turno incompatível e o troço sobreposto ("14:00–17:00"). */
+  conflict?: ConflictRef;
+  overlap?: string;
+}
+
+/** Seletor «Adicionar colaboradores» (`GET /rosters/:id/candidates`). */
+export interface RosterCandidates {
+  roster: { id: string; targetType: "location" | "group"; targetId: string };
+  /** Pertencem ao centro/grupo da escala (principal ou pertença datada). */
+  members: string[];
+  /** Turnos noutras escalas no período (rascunho ou publicado). */
+  busy: { employeeId: string; rosterId: string; rosterName: string | null; shiftId: string; workDate: string; hours: string; published: boolean }[];
 }
 
 export interface Publication {
@@ -94,4 +119,7 @@ export interface ShiftInput {
 export interface PublishOptions {
   reason: string | null;
   confirm: boolean;
+  /** Só publicar: o período (ex.: a semana visível); omisso = tudo o que está pendente. */
+  from?: string;
+  to?: string;
 }
