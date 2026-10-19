@@ -926,3 +926,58 @@ describe("Escalas — «Atribuir turnos» recolhível", () => {
     expect(within(panel()).getByRole("button", { name: "Recolher «Atribuir turnos»" })).toHaveFocus();
   });
 });
+
+describe("Escalas — exportar em PDF", () => {
+  it("ícone de exportar: PDF ou CSV; PDF com 4 formas de organizar, 2 apresentações e filtros à parte; sem correspondência → vazio", async () => {
+    const m = mod();
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(screen.getByRole("button", { name: "Exportar escala" }));
+    expect(screen.getByRole("menuitem", { name: "Exportar CSV (Excel)" })).toBeInTheDocument();
+    await user.click(screen.getByRole("menuitem", { name: "Exportar PDF…" }));
+    const box = screen.getByRole("dialog", { name: "Exportar escala em PDF" });
+    const organizar = within(box).getByRole("group", { name: "Organizar por" });
+    expect(within(organizar).getAllByRole("radio").map((r) => r.closest("label")!.textContent)).toEqual([
+      expect.stringContaining("Colaborador"),
+      expect.stringContaining("Turno"),
+      expect.stringContaining("Área de trabalho"),
+      expect.stringContaining("Cargo"),
+    ]);
+    expect(within(organizar).getByRole("radio", { name: /Colaborador/ })).toBeChecked();
+    await user.click(within(organizar).getByRole("radio", { name: /Área de trabalho/ }));
+    expect(within(organizar).getByRole("radio", { name: /Colaborador/ })).not.toBeChecked();
+    expect(within(within(box).getByRole("group", { name: "Apresentação" })).getByRole("radio", { name: /Horários completos/ })).toBeChecked();
+    expect(within(box).getByRole("button", { name: "Descarregar PDF" })).toBeEnabled();
+    // Filtro sem correspondência: estado vazio, nada para descarregar.
+    await user.click(within(box).getByText("Turnos"));
+    await user.click(within(box).getByRole("checkbox", { name: "Horários sem modelo" }));
+    expect(within(box).getByText("Nenhum turno corresponde aos filtros — não há nada para exportar.")).toBeInTheDocument();
+    expect(within(box).getByRole("button", { name: "Descarregar PDF" })).toBeDisabled();
+  });
+
+  it("menu do colaborador: «Exportar horário em PDF» abre a versão individual (só essa pessoa) e descarrega um PDF", async () => {
+    const m = mod();
+    renderWith(m);
+    const user = await openRoster();
+    const created: Blob[] = [];
+    const origCreate = URL.createObjectURL;
+    const origRevoke = URL.revokeObjectURL;
+    URL.createObjectURL = vi.fn((b: Blob) => (created.push(b), "blob:fake")) as never;
+    URL.revokeObjectURL = vi.fn();
+    try {
+      await user.click(within(grid()).getByRole("button", { name: "Opções de Ana Teste" }));
+      await user.click(screen.getByRole("menuitem", { name: "Exportar horário em PDF" }));
+      const box = screen.getByRole("dialog", { name: "Exportar horário de Ana Teste em PDF" });
+      expect(within(box).getByText(/versão individual/)).toBeInTheDocument();
+      expect(within(box).getByTitle("Pré-visualização do PDF")).toBeInTheDocument();
+      expect(within(box).getByText(/Inclui turnos por publicar/)).toBeInTheDocument();
+      await user.click(within(box).getByRole("button", { name: "Descarregar PDF" }));
+      const pdf = created.at(-1)!;
+      expect(pdf.type).toBe("application/pdf");
+      expect(new TextDecoder().decode(new Uint8Array(await pdf.arrayBuffer()).slice(0, 5))).toBe("%PDF-");
+    } finally {
+      URL.createObjectURL = origCreate;
+      URL.revokeObjectURL = origRevoke;
+    }
+  });
+});

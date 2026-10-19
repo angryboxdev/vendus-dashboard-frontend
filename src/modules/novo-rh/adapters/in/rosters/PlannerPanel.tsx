@@ -58,6 +58,7 @@ import { coverageDeficits, shortDay, windowLabel } from "../../../domain/service
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { downloadBlob } from "../download.ts";
 import { AssignPanel } from "./AssignPanel.tsx";
+import { ScheduleExportDrawer } from "./ScheduleExportDrawer.tsx";
 import { RosterBoard, type BoardMode } from "./RosterBoard.tsx";
 import { useRosterEditing } from "./use-roster-editing.ts";
 import { useEditHistory } from "./use-edit-history.ts";
@@ -230,6 +231,8 @@ export function PlannerPanel({
     save(ASSIGN_KEY, "0");
   };
   const [extraRows, setExtraRows] = useState<string[]>([]);
+  // Exportar em PDF: aberto para a escala toda (null) ou para um colaborador.
+  const [pdfFor, setPdfFor] = useState<{ employeeId: string | null } | null>(null);
   const [selected, setSelected] = useState<RosterShift | null>(null);
   const [reason, setReason] = useState("");
   const [publishNote, setPublishNote] = useState("");
@@ -860,14 +863,25 @@ export function PlannerPanel({
               </IconButton>
             )}
           />
-          <IconButton
-            label={t("ros.board.export")}
-            className={`${iconBtn} text-navy-900`}
-            onClick={exportCsv}
-            disabled={!rosterId}
-          >
-            <IconDownload size={18} />
-          </IconButton>
+          <DropdownMenu
+            label="Exportar escala"
+            items={[
+              { label: "Exportar PDF…", icon: <IconDownload size={16} />, onSelect: () => setPdfFor({ employeeId: null }) },
+              { label: "Exportar CSV (Excel)", icon: <IconDownload size={16} />, onSelect: exportCsv },
+            ]}
+            trigger={({ open, toggle }) => (
+              <IconButton
+                label="Exportar escala"
+                className={`${iconBtn} text-navy-900`}
+                onClick={toggle}
+                aria-expanded={open}
+                aria-haspopup="menu"
+                disabled={!rosterId}
+              >
+                <IconDownload size={18} />
+              </IconButton>
+            )}
+          />
           <IconButton
             label={t("ros.bulk")}
             className={`${iconBtn} text-navy-900`}
@@ -1002,6 +1016,12 @@ export function PlannerPanel({
                   onSelect: onOpenMine,
                 },
                 "separator",
+                {
+                  label: "Exportar PDF…",
+                  icon: <IconDownload size={16} />,
+                  disabled: !rosterId,
+                  onSelect: () => setPdfFor({ employeeId: null }),
+                },
                 {
                   label: t("ros.board.export"),
                   icon: <IconDownload size={16} />,
@@ -1255,6 +1275,7 @@ export function PlannerPanel({
               rowActions={{
                 pending: (id) => pendingOf(id).length,
                 onClearWeek: setClearFor,
+                onExportPdf: (employeeId) => setPdfFor({ employeeId }),
                 period: span === 7 ? "week" : "period",
               }}
               conflictIds={conflictIds}
@@ -1320,6 +1341,20 @@ export function PlannerPanel({
           </div>
         )}
       </div>
+
+      <ScheduleExportDrawer
+        open={!!pdfFor && !!rosterId}
+        onClose={() => setPdfFor(null)}
+        employeeId={pdfFor?.employeeId ?? null}
+        people={rows.map((r) => ({ employeeId: r.employeeId, name: r.name, positionId: r.positionId }))}
+        shifts={boardShifts}
+        templates={tpls}
+        areas={areaList}
+        positions={positions.data ?? []}
+        days={days}
+        unit={(roster?.targetType === "location" ? locationName(roster.targetId) : null) ?? roster?.name ?? ""}
+        version={roster?.version ?? 0}
+      />
 
       {/* Limpar os turnos pendentes da semana de uma pessoa (uma só operação; pode desfazer-se). */}
       <Dialog
