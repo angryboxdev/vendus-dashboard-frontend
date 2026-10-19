@@ -20,7 +20,6 @@ function api(over: Partial<PortalEngagementApiPort> = {}): PortalEngagementApiPo
     submitCustomRequest: vi.fn(),
     whosIn: vi.fn(),
     visibility: vi.fn(async () => ({ whosIn: true })),
-    timeBank: vi.fn(),
     ...over,
   };
 }

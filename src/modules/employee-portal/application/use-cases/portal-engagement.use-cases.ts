@@ -71,10 +71,6 @@ export class PortalEngagementUseCase implements PortalEngagementPort {
     return this.api.visibility();
   }
 
-  timeBank() {
-    return this.api.timeBank();
-  }
-
   async pendingCount() {
     const [inbox, tasks] = await Promise.all([this.inbox(), this.api.tasks()]);
     return inbox.announcements.filter(needsAction).length + inbox.distributions.filter(needsAction).length + tasks.filter((t) => t.status === "open").length;

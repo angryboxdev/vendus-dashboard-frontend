@@ -43,7 +43,7 @@ Spec e tickets: backend `.scratch/portal-colaborador/`.
 - `PortalApiPort` — `GET /api/me`, `POST /api/me/punches`, `GET /api/me/shifts`,
   `/me/shifts/:id/coworkers`, `/me/documents`, `/me/documents/:id/download-url`,
   `/me/leave`.
-- `PortalEngagementApiPort` — `/api/me/announcements`, `/me/document-distributions`, `/me/ops-tasks`, `/me/custom-requests`, `/me/whos-in`, `/me/time-bank` (rotas do Novo RH).
+- `PortalEngagementApiPort` — `/api/me/announcements`, `/me/document-distributions`, `/me/ops-tasks`, `/me/custom-requests`, `/me/whos-in` (rotas do Novo RH).
 - `GeolocationPort` — uma leitura (`readOnce`), nunca lança.
 
 ## Adapters
@@ -59,7 +59,7 @@ Spec e tickets: backend `.scratch/portal-colaborador/`.
 - `PortalLeaveView` (separador **Pedidos**) — `PortalRequestsSection` (Justificar falta → RH, com comprovativo opcional; Pedir folga → gerente; lista com estado, motivo da decisão e cancelar enquanto pendente) + ausências do ano (só consulta; sem saldo nem feriados).
 - `DocumentsAlert` (Início) — aviso de documentos vencidos/a vencer que pode substituir.
 - `PortalProfileView`, `SetPasswordView`.
-- Onda 6 (separador **Mais**, `/portal/mais`): `PortalNewsView` (`/portal/comunicados` — documentos enviados e comunicados com "Confirmo que li"), `PortalTasksView` (`/portal/tarefas`), `PortalCustomRequestsView` (`/portal/solicitacoes`), `PortalTeamView` (`/portal/equipa`), `PortalTimeBankView` (`/portal/banco-de-horas`); Perfil passou para dentro de "Mais".
+- Onda 6 (separador **Mais**, `/portal/mais`): `PortalNewsView` (`/portal/comunicados` — documentos enviados e comunicados com "Confirmo que li"), `PortalTasksView` (`/portal/tarefas`), `PortalCustomRequestsView` (`/portal/solicitacoes`), `PortalTeamView` (`/portal/equipa`); Perfil passou para dentro de "Mais". O Banco de horas saiu do Portal a pedido do utilizador (2026-10-19); o endpoint `/api/me/time-bank` continua no backend.
 ### Saída
 - `HttpPortalEngagementApiAdapter` — erros RFC 7807 do Novo RH → `PortalRequestError` com a mensagem do servidor; escritas com `Idempotency-Key`.
 - `HttpPortalApiAdapter` — `lib/api`; traduz 409/403/404/rede para os erros do domínio.

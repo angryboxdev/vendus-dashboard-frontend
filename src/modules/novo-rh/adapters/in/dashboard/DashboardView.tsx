@@ -12,13 +12,18 @@ import {
   IconStore,
   IconUsers,
   SearchableSelect,
+  SegmentedControl,
   Skeleton,
 } from "../../../../../components/ui/index.ts";
 import { hasLevel } from "../../../../access/domain/services/access-ui.service.ts";
 import { ApiError } from "../../../../../lib/api.ts";
-import type { TeamCategory, UnitRow, WidgetPref } from "../../../domain/entities/dashboard.ts";
+import type { TeamCategory, TeamChart, UnitRow, WidgetPref } from "../../../domain/entities/dashboard.ts";
 import {
   defaultLayout,
+  setTeamChart,
+  TEAM_CHART_LABEL,
+  TEAM_CHARTS,
+  teamChartOf,
   isCalm,
   moveBy,
   moveTo,
@@ -120,6 +125,20 @@ export function DashboardView() {
     mutationFn: () => dashboard.resetLayout(),
     onSuccess: (l) => (qc.setQueryData(["novo-rh", "dashboard", "layout"], l), setDraft(null)),
   });
+  // Formato do gráfico: preferência do utilizador guardada com o layout (sobrevive a atualizar, ocultar e reordenar).
+  const chart = teamChartOf(current);
+  const saveChart = useMutation({
+    mutationFn: (c: TeamChart) => dashboard.saveLayout(setTeamChart([...saved].sort((a, b) => a.order - b.order), c).map((x, i) => ({ ...x, order: i }))),
+    onMutate: (c) => {
+      // Mostra logo o novo formato; se falhar, volta ao que estava guardado.
+      const prev = qc.getQueryData(["novo-rh", "dashboard", "layout"]);
+      if (layoutQ.data) qc.setQueryData(["novo-rh", "dashboard", "layout"], { ...layoutQ.data, widgets: setTeamChart(saved, c) });
+      return { prev };
+    },
+    onError: (_e, _c, ctx) => qc.setQueryData(["novo-rh", "dashboard", "layout"], ctx?.prev),
+    onSuccess: (l) => qc.setQueryData(["novo-rh", "dashboard", "layout"], l),
+  });
+  const chooseChart = (c: TeamChart) => (editing ? setDraft((d) => setTeamChart(d ?? saved, c)) : saveChart.mutate(c));
   const startEditing = () => (setDraft([...saved].sort((a, b) => a.order - b.order)), setEditing(true), setSelected(null));
   const cancel = () => (setDraft(null), setEditing(false), setSelected(null));
 
@@ -167,7 +186,14 @@ export function DashboardView() {
       case "ATTENTION":
         return { icon: <IconAlert size={18} />, node: <AttentionBody s={s} />, count: s.attention.reduce((n, a) => n + a.count, 0), critical: true };
       case "TEAM_STATUS":
-        return { icon: <IconUsers size={18} />, node: <TeamBody s={s} onOpen={setTeamCat} />, subtitle: `Hoje, ${longDate(s.localDate)}` };
+        return {
+          icon: <IconUsers size={18} />,
+          node: <TeamBody s={s} onOpen={setTeamCat} format={chart} />,
+          subtitle: `Hoje, ${longDate(s.localDate)}`,
+          action: (
+            <SegmentedControl size="sm" label="Formato do gráfico" value={chart} onChange={chooseChart} items={TEAM_CHARTS.map((k) => ({ key: k, label: TEAM_CHART_LABEL[k] }))} />
+          ),
+        };
       case "LOCATIONS_STATUS":
         return { icon: <IconStore size={18} />, node: <UnitsBody s={s} onOpen={setUnit} onlyAttention={onlyAttention} onClearFilter={() => setOnlyAttention(false)} /> };
       case "COVERAGE":

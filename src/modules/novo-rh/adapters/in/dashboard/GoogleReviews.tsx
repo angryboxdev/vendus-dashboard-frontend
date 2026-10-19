@@ -9,7 +9,7 @@ import { WidgetMessage, WidgetSkeleton } from "./DashboardWidget.tsx";
 
 const KEY = ["novo-rh", "google-reviews"] as const;
 const errText = (e: unknown, fallback: string) =>
-  e instanceof ApiError && e.status === 403 ? "Sem permissão para gerir os locais." : e instanceof ApiError && e.status === 502 ? "O Google não respondeu agora. Tente mais tarde." : e instanceof Error ? e.message : fallback;
+  e instanceof ApiError && e.status === 403 ? "Sem permissão para gerir os locais." : e instanceof ApiError && e.status === 502 ? "O Google não respondeu agora. Tente mais tarde." : e instanceof ApiError && e.status < 500 ? e.message : fallback;
 
 function Stars({ rating }: { rating: number | null }) {
   const full = Math.round(rating ?? 0);
@@ -37,7 +37,8 @@ export function GoogleReviewsBody({ locationId }: { locationId?: string }) {
   if (q.isLoading) return <WidgetSkeleton />;
   if (q.isError) return <WidgetMessage text="Não foi possível carregar as avaliações Google." />;
   const o = q.data!;
-  if (!o.configured) return <WidgetMessage text="Integração Google não configurada: falta a chave GOOGLE_PLACES_API_KEY no servidor." />;
+  // O detalhe técnico (chave em falta) fica nos logs do servidor; aqui só o estado operacional.
+  if (!o.configured) return <WidgetMessage text="As avaliações Google ainda não estão ativas nesta conta. Para as ativar, contacte o suporte." />;
   const manageBtn = (
     <Button size="sm" variant="tertiary" onClick={() => setManage(true)}>
       Ligar locais ao Google

@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { Avatar, Button, Dialog, FIELD, IconCheck, IconClose, SearchInput } from "../../../../../components/ui/index.ts";
 import { ApiError } from "../../../../../lib/api.ts";
-import type { AttentionItem, OperationalSnapshot, TeamCategory, UnitRow } from "../../../domain/entities/dashboard.ts";
+import type { AttentionItem, OperationalSnapshot, TeamCategory, TeamChart, UnitRow } from "../../../domain/entities/dashboard.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { useEmployeePhotos } from "../common/use-employee-photos.ts";
 import { TeamStatusDonut } from "./TeamStatusDonut.tsx";
@@ -46,8 +46,8 @@ export function AttentionBody({ s }: { s: OperationalSnapshot }) {
   );
 }
 
-export function TeamBody({ s, onOpen }: { s: OperationalSnapshot; onOpen: (c: TeamCategory) => void }) {
-  return <TeamStatusDonut team={s.team} onSelect={onOpen} />;
+export function TeamBody({ s, onOpen, format }: { s: OperationalSnapshot; onOpen: (c: TeamCategory) => void; format?: TeamChart }) {
+  return <TeamStatusDonut team={s.team} onSelect={onOpen} format={format} />;
 }
 
 const STATE: Record<UnitRow["state"], { dot: string; label: string }> = {
@@ -55,6 +55,16 @@ const STATE: Record<UnitRow["state"], { dot: string; label: string }> = {
   attention: { dot: "bg-amber-500", label: "Atenção" },
   normal: { dot: "bg-emerald-500", label: "Normal" },
 };
+
+/** Cabeçalho compacto (cabe em 1/3 da linha); nome completo no title e para leitores de ecrã. */
+function Th({ full, short, last = false }: { full: string; short: string; last?: boolean }) {
+  return (
+    <th scope="col" title={full} className={`whitespace-nowrap px-1.5 py-2 text-right font-medium ${last ? "rounded-r-lg" : ""}`}>
+      <span aria-hidden="true">{short}</span>
+      <span className="sr-only">{full}</span>
+    </th>
+  );
+}
 
 export function UnitsBody({ s, onOpen, onlyAttention, onClearFilter }: { s: OperationalSnapshot; onOpen: (u: UnitRow) => void; onlyAttention: boolean; onClearFilter: () => void }) {
   const [q, setQ] = useState("");
@@ -77,29 +87,29 @@ export function UnitsBody({ s, onOpen, onlyAttention, onClearFilter }: { s: Oper
         <table className="min-w-full text-sm">
           <thead className="bg-surface-soft/70 text-xs text-ink-secondary">
             <tr>
-              <th className="rounded-l-lg px-3 py-2 text-left font-medium">Unidade</th>
-              <th className="px-3 py-2 text-right font-medium">Presentes</th>
-              <th className="px-3 py-2 text-right font-medium">Atrasos</th>
-              <th className="px-3 py-2 text-right font-medium">Ausentes</th>
-              <th className="px-3 py-2 text-right font-medium">Sem cobertura</th>
-              <th className="rounded-r-lg px-3 py-2 text-right font-medium">Pendências</th>
+              <th className="rounded-l-lg px-2 py-2 text-left font-medium">Unidade</th>
+              <Th full="Presentes" short="Pres." />
+              <Th full="Atrasos" short="Atr." />
+              <Th full="Ausentes" short="Aus." />
+              <Th full="Sem cobertura" short="S/ cob." />
+              <Th full="Pendências" short="Pend." last />
             </tr>
           </thead>
           <tbody>
             {rows.map((u) => (
               <tr key={u.locationId} className="cursor-pointer border-b border-line-subtle transition-colors last:border-0 hover:bg-surface-soft/60" onClick={() => onOpen(u)}>
-                <td className="px-3 py-2.5">
-                  <button type="button" onClick={(e) => (e.stopPropagation(), onOpen(u))} className="flex items-center gap-2 text-left font-medium text-navy-900 hover:underline">
+                <td className="max-w-[9.5rem] px-2 py-2.5">
+                  <button type="button" onClick={(e) => (e.stopPropagation(), onOpen(u))} className="flex min-w-0 items-center gap-2 text-left font-medium text-navy-900 hover:underline">
                     <span aria-hidden="true" className={`h-2 w-2 rounded-full ${STATE[u.state].dot}`} />
-                    {u.name}
+                    <span className="truncate" title={u.name}>{u.name}</span>
                     <span className="sr-only">({STATE[u.state].label})</span>
                   </button>
                 </td>
-                <td className="px-3 py-2.5 text-right">{num(u.present, false)}</td>
-                <td className="px-3 py-2.5 text-right">{num(u.late, true)}</td>
-                <td className="px-3 py-2.5 text-right">{num(u.absent + u.missing, true)}</td>
-                <td className="px-3 py-2.5 text-right">{num(u.uncovered, true)}</td>
-                <td className="px-3 py-2.5 text-right">{num(u.pending, true)}</td>
+                <td className="px-1.5 py-2.5 text-right">{num(u.present, false)}</td>
+                <td className="px-1.5 py-2.5 text-right">{num(u.late, true)}</td>
+                <td className="px-1.5 py-2.5 text-right">{num(u.absent + u.missing, true)}</td>
+                <td className="px-1.5 py-2.5 text-right">{num(u.uncovered, true)}</td>
+                <td className="px-1.5 py-2.5 text-right">{num(u.pending, true)}</td>
               </tr>
             ))}
           </tbody>

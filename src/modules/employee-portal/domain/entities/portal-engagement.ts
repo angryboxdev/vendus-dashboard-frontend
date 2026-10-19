@@ -70,17 +70,6 @@ export interface WhosIn {
   people: { employeeId: string; name: string; state: string; since: string }[];
 }
 
-export interface MyTimeBank {
-  cutoff: string;
-  balance: number;
-  available: number;
-  generated: number;
-  compensatedRest: number;
-  compensatedPaid: number;
-  expired: number;
-  entries: { id: string; kind: string; seconds: number; workDate: string; reason: string; running: number }[];
-}
-
 /** Ainda falta algo ao colaborador: confirmar (se pedido) ou abrir. */
 export const needsAction = (x: { requiresConfirmation: boolean; readAt: string | null; confirmedAt: string | null }) => (x.requiresConfirmation ? !x.confirmedAt : !x.readAt);
 

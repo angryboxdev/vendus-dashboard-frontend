@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../../../../lib/api.ts";
 import type { OperationalSnapshot, WidgetPref } from "../../../domain/entities/dashboard.ts";
-import { defaultLayout, donutSegments, moveBy, moveTo, setSpan, summaryParts, toggleHidden, visibleWidgets } from "../../../domain/services/dashboard.service.ts";
+import { defaultLayout, donutSegments, moveBy, moveTo, pieSlices, setSpan, setTeamChart, summaryParts, teamChartOf, teamShare, toggleHidden, visibleWidgets } from "../../../domain/services/dashboard.service.ts";
 import { fakeNovoRhModule } from "../../../fake-module.test-utils.ts";
 import { NovoRhProvider, type NovoRhModule } from "../../../novo-rh.module.tsx";
 import { DashboardView } from "./DashboardView.tsx";
@@ -88,11 +88,47 @@ describe("Dashboard — regras puras", () => {
 
   it("rascunho do layout: mover, subir/descer, tamanhos só os permitidos", () => {
     const l = defaultLayout();
-    expect(moveTo(l, "REQUESTS", "ATTENTION").sort((a, b) => a.order - b.order)[0]!.widgetId).toBe("REQUESTS");
-    expect(moveBy(l, "ATTENTION", -1)).toBe(l);
-    expect(moveBy(l, "ATTENTION", 1).sort((a, b) => a.order - b.order)[0]!.widgetId).toBe("TEAM_STATUS");
+    expect(moveTo(l, "REQUESTS", "TEAM_STATUS").sort((a, b) => a.order - b.order)[0]!.widgetId).toBe("REQUESTS");
+    expect(moveBy(l, "TEAM_STATUS", -1)).toBe(l);
+    expect(moveBy(l, "TEAM_STATUS", 1).sort((a, b) => a.order - b.order)[0]!.widgetId).toBe("LOCATIONS_STATUS");
     expect(setSpan(l, "TEAM_STATUS", 12).find((w) => w.widgetId === "TEAM_STATUS")!.span).toBe(12);
     expect(setSpan(l, "TEAM_STATUS", 5)).toBe(l);
+  });
+});
+
+describe("Estado da equipa — formatos do gráfico", () => {
+  it("ordem padrão: equipa, unidades e atenção lado a lado (só para quem nunca guardou)", () => {
+    expect(defaultLayout().sort((a, b) => a.order - b.order).slice(0, 3).map((w) => [w.widgetId, w.span])).toEqual([["TEAM_STATUS", 4], ["LOCATIONS_STATUS", 4], ["ATTENTION", 4]]);
+  });
+
+  it("formato guardado por widget (omisso = rosca); percentagens e fatias sobre os mesmos números", () => {
+    const l = defaultLayout();
+    expect(teamChartOf(l)).toBe("donut");
+    const bar = setTeamChart(l, "bar");
+    expect(teamChartOf(bar)).toBe("bar");
+    expect(bar.filter((w) => w.chart).map((w) => w.widgetId)).toEqual(["TEAM_STATUS"]);
+    // Ordem e visibilidade continuam a guardar o formato.
+    expect(teamChartOf(moveBy(toggleHidden(bar, "TEAM_STATUS"), "TEAM_STATUS", 1))).toBe("bar");
+    expect(teamShare(SNAP.team, "working")).toBe(62);
+    expect(teamShare({ ...SNAP.team, total: 0, working: 0, remote: 0, break: 0, finished: 0, not_started: 0, vacation: 0, absent: 0 }, "working")).toBeNull();
+    expect(pieSlices(SNAP.team, 70, 70, 64).map((x) => [x.category, x.value])).toEqual(donutSegments(SNAP.team, 100).map((x) => [x.category, x.value]));
+    expect(pieSlices({ ...SNAP.team, working: 0, remote: 0, break: 0, finished: 0, not_started: 0, vacation: 0, absent: 5 }, 70, 70, 64)).toHaveLength(1);
+  });
+
+  it("trocar para Barras mostra as barras com a mesma legenda e guarda a escolha no layout", async () => {
+    const m = mod();
+    renderWith(m);
+    const user = userEvent.setup();
+    await screen.findByRole("img", { name: "29 colaboradores" });
+    await user.click(screen.getByRole("radio", { name: "Barras" }));
+    expect(await screen.findByRole("button", { name: "Trabalhando: 18. Ver lista" })).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: "29 colaboradores" })).toBeNull();
+    await vi.waitFor(() => expect(m.dashboard.saveLayout).toHaveBeenCalledTimes(1));
+    const sent = (m.dashboard.saveLayout as ReturnType<typeof vi.fn>).mock.calls[0]![0] as WidgetPref[];
+    expect(sent.find((w) => w.widgetId === "TEAM_STATUS")!.chart).toBe("bar");
+    await user.click(screen.getByRole("radio", { name: "Pizza" }));
+    expect(await screen.findByRole("img", { name: "29 colaboradores" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Trabalhando: 18. Ver lista" })).toBeInTheDocument();
   });
 });
 

@@ -96,7 +96,7 @@ export function DashboardWidget({
         editing ? `cursor-default ${edit!.selected ? "border-brand-500 ring-2 ring-brand-500/20" : "border-line"} ${edit!.hidden ? "opacity-50" : ""}` : "border-line"
       } ${edit?.dragging ? "scale-[0.99] opacity-40" : ""} ${edit?.dropTarget ? "outline-dashed outline-2 outline-offset-2 outline-brand-500" : ""}`}
     >
-      <header className="mb-3 flex items-start justify-between gap-3">
+      <header className="mb-4 flex flex-wrap items-start justify-between gap-x-3 gap-y-2">
         <div className="flex min-w-0 items-start gap-2.5">
           {editing && (
             <button

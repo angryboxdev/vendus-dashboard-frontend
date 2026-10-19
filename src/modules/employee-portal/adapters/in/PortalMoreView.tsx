@@ -9,7 +9,6 @@ const ITEMS = [
   { to: "/portal/tarefas", label: "Tarefas", hint: "Listas de verificação a cumprir" },
   { to: "/portal/solicitacoes", label: "Solicitações", hint: "Pedidos à empresa (fardamento, declarações…)" },
   { to: "/portal/equipa", label: "Quem está", hint: "Quem está a trabalhar agora" },
-  { to: "/portal/banco-de-horas", label: "Banco de horas", hint: "Saldo e movimentos" },
   { to: "/portal/perfil", label: "Perfil", hint: "Conta e palavra-passe" },
 ];
 

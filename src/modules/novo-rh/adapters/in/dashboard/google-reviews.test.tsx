@@ -42,9 +42,10 @@ describe("Avaliações Google", () => {
     expect(formatRating(null)).toBe("—");
   });
 
-  it("sem chave no servidor: explica o que falta", async () => {
+  it("sem chave no servidor: estado operacional, sem nomes técnicos", async () => {
     renderBody(fakeNovoRhModule());
-    expect(await screen.findByText(/falta a chave GOOGLE_PLACES_API_KEY/)).toBeTruthy();
+    expect(await screen.findByText(/ainda não estão ativas nesta conta/)).toBeTruthy();
+    expect(screen.queryByText(/GOOGLE_PLACES_API_KEY/)).toBeNull();
   });
 
   it("média, nota por local e local indisponível; abre as avaliações com o autor", async () => {
