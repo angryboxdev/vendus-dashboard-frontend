@@ -577,6 +577,8 @@ function RowMenu({ p, r }: { p: RosterBoardProps; r: RosterRow }) {
       label={`Opções de ${r.name}`}
       align="left"
       className="absolute inset-0"
+      // Na coluna fixa da grelha o menu ficaria por trás das células seguintes.
+      portal
       items={[
         { label: "Ver funcionário", onSelect: () => navigate(href) },
         {
