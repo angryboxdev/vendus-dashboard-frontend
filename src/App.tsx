@@ -1,4 +1,6 @@
-import { Navigate, Route, Routes } from "react-router-dom";
+import type { ReactNode } from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { appMainClass } from "./lib/app-main";
 
 import { CustosFixosPage } from "./pages/dre/CustosFixosPage";
 import { CustosVariaveisPage } from "./pages/dre/CustosVariaveisPage";
@@ -108,6 +110,12 @@ import { PortalMoreView } from "./modules/employee-portal/adapters/in/PortalMore
 import { PortalNewsView } from "./modules/employee-portal/adapters/in/PortalNewsView.tsx";
 import { PortalCustomRequestsView, PortalTasksView, PortalTeamView } from "./modules/employee-portal/adapters/in/PortalWorkViews.tsx";
 
+/** Área principal ao lado da sidebar (ver `appMainClass`). */
+function AppMain({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+  return <main className={appMainClass(pathname)}>{children}</main>;
+}
+
 export default function App() {
   return (
     <Routes>
@@ -195,7 +203,7 @@ export default function App() {
               <div className="contents font-legacy">
                 <Sidebar />
               </div>
-              <main className="min-w-0 flex-1 overflow-auto pt-12 md:pt-0">
+              <AppMain>
                 <Routes>
                 <Route path="/" element={<HomeRedirect />} />
                 <Route
@@ -505,7 +513,7 @@ export default function App() {
                 <Route path="/admin/access-profiles" element={<AccessProvider><ProfilesView /></AccessProvider>} />
                 <Route path="/admin/location-tokens" element={<LocationCredentialsAdminView />} />
               </Routes>
-            </main>
+            </AppMain>
           </div>
           </SidebarProvider>
           </ProtectedRoute>
