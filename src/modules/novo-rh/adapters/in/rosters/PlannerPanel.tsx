@@ -1300,7 +1300,7 @@ export function PlannerPanel({
         {rosterId && (
           // A coluna encolhe/estica com uma transição curta; a grelha ocupa o espaço libertado.
           <div
-            className={`shrink-0 self-stretch overflow-x-clip transition-[width] duration-200 ease-out motion-reduce:transition-none ${assignOpen ? "w-[272px] lg:w-[324px]" : "w-[76px]"}`}
+            className={`shrink-0 self-stretch overflow-x-clip transition-[width] duration-200 ease-out motion-reduce:transition-none ${assignOpen ? "w-[272px] lg:w-[324px]" : "w-[44px]"}`}
           >
           <AssignPanel
             collapsed={!assignOpen}

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import {
   DropdownMenu,
@@ -21,16 +21,6 @@ import {
   segmentsMinutes,
   templateTone,
 } from "../../../domain/services/roster-board.service.ts";
-
-/** Quadrado da barra recolhida: o pastel e a tinta do tipo de turno (os mesmos da escala). */
-const RAIL_TONE: Record<ReturnType<typeof templateTone>, string> = {
-  morning: "bg-shift-morning-bg text-shift-morning-ink",
-  afternoon: "bg-shift-afternoon-bg text-shift-afternoon-ink",
-  night: "bg-shift-night-bg text-shift-night-ink",
-  split: "bg-shift-split-bg text-shift-split-ink",
-  other: "bg-shift-other-bg text-shift-other-ink",
-};
-const RAIL_CHIP = "flex h-11 w-11 items-center justify-center rounded-xl text-sm font-semibold";
 
 /**
  * "Atribuir turnos" (lateral direita): escolher um modelo (ou Folga) e
@@ -80,7 +70,6 @@ export function AssignPanel({
   const plusRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
   const firstRender = useRef(true);
-  const [tip, setTip] = useState<{ text: string; top: number; right: number } | null>(null);
   useEffect(() => {
     if (firstRender.current) {
       firstRender.current = false;
@@ -94,7 +83,6 @@ export function AssignPanel({
   }, [collapsed]);
   const collapse = () => {
     savedScroll.current = listRef.current?.scrollTop ?? 0;
-    setTip(null);
     onClose();
   };
   const norm = (v: string) =>
@@ -113,94 +101,23 @@ export function AssignPanel({
         ? (a.segments[0]?.start ?? "").localeCompare(b.segments[0]?.start ?? "")
         : a.name.localeCompare(b.name, "pt"),
     );
-  if (collapsed) {
-    const all = templates
-      .filter((x) => !x.archived)
-      .sort((a, b) =>
-        byTime
-          ? (a.segments[0]?.start ?? "").localeCompare(b.segments[0]?.start ?? "")
-          : a.name.localeCompare(b.name, "pt"),
-      );
-    const show = (text: string) => (e: { currentTarget: HTMLElement }) => {
-      const r = e.currentTarget.getBoundingClientRect();
-      setTip({ text, top: r.top + r.height / 2, right: window.innerWidth - r.left + 8 });
-    };
-    const item = (key: string, label: string, chip: ReactNode, active: boolean, onClick: () => void) => (
-      <li key={key}>
-        <button
-          type="button"
-          aria-label={label}
-          aria-pressed={active}
-          onClick={() => {
-            setTip(null);
-            onClick();
-          }}
-          onMouseEnter={show(label)}
-          onMouseLeave={() => setTip(null)}
-          onFocus={show(label)}
-          onBlur={() => setTip(null)}
-          className={`flex w-full justify-center rounded-xl transition duration-150 hover:-translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${active ? "[&>span]:ring-2 [&>span]:ring-brand-600" : ""}`}
-        >
-          {chip}
-        </button>
-      </li>
-    );
+  // Recolhido: só um «+» laranja, pequeno, ao lado da grelha (reabre o painel tal como estava).
+  if (collapsed)
     return (
-      <aside
-        aria-label={t("ros.assign.rail")}
-        className="sticky top-4 z-10 ml-3 flex max-h-[calc(100vh-2rem)] w-[64px] shrink-0 flex-col items-center rounded-2.5xl border border-line bg-surface-card py-4 shadow-card motion-safe:animate-motion-fade"
-      >
+      <div className="sticky top-4 z-10 ml-3 shrink-0">
         <button
           ref={plusRef}
           type="button"
           aria-label={t("ros.assign.expand")}
+          title={t("ros.assign.expand")}
           aria-expanded={false}
-          onClick={() => {
-            setTip(null);
-            onExpand?.();
-          }}
-          onMouseEnter={show(t("ros.assign.expand"))}
-          onMouseLeave={() => setTip(null)}
-          onFocus={show(t("ros.assign.expand"))}
-          onBlur={() => setTip(null)}
-          className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-500 text-white shadow-card transition duration-150 hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 focus-visible:ring-offset-2"
+          onClick={() => onExpand?.()}
+          className="flex h-8 w-8 items-center justify-center rounded-full bg-brand-500 text-white shadow-sm transition duration-150 hover:bg-brand-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/50 focus-visible:ring-offset-2 motion-safe:animate-motion-fade"
         >
-          <IconPlus size={18} />
+          <IconPlus size={16} />
         </button>
-        <span className="mt-4 h-0.5 w-7 shrink-0 rounded-full bg-line" aria-hidden="true" />
-        {/* Só a lista rola: o «+» fica sempre visível. */}
-        <ul className="mt-4 w-full flex-1 space-y-2.5 overflow-y-auto px-1.5 pb-1" onScroll={() => setTip(null)}>
-          {all.map((x) =>
-            item(
-              x.id,
-              `${x.name} · ${x.segments.map(segmentLabel).join(", ")} · ${hoursLabel(segmentsMinutes(x.segments))}`,
-              <span className={`${RAIL_CHIP} ${RAIL_TONE[templateTone(x)]}`}>
-                <span className="block max-w-[38px] truncate px-0.5">{chipLabel(x)}</span>
-              </span>,
-              value === x.id,
-              () => onExpand?.(x.id),
-            ),
-          )}
-          {item(
-            "day_off",
-            t("ros.dayOff"),
-            <span className={`${RAIL_CHIP} bg-emerald-100 text-emerald-800`}>F</span>,
-            value === "day_off",
-            () => onExpand?.("day_off"),
-          )}
-        </ul>
-        {tip && (
-          <span
-            role="tooltip"
-            className="pointer-events-none fixed z-50 max-w-[260px] -translate-y-1/2 rounded-lg bg-navy-900 px-2.5 py-1.5 text-xs text-white shadow-pop"
-            style={{ top: tip.top, right: tip.right }}
-          >
-            {tip.text}
-          </span>
-        )}
-      </aside>
+      </div>
     );
-  }
 
   const card = (active: boolean) =>
     `flex w-full items-center gap-4 rounded-2xl border bg-surface-card px-4 py-3.5 text-left transition duration-150 hover:border-navy-900/20 hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${

@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -901,12 +901,10 @@ describe("Escalas — plano de cobertura", () => {
 
 describe("Escalas — «Atribuir turnos» recolhível", () => {
   const T2 = { ...TPL, id: "t2", name: "Tarde curta", abbreviation: "T", segments: [{ start: "17:00", end: "21:00" }] };
-  const LONG = { ...TPL, id: "t3", name: "Fecho de caixa longo", abbreviation: "FCLX99", segments: [{ start: "22:00", end: "02:00" }] };
-  const rail = () => screen.getByRole("complementary", { name: "Modelos de turno (painel recolhido)" });
 
-  it("X recolhe só o painel (barra com os códigos reais); recolhido, clicar na grelha não atribui; + repõe pesquisa e seleção", async () => {
+  it("X recolhe para um «+» discreto (sem barra de modelos); recolhido, clicar na grelha não atribui; + repõe pesquisa e seleção", async () => {
     const m = mod();
-    m.rosters.listTemplates = vi.fn(async () => [TPL, T2, LONG]);
+    m.rosters.listTemplates = vi.fn(async () => [TPL, T2]);
     m.rosters.addShift = vi.fn(async () => ({ shift: PUBLISHED, warnings: [] }));
     renderWith(m);
     const user = await openRoster();
@@ -914,12 +912,10 @@ describe("Escalas — «Atribuir turnos» recolhível", () => {
     await user.click(within(panel()).getByRole("button", { name: /^TTarde16:00/ }));
     await user.click(within(panel()).getByRole("button", { name: "Recolher «Atribuir turnos»" }));
     expect(screen.queryByRole("complementary", { name: "Atribuir turnos" })).toBeNull();
-    // Códigos e cores reais; o código longo não transborda; o «+» recebe o foco.
-    const plus = within(rail()).getByRole("button", { name: "Expandir «Atribuir turnos»" });
+    const plus = screen.getByRole("button", { name: "Expandir «Atribuir turnos»" });
     expect(plus).toHaveFocus();
-    expect(within(rail()).getByText("FCLX99")).toHaveClass("truncate");
-    expect(within(rail()).getByRole("button", { name: "Tarde · 16:00 - 22:00 · 6h" })).toHaveAttribute("aria-pressed", "true");
-    expect(within(rail()).getByRole("button", { name: "Tarde curta · 17:00 - 21:00 · 4h" })).toHaveAttribute("aria-pressed", "false");
+    // Só o «+»: nenhum código de modelo fica à vista.
+    expect(screen.queryByRole("button", { name: /Tarde curta/ })).toBeNull();
     // Recolhido: um dia vazio só fica escolhido, nunca recebe um turno.
     const third = daysFrom(MON, 3)[2]!;
     await user.click(within(grid()).getByRole("button", { name: `Ana Teste ${third}` }));
@@ -928,32 +924,5 @@ describe("Escalas — «Atribuir turnos» recolhível", () => {
     expect(within(panel()).getByLabelText("Pesquisar modelo")).toHaveValue("Tarde");
     expect(within(panel()).getByRole("button", { name: /^TTarde16:00/ })).toHaveAttribute("aria-pressed", "true");
     expect(within(panel()).getByRole("button", { name: "Recolher «Atribuir turnos»" })).toHaveFocus();
-  });
-
-  it("abreviatura recolhida: expande e escolhe esse modelo pelo id (códigos repetidos), sem atribuir; tooltip também no foco", async () => {
-    const m = mod();
-    m.rosters.listTemplates = vi.fn(async () => [TPL, T2]);
-    m.rosters.addShift = vi.fn(async () => ({ shift: PUBLISHED, warnings: [] }));
-    renderWith(m);
-    const user = await openRoster();
-    await user.click(within(panel()).getByRole("button", { name: "Recolher «Atribuir turnos»" }));
-    const second = within(rail()).getByRole("button", { name: "Tarde curta · 17:00 - 21:00 · 4h" });
-    act(() => second.focus());
-    expect(screen.getByRole("tooltip")).toHaveTextContent("Tarde curta · 17:00 - 21:00 · 4h");
-    await user.click(second);
-    expect(screen.queryByRole("complementary", { name: "Modelos de turno (painel recolhido)" })).toBeNull();
-    expect(within(panel()).getByRole("button", { name: /Tarde curta/ })).toHaveAttribute("aria-pressed", "true");
-    expect(within(panel()).getByRole("button", { name: /^TTarde16:00/ })).toHaveAttribute("aria-pressed", "false");
-    expect(m.rosters.addShift).not.toHaveBeenCalled();
-  });
-
-  it("sem modelos: a barra recolhida mostra o «+» e a Folga", async () => {
-    const m = mod();
-    m.rosters.listTemplates = vi.fn(async () => []);
-    renderWith(m);
-    const user = await openRoster();
-    await user.click(within(panel()).getByRole("button", { name: "Recolher «Atribuir turnos»" }));
-    expect(within(rail()).getByRole("button", { name: "Expandir «Atribuir turnos»" })).toBeInTheDocument();
-    expect(within(rail()).getByRole("button", { name: "Folga" })).toBeInTheDocument();
   });
 });
