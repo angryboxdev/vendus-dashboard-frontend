@@ -6,14 +6,18 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../../../../lib/api.ts";
 import type { RosterShift } from "../../../domain/entities/rosters.ts";
 import { weekOf } from "../../../domain/services/attendance.service.ts";
-import { chipLabel, hoursLabel, hoursLong, overlappingIds, rosterRows, segmentsTone, shiftRows, templateTone } from "../../../domain/services/roster-board.service.ts";
+import { areaRows, chipLabel, hoursLabel, hoursLong, overlappingIds, rosterRows, segmentsTone, shiftRows, templateTone } from "../../../domain/services/roster-board.service.ts";
 import { cellLabel, daysFrom, parseSegments, violationsOf } from "../../../domain/services/rosters.service.ts";
 import { cellRect, copyInputs, paintInputs } from "../../../domain/services/roster-edit.service.ts";
 import { afterRedo, afterUndo, emptyHistory, HISTORY_LIMIT, recordOp, type EditOp } from "../../../domain/services/edit-history.service.ts";
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
+import { coverageConfigured, coverageDeficits, shortDay, windowLabel } from "../../../domain/services/roster-coverage.service.ts";
+import { TOPICS, topicDefinitions } from "../../../domain/services/settings-topics.service.ts";
+import type { CoverageReport } from "../../../domain/entities/rosters.ts";
 import { fakeNovoRhModule } from "../../../fake-module.test-utils.ts";
 import { NovoRhProvider, type NovoRhModule } from "../../../novo-rh.module.tsx";
 import { RostersView } from "./RostersView.tsx";
+import { CoveragePanel } from "./CoveragePanel.tsx";
 
 // Datas da semana atual (a grelha abre na semana de hoje).
 const MON = weekOf(todayIn()).from;
@@ -233,8 +237,8 @@ describe("Escalas — ecrãs", () => {
     expect(screen.getByText("2 dia(s) escolhido(s)")).toBeInTheDocument();
     await user.keyboard("{Control>}v{/Control}");
     await vi.waitFor(() => expect(m.rosters.addShift).toHaveBeenCalledTimes(2));
-    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", { employeeId: "e1", workDate: wed, kind: "shift", templateId: "t1", segments: [] });
-    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", { employeeId: "e1", workDate: thu, kind: "shift", templateId: "t1", segments: [] });
+    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", { employeeId: "e1", workDate: wed, kind: "shift", templateId: "t1", segments: [], areaId: null });
+    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", { employeeId: "e1", workDate: thu, kind: "shift", templateId: "t1", segments: [], areaId: null });
   });
 
   it("arrastar um turno para outro dia pergunta mover/copiar; mover cria no novo dia e retira o original", async () => {
@@ -255,7 +259,7 @@ describe("Escalas — ecrãs", () => {
     const choice = within(cell(wed)).getByRole("group", { name: "Mover ou copiar o turno" });
     await user.click(within(choice).getByRole("button", { name: "Mover" }));
     await vi.waitFor(() => expect(m.rosters.deleteShift).toHaveBeenCalledWith("s2", { reason: null, confirm: false }));
-    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", { employeeId: "e1", workDate: wed, kind: "shift", templateId: "t1", segments: [] });
+    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", { employeeId: "e1", workDate: wed, kind: "shift", templateId: "t1", segments: [], areaId: null });
   });
 
   it("arrastar por vários dias pinta-os e copia para todos; um turno publicado só se move com motivo", async () => {
@@ -446,9 +450,9 @@ describe("Escalas — ecrãs", () => {
     const rect = cellRect(["e1", "e2"], [MON, TUE], { employeeId: "e2", workDate: TUE }, { employeeId: "e1", workDate: MON });
     expect(rect).toHaveLength(4);
     expect(copyInputs(PUBLISHED, [{ employeeId: "e1", workDate: MON }, { employeeId: "e2", workDate: MON }, { employeeId: "e2", workDate: MON }])).toEqual([
-      { employeeId: "e2", workDate: MON, kind: "shift", templateId: "t1", segments: [] },
+      { employeeId: "e2", workDate: MON, kind: "shift", templateId: "t1", segments: [], areaId: null },
     ]);
-    expect(paintInputs("day_off", [{ employeeId: "e1", workDate: TUE }])).toEqual([{ employeeId: "e1", workDate: TUE, kind: "day_off", templateId: null, segments: [] }]);
+    expect(paintInputs("day_off", [{ employeeId: "e1", workDate: TUE }])).toEqual([{ employeeId: "e1", workDate: TUE, kind: "day_off", templateId: null, segments: [], areaId: null }]);
   });
 
   it("troca: aprovar e recusar só com comentário", async () => {
@@ -634,5 +638,244 @@ describe("Escalas — turnos a guardar e em conflito ficam visíveis", () => {
     // Ainda sem resposta do servidor, o contador já desceu.
     expect(await screen.findByRole("button", { name: "Sem avisos na escala" })).toBeInTheDocument();
     finish();
+  });
+});
+
+describe("Escalas — áreas de trabalho", () => {
+  const SALA = { id: "a1", locationId: "l1", name: "Sala", sortOrder: 0, active: true };
+  const CAIXA = { id: "a2", locationId: "l1", name: "Caixa", sortOrder: 1, active: true };
+  const VELHA = { id: "a3", locationId: "l1", name: "Esplanada", sortOrder: 2, active: false };
+  const withAreas = () => {
+    const m = mod();
+    m.rosters.listAreas = vi.fn(async () => [SALA, CAIXA, VELHA]);
+    m.rosters.listShifts = vi.fn(async () => ({ roster: ROSTER, pending: 1, shifts: [{ ...PUBLISHED, areaId: "a2" }, { ...PUBLISHED, id: "s2", workDate: TUE, dirty: true, published: null, publishedVersion: null }] }));
+    return m;
+  };
+
+  it("regras: área vai com a cópia e com o pincel (folga nunca); agrupar por área com «Sem área» no fim", () => {
+    expect(copyInputs({ ...PUBLISHED, areaId: "a1" }, [{ employeeId: "e2", workDate: MON }])[0]!.areaId).toBe("a1");
+    expect(paintInputs("t1", [{ employeeId: "e1", workDate: TUE }], "a2")[0]!.areaId).toBe("a2");
+    expect(paintInputs("day_off", [{ employeeId: "e1", workDate: TUE }], "a2")[0]!.areaId).toBeNull();
+    const day = { ...PUBLISHED, id: "d1", kind: "day_off" as const, segments: [], templateId: null };
+    const rows = areaRows([{ ...PUBLISHED, areaId: "a2" }, { ...PUBLISHED, id: "x", areaId: "a3" }, { ...PUBLISHED, id: "y" }, day], [CAIXA, VELHA, SALA], [TPL]);
+    // Ativas pela ordem (mesmo vazias), desativada só com turnos, «Sem área» no fim; folgas fora.
+    expect(rows.map((r) => [r.label, [...r.byDate.values()].flat().length])).toEqual([["Sala", 0], ["Caixa", 1], ["Esplanada", 1], ["Sem área", 1]]);
+    expect(areaRows([], [VELHA], []).map((r) => r.key)).toEqual(["none"]);
+  });
+
+  it("vista «Áreas»: uma linha por área do centro e os turnos sem área em «Sem área»", async () => {
+    renderWith(withAreas());
+    const user = await openRoster();
+    await user.click(screen.getByRole("radio", { name: "Áreas" }));
+    expect(await screen.findByText("Áreas de trabalho")).toBeInTheDocument();
+    const rowOf = (label: string) => screen.getAllByRole("row").find((r) => within(r).queryByText(label))!;
+    expect(within(rowOf("Caixa")).getByRole("button", { name: `Ana Teste · Tarde ${MON}` })).toBeInTheDocument();
+    expect(within(rowOf("Sem área")).getByRole("button", { name: `Ana Teste · Tarde ${TUE}` })).toBeInTheDocument();
+    expect(rowOf("Sala")).toBeTruthy();
+    // Desativada e sem turnos: não aparece.
+    expect(screen.queryByText("Esplanada")).toBeNull();
+  });
+
+  it("pincel com área: o turno criado leva a área escolhida; só áreas ativas do centro", async () => {
+    const m = withAreas();
+    m.rosters.addShift = vi.fn(async () => ({ shift: PUBLISHED, warnings: [] }));
+    renderWith(m);
+    const user = await openRoster();
+    expect(m.rosters.listAreas).toHaveBeenCalledWith("l1");
+    const areas = await within(panel()).findByRole("group", { name: "Área de trabalho" });
+    expect(within(areas).queryByRole("button", { name: "Esplanada" })).toBeNull();
+    await user.click(within(areas).getByRole("button", { name: "Sala" }));
+    await user.click(within(panel()).getByRole("button", { name: /Tarde/ }));
+    const third = daysFrom(MON, 3)[2]!;
+    await user.click(within(grid()).getByRole("button", { name: `Ana Teste ${third}` }));
+    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", expect.objectContaining({ workDate: third, templateId: "t1", areaId: "a1" }));
+  });
+
+  it("mudar a área de um turno publicado: só com motivo, como as outras alterações", async () => {
+    const m = withAreas();
+    m.rosters.updateShift = vi.fn(async () => ({ shift: PUBLISHED, warnings: [], publication: null }));
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(screen.getAllByRole("button", { name: `Ana Teste ${MON}` })[0]!);
+    const box = screen.getByRole("dialog", { name: `Turno de Ana Teste em ${MON}` });
+    const select = await within(box).findByLabelText("Área de trabalho");
+    expect(select).toHaveValue("a2");
+    await user.selectOptions(select, "a1");
+    const change = within(box).getByRole("button", { name: "Alterar para o modelo escolhido" });
+    expect(change).toBeDisabled();
+    await user.type(within(box).getByLabelText(/Motivo/), "Reforço na sala");
+    await user.click(change);
+    expect(m.rosters.updateShift).toHaveBeenCalledWith("s1", { areaId: "a1" }, { reason: "Reforço na sala", confirm: false });
+  });
+
+  it("gerir áreas por centro: criar, ordenar, mudar o nome e desativar", async () => {
+    const m = withAreas();
+    m.rosters.createArea = vi.fn(async () => ({ ...SALA, id: "a9", name: "Cozinha", sortOrder: 3 }));
+    m.rosters.updateArea = vi.fn(async () => SALA);
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(within(panel()).getByRole("button", { name: "Gerir áreas" }));
+    const list = await screen.findByRole("list", { name: "Áreas de trabalho" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(list).getAllByRole("listitem")[2]).toHaveTextContent("Desativada");
+    expect(screen.getByRole("button", { name: "Subir Sala" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Descer Sala" }));
+    expect(m.rosters.updateArea).toHaveBeenCalledWith("a1", { sortOrder: 1 });
+    expect(m.rosters.updateArea).toHaveBeenCalledWith("a2", { sortOrder: 0 });
+    await user.click(screen.getByRole("button", { name: "Desativar Caixa" }));
+    expect(m.rosters.updateArea).toHaveBeenCalledWith("a2", { active: false });
+    await user.click(screen.getByRole("button", { name: "Reativar Esplanada" }));
+    expect(m.rosters.updateArea).toHaveBeenCalledWith("a3", { active: true });
+    await user.click(screen.getByRole("button", { name: "Mudar o nome Sala" }));
+    const input = within(list).getByLabelText("Nome da área");
+    await user.clear(input);
+    await user.type(input, "Sala principal");
+    await user.click(within(list).getByRole("button", { name: "Guardar" }));
+    expect(m.rosters.updateArea).toHaveBeenCalledWith("a1", { name: "Sala principal" });
+    const add = screen.getByRole("form", { name: "Adicionar área" });
+    await user.type(within(add).getByLabelText("Nome da área"), "Cozinha");
+    await user.click(within(add).getByRole("button", { name: "Adicionar área" }));
+    expect(m.rosters.createArea).toHaveBeenCalledWith({ locationId: "l1", name: "Cozinha" });
+  });
+});
+
+describe("Escalas — plano de cobertura", () => {
+  const W = { startsNextDay: false, endsNextDay: false, published: 0 };
+  const REPORT: CoverageReport = {
+    enabled: true,
+    locationId: "l1",
+    days: [
+      { date: TUE, areaId: "a1", status: "deficit", windows: [{ ...W, start: "12:00", end: "15:00", required: 3, planned: 1 }] },
+      { date: MON, areaId: null, status: "deficit", windows: [{ ...W, start: "09:00", end: "13:00", required: 2, planned: 2 }, { ...W, start: "13:00", end: "17:00", required: 2, planned: 1 }] },
+      { date: MON, areaId: "a1", status: "not_configured", windows: [] },
+    ],
+  };
+  const withCoverage = () => {
+    const m = mod();
+    m.rosters.listAreas = vi.fn(async () => [{ id: "a1", locationId: "l1", name: "Sala", sortOrder: 0, active: true }]);
+    m.rosters.coverageStatus = vi.fn(async () => ({ enabled: true }));
+    m.rosters.coverage = vi.fn(async () => REPORT);
+    return m;
+  };
+
+  it("regras do ecrã: défices por dia (centro antes das áreas), intervalos a passar a meia-noite, tema Funcionalidades", () => {
+    expect(coverageDeficits(REPORT).map((d) => [d.date, d.areaId, d.window.start, d.missing])).toEqual([
+      [MON, null, "13:00", 1],
+      [TUE, "a1", "12:00", 2],
+    ]);
+    expect(coverageDeficits({ ...REPORT, enabled: false })).toEqual([]);
+    expect(coverageConfigured(REPORT)).toBe(true);
+    expect(coverageConfigured({ ...REPORT, days: [REPORT.days[2]!] })).toBe(false);
+    expect(windowLabel({ start: "22:00", end: "02:00", startsNextDay: false, endsNextDay: true })).toBe("22:00–02:00 (+1)");
+    expect(windowLabel({ start: "01:00", end: "06:00", startsNextDay: true, endsNextDay: true })).toBe("01:00–06:00 (dia seguinte)");
+    expect(shortDay("2026-11-02")).toBe("seg 02/11");
+    const def = { key: "time_tracking.roster.coverage_enabled", domain: "time_tracking" } as never;
+    const rest = { key: "time_tracking.roster.rest_severity", domain: "time_tracking" } as never;
+    const topic = (k: string) => TOPICS.find((x) => x.key === k)!;
+    expect(topicDefinitions(topic("features"), [def, rest])).toEqual([def]);
+    expect(topicDefinitions(topic("rosters"), [def, rest])).toEqual([rest]);
+  });
+
+  it("desligado (por omissão): sem alertas nem pedido de cobertura; liga-se nas Escalas e a escala passa a mostrar os défices", async () => {
+    const m = mod();
+    let on = false;
+    m.rosters.coverageStatus = vi.fn(async () => ({ enabled: on }));
+    m.rosters.setCoverageEnabled = vi.fn(async (v: boolean) => ((on = v), { enabled: v }));
+    m.rosters.coverage = vi.fn(async () => REPORT);
+    renderWith(m);
+    const user = await openRoster();
+    expect(m.rosters.coverage).not.toHaveBeenCalled();
+    expect(screen.queryByText(/abaixo do mínimo de cobertura/)).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Adicionar" }));
+    await user.click(screen.getByRole("menuitem", { name: "Plano de cobertura" }));
+    const sw = await screen.findByRole("switch", { name: "Plano de cobertura" });
+    expect(sw).toHaveAttribute("aria-checked", "false");
+    expect(m.rosters.listCoverageRules).not.toHaveBeenCalled();
+    await user.click(sw);
+    expect(m.rosters.setCoverageEnabled).toHaveBeenCalledWith(true);
+    expect(await screen.findByRole("switch", { name: "Plano de cobertura" })).toHaveAttribute("aria-checked", "true");
+    expect(await screen.findByRole("form", { name: "Adicionar mínimo" })).toBeInTheDocument();
+    // Desligar: volta a esconder os mínimos (ficam guardados no servidor).
+    await user.click(screen.getByRole("switch", { name: "Plano de cobertura" }));
+    expect(m.rosters.setCoverageEnabled).toHaveBeenLastCalledWith(false);
+    expect(await screen.findByText("Ligue o plano de cobertura para definir mínimos e ver os défices na escala.")).toBeInTheDocument();
+    expect(m.rosters.deleteCoverageRule).not.toHaveBeenCalled();
+  });
+
+  it("ligado: alerta com os défices da semana; publicar avisa mas não bloqueia", async () => {
+    const m = withCoverage();
+    m.rosters.publish = vi.fn(async () => ({ id: "p", version: 2, reason: null, confirmedWarnings: [], changes: [], publishedBy: "x", createdAt: "2026-10-12T10:00:00Z" }));
+    renderWith(m);
+    const user = await openRoster();
+    expect(await screen.findByText("2 intervalo(s) abaixo do mínimo de cobertura")).toBeInTheDocument();
+    const list = screen.getByRole("list", { name: "Plano de cobertura" });
+    expect(within(list).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      `${shortDay(MON)} · Centro inteiro · 13:00–17:00 — 1 de 2`,
+      `${shortDay(TUE)} · Sala · 12:00–15:00 — 1 de 3`,
+    ]);
+    expect(m.rosters.coverage).toHaveBeenCalledWith("r1", MON, daysFrom(MON, 7)[6]);
+    await user.click(screen.getByRole("button", { name: "Publicar escala" }));
+    expect(await screen.findByText(/Atenção: 2 intervalo\(s\) deste período/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Publicar agora" }));
+    expect(m.rosters.publish).toHaveBeenCalled();
+  });
+
+  it("gerir mínimos: semanal cria uma regra por dia escolhido; exceção numa data; alterar o mínimo e apagar", async () => {
+    const m = withCoverage();
+    const RULE = { id: "c1", locationId: "l1", areaId: null, weekday: 1, date: null, start: "09:00", end: "17:00", minPeople: 2 };
+    const EXC = { id: "c2", locationId: "l1", areaId: null, weekday: null, date: "2026-12-24", start: "22:00", end: "02:00", minPeople: 4 };
+    m.rosters.listCoverageRules = vi.fn(async () => [RULE, EXC]);
+    m.rosters.createCoverageRule = vi.fn(async (x) => ({ ...x, id: "n" }));
+    m.rosters.updateCoverageRule = vi.fn(async () => RULE);
+    m.rosters.deleteCoverageRule = vi.fn(async () => undefined);
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(screen.getByRole("button", { name: "Adicionar" }));
+    await user.click(screen.getByRole("menuitem", { name: "Plano de cobertura" }));
+    const monday = await screen.findByRole("list", { name: "Segunda" });
+    expect(monday).toHaveTextContent("09:00–17:00mín. 2");
+    expect(screen.getAllByText("Não configurado")).toHaveLength(6);
+    expect(within(screen.getByRole("list", { name: "Exceções" })).getByText("2026-12-24")).toBeInTheDocument();
+    expect(screen.getByText("22:00–02:00 (+1)")).toBeInTheDocument();
+
+    await user.click(within(monday).getByRole("button", { name: "Alterar o mínimo de 09:00–17:00" }));
+    const min = within(monday).getByLabelText("Mínimo de pessoas");
+    await user.clear(min);
+    await user.type(min, "3");
+    await user.click(within(monday).getByRole("button", { name: "Guardar" }));
+    expect(m.rosters.updateCoverageRule).toHaveBeenCalledWith("c1", { minPeople: 3 });
+    await user.click(screen.getByRole("button", { name: "Apagar a regra de 2026-12-24 22:00–02:00 (+1)" }));
+    expect(m.rosters.deleteCoverageRule).toHaveBeenCalledWith("c2");
+
+    // Novo mínimo semanal para a Sala, só ao sábado e domingo.
+    await user.selectOptions(screen.getByLabelText("Âmbito"), "a1");
+    const form = screen.getByRole("form", { name: "Adicionar mínimo" });
+    for (const d of ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]) await user.click(within(form).getByLabelText(d));
+    await user.click(within(form).getByRole("button", { name: "Adicionar mínimo" }));
+    expect(m.rosters.createCoverageRule).toHaveBeenCalledTimes(2);
+    expect(m.rosters.createCoverageRule).toHaveBeenCalledWith({ locationId: "l1", areaId: "a1", weekday: 6, date: null, start: "12:00", end: "15:00", minPeople: 2 });
+    expect(m.rosters.createCoverageRule).toHaveBeenCalledWith(expect.objectContaining({ weekday: 7 }));
+    // Exceção numa data.
+    await user.click(within(form).getByLabelText("Exceção numa data"));
+    fireEvent.change(within(form).getByLabelText("Data"), { target: { value: "2026-12-31" } });
+    await user.click(within(form).getByRole("button", { name: "Adicionar mínimo" }));
+    expect(m.rosters.createCoverageRule).toHaveBeenLastCalledWith({ locationId: "l1", areaId: "a1", weekday: null, date: "2026-12-31", start: "12:00", end: "15:00", minPeople: 2 });
+  });
+
+  it("painel com a funcionalidade desligada: interruptor desligado, explicação e sem pedir regras", async () => {
+    const m = mod();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <NovoRhProvider module={m}>
+          <MemoryRouter>
+            <CoveragePanel />
+          </MemoryRouter>
+        </NovoRhProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByRole("switch", { name: "Plano de cobertura" })).toHaveAttribute("aria-checked", "false");
+    expect(screen.getByText(/Funcionalidade opcional da empresa/)).toBeInTheDocument();
+    expect(m.rosters.listCoverageRules).not.toHaveBeenCalled();
   });
 });

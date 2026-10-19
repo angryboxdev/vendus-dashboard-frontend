@@ -30,6 +30,10 @@ export function AssignPanel({
   onCreate,
   onSettings,
   onClose,
+  areas = [],
+  area = "",
+  onAreaChange,
+  onManageAreas,
 }: {
   templates: ShiftTemplate[];
   loading: boolean;
@@ -39,6 +43,12 @@ export function AssignPanel({
   onCreate: () => void;
   onSettings: () => void;
   onClose: () => void;
+  /** Áreas ativas que a escala aceita (vazio = o centro não usa áreas). */
+  areas?: { id: string; label: string }[];
+  /** Área a atribuir com o modelo ("" = sem área). */
+  area?: string;
+  onAreaChange?: (id: string) => void;
+  onManageAreas?: () => void;
 }) {
   const { t } = useI18n();
   const [q, setQ] = useState("");
@@ -93,6 +103,42 @@ export function AssignPanel({
             {t("ros.assign.settings")}
           </button>
         </p>
+        {areas.length > 0 && onAreaChange && (
+          <div role="group" aria-label={t("ros.area")} className="px-6 pt-4">
+            <div className="flex items-center justify-between gap-2">
+              <span className="text-xs font-semibold uppercase tracking-wide text-ink-secondary">
+                {t("ros.area")}
+              </span>
+              {onManageAreas && (
+                <button
+                  type="button"
+                  onClick={onManageAreas}
+                  className="text-xs font-medium text-brand-600 hover:text-brand-500 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+                >
+                  {t("ros.area.manage")}
+                </button>
+              )}
+            </div>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {[{ id: "", label: t("ros.area.none") }, ...areas].map((a) => {
+                const on = area === a.id;
+                return (
+                  <button
+                    key={a.id || "none"}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => onAreaChange(a.id)}
+                    className={`rounded-full border px-3 py-1 text-xs font-medium transition duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${
+                      on ? "border-brand-600 bg-brand-600 text-white" : "border-line bg-surface-card text-navy-900 hover:border-navy-900/20"
+                    }`}
+                  >
+                    {a.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         <div className="flex items-center gap-2 px-6 pb-3 pt-5">
           <div className="relative flex-1">
             <IconSearch

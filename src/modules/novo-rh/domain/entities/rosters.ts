@@ -42,6 +42,54 @@ export interface ShiftState {
   segments: Segment[];
   templateId: string | null;
   onCall: boolean;
+  /** Área de trabalho da atribuição (opcional; ausente = «Sem área»). */
+  areaId?: string | null;
+}
+
+/** Área de trabalho de um centro (Sala, Caixa, Cozinha…). Desativada continua nos turnos antigos. */
+export interface WorkArea {
+  id: string;
+  locationId: string;
+  name: string;
+  sortOrder: number;
+  active: boolean;
+}
+
+/** Plano de Cobertura: mínimo de pessoas num centro (areaId null) ou área, por dia da semana ou numa data. */
+export interface CoverageRule {
+  id: string;
+  locationId: string;
+  areaId: string | null;
+  /** 1 = segunda … 7 = domingo; null numa exceção datada. */
+  weekday: number | null;
+  /** Exceção (substitui as regras semanais desse dia); null numa regra semanal. */
+  date: string | null;
+  start: string;
+  end: string;
+  minPeople: number;
+}
+
+export interface CoverageWindow {
+  start: string;
+  end: string;
+  startsNextDay: boolean;
+  endsNextDay: boolean;
+  required: number;
+  planned: number;
+  published: number;
+}
+
+export interface CoverageDay {
+  date: string;
+  areaId: string | null;
+  status: "not_configured" | "ok" | "deficit";
+  windows: CoverageWindow[];
+}
+
+export interface CoverageReport {
+  enabled: boolean;
+  locationId: string | null;
+  days: CoverageDay[];
 }
 
 export interface RosterShift extends ShiftState {
@@ -113,6 +161,8 @@ export interface ShiftInput {
   kind: "shift" | "day_off";
   templateId: string | null;
   segments: Segment[];
+  /** Área de trabalho da atribuição (opcional; ausente = «Sem área»). */
+  areaId?: string | null;
 }
 
 /** Opções de publicação/alteração: motivo (turno publicado) e confirmação de avisos. */

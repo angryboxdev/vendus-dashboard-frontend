@@ -322,3 +322,39 @@ export function overlappingIds(
   }
   return out;
 }
+
+// ── Vista «Áreas» ────────────────────────────────────────────────────
+
+export interface AreaRow {
+  /** Id da área ou `"none"` (turnos sem área). */
+  key: string;
+  label: string;
+  active: boolean;
+  /** Turnos (não folgas) por dia. */
+  byDate: Map<string, RosterShift[]>;
+  minutes: number;
+}
+
+/**
+ * Turnos agrupados por área de trabalho (a área é da atribuição — a mesma
+ * pessoa pode estar em áreas diferentes na semana). Áreas do centro pela
+ * ordem definida, mesmo vazias (ativas); as desativadas só aparecem se ainda
+ * tiverem turnos; no fim, «Sem área» (turnos antigos ou sem escolha). Folgas
+ * não entram.
+ */
+export function areaRows(shifts: RosterShift[], areas: { id: string; name: string; sortOrder: number; active: boolean }[], templates: ShiftTemplate[]): AreaRow[] {
+  const live = shifts.filter((s) => !s.deleted && s.kind === "shift");
+  const ordered = [...areas].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "pt"));
+  const rowOf = (key: string, label: string, active: boolean, list: RosterShift[]): AreaRow => {
+    const byDate = new Map<string, RosterShift[]>();
+    for (const s of list) byDate.set(s.workDate, [...(byDate.get(s.workDate) ?? []), s]);
+    return { key, label, active, byDate, minutes: list.reduce((m, s) => m + segmentsMinutes(shiftSegments(s, templates)), 0) };
+  };
+  const known = new Set(ordered.map((a) => a.id));
+  const rows = ordered
+    .map((a) => rowOf(a.id, a.name, a.active, live.filter((s) => s.areaId === a.id)))
+    .filter((r) => r.active || r.byDate.size > 0);
+  const none = live.filter((s) => !s.areaId || !known.has(s.areaId));
+  rows.push(rowOf("none", "Sem área", true, none));
+  return rows;
+}

@@ -36,7 +36,7 @@ export function cellRect(people: string[], days: string[], a: CellRef, b: CellRe
 }
 
 /** Turnos novos iguais a `source` nas células indicadas (sem a do próprio turno, sem repetidos). */
-export function copyInputs(source: Pick<RosterShift, "employeeId" | "workDate" | "kind" | "templateId" | "segments">, targets: CellRef[]): ShiftInput[] {
+export function copyInputs(source: Pick<RosterShift, "employeeId" | "workDate" | "kind" | "templateId" | "segments" | "areaId">, targets: CellRef[]): ShiftInput[] {
   const seen = new Set<string>([cellKey(source)]);
   const out: ShiftInput[] = [];
   for (const t of targets) {
@@ -50,13 +50,15 @@ export function copyInputs(source: Pick<RosterShift, "employeeId" | "workDate" |
       templateId: source.templateId,
       // Com modelo, as faixas vêm do modelo; sem modelo, copiam-se as do turno.
       segments: source.templateId ? [] : source.segments,
+      // A área vai com o turno (a do turno de origem).
+      areaId: source.kind === "shift" ? (source.areaId ?? null) : null,
     });
   }
   return out;
 }
 
-/** Turnos novos do modelo escolhido (ou folga) nas células selecionadas. */
-export function paintInputs(paint: string, targets: CellRef[]): ShiftInput[] {
+/** Turnos novos do modelo escolhido (ou folga) nas células selecionadas, com a área escolhida (folga nunca tem área). */
+export function paintInputs(paint: string, targets: CellRef[], areaId: string | null = null): ShiftInput[] {
   const dayOff = paint === "day_off";
-  return targets.map((t) => ({ employeeId: t.employeeId, workDate: t.workDate, kind: dayOff ? "day_off" : "shift", templateId: dayOff ? null : paint, segments: [] }));
+  return targets.map((t) => ({ employeeId: t.employeeId, workDate: t.workDate, kind: dayOff ? "day_off" : "shift", templateId: dayOff ? null : paint, segments: [], areaId: dayOff ? null : areaId }));
 }

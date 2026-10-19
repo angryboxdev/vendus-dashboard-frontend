@@ -24,8 +24,10 @@ import {
 import type {
   RosterShift,
   ShiftTemplate,
+  WorkArea,
 } from "../../../domain/entities/rosters.ts";
 import {
+  areaRows,
   dayCounts,
   dayHeader,
   hoursLabel,
@@ -41,7 +43,7 @@ import {
 import { cellKey } from "../../../domain/services/roster-edit.service.ts";
 import type { BoardEdit } from "./use-roster-editing.ts";
 
-export type BoardMode = "employees" | "shifts" | "positions";
+export type BoardMode = "employees" | "shifts" | "positions" | "areas";
 
 const FIRST_COL = "sticky left-0 z-10 bg-surface-card";
 
@@ -77,6 +79,10 @@ export interface RosterBoardProps {
   conflictIds?: Set<string>;
   /** Turno aberto a partir de «Ver conflitos» (destaque até fechar). */
   focusId?: string | null;
+  /** Áreas de trabalho que a escala usa (vista «Áreas»). */
+  areas?: WorkArea[];
+  /** Nome da área de um turno (null = sem área). */
+  areaName?: (id: string | null | undefined) => string | null;
 }
 
 function Cell({
@@ -164,6 +170,7 @@ function CellBody({
     );
   const segs = shiftSegments(s, p.templates);
   const { title, tone } = shiftDisplay(s, p.templates);
+  const area = p.areaName?.(s.areaId) ?? null;
   return (
     <ShiftCard
       tone={tone}
@@ -172,7 +179,7 @@ function CellBody({
       hours={hoursLabel(segmentsMinutes(segs))}
       status={s.dirty ? "draft" : "published"}
       onClick={() => p.onOpen(s)}
-      tooltip={`${title}${s.id.startsWith("rej-") ? " · em conflito — não gravado (retire ou mude o horário)" : s.id.startsWith("tmp-") ? " · a guardar…" : s.dirty ? " · por publicar" : ""}${s.onCall ? " · prevenção" : ""}${overlap ? " · sobreposto a outro turno: retire um deles" : ""}`}
+      tooltip={`${title}${area ? ` · ${area}` : ""}${s.id.startsWith("rej-") ? " · em conflito — não gravado (retire ou mude o horário)" : s.id.startsWith("tmp-") ? " · a guardar…" : s.dirty ? " · por publicar" : ""}${s.onCall ? " · prevenção" : ""}${overlap ? " · sobreposto a outro turno: retire um deles" : ""}`}
       className={`motion-safe:animate-motion-pop-in ${overlap ? "ring-2 ring-red-500/70" : ""} ${p.focusId === s.id ? "outline outline-2 outline-offset-2 outline-brand-500" : ""} ${s.id.startsWith("tmp-") ? "opacity-70" : ""} ${s.id.startsWith("rej-") ? "!border-red-400 !bg-red-50 ring-2 ring-red-500" : ""}`}
       indicator={overlap ? { className: "bg-red-500", label: "Sobreposto a outro turno" } : undefined}
       style={{ animationDelay: `${Math.min(index, 8) * 25}ms` }}
@@ -193,6 +200,7 @@ export function RosterBoard(p: RosterBoardProps) {
   };
   const firstBatch = useFirstBatch(p.rows.map((r) => r.employeeId));
   const byShift = p.mode === "shifts" ? shiftRows(p.shifts, p.templates) : [];
+  const byArea = p.mode === "areas" ? areaRows(p.shifts, p.areas ?? [], p.templates) : [];
   // Sobrepostos na grelha + conflitos que o servidor encontrou (também com turnos de outras escalas).
   const overlapIds = useMemo(() => {
     const ids = overlappingIds(p.shifts, p.templates);
@@ -210,13 +218,17 @@ export function RosterBoard(p: RosterBoardProps) {
           <span className="block text-base font-semibold text-navy-900">
             {p.mode === "shifts"
               ? "Turnos da escala"
-              : p.mode === "positions"
+              : p.mode === "areas"
+                ? "Áreas de trabalho"
+                : p.mode === "positions"
                 ? "Cargos"
                 : "Funcionários"}
           </span>
           <span className="block whitespace-nowrap text-[11px] text-ink-secondary">
             {p.mode === "shifts"
               ? `${byShift.filter((r) => r.key !== "day_off").length} turnos atribuídos`
+              : p.mode === "areas"
+                ? `${byArea.filter((r) => r.key !== "none").length} ${byArea.filter((r) => r.key !== "none").length === 1 ? "área" : "áreas"}`
               : `${p.rows.length} ${p.rows.length === 1 ? "pessoa atribuída" : "pessoas atribuídas"} • ${p.hidden} ${p.hidden === 1 ? "oculto" : "ocultos"}`}
           </span>
         </span>
@@ -507,6 +519,73 @@ export function RosterBoard(p: RosterBoardProps) {
         })}
       </div>
     ));
+  } else if (p.mode === "areas") {
+    // Uma linha por área do centro (pela ordem definida) e «Sem área» no fim;
+    // em cada dia, quem lá está e com que turno.
+    body = byArea.map((row, gi) => (
+      <div
+        key={row.key}
+        role="row"
+        className="grid border-b border-line-subtle last:border-b-0 motion-safe:animate-motion-fade-up"
+        style={{ ...grid, animationDelay: `${Math.min(gi, 8) * 50}ms` }}
+      >
+        <div
+          role="rowheader"
+          className={`${FIRST_COL} flex items-stretch gap-3 border-r border-line-subtle py-3 pl-3.5 pr-3`}
+        >
+          <ShiftToneBar tone="other" />
+          <div className="min-w-0 py-0.5">
+            <p className={`text-[13px] font-semibold leading-snug ${row.key === "none" ? "text-ink-secondary" : "text-navy-900"}`}>
+              {row.label}
+            </p>
+            {!row.active && <p className="text-xs text-ink-muted">Desativada</p>}
+            <p className="mt-0.5 text-xs tabular-nums text-ink-muted">
+              {hoursLong(row.minutes)}
+            </p>
+          </div>
+        </div>
+        {p.days.map((ymd) => {
+          const day = row.byDate.get(ymd) ?? [];
+          return (
+            <div
+              key={ymd}
+              role="cell"
+              className="flex min-h-[76px] flex-col justify-center border-r border-line-subtle p-1 last:border-r-0"
+            >
+              {day.length > 0 && (
+                <ShiftGroup
+                  tone="other"
+                  draft={day.every((s) => s.dirty)}
+                  className="motion-safe:animate-motion-pop-in"
+                >
+                  <AvatarStack
+                    size="sm"
+                    max={4}
+                    items={day.map((s) => {
+                      const who = p.person(s.employeeId);
+                      return {
+                        key: s.id,
+                        name: who.name,
+                        photoUrl: who.photoUrl,
+                        label: `${who.name} · ${shiftDisplay(s, p.templates).title} ${ymd}`,
+                        onClick: () => p.onOpen(s),
+                      };
+                    })}
+                  />
+                  <span
+                    className="flex items-center gap-1 pr-0.5 text-xs font-medium tabular-nums text-ink-secondary"
+                    title={`${day.length} ${day.length === 1 ? "pessoa" : "pessoas"}`}
+                  >
+                    <IconUser size={13} />
+                    {day.length}
+                  </span>
+                </ShiftGroup>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    ));
   } else if (p.mode === "positions") {
     const groups = new Map<string, RosterRow[]>();
     for (const r of p.rows) {
@@ -535,7 +614,7 @@ export function RosterBoard(p: RosterBoardProps) {
 
   const empty =
     !p.loading &&
-    (p.mode === "shifts" ? byShift.length === 0 : p.rows.length === 0);
+    (p.mode === "shifts" ? byShift.length === 0 : p.mode === "areas" ? byArea.every((r) => r.byDate.size === 0) && byArea.length === 1 : p.rows.length === 0);
   return (
     <section
       aria-label="Escala"
