@@ -12,7 +12,7 @@ const TABS = [
 ];
 
 /** Secções abertas a partir de "Mais" (o separador fica ativo nelas). */
-const MORE = ["/portal/mais", "/portal/perfil", "/portal/comunicados", "/portal/tarefas", "/portal/solicitacoes", "/portal/equipa", "/portal/banco-de-horas"];
+const MORE = ["/portal/mais", "/portal/perfil", "/portal/comunicados", "/portal/tarefas", "/portal/solicitacoes", "/portal/equipa"];
 
 /** Liga o manifest da PWA e o service worker só no Portal (a área de gestão não é instalável). */
 function usePortalPwa() {

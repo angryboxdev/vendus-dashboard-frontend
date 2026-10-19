@@ -4,12 +4,11 @@ import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
-import { PortalRequestError } from "../../domain/entities/portal.ts";
 import type { PortalEngagementPort } from "../../domain/ports/in/portal.ports.ts";
 import { EmployeePortalProvider, type EmployeePortalModule } from "../../employee-portal.module.tsx";
 import { PortalMoreView } from "./PortalMoreView.tsx";
 import { PortalNewsView } from "./PortalNewsView.tsx";
-import { PortalCustomRequestsView, PortalTasksView, PortalTimeBankView } from "./PortalWorkViews.tsx";
+import { PortalCustomRequestsView, PortalTasksView } from "./PortalWorkViews.tsx";
 
 // Dados fictícios (RGPD).
 function renderWith(ui: ReactNode, engagement: Partial<PortalEngagementPort>) {
@@ -35,7 +34,8 @@ describe("Portal — onda 6", () => {
     renderWith(<PortalMoreView />, { pendingCount: vi.fn(async () => 3), visibility: vi.fn(async () => ({ whosIn: false })) });
     expect(await screen.findByLabelText("3 por tratar")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /Quem está/ })).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: /Banco de horas/ })).toHaveAttribute("href", "/portal/banco-de-horas");
+    // O banco de horas saiu do Portal (2026-10-19).
+    expect(screen.queryByRole("link", { name: /Banco de horas/ })).not.toBeInTheDocument();
   });
 
   it("documento enviado: só confirma depois de abrir; comunicado confirma-se depois de ler", async () => {
@@ -110,18 +110,5 @@ describe("Portal — onda 6", () => {
     await user.click(screen.getByRole("radio", { name: "M" }));
     await user.click(screen.getByRole("button", { name: "Enviar solicitação" }));
     expect(submitCustomRequest).toHaveBeenCalledWith(expect.objectContaining({ id: "f1" }), { size: "M" });
-  });
-
-  it("banco de horas: saldo; se a empresa não o mostra, explica porquê", async () => {
-    renderWith(<PortalTimeBankView />, {
-      timeBank: vi.fn(async () => ({ cutoff: "2026-09-30", balance: 5400, available: 5400, generated: 7200, compensatedRest: -1800, compensatedPaid: 0, expired: 0, entries: [{ id: "e1", kind: "excess", seconds: 7200, workDate: "2026-09-10", reason: "", running: 7200 }] })),
-    });
-    expect(await screen.findByText("1h 30m")).toBeInTheDocument();
-    expect(screen.getByText("Excedente de tempo")).toBeInTheDocument();
-  });
-
-  it("banco de horas oculto pela empresa", async () => {
-    renderWith(<PortalTimeBankView />, { timeBank: vi.fn(async () => Promise.reject(new PortalRequestError("O histórico do banco de horas não está visível para os colaboradores."))) });
-    expect(await screen.findByText(/não está visível/)).toBeInTheDocument();
   });
 });

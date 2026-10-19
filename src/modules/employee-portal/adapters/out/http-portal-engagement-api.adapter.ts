@@ -1,6 +1,6 @@
 import { ApiError, apiGet, apiWrite } from "../../../../lib/api.ts";
 import { PortalNotFoundError, PortalNotLinkedError, PortalOfflineError, PortalRequestError } from "../../domain/entities/portal.ts";
-import type { MyAnnouncement, MyCustomRequest, MyDistribution, MyTask, MyTimeBank, RequestForm, WhosIn } from "../../domain/entities/portal-engagement.ts";
+import type { MyAnnouncement, MyCustomRequest, MyDistribution, MyTask, RequestForm, WhosIn } from "../../domain/entities/portal-engagement.ts";
 import type { PortalEngagementApiPort } from "../../domain/ports/out/portal-engagement-api.port.ts";
 
 /** Erros RFC 7807 do Novo RH → erros do Portal (mensagem do servidor, nunca o corpo cru). */
@@ -76,8 +76,5 @@ export class HttpPortalEngagementApiAdapter implements PortalEngagementApiPort {
   }
   visibility() {
     return get<{ whosIn: boolean }>("/api/me/visibility");
-  }
-  timeBank() {
-    return get<MyTimeBank>("/api/me/time-bank");
   }
 }

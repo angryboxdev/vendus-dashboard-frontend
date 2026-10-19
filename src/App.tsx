@@ -106,7 +106,7 @@ import { PortalHomeView } from "./modules/employee-portal/adapters/in/PortalHome
 import { PortalProfileView } from "./modules/employee-portal/adapters/in/PortalProfileView.tsx";
 import { PortalMoreView } from "./modules/employee-portal/adapters/in/PortalMoreView.tsx";
 import { PortalNewsView } from "./modules/employee-portal/adapters/in/PortalNewsView.tsx";
-import { PortalCustomRequestsView, PortalTasksView, PortalTeamView, PortalTimeBankView } from "./modules/employee-portal/adapters/in/PortalWorkViews.tsx";
+import { PortalCustomRequestsView, PortalTasksView, PortalTeamView } from "./modules/employee-portal/adapters/in/PortalWorkViews.tsx";
 
 export default function App() {
   return (
@@ -181,7 +181,6 @@ export default function App() {
         <Route path="tarefas" element={<PortalTasksView />} />
         <Route path="solicitacoes" element={<PortalCustomRequestsView />} />
         <Route path="equipa" element={<PortalTeamView />} />
-        <Route path="banco-de-horas" element={<PortalTimeBankView />} />
         <Route path="*" element={<Navigate to="/portal" replace />} />
       </Route>
 

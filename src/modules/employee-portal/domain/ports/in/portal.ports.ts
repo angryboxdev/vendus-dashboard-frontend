@@ -1,4 +1,4 @@
-import type { MyAnnouncement, MyCustomRequest, MyDistribution, MyTask, MyTimeBank, RequestForm, WhosIn } from "../../entities/portal-engagement.ts";
+import type { MyAnnouncement, MyCustomRequest, MyDistribution, MyTask, RequestForm, WhosIn } from "../../entities/portal-engagement.ts";
 import type { Coworker, GeofencePolicy, MyDocument, MyLeave, MyRequest, MyShift, NewRequest, PortalHome, PunchKind, PunchResult } from "../../entities/portal.ts";
 
 export interface GetPortalHomePort {
@@ -49,7 +49,6 @@ export interface PortalEngagementPort {
   whosIn(): Promise<WhosIn>;
   /** Secções visíveis (FE-116): o menu esconde as desligadas; a API recusa na mesma. */
   visibility(): Promise<{ whosIn: boolean }>;
-  timeBank(): Promise<MyTimeBank>;
   /** Quantas coisas pedem ação (para o separador "Mais"). */
   pendingCount(): Promise<number>;
 }

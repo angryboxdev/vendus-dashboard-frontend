@@ -1,4 +1,4 @@
-import type { MyAnnouncement, MyCustomRequest, MyDistribution, MyTask, MyTimeBank, RequestForm, WhosIn } from "../../entities/portal-engagement.ts";
+import type { MyAnnouncement, MyCustomRequest, MyDistribution, MyTask, RequestForm, WhosIn } from "../../entities/portal-engagement.ts";
 
 /** Rotas `/api/me/*` do Novo RH usadas pelo Portal (onda 6). */
 export interface PortalEngagementApiPort {
@@ -18,6 +18,4 @@ export interface PortalEngagementApiPort {
   whosIn(): Promise<WhosIn>;
   /** Secções que a empresa mostra aos colaboradores (FE-116). */
   visibility(): Promise<{ whosIn: boolean }>;
-  /** Lança `PortalRequestError` quando a empresa não mostra o histórico. */
-  timeBank(): Promise<MyTimeBank>;
 }

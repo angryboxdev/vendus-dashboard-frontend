@@ -3,7 +3,7 @@
  * frase "Hoje", rascunho do layout e geometria do donut. Nada aqui decide
  * estados de negócio (vêm do OperationalSnapshot do backend).
  */
-import { TEAM_CATEGORIES, type OperationalSnapshot, type TeamCategory, type TeamCounts, type WidgetPref } from "../entities/dashboard.ts";
+import { TEAM_CATEGORIES, type OperationalSnapshot, type TeamCategory, type TeamChart, type TeamCounts, type WidgetPref } from "../entities/dashboard.ts";
 
 export type WidgetId =
   | "ATTENTION"
@@ -38,14 +38,15 @@ export interface WidgetDefinition {
 
 /** Registo central (ids estáveis, iguais aos do backend). */
 export const WIDGETS: WidgetDefinition[] = [
-  { id: "ATTENTION", title: "Requer atenção", defaultOrder: 0, defaultSpan: 6, allowedSpans: [4, 6, 12], priority: 1, available: true },
-  { id: "TEAM_STATUS", title: "Estado da equipa", defaultOrder: 1, defaultSpan: 6, allowedSpans: [6, 12], priority: 1, available: true },
-  { id: "LOCATIONS_STATUS", title: "Estado das unidades", defaultOrder: 2, defaultSpan: 12, allowedSpans: [12], priority: 2, multiUnitOnly: true, available: true },
-  { id: "COVERAGE", title: "Cobertura da escala", defaultOrder: 3, defaultSpan: 5, allowedSpans: [4, 5, 6, 12], priority: 2, available: true },
-  { id: "REQUESTS", title: "Solicitações", defaultOrder: 4, defaultSpan: 7, allowedSpans: [6, 7, 12], priority: 2, available: true },
-  { id: "GOOGLE_REVIEWS", title: "Avaliações Google", defaultOrder: 5, defaultSpan: 6, allowedSpans: [4, 6, 12], priority: 3, available: true },
-  { id: "BIRTHDAYS", title: "Próximos aniversários", defaultOrder: 6, defaultSpan: 6, allowedSpans: [4, 6, 12], priority: 3, available: true },
-  { id: "HOLIDAYS", title: "Próximos feriados", defaultOrder: 7, defaultSpan: 6, allowedSpans: [4, 6, 12], priority: 3, available: true },
+  // DASH-UI-05: equipa, unidades e atenção lado a lado; depois planeamento; depois complementares (igual ao backend).
+  { id: "TEAM_STATUS", title: "Estado da equipa", defaultOrder: 0, defaultSpan: 4, allowedSpans: [4, 6, 12], priority: 1, available: true },
+  { id: "LOCATIONS_STATUS", title: "Estado das unidades", defaultOrder: 1, defaultSpan: 4, allowedSpans: [4, 6, 12], priority: 2, multiUnitOnly: true, available: true },
+  { id: "ATTENTION", title: "Requer atenção", defaultOrder: 2, defaultSpan: 4, allowedSpans: [4, 6, 12], priority: 1, available: true },
+  { id: "COVERAGE", title: "Cobertura da escala", defaultOrder: 3, defaultSpan: 6, allowedSpans: [4, 5, 6, 12], priority: 2, available: true },
+  { id: "REQUESTS", title: "Solicitações", defaultOrder: 4, defaultSpan: 6, allowedSpans: [6, 7, 12], priority: 2, available: true },
+  { id: "GOOGLE_REVIEWS", title: "Avaliações Google", defaultOrder: 5, defaultSpan: 4, allowedSpans: [4, 6, 12], priority: 3, available: true },
+  { id: "BIRTHDAYS", title: "Próximos aniversários", defaultOrder: 6, defaultSpan: 4, allowedSpans: [4, 6, 12], priority: 3, available: true },
+  { id: "HOLIDAYS", title: "Próximos feriados", defaultOrder: 7, defaultSpan: 4, allowedSpans: [4, 6, 12], priority: 3, available: true },
   { id: "REPORTS", title: "Relatórios", defaultOrder: 8, defaultSpan: 6, allowedSpans: [4, 6, 12], priority: 3, available: true, permission: "hr.employees" },
   { id: "VACANCIES", title: "Vagas", defaultOrder: 9, defaultSpan: 4, allowedSpans: [4, 6], priority: 3, available: false },
   { id: "ARTICLES", title: "Artigos", defaultOrder: 10, defaultSpan: 4, allowedSpans: [4, 6, 12], priority: 3, available: false },
@@ -102,6 +103,16 @@ export function setSpan(ws: WidgetPref[], id: string, span: number): WidgetPref[
   const def = widgetDef(id);
   if (!def?.allowedSpans.includes(span)) return ws;
   return ws.map((w) => (w.widgetId === id ? { ...w, span } : w));
+}
+
+/** Formato do gráfico «Estado da equipa» guardado no layout (omisso = rosca). */
+export const TEAM_CHART_LABEL: Record<TeamChart, string> = { donut: "Rosca", bar: "Barras", pie: "Pizza" };
+export const TEAM_CHARTS: TeamChart[] = ["donut", "bar", "pie"];
+
+export const teamChartOf = (ws: WidgetPref[]): TeamChart => ws.find((w) => w.widgetId === "TEAM_STATUS")?.chart ?? "donut";
+
+export function setTeamChart(ws: WidgetPref[], chart: TeamChart): WidgetPref[] {
+  return ws.map((w) => (w.widgetId === "TEAM_STATUS" ? { ...w, chart } : w));
 }
 
 export function toggleHidden(ws: WidgetPref[], id: string): WidgetPref[] {
@@ -169,6 +180,46 @@ export function donutSegments(team: TeamCounts, c: number, gap = 2): DonutSegmen
     const seg = { category: k, value: (team[k] ?? 0), length: Math.max(raw - g, 0.5), offset: -acc };
     acc += raw;
     return seg;
+  });
+}
+
+/**
+ * Total das categorias (todas mutuamente exclusivas: cada pessoa conta numa
+ * só — atrasos e «em falta» são contagens à parte e não entram aqui).
+ */
+export const teamSum = (team: TeamCounts) => TEAM_CATEGORIES.reduce((s, k) => s + (team[k] ?? 0), 0);
+
+/** Percentagem inteira de uma categoria; null sem total (nunca se inventa 0 %). */
+export function teamShare(team: TeamCounts, c: TeamCategory): number | null {
+  const total = teamSum(team);
+  return total ? Math.round(((team[c] ?? 0) / total) * 100) : null;
+}
+
+export interface PieSlice {
+  category: TeamCategory;
+  value: number;
+  /** Caminho SVG da fatia num círculo de raio `r` centrado em (cx, cy). */
+  path: string;
+}
+
+/** Fatias da pizza (só categorias com valor), a começar no topo, sentido horário. */
+export function pieSlices(team: TeamCounts, cx: number, cy: number, r: number): PieSlice[] {
+  const total = teamSum(team);
+  if (!total) return [];
+  const used = TEAM_CATEGORIES.filter((k) => (team[k] ?? 0) > 0);
+  const pt = (a: number) => `${(cx + r * Math.sin(a)).toFixed(3)} ${(cy - r * Math.cos(a)).toFixed(3)}`;
+  let acc = 0;
+  return used.map((k) => {
+    const value = team[k] ?? 0;
+    const start = (acc / total) * 2 * Math.PI;
+    acc += value;
+    const end = (acc / total) * 2 * Math.PI;
+    // Fatia única: círculo completo (dois arcos; um arco de 360° não se desenha).
+    const path =
+      used.length === 1
+        ? `M ${pt(0)} A ${r} ${r} 0 1 1 ${pt(Math.PI)} A ${r} ${r} 0 1 1 ${pt(0)} Z`
+        : `M ${cx} ${cy} L ${pt(start)} A ${r} ${r} 0 ${end - start > Math.PI ? 1 : 0} 1 ${pt(end)} Z`;
+    return { category: k, value, path };
   });
 }
 

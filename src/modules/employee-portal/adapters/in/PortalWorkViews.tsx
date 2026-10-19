@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { hoursLabel, missingAnswers, missingRequired, type MyTask, type RequestForm } from "../../domain/entities/portal-engagement.ts";
+import { missingAnswers, missingRequired, type MyTask, type RequestForm } from "../../domain/entities/portal-engagement.ts";
 import { PortalRequestError } from "../../domain/entities/portal.ts";
 import { useEmployeePortalModule } from "../../employee-portal.module.tsx";
 
@@ -203,54 +203,5 @@ export function PortalTeamView() {
         ))}
       </ul>
     </section>
-  );
-}
-
-// ── Banco de horas (FE-076) ───────────────────────────────────────────
-
-const KIND: Record<string, string> = {
-  excess: "Excedente de tempo",
-  deficit: "Défice de tempo",
-  multiplier: "Multiplicador",
-  holiday: "Feriado",
-  compensation_rest: "Compensação em descanso",
-  compensation_paid: "Compensação paga",
-  expiry: "Expiração",
-  adjustment: "Ajuste",
-};
-
-/** O meu banco de horas: saldo e movimentos (só se a empresa o mostrar). */
-export function PortalTimeBankView() {
-  const { engagement } = useEmployeePortalModule();
-  const { data, isLoading, error } = useQuery({ queryKey: ["portal-time-bank"], queryFn: () => engagement.timeBank(), retry: false });
-  if (isLoading) return <p className="text-sm text-stone-500">A carregar…</p>;
-  if (error) return <p className="text-sm text-stone-600">{error instanceof PortalRequestError ? error.message : "Não foi possível carregar o banco de horas."}</p>;
-  if (!data) return null;
-  return (
-    <div className="space-y-3">
-      <section className={`${CARD} space-y-1`} aria-label="Saldo">
-        <p className="text-xs text-stone-500">Saldo até {day(data.cutoff)}</p>
-        <p className={`text-2xl font-semibold ${data.balance < 0 ? "text-red-700" : "text-stone-900"}`}>{hoursLabel(data.balance)}</p>
-        <p className="text-xs text-stone-500">
-          Gerado {hoursLabel(data.generated)} · Descanso {hoursLabel(data.compensatedRest)} · Pago {hoursLabel(data.compensatedPaid)}
-          {data.expired !== 0 && ` · Expirado ${hoursLabel(data.expired)}`}
-        </p>
-      </section>
-      <section className={`${CARD} space-y-1`} aria-label="Movimentos">
-        <h2 className="text-sm font-semibold text-stone-900">Movimentos</h2>
-        {data.entries.length === 0 && <p className="text-sm text-stone-500">Sem movimentos.</p>}
-        <ul className="divide-y divide-stone-100">
-          {[...data.entries].reverse().map((e) => (
-            <li key={e.id} className="flex items-center justify-between gap-2 py-2 text-sm">
-              <span>
-                <span className="block text-stone-800">{KIND[e.kind] ?? e.kind}</span>
-                <span className="block text-xs text-stone-500">{day(e.workDate)}</span>
-              </span>
-              <span className={e.seconds < 0 ? "text-red-700" : "text-emerald-700"}>{hoursLabel(e.seconds)}</span>
-            </li>
-          ))}
-        </ul>
-      </section>
-    </div>
   );
 }
