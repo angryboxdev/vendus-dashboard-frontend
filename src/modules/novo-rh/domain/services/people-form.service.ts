@@ -1,4 +1,5 @@
 import type { Person, PersonField } from "../entities/people.ts";
+import { compactIban, ibanToSave } from "./person-fields.service.ts";
 
 /** Secções da ficha (ordem do ecrã). `type` decide o controlo. */
 export const PERSON_SECTIONS: { key: "identity" | "contact" | "address" | "work" | "pay"; fields: { field: PersonField; type: "text" | "date" | "email" | "number" | "select" }[] }[] = [
@@ -69,8 +70,10 @@ export function changedFields(p: Person, draft: PersonDraft): Partial<Record<Per
   for (const s of PERSON_SECTIONS) {
     for (const { field, type } of s.fields) {
       if (p.hidden.includes(field) || draft[field] === undefined) continue;
-      const before = p[field] === null || p[field] === undefined ? "" : String(p[field]);
-      const after = (draft[field] ?? "").trim();
+      const raw = p[field] === null || p[field] === undefined ? "" : String(p[field]);
+      // IBAN: sem espaços, e só o «PT50» sugerido conta como vazio.
+      const before = field === "iban" ? compactIban(raw) : raw;
+      const after = field === "iban" ? ibanToSave(draft[field] ?? "") : (draft[field] ?? "").trim();
       if (after === before) continue;
       out[field] = after === "" ? null : type === "number" ? Number(after) : after;
     }

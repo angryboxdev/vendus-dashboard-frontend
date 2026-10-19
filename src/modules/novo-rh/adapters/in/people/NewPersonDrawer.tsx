@@ -8,6 +8,7 @@ import type { ContractInput } from "../../../domain/entities/people.ts";
 import { similarPeople } from "../../../domain/services/people-form.service.ts";
 import type { Option } from "../../../domain/ports/out/settings-api.port.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
+import { PersonFieldInput, SPECIAL_FIELDS } from "./PersonFieldInput.tsx";
 
 const STEPS = ["identity", "work", "contract", "review"] as const;
 type Step = (typeof STEPS)[number];
@@ -105,7 +106,11 @@ export function NewPersonDrawer({
         {t(`people.field.${f}` as MessageKey)}
         {REQUIRED[step].includes(f) && <span className="text-[#C2410C]"> *</span>}
       </label>
-      <input id={`new-${f}`} type={type} className={`${FIELD} w-full`} value={form[f] ?? ""} onChange={(e) => setForm({ ...form, [f]: e.target.value })} />
+      {SPECIAL_FIELDS.has(f) ? (
+        <PersonFieldInput field={f} id={`new-${f}`} value={form[f] ?? ""} onChange={(v) => setForm({ ...form, [f]: v })} />
+      ) : (
+        <input id={`new-${f}`} type={type} className={`${FIELD} w-full`} value={form[f] ?? ""} onChange={(e) => setForm({ ...form, [f]: e.target.value })} />
+      )}
     </div>
   );
   const label = (id: string, list: { id: string; name?: string; label?: string }[]) => {
