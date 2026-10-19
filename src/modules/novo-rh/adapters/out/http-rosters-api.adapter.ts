@@ -1,5 +1,5 @@
 import { apiGet, apiWrite } from "../../../../lib/api.ts";
-import type { Publication, PublishOptions, Roster, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation } from "../../domain/entities/rosters.ts";
+import type { Publication, PublishOptions, Roster, RosterCandidates, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation } from "../../domain/entities/rosters.ts";
 import type { RostersApiPort } from "../../domain/ports/out/rosters-api.port.ts";
 
 const R = "/api/novo-rh/rosters";
@@ -48,8 +48,11 @@ export class HttpRostersApiAdapter implements RostersApiPort {
   async deleteShift(id: string, opts: PublishOptions) {
     return (await apiWrite<{ publication: Publication | null }>(`${R}/shifts/${id}/delete`, { body: opts })).data;
   }
-  check(rosterId: string) {
-    return apiGet<{ pending: number; violations: Violation[] }>(`${R}/${rosterId}/check`);
+  check(rosterId: string, period?: { from: string; to: string }) {
+    return apiGet<{ pending: number; violations: Violation[] }>(`${R}/${rosterId}/check${period ? `?from=${period.from}&to=${period.to}` : ""}`);
+  }
+  candidates(rosterId: string, from: string, to: string) {
+    return apiGet<RosterCandidates>(`${R}/${rosterId}/candidates?from=${from}&to=${to}`);
   }
   async publish(rosterId: string, opts: PublishOptions) {
     return (await apiWrite<Publication>(`${R}/${rosterId}/publish`, { body: opts })).data;

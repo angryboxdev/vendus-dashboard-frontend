@@ -77,6 +77,8 @@ export function useRosterEditing(o: {
   openShift: RosterShift | null;
   shiftTitle: (s: RosterShift) => string;
   onWarnings: (v: Violation[]) => void;
+  /** Turnos recusados por conflito (sobreposição/regras obrigatórias), com o turno incompatível. */
+  onBlocked?: (v: Violation[]) => void;
   /** 409 numa remoção: confirmar avisos e repetir. */
   onConfirm: (v: Violation[], retry: () => void) => void;
   refresh: () => Promise<unknown>;
@@ -136,6 +138,7 @@ export function useRosterEditing(o: {
       setBusy(true);
       setFailures([]);
       const warnings: Violation[] = [];
+      const blocked: Violation[] = [];
       const failed: EditFailure[] = [];
       const made: RosterShift[] = [];
       for (const input of inputs) {
@@ -144,7 +147,10 @@ export function useRosterEditing(o: {
           warnings.push(...r.warnings);
           made.push(r.shift);
         } catch (e) {
-          failed.push({ cell: { employeeId: input.employeeId, workDate: input.workDate }, message: errorText(e) });
+          // Conflitos (sobreposição e regras obrigatórias) vão para o aviso compacto com o turno incompatível.
+          const v = violationsOf(e);
+          if (v?.kind === "blocked" && v.violations.length) blocked.push(...v.violations);
+          else failed.push({ cell: { employeeId: input.employeeId, workDate: input.workDate }, message: errorText(e) });
         }
       }
       await latest.current.refresh();
@@ -159,7 +165,8 @@ export function useRosterEditing(o: {
       }
       const ignored = skipped ? ` ${skipped} dia${skipped === 1 ? "" : "s"} com turno ignorado${skipped === 1 ? "" : "s"}.` : "";
       setNotice(created ? `${created} ${created === 1 ? "turno" : "turnos"} ${verb} (por publicar).${ignored}` : ignored.trim() || null);
-      if (warnings.length) latest.current.onWarnings(warnings);
+      if (blocked.length) latest.current.onBlocked?.(blocked);
+      else if (warnings.length) latest.current.onWarnings(warnings);
       return made;
     },
     [rosters],

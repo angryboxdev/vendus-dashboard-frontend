@@ -1,4 +1,4 @@
-import type { Publication, PublishOptions, Roster, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation } from "../../entities/rosters.ts";
+import type { Publication, PublishOptions, Roster, RosterCandidates, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation } from "../../entities/rosters.ts";
 
 /** Escalas (`/api/novo-rh/rosters`) e o meu horário (`/api/me/roster`). */
 export interface RostersApiPort {
@@ -20,7 +20,9 @@ export interface RostersApiPort {
   clearPending(rosterId: string, input: { employeeId: string; from: string; to: string; shiftIds?: string[] }): Promise<{ removed: RosterShift[] }>;
   /** Repõe turnos pendentes retirados (desfazer). */
   restoreShifts(rosterId: string, shiftIds: string[]): Promise<{ restored: RosterShift[]; warnings: Violation[] }>;
-  check(rosterId: string): Promise<{ pending: number; violations: Violation[] }>;
+  /** Com período: só os pendentes desse período (os outros continuam a contar nas regras). */
+  check(rosterId: string, period?: { from: string; to: string }): Promise<{ pending: number; violations: Violation[] }>;
+  candidates(rosterId: string, from: string, to: string): Promise<RosterCandidates>;
   publish(rosterId: string, opts: PublishOptions): Promise<Publication>;
   history(rosterId: string): Promise<Publication[]>;
   listSwaps(status?: Swap["status"]): Promise<Swap[]>;

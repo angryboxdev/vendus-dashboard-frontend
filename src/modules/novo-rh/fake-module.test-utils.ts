@@ -182,6 +182,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       clearPending: vi.fn(),
       restoreShifts: vi.fn(),
       check: vi.fn(),
+      candidates: vi.fn(async () => ({ roster: { id: "r1", targetType: "location" as const, targetId: "l1" }, members: [], busy: [] })),
       publish: vi.fn(),
       history: none(),
       listSwaps: none(),
