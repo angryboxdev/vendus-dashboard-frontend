@@ -82,6 +82,11 @@ export function useRosterEditing(o: {
   /** 409 numa remoção: confirmar avisos e repetir. */
   onConfirm: (v: Violation[], retry: () => void) => void;
   refresh: () => Promise<unknown>;
+  /**
+   * Turnos «a guardar» mostrados logo na grelha (otimista): `add` põe-nos na
+   * cache e devolve ids temporários; `remove` tira-os quando o servidor responde.
+   */
+  optimistic?: { add: (inputs: ShiftInput[]) => string[]; remove: (ids: string[]) => void };
   /** Período visível (as operações inversas atuam só nele). */
   from: string;
   to: string;
@@ -107,9 +112,12 @@ export function useRosterEditing(o: {
   const [clipboard, setClipboard] = useState<RosterShift | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [failures, setFailures] = useState<EditFailure[]>([]);
-  const [busy, setBusy] = useState(false);
-  // Um lote de cada vez (repetir enquanto o anterior corre criaria duplicados).
-  const running = useRef(false);
+  // Já não há espera bloqueante ao criar (otimista); fica para compatibilidade da barra de estado.
+  const busy = false;
+  // Gravações em curso (turnos já visíveis na grelha, à espera do servidor).
+  const [saving, setSaving] = useState(0);
+  // Os lotes gravam-se um a seguir ao outro (fila); os dias já pintados contam como ocupados.
+  const queue = useRef<Promise<unknown>>(Promise.resolve());
   const anchor = useRef<CellRef | null>(null);
   const selecting = useRef(false);
   const hover = useRef<RosterShift | null>(null);
@@ -127,16 +135,28 @@ export function useRosterEditing(o: {
   const createAll = useCallback(
     async (all: ShiftInput[], verb: string, skipOccupied = true): Promise<RosterShift[]> => {
       const { rosterId, occupied } = latest.current;
-      if (!rosterId || all.length === 0 || running.current) return [];
+      if (!rosterId || all.length === 0) return [];
       const inputs = skipOccupied ? all.filter((i) => !occupied.has(cellKey(i))) : all;
       const skipped = all.length - inputs.length;
       if (inputs.length === 0) {
         setNotice(`Os dias escolhidos já têm turno (${skipped} ignorado${skipped === 1 ? "" : "s"}).`);
         return [];
       }
-      running.current = true;
-      setBusy(true);
+      // Aparecem já na grelha; o servidor grava a seguir, na fila (sem bloquear o ecrã).
+      const temps = latest.current.optimistic?.add(inputs) ?? [];
+      setSaving((n) => n + inputs.length);
       setFailures([]);
+      const job = queue.current.then(() => save(rosterId, inputs, temps, verb, skipped));
+      queue.current = job.catch(() => undefined);
+      return job;
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rosters],
+  );
+
+  /** Grava um lote no servidor (cada turno com as regras da API) e põe a grelha em dia. */
+  const save = useCallback(
+    async (rosterId: string, inputs: ShiftInput[], temps: string[], verb: string, skipped: number): Promise<RosterShift[]> => {
       const warnings: Violation[] = [];
       const blocked: Violation[] = [];
       const failed: EditFailure[] = [];
@@ -154,8 +174,8 @@ export function useRosterEditing(o: {
         }
       }
       await latest.current.refresh();
-      running.current = false;
-      setBusy(false);
+      latest.current.optimistic?.remove(temps);
+      setSaving((n) => Math.max(0, n - inputs.length));
       setFailures(failed);
       const created = made.length;
       // Mover regista a sua própria operação (criar + retirar a origem).
@@ -410,5 +430,7 @@ export function useRosterEditing(o: {
     dismissNotice: () => setNotice(null),
     failures,
     busy,
+    /** Turnos ainda a guardar no servidor (publicar espera por eles). */
+    saving,
   };
 }

@@ -226,7 +226,7 @@ export function DashboardView() {
 
   const compactOf = (id: WidgetId): ReactNode => {
     if (!s) return null;
-    const present = s.team.working + s.team.remote + s.team.break;
+    const present = s.team.working + s.team.remote;
     switch (id) {
       case "ATTENTION":
         return <CompactKpi value={s.attention.reduce((n, a) => n + a.count, 0)} label="ocorrências" sub={s.attention[0] ? `${s.attention[0].count} ${s.attention[0].label}` : "Sem pendências críticas"} tone="critical" />;
@@ -489,7 +489,7 @@ const emptySnapshot = {
   localDate: "",
   tomorrow: "",
   units: { operational: 0, requiringAttention: 0 },
-  team: { total: 0, working: 0, remote: 0, break: 0, finished: 0, not_started: 0, vacation: 0, absent: 0, late: 0, missing: 0 },
+  team: { total: 0, working: 0, remote: 0, finished: 0, not_started: 0, vacation: 0, absent: 0, late: 0, missing: 0 },
   coverage: { uncoveredToday: 0, uncoveredTomorrow: 0, uncoveredTotal: 0 },
   requests: { pending: 0, decidable: 0 },
   attention: [],

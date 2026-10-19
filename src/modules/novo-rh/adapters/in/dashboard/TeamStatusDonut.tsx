@@ -6,7 +6,6 @@ import { donutSegments, TEAM_LABEL, teamShare } from "../../../domain/services/d
 const TEAM_COLOR: Record<TeamCategory, { stroke: string; bg: string; fill: string }> = {
   working: { stroke: "stroke-emerald-500", bg: "bg-emerald-500", fill: "fill-emerald-500" },
   remote: { stroke: "stroke-sky-400", bg: "bg-sky-400", fill: "fill-sky-400" },
-  break: { stroke: "stroke-amber-400", bg: "bg-amber-400", fill: "fill-amber-400" },
   finished: { stroke: "stroke-slate-400", bg: "bg-slate-400", fill: "fill-slate-400" },
   not_started: { stroke: "stroke-slate-200", bg: "bg-slate-200", fill: "fill-slate-200" },
   vacation: { stroke: "stroke-indigo-300", bg: "bg-indigo-300", fill: "fill-indigo-300" },

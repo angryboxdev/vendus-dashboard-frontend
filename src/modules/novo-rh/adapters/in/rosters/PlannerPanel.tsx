@@ -39,6 +39,7 @@ import {
 import type {
   PublishOptions,
   RosterShift,
+  ShiftInput,
   Violation,
 } from "../../../domain/entities/rosters.ts";
 import { weekOf } from "../../../domain/services/attendance.service.ts";
@@ -333,6 +334,35 @@ export function PlannerPanel({
     [shifts.data],
   );
   const edits = useEditHistory({ rosterId, refresh });
+  // Turnos «a guardar» (otimistas): entram já na grelha; o servidor responde depois.
+  const shiftsKey = [...KEY, "shifts", rosterId, from, span];
+  const optimistic = {
+    add: (inputs: ShiftInput[]) => {
+      const ids = inputs.map(() => `tmp-${crypto.randomUUID()}`);
+      qc.setQueryData(shiftsKey, (old: Awaited<ReturnType<typeof rosters.listShifts>> | undefined) => {
+        if (!old) return old;
+        const temps: RosterShift[] = inputs.map((i, n) => ({
+          id: ids[n]!,
+          rosterId,
+          employeeId: i.employeeId,
+          workDate: i.workDate,
+          kind: i.kind,
+          segments: i.kind === "shift" ? (tpls.find((x) => x.id === i.templateId)?.segments ?? i.segments) : [],
+          templateId: i.templateId,
+          onCall: false,
+          deleted: false,
+          dirty: true,
+          published: null,
+          publishedVersion: null,
+        }));
+        return { ...old, pending: old.pending + temps.length, shifts: [...old.shifts, ...temps] };
+      });
+      return ids;
+    },
+    remove: (ids: string[]) =>
+      qc.setQueryData(shiftsKey, (old: Awaited<ReturnType<typeof rosters.listShifts>> | undefined) => (old ? { ...old, shifts: old.shifts.filter((s) => !ids.includes(s.id)) } : old)),
+  };
+  const [waitSaving, setWaitSaving] = useState(false);
   const editing = useRosterEditing({
     rosterId,
     from,
@@ -350,6 +380,7 @@ export function PlannerPanel({
     onWarnings: (v) => setProblem({ kind: "confirm", violations: v, retry: null }),
     onConfirm: (v, retry) => setProblem({ kind: "confirm", violations: v, retry, confirmLabel: "Confirmar" }),
     onBlocked: (v) => setProblem({ kind: "blocked", violations: v, retry: null }),
+    optimistic,
     refresh,
   });
   const [moveReason, setMoveReason] = useState("");
@@ -373,6 +404,9 @@ export function PlannerPanel({
     }
   };
 
+  useEffect(() => {
+    if (waitSaving && editing.saving === 0) setWaitSaving(false);
+  }, [waitSaving, editing.saving]);
   // Mudar de escala ou de período: nova sessão de edição (sem histórico nem modelo escolhido).
   useEffect(() => {
     edits.reset();
@@ -554,6 +588,11 @@ export function PlannerPanel({
           </span>
         )}
       </span>
+      {editing.saving > 0 && (
+        <span role="status" className="inline-flex items-center gap-1.5 rounded-full bg-surface-soft px-3 py-1 text-xs font-medium text-ink-secondary">
+          <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-brand-500 motion-safe:animate-pulse" /> A guardar {editing.saving}…
+        </span>
+      )}
       {pending > 0 ? (
         <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-50 px-3 py-1 text-xs font-medium text-amber-800">
           <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />{" "}
@@ -915,6 +954,11 @@ export function PlannerPanel({
                   disabled={pending === 0}
                   onClick={() => {
                     close();
+                    // Ainda há turnos a guardar: publica-se quando terminarem (sem perder nenhum).
+                    if (editing.saving > 0) {
+                      setWaitSaving(true);
+                      return;
+                    }
                     publish.mutate();
                   }}
                 >
@@ -937,6 +981,11 @@ export function PlannerPanel({
           confirmLabel={problem.confirmLabel ?? "Confirmar"}
           onDismiss={() => setProblem(null)}
         />
+      )}
+      {waitSaving && editing.saving > 0 && (
+        <AlertBanner tone="info" title={`Aguarde: ${editing.saving === 1 ? "ainda há 1 turno" : `ainda há ${editing.saving} turnos`} a guardar.`}>
+          <p>Pode continuar a trabalhar; publique quando terminar.</p>
+        </AlertBanner>
       )}
       {publish.isError && (
         <AlertBanner
@@ -1035,6 +1084,8 @@ export function PlannerPanel({
               hidden={hidden}
               painting={painting && !add.isPending}
               onOpen={(s) => {
+                // Turno ainda a guardar: abre-se quando o servidor responder.
+                if (s.id.startsWith("tmp-")) return;
                 setReason("");
                 setSelected(s);
               }}

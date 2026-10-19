@@ -542,3 +542,27 @@ describe("Escalas — seletor inteligente e conflitos", () => {
     expect(await screen.findByRole("dialog", { name: /Ana Teste/ })).toBeInTheDocument();
   });
 });
+
+describe("Escalas — criar turnos sem esperar pelo servidor", () => {
+  it("o turno aparece logo («a guardar»); publicar enquanto grava pede para aguardar; no fim fica o turno do servidor", async () => {
+    const m = mod();
+    let resolve: (v: { shift: RosterShift; warnings: never[] }) => void = () => {};
+    const wed = daysFrom(MON, 3)[2]!;
+    m.rosters.addShift = vi.fn(() => new Promise((r) => (resolve = r)));
+    m.rosters.publish = vi.fn(async () => ({}) as never);
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(within(panel()).getByRole("button", { name: /Tarde/ }));
+    await user.click(within(grid()).getByRole("button", { name: `Ana Teste ${wed}` }));
+    // Já na grelha, antes de o servidor responder.
+    expect(within(grid()).getAllByRole("button", { name: `Ana Teste ${wed}` }).some((b) => b.textContent?.includes("Tarde"))).toBe(true);
+    expect(screen.getByText("A guardar 1…")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Publicar escala" }));
+    await user.click(await screen.findByRole("button", { name: "Publicar agora" }));
+    expect(await screen.findByText("Aguarde: ainda há 1 turno a guardar.")).toBeInTheDocument();
+    expect(m.rosters.publish).not.toHaveBeenCalled();
+    resolve({ shift: { ...PUBLISHED, id: "s9", workDate: wed, dirty: true, published: null, publishedVersion: null }, warnings: [] });
+    await vi.waitFor(() => expect(screen.queryByText("A guardar 1…")).toBeNull());
+    expect(screen.queryByText(/Aguarde: ainda há/)).toBeNull();
+  });
+});

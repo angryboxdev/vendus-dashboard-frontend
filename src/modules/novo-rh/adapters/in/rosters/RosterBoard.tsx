@@ -172,8 +172,8 @@ function CellBody({
       hours={hoursLabel(segmentsMinutes(segs))}
       status={s.dirty ? "draft" : "published"}
       onClick={() => p.onOpen(s)}
-      tooltip={`${title}${s.dirty ? " · por publicar" : ""}${s.onCall ? " · prevenção" : ""}${overlap ? " · sobreposto a outro turno: retire um deles" : ""}`}
-      className={`motion-safe:animate-motion-pop-in ${overlap ? "ring-2 ring-red-500/70" : ""} ${p.focusId === s.id ? "outline outline-2 outline-offset-2 outline-brand-500" : ""}`}
+      tooltip={`${title}${s.id.startsWith("tmp-") ? " · a guardar…" : s.dirty ? " · por publicar" : ""}${s.onCall ? " · prevenção" : ""}${overlap ? " · sobreposto a outro turno: retire um deles" : ""}`}
+      className={`motion-safe:animate-motion-pop-in ${overlap ? "ring-2 ring-red-500/70" : ""} ${p.focusId === s.id ? "outline outline-2 outline-offset-2 outline-brand-500" : ""} ${s.id.startsWith("tmp-") ? "opacity-70" : ""}`}
       indicator={overlap ? { className: "bg-red-500", label: "Sobreposto a outro turno" } : undefined}
       style={{ animationDelay: `${Math.min(index, 8) * 25}ms` }}
       ariaLabel={label}

@@ -109,7 +109,15 @@ export function GoogleReviewsBody({ locationId, limit }: { locationId?: string; 
 
 function GoogleLocationReviewsList({ location }: { location: GoogleLocationRating }) {
   const { dashboard } = useNovoRh();
-  const q = useQuery({ queryKey: [...KEY, "reviews", location.locationId], queryFn: () => dashboard.googleLocationReviews(location.locationId), staleTime: 10 * 60_000, retry: false });
+  // As 5 mais recentes, a atualizar sozinhas enquanto o painel está aberto (o servidor guarda em cache o que vem do Google).
+  const q = useQuery({
+    queryKey: [...KEY, "reviews", location.locationId],
+    queryFn: () => dashboard.googleLocationReviews(location.locationId),
+    staleTime: 30_000,
+    refetchInterval: 30_000,
+    retry: false,
+  });
+  const latest = [...(q.data?.reviews ?? [])].sort((a, b) => (b.publishTime ?? "").localeCompare(a.publishTime ?? "")).slice(0, 5);
   return (
     <div className="space-y-3">
       <div className="flex items-baseline gap-2">
@@ -121,12 +129,20 @@ function GoogleLocationReviewsList({ location }: { location: GoogleLocationRatin
         <Skeleton className="h-24 w-full rounded-xl" />
       ) : q.isError ? (
         <p className="text-sm text-ink-secondary">{errText(q.error, "Não foi possível carregar as avaliações.")}</p>
-      ) : !q.data?.reviews.length ? (
+      ) : !latest.length ? (
         <p className="text-sm text-ink-secondary">Sem avaliações com texto.</p>
       ) : (
-        <ul className="space-y-2">
-          {q.data.reviews.map((r, i) => (
-            <li key={i} className="rounded-xl border border-line-subtle px-3 py-2.5">
+        <>
+        <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-secondary">
+          Últimas avaliações
+          <span className="inline-flex items-center gap-1 font-normal normal-case tracking-normal" title="Atualiza sozinho a cada 30 s">
+            <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-emerald-500 motion-safe:animate-pulse" />
+            em tempo real
+          </span>
+        </p>
+        <ul className="space-y-2" aria-live="polite">
+          {latest.map((r, i) => (
+            <li key={r.publishTime ?? i} className="rounded-xl border border-line-subtle px-3 py-2.5 motion-safe:animate-motion-fade-up">
               <div className="flex items-center justify-between gap-2 text-xs">
                 {r.authorUri ? (
                   <a href={r.authorUri} target="_blank" rel="noreferrer" className="font-medium text-navy-900 hover:underline">
@@ -143,6 +159,7 @@ function GoogleLocationReviewsList({ location }: { location: GoogleLocationRatin
             </li>
           ))}
         </ul>
+        </>
       )}
       {(q.data?.googleMapsUri ?? location.googleMapsUri) && (
         <a href={(q.data?.googleMapsUri ?? location.googleMapsUri)!} target="_blank" rel="noreferrer" className="inline-block text-sm font-medium text-brand-600 hover:underline">
