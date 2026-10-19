@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../../../../lib/api.ts";
 import type { OperationalSnapshot, WidgetPref } from "../../../domain/entities/dashboard.ts";
-import { defaultLayout, donutSegments, moveBy, moveTo, pieSlices, setSpan, setTeamChart, summaryParts, teamChartOf, teamShare, toggleHidden, visibleWidgets } from "../../../domain/services/dashboard.service.ts";
+import { dashboardRows, defaultLayout, donutSegments, moveBy, moveTo, setSpan, setTeamChart, summaryParts, TEAM_CHARTS, teamChartOf, teamShare, toggleHidden, visibleWidgets } from "../../../domain/services/dashboard.service.ts";
 import { fakeNovoRhModule } from "../../../fake-module.test-utils.ts";
 import { NovoRhProvider, type NovoRhModule } from "../../../novo-rh.module.tsx";
 import { DashboardView } from "./DashboardView.tsx";
@@ -101,7 +101,7 @@ describe("Estado da equipa — formatos do gráfico", () => {
     expect(defaultLayout().sort((a, b) => a.order - b.order).slice(0, 3).map((w) => [w.widgetId, w.span])).toEqual([["TEAM_STATUS", 4], ["LOCATIONS_STATUS", 4], ["ATTENTION", 4]]);
   });
 
-  it("formato guardado por widget (omisso = rosca); percentagens e fatias sobre os mesmos números", () => {
+  it("formato guardado por widget (omisso = rosca); só Rosca e Barras; «pie» antigo mostra Rosca", () => {
     const l = defaultLayout();
     expect(teamChartOf(l)).toBe("donut");
     const bar = setTeamChart(l, "bar");
@@ -111,8 +111,9 @@ describe("Estado da equipa — formatos do gráfico", () => {
     expect(teamChartOf(moveBy(toggleHidden(bar, "TEAM_STATUS"), "TEAM_STATUS", 1))).toBe("bar");
     expect(teamShare(SNAP.team, "working")).toBe(62);
     expect(teamShare({ ...SNAP.team, total: 0, working: 0, remote: 0, break: 0, finished: 0, not_started: 0, vacation: 0, absent: 0 }, "working")).toBeNull();
-    expect(pieSlices(SNAP.team, 70, 70, 64).map((x) => [x.category, x.value])).toEqual(donutSegments(SNAP.team, 100).map((x) => [x.category, x.value]));
-    expect(pieSlices({ ...SNAP.team, working: 0, remote: 0, break: 0, finished: 0, not_started: 0, vacation: 0, absent: 5 }, 70, 70, 64)).toHaveLength(1);
+    expect(TEAM_CHARTS).toEqual(["donut", "bar"]);
+    // Preferência guardada antes de a Pizza sair: mostra Rosca, sem apagar o resto do layout.
+    expect(teamChartOf(setTeamChart(l, "pie"))).toBe("donut");
   });
 
   it("trocar para Barras mostra as barras com a mesma legenda e guarda a escolha no layout", async () => {
@@ -126,9 +127,71 @@ describe("Estado da equipa — formatos do gráfico", () => {
     await vi.waitFor(() => expect(m.dashboard.saveLayout).toHaveBeenCalledTimes(1));
     const sent = (m.dashboard.saveLayout as ReturnType<typeof vi.fn>).mock.calls[0]![0] as WidgetPref[];
     expect(sent.find((w) => w.widgetId === "TEAM_STATUS")!.chart).toBe("bar");
-    await user.click(screen.getByRole("radio", { name: "Pizza" }));
+    expect(screen.queryByRole("radio", { name: "Pizza" })).toBeNull();
+    await user.click(screen.getByRole("radio", { name: "Rosca" }));
     expect(await screen.findByRole("img", { name: "29 colaboradores" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Trabalhando: 18. Ver lista" })).toBeInTheDocument();
+  });
+});
+
+describe("Dashboard V2 — duas colunas e detalhe inline", () => {
+  const w = (widgetId: string, span: number) => ({ widgetId, span });
+
+  it("linhas de duas colunas pela ordem do layout; «Largo» fica sozinho", () => {
+    const rows = dashboardRows([w("A", 4), w("B", 6), w("C", 12), w("D", 4), w("E", 12), w("F", 6)]);
+    expect(rows.map((r) => r.map((x) => x.widgetId))).toEqual([["A", "B"], ["C"], ["D"], ["E"], ["F"]]);
+  });
+
+  it("Expandir abre o detalhe logo a seguir à linha (um de cada vez); Escape e clique fora recolhem; menus no detalhe não", async () => {
+    const m = mod();
+    renderWith(m);
+    const user = userEvent.setup();
+    await screen.findByRole("img", { name: "29 colaboradores" });
+    // Procura sempre de novo (a linha volta a ser desenhada ao abrir/fechar).
+    const units = () => screen.getByRole("region", { name: "Estado das unidades" });
+    await user.click(within(units()).getByRole("button", { name: "Expandir" }));
+    const detail = await screen.findByRole("region", { name: "Estado das unidades — detalhe" });
+    // A tabela completa está no detalhe; o widget continua a mostrar o resumo.
+    expect(within(detail).getByRole("table")).toBeInTheDocument();
+    expect(within(units()).queryByRole("table")).toBeNull();
+    // O detalhe fica no fluxo, a seguir à linha do widget (não é modal).
+    expect(units().parentElement).toBe(detail.parentElement);
+    expect(screen.queryByRole("dialog")).toBeNull();
+    // Escape recolhe.
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("region", { name: "Estado das unidades — detalhe" })).toBeNull();
+    // Só um aberto: abrir outro fecha o primeiro.
+    await user.click(within(units()).getByRole("button", { name: "Expandir" }));
+    await user.click(within(screen.getByRole("region", { name: "Cobertura da escala" })).getByRole("button", { name: "Expandir" }));
+    expect(screen.queryByRole("region", { name: "Estado das unidades — detalhe" })).toBeNull();
+    expect(screen.getByRole("region", { name: "Cobertura da escala — detalhe" })).toBeInTheDocument();
+    await user.keyboard("{Escape}");
+    // Clicar dentro do detalhe não recolhe; clicar noutro widget recolhe; Escape também.
+    await user.click(within(units()).getByRole("button", { name: "Expandir" }));
+    const again = await screen.findByRole("region", { name: "Estado das unidades — detalhe" });
+    await user.click(within(again).getAllByRole("cell")[0]!);
+    expect(screen.getByRole("region", { name: "Estado das unidades — detalhe" })).toBeInTheDocument();
+    await user.click(screen.getByRole("region", { name: "Estado da equipa" }));
+    expect(screen.queryByRole("region", { name: "Estado das unidades — detalhe" })).toBeNull();
+    // Foco volta ao «Expandir» do widget.
+    await user.click(within(units()).getByRole("button", { name: "Expandir" }));
+    await user.keyboard("{Escape}");
+    await vi.waitFor(() => expect(within(units()).getByRole("button", { name: "Expandir" })).toHaveFocus());
+  });
+
+  it("em Personalizar não há Expandir e o detalhe fecha; nada de expandido vai para o layout", async () => {
+    const m = mod();
+    renderWith(m);
+    const user = userEvent.setup();
+    await screen.findByRole("img", { name: "29 colaboradores" });
+    await user.click(within(screen.getByRole("region", { name: "Estado das unidades" })).getByRole("button", { name: "Expandir" }));
+    await user.click(screen.getByRole("button", { name: "Personalizar" }));
+    expect(screen.queryByRole("region", { name: "Estado das unidades — detalhe" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Expandir" })).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Guardar layout" }));
+    await vi.waitFor(() => expect(m.dashboard.saveLayout).toHaveBeenCalledTimes(1));
+    const sent = (m.dashboard.saveLayout as ReturnType<typeof vi.fn>).mock.calls[0]![0] as WidgetPref[];
+    expect(sent.every((x) => Object.keys(x).every((k) => ["widgetId", "order", "span", "hidden", "chart"].includes(k)))).toBe(true);
   });
 });
 
@@ -241,7 +304,8 @@ describe("Dashboard — erros e fontes parciais", () => {
     const before = vi.mocked(m.dashboard.snapshot).mock.calls.length;
     await userEvent.click(screen.getByRole("button", { name: "Tentar novamente" }));
     expect(vi.mocked(m.dashboard.snapshot).mock.calls.length).toBeGreaterThan(before);
-    expect(document.querySelector("#widget-ATTENTION")!.parentElement!.className).toMatch(/items-start/);
+    // V2: na mesma linha os cartões têm a mesma altura.
+    expect(document.querySelector("#widget-ATTENTION")!.parentElement!.className).toMatch(/items-stretch/);
   });
 });
 

@@ -106,10 +106,14 @@ export function setSpan(ws: WidgetPref[], id: string, span: number): WidgetPref[
 }
 
 /** Formato do gráfico «Estado da equipa» guardado no layout (omisso = rosca). */
-export const TEAM_CHART_LABEL: Record<TeamChart, string> = { donut: "Rosca", bar: "Barras", pie: "Pizza" };
-export const TEAM_CHARTS: TeamChart[] = ["donut", "bar", "pie"];
+export const TEAM_CHART_LABEL: Record<TeamChart, string> = { donut: "Rosca", bar: "Barras", pie: "Rosca" };
+/** Formatos mostrados no seletor (a Pizza saiu; preferências antigas «pie» mostram Rosca). */
+export const TEAM_CHARTS: TeamChart[] = ["donut", "bar"];
 
-export const teamChartOf = (ws: WidgetPref[]): TeamChart => ws.find((w) => w.widgetId === "TEAM_STATUS")?.chart ?? "donut";
+export const teamChartOf = (ws: WidgetPref[]): TeamChart => {
+  const c = ws.find((w) => w.widgetId === "TEAM_STATUS")?.chart;
+  return c === "bar" ? "bar" : "donut";
+};
 
 export function setTeamChart(ws: WidgetPref[], chart: TeamChart): WidgetPref[] {
   return ws.map((w) => (w.widgetId === "TEAM_STATUS" ? { ...w, chart } : w));
@@ -195,33 +199,37 @@ export function teamShare(team: TeamCounts, c: TeamCategory): number | null {
   return total ? Math.round(((team[c] ?? 0) / total) * 100) : null;
 }
 
-export interface PieSlice {
-  category: TeamCategory;
-  value: number;
-  /** Caminho SVG da fatia num círculo de raio `r` centrado em (cx, cy). */
-  path: string;
+// ── Grelha de duas colunas (V2) ─────────────────────────────────────
+
+/** «Largo» (12) ocupa a largura toda; os restantes tamanhos guardados ficam a meia largura. */
+export const isFullWidth = (span: number) => span >= 12;
+
+/**
+ * Agrupa os widgets visíveis em linhas de duas colunas (pela ordem do
+ * layout): um largo fica sozinho; um de meia largura seguido de um largo
+ * fica sozinho na sua linha. O detalhe expandido entra logo a seguir à
+ * linha do widget (transitório — nunca é guardado no layout).
+ */
+export function dashboardRows<T extends { widgetId: string; span: number }>(widgets: T[]): T[][] {
+  const rows: T[][] = [];
+  let open: T[] | null = null;
+  for (const w of widgets) {
+    if (isFullWidth(w.span)) {
+      open = null;
+      rows.push([w]);
+    } else if (open && open.length === 1) {
+      open.push(w);
+      open = null;
+    } else {
+      open = [w];
+      rows.push(open);
+    }
+  }
+  return rows;
 }
 
-/** Fatias da pizza (só categorias com valor), a começar no topo, sentido horário. */
-export function pieSlices(team: TeamCounts, cx: number, cy: number, r: number): PieSlice[] {
-  const total = teamSum(team);
-  if (!total) return [];
-  const used = TEAM_CATEGORIES.filter((k) => (team[k] ?? 0) > 0);
-  const pt = (a: number) => `${(cx + r * Math.sin(a)).toFixed(3)} ${(cy - r * Math.cos(a)).toFixed(3)}`;
-  let acc = 0;
-  return used.map((k) => {
-    const value = team[k] ?? 0;
-    const start = (acc / total) * 2 * Math.PI;
-    acc += value;
-    const end = (acc / total) * 2 * Math.PI;
-    // Fatia única: círculo completo (dois arcos; um arco de 360° não se desenha).
-    const path =
-      used.length === 1
-        ? `M ${pt(0)} A ${r} ${r} 0 1 1 ${pt(Math.PI)} A ${r} ${r} 0 1 1 ${pt(0)} Z`
-        : `M ${cx} ${cy} L ${pt(start)} A ${r} ${r} 0 ${end - start > Math.PI ? 1 : 0} 1 ${pt(end)} Z`;
-    return { category: k, value, path };
-  });
-}
+/** Quantas entradas mostra um widget resumido. */
+export const SUMMARY_ITEMS = 3;
 
 /** Nota Google com uma casa decimal e vírgula ("4,7"); "—" sem nota. */
 export function formatRating(r: number | null): string {
