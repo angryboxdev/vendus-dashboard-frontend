@@ -52,6 +52,20 @@ export function placeSegments(segments: TimelineSegment[], date: string, timeZon
   });
 }
 
+/**
+ * Previsto desenhado na linha 0–24 h: um turno que passa a meia-noite fica
+ * em dois troços — do início até às 24 h e das 00 h até ao fim —, cada um
+ * marcado do lado do corte (`cutLeft`/`cutRight`).
+ */
+export function plannedBands(start: string, end: string | null): { start: number; end: number; cutLeft: boolean; cutRight: boolean }[] {
+  const band = plannedBand(start, end);
+  if (band.end <= DAY) return [{ ...band, cutLeft: false, cutRight: false }];
+  return [
+    { start: band.start, end: DAY, cutLeft: false, cutRight: true },
+    { start: 0, end: band.end - DAY, cutLeft: true, cutRight: false },
+  ];
+}
+
 /** Faixa do previsto «HH:MM–HH:MM» (fim ≤ início = termina no dia seguinte). */
 export function plannedBand(start: string, end: string | null): { start: number; end: number } {
   const a = hhmmToMinutes(start);

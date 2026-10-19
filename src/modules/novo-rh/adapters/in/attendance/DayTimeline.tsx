@@ -1,6 +1,6 @@
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
-import { pct, placeSegments, plannedBand, type TimelineSegment } from "../../../domain/services/timeline.service.ts";
+import { pct, placeSegments, plannedBands, type TimelineSegment } from "../../../domain/services/timeline.service.ts";
 
 const SEG_COLOR: Record<string, string> = { work: "bg-emerald-500", remote: "bg-sky-500", break_paid: "bg-amber-300", break_unpaid: "bg-amber-400" };
 
@@ -26,17 +26,20 @@ export function DayTimeline({
 }) {
   const { t } = useI18n();
   const placed = placeSegments(segments, date, timeZone);
-  const band = planned?.start ? plannedBand(planned.start, planned.end) : null;
+  const bands = planned?.start ? plannedBands(planned.start, planned.end) : [];
   return (
     <div className={`relative ${size === "sm" ? "h-3" : "h-6"}`} role="img" aria-label={label}>
       <div className="absolute inset-0 overflow-hidden rounded bg-stone-100">
-      {band && (
+      {/* Turno que passa a meia-noite: troço até às 24 h e troço desde as 00 h, abertos do lado do corte. */}
+      {bands.map((b) => (
         <div
-          className="absolute inset-y-0 rounded border-2 border-dashed border-stone-400"
-          style={{ left: pct(band.start), width: `calc(${pct(band.end - band.start)})` }}
+          key={b.start}
+          data-planned=""
+          className={`absolute inset-y-0 border-2 border-dashed border-stone-400 ${b.cutRight ? "rounded-l border-r-0" : b.cutLeft ? "rounded-r border-l-0" : "rounded"}`}
+          style={{ left: pct(b.start), width: pct(b.end - b.start) }}
           title={`${planned!.start}–${planned!.end ?? "?"}`}
         />
-      )}
+      ))}
       {placed.map((s, i) => (
         <div
           key={`${s.start}-${i}`}

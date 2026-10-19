@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { minuteOfDay, placeSegments, plannedBand } from "./timeline.service.ts";
+import { minuteOfDay, placeSegments, plannedBand, plannedBands } from "./timeline.service.ts";
 
 const TZ = "Europe/Lisbon";
 
@@ -30,5 +30,12 @@ describe("linha do dia (posições, sem recalcular horas)", () => {
     expect(plannedBand("09:00", "17:00")).toEqual({ start: 540, end: 1020 });
     expect(plannedBand("22:00", "06:00")).toEqual({ start: 1320, end: 1800 });
     expect(plannedBand("09:00", null)).toEqual({ start: 540, end: 1440 });
+    // Passa a meia-noite: dois troços na linha do dia (fim do dia + início do dia).
+    expect(plannedBands("23:00", "07:00")).toEqual([
+      { start: 1380, end: 1440, cutLeft: false, cutRight: true },
+      { start: 0, end: 420, cutLeft: true, cutRight: false },
+    ]);
+    expect(plannedBands("09:00", "17:00")).toEqual([{ start: 540, end: 1020, cutLeft: false, cutRight: false }]);
+    expect(plannedBands("16:00", "00:00")).toEqual([{ start: 960, end: 1440, cutLeft: false, cutRight: false }]);
   });
 });
