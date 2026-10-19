@@ -1,16 +1,7 @@
 import { Component, type DragEvent, type ReactNode } from "react";
-import { IconButton, IconEye, IconEyeOff, Skeleton } from "../../../../../components/ui/index.ts";
+import { IconButton, IconChevronDown, IconEye, IconEyeOff, Skeleton } from "../../../../../components/ui/index.ts";
 import type { WidgetDefinition } from "../../../domain/services/dashboard.service.ts";
 
-/** Classes de coluna fixas (o Tailwind só gera as que aparecem no código). */
-const SPAN: Record<number, string> = {
-  4: "md:col-span-6 xl:col-span-4",
-  5: "md:col-span-6 xl:col-span-5",
-  6: "md:col-span-6 xl:col-span-6",
-  7: "md:col-span-12 xl:col-span-7",
-  12: "md:col-span-12 xl:col-span-12",
-};
-const spanClass = (span: number) => `col-span-12 ${SPAN[span] ?? SPAN[6]}`;
 
 /** Falha de um widget não derruba o Dashboard. */
 export class WidgetBoundary extends Component<{ title: string; children: ReactNode }, { failed: boolean }> {
@@ -64,7 +55,8 @@ export interface EditProps {
  */
 export function DashboardWidget({
   def,
-  span,
+  full,
+  className = "",
   icon,
   count,
   countTone = "neutral",
@@ -72,9 +64,13 @@ export function DashboardWidget({
   action,
   children,
   edit,
+  expand,
 }: {
   def: WidgetDefinition;
-  span: number;
+  /** Ocupa as duas colunas («Largo»). */
+  full: boolean;
+  /** Posição na linha (ordem em telemóvel vs. desktop). */
+  className?: string;
   icon: ReactNode;
   count?: number;
   countTone?: "neutral" | "critical";
@@ -82,6 +78,8 @@ export function DashboardWidget({
   action?: ReactNode;
   children: ReactNode;
   edit?: EditProps;
+  /** «Expandir» (detalhe por baixo da linha); ausente = o resumo já é tudo. */
+  expand?: { expanded: boolean; onToggle: () => void; detailId: string };
 }) {
   const editing = !!edit?.editing;
   return (
@@ -92,7 +90,7 @@ export function DashboardWidget({
       onDragOver={edit?.onDragOver}
       onDrop={edit?.onDrop}
       onClick={editing ? edit!.onSelect : undefined}
-      className={`${spanClass(span)} relative flex scroll-mt-24 flex-col rounded-2.5xl border bg-surface-card p-5 shadow-card transition duration-150 motion-safe:animate-motion-fade-up ${
+      className={`${full ? "lg:col-span-2" : ""} ${className} relative flex h-full min-w-0 scroll-mt-24 flex-col rounded-2.5xl border bg-surface-card p-5 shadow-card transition duration-150 motion-safe:animate-motion-fade-up ${expand?.expanded ? "ring-2 ring-brand-500/20" : ""} ${
         editing ? `cursor-default ${edit!.selected ? "border-brand-500 ring-2 ring-brand-500/20" : "border-line"} ${edit!.hidden ? "opacity-50" : ""}` : "border-line"
       } ${edit?.dragging ? "scale-[0.99] opacity-40" : ""} ${edit?.dropTarget ? "outline-dashed outline-2 outline-offset-2 outline-brand-500" : ""}`}
     >
@@ -131,10 +129,25 @@ export function DashboardWidget({
             {edit!.hidden ? <IconEyeOff size={16} /> : <IconEye size={16} />}
           </IconButton>
         ) : (
-          action
+          <span className="flex shrink-0 items-center gap-2">
+            {action}
+            {expand && (
+              <button
+                type="button"
+                data-expand={def.id}
+                aria-expanded={expand.expanded}
+                aria-controls={expand.detailId}
+                onClick={expand.onToggle}
+                className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-brand-600 transition-colors hover:bg-brand-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40"
+              >
+                {expand.expanded ? "Recolher" : "Expandir"}
+                <IconChevronDown size={14} className={`transition-transform duration-150 motion-reduce:transition-none ${expand.expanded ? "rotate-180" : ""}`} />
+              </button>
+            )}
+          </span>
         )}
       </header>
-      <div className={editing ? "pointer-events-none select-none" : ""} inert={editing || undefined}>
+      <div className={`flex-1 ${editing ? "pointer-events-none select-none" : ""}`} inert={editing || undefined}>
         <WidgetBoundary title={def.title}>{children}</WidgetBoundary>
       </div>
     </section>

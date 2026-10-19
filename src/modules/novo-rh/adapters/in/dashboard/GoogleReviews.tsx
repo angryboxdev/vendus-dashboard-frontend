@@ -30,7 +30,7 @@ function useGoogleOverview() {
  * Widget "Avaliações Google": média ponderada e nota por local ligado. Com
  * `locationId` (detalhe da unidade) mostra só esse local e as avaliações.
  */
-export function GoogleReviewsBody({ locationId }: { locationId?: string }) {
+export function GoogleReviewsBody({ locationId, limit }: { locationId?: string; limit?: number }) {
   const q = useGoogleOverview();
   const [manage, setManage] = useState(false);
   const [open, setOpen] = useState<GoogleLocationRating | null>(null);
@@ -80,7 +80,7 @@ export function GoogleReviewsBody({ locationId }: { locationId?: string }) {
         </div>
       )}
       <ul className="divide-y divide-line-subtle rounded-xl border border-line-subtle">
-        {o.locations.map((l) => (
+        {(limit ? o.locations.slice(0, limit) : o.locations).map((l) => (
           <li key={l.locationId}>
             <button type="button" onClick={() => setOpen(l)} className="flex w-full items-center gap-3 px-3 py-2.5 text-left text-sm hover:bg-surface-soft">
               <span className="min-w-0 flex-1 truncate font-medium text-navy-900">{l.locationName}</span>

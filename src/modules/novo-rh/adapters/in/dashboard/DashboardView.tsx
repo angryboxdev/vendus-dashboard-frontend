@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type DragEvent, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type DragEvent, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "react-router-dom";
 import { useOptionalAuth } from "../../../../../contexts/AuthContext.tsx";
@@ -19,7 +19,10 @@ import { hasLevel } from "../../../../access/domain/services/access-ui.service.t
 import { ApiError } from "../../../../../lib/api.ts";
 import type { TeamCategory, TeamChart, UnitRow, WidgetPref } from "../../../domain/entities/dashboard.ts";
 import {
+  dashboardRows,
   defaultLayout,
+  isFullWidth,
+  SUMMARY_ITEMS,
   setTeamChart,
   TEAM_CHART_LABEL,
   TEAM_CHARTS,
@@ -40,7 +43,7 @@ import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { DashboardWidget, WidgetMessage, WidgetSkeleton } from "./DashboardWidget.tsx";
 import { TeamDrawer, UnitDrawer } from "./DashboardDrawers.tsx";
 import { GoogleReviewsBody } from "./GoogleReviews.tsx";
-import { AttentionBody, BirthdaysBody, CoverageBody, HolidaysBody, ReportsBody, RequestsBody, TeamBody, UnitsBody } from "./Widgets.tsx";
+import { AttentionBody, BirthdaysBody, CoverageBody, CoverageDetail, HolidaysBody, ReportsBody, RequestsBody, TeamBody, UnitsBody, UnitsSummary } from "./Widgets.tsx";
 
 /** "A preparar" (503: o cálculo de hoje continua no servidor) ou falha de rede: tenta de novo sozinho. */
 const warming = (e: unknown) => e instanceof ApiError && e.status === 503;
@@ -77,6 +80,9 @@ export function DashboardView() {
   const [selected, setSelected] = useState<string | null>(null);
   const [dragId, setDragId] = useState<string | null>(null);
   const [overId, setOverId] = useState<string | null>(null);
+  // Detalhe expandido (só um; transitório — nunca vai para o layout guardado).
+  const [expanded, setExpanded] = useState<string | null>(null);
+  const root = useRef<HTMLDivElement>(null);
 
   // Camada 1: o snapshot (polling 60 s só com a aba visível — o TanStack pausa em segundo plano).
   const org = useQuery({ queryKey: ["novo-rh", "dashboard", "snapshot", null], queryFn: ({ signal }) => dashboard.snapshot(null, signal), staleTime: 30_000, refetchInterval: 60_000, retry: retrySnapshot, retryDelay: 3_000 });
@@ -145,6 +151,7 @@ export function DashboardView() {
   const goTo = (p: SummaryPart) => {
     if (p.target === "units" || p.target === "units_attention") {
       setOnlyAttention(p.target === "units_attention");
+      setExpanded("LOCATIONS_STATUS");
       document.getElementById("widget-LOCATIONS_STATUS")?.focus();
       document.getElementById("widget-LOCATIONS_STATUS")?.scrollIntoView({ behavior: "smooth", block: "start" });
     } else navigate(p.target === "rosters" ? "/hr/novo/escalas" : p.target === "requests" ? "/hr/novo/pedidos" : "/hr/novo/assiduidade");
@@ -180,11 +187,54 @@ export function DashboardView() {
         }
       : undefined;
 
-  const body = (id: WidgetId): { icon: ReactNode; node: ReactNode; count?: number; critical?: boolean; subtitle?: ReactNode; action?: ReactNode } => {
+  /** Recolhe e devolve o foco ao «Expandir» do widget (sem saltar o scroll). */
+  const collapse = () => {
+    const id = expanded;
+    setExpanded(null);
+    if (id) requestAnimationFrame(() => root.current?.querySelector<HTMLButtonElement>(`[data-expand="${id}"]`)?.focus({ preventScroll: true }));
+  };
+  const toggleExpanded = (id: string) => (expanded === id ? collapse() : setExpanded(id));
+  useEffect(() => {
+    if (!expanded) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      // Escape dentro de um menu/diálogo fecha esse primeiro.
+      if ((e.target as HTMLElement | null)?.closest?.('[role="dialog"],[role="menu"],[role="listbox"]')) return;
+      collapse();
+    };
+    const onDown = (e: MouseEvent) => {
+      const t = e.target as HTMLElement | null;
+      if (!t || !root.current) return;
+      // Só cliques na grelha do Dashboard contam como «fora»: menus, popovers e diálogos
+      // em portal (fora da grelha) e o próprio detalhe ou o seu botão nunca recolhem.
+      if (!root.current.contains(t)) return;
+      if (t.closest("[data-widget-detail]") || t.closest(`[data-expand]`)) return;
+      collapse();
+    };
+    document.addEventListener("keydown", onKey);
+    document.addEventListener("mousedown", onDown);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.removeEventListener("mousedown", onDown);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [expanded]);
+  // «Personalizar» não expande: ao entrar, fecha o detalhe.
+  useEffect(() => {
+    if (editing) setExpanded(null);
+  }, [editing]);
+
+  const body = (id: WidgetId): { icon: ReactNode; node: ReactNode; detail?: ReactNode; count?: number; critical?: boolean; subtitle?: ReactNode; action?: ReactNode } => {
     if (!s) return { icon: null, node: snap.isError ? <WidgetMessage text="Sem dados (o resumo não carregou)." /> : <WidgetSkeleton /> };
     switch (id) {
       case "ATTENTION":
-        return { icon: <IconAlert size={18} />, node: <AttentionBody s={s} />, count: s.attention.reduce((n, a) => n + a.count, 0), critical: true };
+        return {
+          icon: <IconAlert size={18} />,
+          node: <AttentionBody s={s} limit={SUMMARY_ITEMS} />,
+          detail: s.attention.length > SUMMARY_ITEMS ? <AttentionBody s={s} /> : undefined,
+          count: s.attention.reduce((n, a) => n + a.count, 0),
+          critical: true,
+        };
       case "TEAM_STATUS":
         return {
           icon: <IconUsers size={18} />,
@@ -195,13 +245,18 @@ export function DashboardView() {
           ),
         };
       case "LOCATIONS_STATUS":
-        return { icon: <IconStore size={18} />, node: <UnitsBody s={s} onOpen={setUnit} onlyAttention={onlyAttention} onClearFilter={() => setOnlyAttention(false)} /> };
+        return {
+          icon: <IconStore size={18} />,
+          node: <UnitsSummary s={s} onOpen={setUnit} limit={SUMMARY_ITEMS} />,
+          detail: <UnitsBody s={s} onOpen={setUnit} onlyAttention={onlyAttention} onClearFilter={() => setOnlyAttention(false)} />,
+        };
       case "COVERAGE":
-        return { icon: <IconCalendar size={18} />, node: <CoverageBody s={s} onRetry={() => void snap.refetch()} /> };
+        return { icon: <IconCalendar size={18} />, node: <CoverageBody s={s} onRetry={() => void snap.refetch()} />, detail: s.locations.length > 0 ? <CoverageDetail s={s} /> : undefined };
       case "REQUESTS":
         return {
           icon: <IconFile size={18} />,
-          node: <RequestsBody editing={editing} unavailable={!!s.partial?.includes("requests")} onRetry={() => void snap.refetch()} />,
+          node: <RequestsBody editing={editing} limit={SUMMARY_ITEMS} unavailable={!!s.partial?.includes("requests")} onRetry={() => void snap.refetch()} />,
+          detail: s.requests.decidable > SUMMARY_ITEMS ? <RequestsBody editing={editing} limit={50} unavailable={!!s.partial?.includes("requests")} onRetry={() => void snap.refetch()} /> : undefined,
           count: s.partial?.includes("requests") ? undefined : s.requests.decidable,
           critical: true,
           action: (
@@ -211,13 +266,13 @@ export function DashboardView() {
           ),
         };
       case "GOOGLE_REVIEWS":
-        return { icon: <span aria-hidden="true" className="text-base">★</span>, node: <GoogleReviewsBody /> };
+        return { icon: <span aria-hidden="true" className="text-base">★</span>, node: <GoogleReviewsBody limit={SUMMARY_ITEMS} />, detail: <GoogleReviewsBody /> };
       case "BIRTHDAYS":
-        return { icon: <IconUsers size={18} />, node: <BirthdaysBody today={s.localDate} /> };
+        return { icon: <IconUsers size={18} />, node: <BirthdaysBody today={s.localDate} limit={SUMMARY_ITEMS} />, detail: <BirthdaysBody today={s.localDate} limit={50} /> };
       case "HOLIDAYS":
-        return { icon: <IconCalendar size={18} />, node: <HolidaysBody s={s} /> };
+        return { icon: <IconCalendar size={18} />, node: <HolidaysBody s={s} limit={SUMMARY_ITEMS} />, detail: s.holidays.length > SUMMARY_ITEMS ? <HolidaysBody s={s} /> : undefined };
       case "REPORTS":
-        return { icon: <IconFile size={18} />, node: <ReportsBody /> };
+        return { icon: <IconFile size={18} />, node: <ReportsBody limit={SUMMARY_ITEMS} />, detail: <ReportsBody limit={50} /> };
       default:
         return { icon: null, node: null };
     }
@@ -313,18 +368,58 @@ export function DashboardView() {
       )}
 
       <div className="flex items-start gap-4">
-        {/* Cada cartão com a altura do seu conteúdo (sem esticar ao vizinho). */}
-        <div className="grid min-w-0 flex-1 grid-cols-12 items-start gap-4">
-          {shown
-            .filter((w) => !hide(w.widgetId))
-            .map((w) => {
-              const b = body(w.widgetId as WidgetId);
-              return (
-                <DashboardWidget key={w.widgetId} def={w.def} span={w.span} icon={b.icon} count={b.count} countTone={b.critical ? "critical" : "neutral"} subtitle={b.subtitle} action={b.action} edit={editProps(w)}>
-                  {b.node}
-                </DashboardWidget>
-              );
-            })}
+        {/*
+          Duas colunas por linha, com a mesma altura na linha. O detalhe expandido
+          entra logo a seguir à linha, a toda a largura (em telemóvel, logo a seguir
+          ao widget), e empurra o resto para baixo — sem modal nem sobreposição.
+        */}
+        <div ref={root} className="min-w-0 flex-1 space-y-4">
+          {dashboardRows(shown.filter((w) => !hide(w.widgetId))).map((row) => {
+            const open = !editing ? row.find((w) => w.widgetId === expanded) : undefined;
+            const openIndex = open ? row.indexOf(open) : -1;
+            return (
+              <div key={row.map((w) => w.widgetId).join("|")} className="grid grid-cols-1 items-stretch gap-4 lg:grid-cols-2">
+                {row.map((w, i) => {
+                  const b = body(w.widgetId as WidgetId);
+                  const detailId = `widget-detail-${w.widgetId}`;
+                  return (
+                    <Fragment key={w.widgetId}>
+                      <DashboardWidget
+                        def={w.def}
+                        full={isFullWidth(w.span) || row.length === 1}
+                        className={i === 0 ? "order-1" : "order-3 lg:order-2"}
+                        icon={b.icon}
+                        count={b.count}
+                        countTone={b.critical ? "critical" : "neutral"}
+                        subtitle={b.subtitle}
+                        action={b.action}
+                        edit={editProps(w)}
+                        expand={!editing && b.detail ? { expanded: expanded === w.widgetId, detailId, onToggle: () => toggleExpanded(w.widgetId) } : undefined}
+                      >
+                        {b.node}
+                      </DashboardWidget>
+                      {open === w && b.detail && (
+                        <section
+                          id={detailId}
+                          data-widget-detail=""
+                          aria-label={`${w.def.title} — detalhe`}
+                          className={`${openIndex === 0 ? "order-2 lg:order-3" : "order-4 lg:order-3"} min-w-0 rounded-2.5xl border border-brand-100 bg-surface-card p-5 shadow-card motion-safe:animate-motion-fade-up lg:col-span-2`}
+                        >
+                          <header className="mb-3 flex items-center justify-between gap-3">
+                            <h2 className="text-[13px] font-semibold uppercase tracking-wide text-navy-900">{w.def.title}</h2>
+                            <Button size="sm" variant="tertiary" onClick={() => collapse()}>
+                              Recolher
+                            </Button>
+                          </header>
+                          {b.detail}
+                        </section>
+                      )}
+                    </Fragment>
+                  );
+                })}
+              </div>
+            );
+          })}
         </div>
 
         {editing && (

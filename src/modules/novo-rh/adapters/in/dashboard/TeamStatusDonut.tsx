@@ -1,6 +1,6 @@
 import { memo, useEffect, useRef, useState } from "react";
 import { TEAM_CATEGORIES, type TeamCategory, type TeamChart, type TeamCounts } from "../../../domain/entities/dashboard.ts";
-import { donutSegments, pieSlices, TEAM_LABEL, teamShare } from "../../../domain/services/dashboard.service.ts";
+import { donutSegments, TEAM_LABEL, teamShare } from "../../../domain/services/dashboard.service.ts";
 
 /** Cores semânticas das categorias (estados, não identidade da marca). */
 const TEAM_COLOR: Record<TeamCategory, { stroke: string; bg: string; fill: string }> = {
@@ -25,7 +25,7 @@ const tip = (team: TeamCounts, c: TeamCategory) => {
 };
 
 /**
- * Estado da equipa em rosca (predefinido), barras ou pizza — os três sobre
+ * Estado da equipa em rosca (predefinido) ou barras — os dois sobre
  * os mesmos números (categorias mutuamente exclusivas) e com a mesma legenda
  * textual (estado + quantidade); segmento, barra, fatia e legenda chamam a
  * mesma ação. SVG leve, sem biblioteca. A rosca anima uma vez por montagem;
@@ -39,7 +39,7 @@ export const TeamStatusDonut = memo(function TeamStatusDonut({ team, onSelect, f
   if (format === "bar") return <TeamBars team={team} onSelect={onSelect} hover={hover} hoverProps={hoverProps} />;
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-4">
-      {format === "pie" ? <TeamPie team={team} onSelect={onSelect} hover={hover} setHover={setHover} /> : <TeamDonut team={team} onSelect={onSelect} hover={hover} setHover={setHover} />}
+      <TeamDonut team={team} onSelect={onSelect} hover={hover} setHover={setHover} />
       <ul className="min-w-[180px] flex-1 space-y-0.5">
         {TEAM_CATEGORIES.map((c) => (
           <li key={c}>
@@ -131,34 +131,6 @@ function TeamDonut({ team, onSelect, hover, setHover }: ChartProps) {
         </span>
         <span className="mt-1 text-[11px] text-ink-secondary">colaboradores</span>
       </div>
-    </div>
-  );
-}
-
-function TeamPie({ team, onSelect, hover, setHover }: ChartProps) {
-  const slices = pieSlices(team, 70, 70, 64);
-  return (
-    <div className="h-36 w-36 shrink-0">
-      <svg viewBox="0 0 140 140" className="h-full w-full" role="img" aria-label={`${team.total} colaboradores`}>
-        {!slices.length && <circle cx="70" cy="70" r="64" className="fill-surface-soft" />}
-        {slices.map((s) => (
-          <path
-            key={s.category}
-            data-slice={s.category}
-            d={s.path}
-            // Espaço de 2 px entre fatias na cor da superfície.
-            className={`cursor-pointer stroke-surface-card transition-opacity duration-150 ${TEAM_COLOR[s.category].fill}`}
-            strokeWidth={slices.length > 1 ? 2 : 0}
-            strokeLinejoin="round"
-            opacity={hover && hover !== s.category ? 0.45 : 1}
-            onMouseEnter={() => setHover(s.category)}
-            onMouseLeave={() => setHover(null)}
-            onClick={() => onSelect(s.category)}
-          >
-            <title>{tip(team, s.category)}</title>
-          </path>
-        ))}
-      </svg>
     </div>
   );
 }

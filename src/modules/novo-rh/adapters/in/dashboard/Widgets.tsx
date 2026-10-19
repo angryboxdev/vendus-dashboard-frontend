@@ -21,7 +21,7 @@ const ATTENTION_LINK: Record<AttentionItem["key"], string> = {
 const ROW_LINK = "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm transition-colors hover:bg-surface-soft focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40";
 const MORE = "mt-3 inline-flex items-center gap-1 text-sm font-medium text-brand-600 hover:underline";
 
-export function AttentionBody({ s }: { s: OperationalSnapshot }) {
+export function AttentionBody({ s, limit }: { s: OperationalSnapshot; limit?: number }) {
   if (!s.attention.length)
     return (
       <p className="flex items-center gap-2 rounded-xl bg-emerald-50/60 px-3 py-3 text-sm text-emerald-800">
@@ -30,7 +30,7 @@ export function AttentionBody({ s }: { s: OperationalSnapshot }) {
     );
   return (
     <ul className="divide-y divide-line-subtle rounded-xl border border-line-subtle">
-      {s.attention.map((a) => (
+      {(limit ? s.attention.slice(0, limit) : s.attention).map((a) => (
         <li key={a.key}>
           <Link to={ATTENTION_LINK[a.key]} className={ROW_LINK}>
             <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${SEV[a.severity]}`} />
@@ -63,6 +63,44 @@ function Th({ full, short, last = false }: { full: string; short: string; last?:
       <span aria-hidden="true">{short}</span>
       <span className="sr-only">{full}</span>
     </th>
+  );
+}
+
+const STATE_RANK: Record<UnitRow["state"], number> = { critical: 0, attention: 1, normal: 2 };
+
+/** Resumo das unidades: as mais urgentes primeiro, com o essencial; a tabela completa fica no detalhe. */
+export function UnitsSummary({ s, onOpen, limit = 3 }: { s: OperationalSnapshot; onOpen: (u: UnitRow) => void; limit?: number }) {
+  if (!s.locations.length) return <WidgetMessage text="Sem unidades no contexto escolhido." />;
+  const top = [...s.locations].sort((a, b) => STATE_RANK[a.state] - STATE_RANK[b.state] || a.name.localeCompare(b.name, "pt")).slice(0, limit);
+  const issues = (u: UnitRow) =>
+    [u.missing + u.absent ? `${u.missing + u.absent} ausentes` : "", u.late ? `${u.late} atrasos` : "", u.uncovered ? `${u.uncovered} sem cobertura` : "", u.pending ? `${u.pending} pendentes` : ""].filter(Boolean).join(" · ") || "Sem exceções";
+  return (
+    <div className="space-y-2">
+      <p className="text-sm text-ink">
+        <strong className="font-semibold tabular-nums text-navy-900">{s.units.operational}</strong> {s.units.operational === 1 ? "unidade" : "unidades"}
+        {s.units.requiringAttention > 0 && (
+          <span className="text-red-700">
+            {" "}
+            · <strong className="font-semibold tabular-nums">{s.units.requiringAttention}</strong> com exceções
+          </span>
+        )}
+      </p>
+      <ul className="divide-y divide-line-subtle rounded-xl border border-line-subtle">
+        {top.map((u) => (
+          <li key={u.locationId}>
+            <button type="button" onClick={() => onOpen(u)} className={`${ROW_LINK} w-full text-left`}>
+              <span aria-hidden="true" className={`h-2 w-2 shrink-0 rounded-full ${STATE[u.state].dot}`} />
+              <span className="sr-only">{STATE[u.state].label}: </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate font-medium text-navy-900">{u.name}</span>
+                <span className="block truncate text-xs text-ink-secondary">{issues(u)}</span>
+              </span>
+              <span className="text-xs tabular-nums text-ink-secondary">{u.present} presentes</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }
 
@@ -177,6 +215,52 @@ export function CoverageBody({ s, onRetry }: { s: OperationalSnapshot; onRetry?:
   );
 }
 
+/**
+ * Detalhe da cobertura: hoje e amanhã e, por centro, os turnos de hoje sem
+ * cobertura (do mesmo agregado; sem pedidos novos). O detalhe por turno
+ * abre-se nas Escalas.
+ */
+export function CoverageDetail({ s }: { s: OperationalSnapshot }) {
+  if (s.partial?.includes("coverage")) return <WidgetMessage text="Cobertura temporariamente indisponível." />;
+  const byUnit = s.locations.filter((u) => u.uncovered > 0).sort((a, b) => b.uncovered - a.uncovered || a.name.localeCompare(b.name, "pt"));
+  return (
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
+      <dl className="grid grid-cols-2 gap-2 self-start">
+        {[
+          ["Hoje", s.coverage.uncoveredToday],
+          ["Amanhã", s.coverage.uncoveredTomorrow],
+        ].map(([label, n]) => (
+          <div key={label as string} className="rounded-xl border border-line-subtle px-3 py-2.5">
+            <dt className="text-xs text-ink-secondary">{label}</dt>
+            <dd className={`text-xl font-bold tabular-nums ${n ? "text-red-600" : "text-navy-900"}`}>{n}</dd>
+          </div>
+        ))}
+      </dl>
+      <div>
+        <h3 className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-secondary">Hoje, por centro</h3>
+        {byUnit.length ? (
+          <ul className="divide-y divide-line-subtle rounded-xl border border-line-subtle">
+            {byUnit.map((u) => (
+              <li key={u.locationId}>
+                <Link to="/hr/novo/escalas" className={ROW_LINK}>
+                  <span className="min-w-0 flex-1 truncate font-medium text-navy-900">{u.name}</span>
+                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold tabular-nums text-red-700">{u.uncovered}</span>
+                  <span aria-hidden="true" className="text-ink-muted">›</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        ) : (
+          <p className="text-sm text-ink-secondary">Nenhum centro com turnos de hoje por cobrir.</p>
+        )}
+        <Link to="/hr/novo/escalas" className={MORE}>
+          Ver turnos nas Escalas ›
+        </Link>
+      </div>
+    </div>
+  );
+}
+
 /** Solicitações: as mesmas ações da Caixa de pedidos (o backend revalida tudo). */
 export function RequestsBody({ editing, limit = 4, unavailable = false, onRetry }: { editing: boolean; limit?: number; unavailable?: boolean; onRetry?: () => void }) {
   const { inbox } = useNovoRh();
@@ -252,13 +336,13 @@ export function RequestsBody({ editing, limit = 4, unavailable = false, onRetry 
 
 const MONTHS = ["jan", "fev", "mar", "abr", "mai", "jun", "jul", "ago", "set", "out", "nov", "dez"];
 
-export function BirthdaysBody({ today }: { today: string }) {
+export function BirthdaysBody({ today, limit = 5 }: { today: string; limit?: number }) {
   const { dashboard } = useNovoRh();
   const photoOf = useEmployeePhotos();
   const q = useQuery({ queryKey: ["novo-rh", "dashboard", "birthdays"], queryFn: () => dashboard.birthdays(), staleTime: 60 * 60_000, retry: false });
   if (q.isLoading) return <WidgetSkeleton />;
   if (q.isError) return <WidgetMessage text="Não foi possível carregar os aniversários." />;
-  const list = (q.data ?? []).slice(0, 5);
+  const list = (q.data ?? []).slice(0, limit);
   if (!list.length) return <WidgetMessage text="Sem aniversários nos próximos 30 dias." />;
   return (
     <ul className="space-y-1">
@@ -278,11 +362,11 @@ export function BirthdaysBody({ today }: { today: string }) {
   );
 }
 
-export function HolidaysBody({ s }: { s: OperationalSnapshot }) {
+export function HolidaysBody({ s, limit }: { s: OperationalSnapshot; limit?: number }) {
   if (!s.holidays.length) return <WidgetMessage text="Sem feriados próximos." />;
   return (
     <ul className="space-y-1.5">
-      {s.holidays.map((h) => (
+      {(limit ? s.holidays.slice(0, limit) : s.holidays).map((h) => (
         <li key={h.date} className="flex items-center gap-3 rounded-xl border border-line-subtle px-3 py-2">
           <span className="flex w-10 shrink-0 flex-col items-center rounded-lg bg-red-50 py-1 leading-none text-red-700">
             <span className="text-[10px] font-semibold uppercase">{MONTHS[Number(h.date.slice(5, 7)) - 1]}</span>
@@ -295,12 +379,12 @@ export function HolidaysBody({ s }: { s: OperationalSnapshot }) {
   );
 }
 
-export function ReportsBody() {
+export function ReportsBody({ limit = 4 }: { limit?: number }) {
   const { reports } = useNovoRh();
   const q = useQuery({ queryKey: ["novo-rh", "reports", "catalog"], queryFn: () => reports.catalog(), staleTime: 10 * 60_000 });
   if (q.isLoading) return <WidgetSkeleton />;
   if (q.isError) return <WidgetMessage text="Não foi possível carregar os relatórios." />;
-  const list = (q.data ?? []).slice(0, 4);
+  const list = (q.data ?? []).slice(0, limit);
   if (!list.length) return <WidgetMessage text="Sem relatórios disponíveis." />;
   return (
     <ul className="space-y-1">
