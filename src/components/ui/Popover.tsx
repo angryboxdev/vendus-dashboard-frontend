@@ -1,4 +1,5 @@
-import { useEffect, useId, useRef, useState, type ReactNode } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { IconCheck, IconChevronDown, IconSearch } from "./icons.tsx";
 import { FIELD, MENU_ITEM, POPOVER } from "./ui-classes.ts";
 
@@ -13,6 +14,7 @@ export function Popover({
   width = "w-64",
   label,
   className = "relative",
+  portal = false,
 }: {
   trigger: (props: { open: boolean; toggle: () => void; id: string }) => ReactNode;
   children: (close: () => void) => ReactNode;
@@ -21,13 +23,22 @@ export function Popover({
   label?: string;
   /** Contentor do gatilho (por omissão `relative`; ex.: `absolute inset-0` para ocupar uma célula). */
   className?: string;
+  /**
+   * Abre fora do contentor (no `body`, posição fixa junto ao gatilho): para
+   * gatilhos dentro de tabelas com scroll ou colunas fixas, onde o painel
+   * ficaria cortado ou por trás das células seguintes.
+   */
+  portal?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState<{ top: number; left: number; right: number } | null>(null);
   const ref = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
   const id = useId();
   useEffect(() => {
     if (!open) return;
-    const onDown = (e: MouseEvent) => ref.current && !ref.current.contains(e.target as Node) && setOpen(false);
+    const inside = (t: EventTarget | null) => !!t && ((ref.current?.contains(t as Node) ?? false) || (panel.current?.contains(t as Node) ?? false));
+    const onDown = (e: MouseEvent) => !inside(e.target) && setOpen(false);
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && setOpen(false);
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
@@ -36,14 +47,34 @@ export function Popover({
       document.removeEventListener("keydown", onKey);
     };
   }, [open]);
+  useLayoutEffect(() => {
+    if (!open || !portal) return;
+    const place = () => {
+      const r = ref.current?.getBoundingClientRect();
+      if (r) setPos({ top: r.bottom + 8, left: r.left, right: window.innerWidth - r.right });
+    };
+    place();
+    // Acompanha o gatilho ao fazer scroll (página ou tabela) e ao redimensionar.
+    window.addEventListener("scroll", place, true);
+    window.addEventListener("resize", place);
+    return () => {
+      window.removeEventListener("scroll", place, true);
+      window.removeEventListener("resize", place);
+    };
+  }, [open, portal]);
+  const content = (cls: string, style?: CSSProperties) => (
+    <div ref={panel} id={id} role="dialog" aria-label={label} style={style} className={`${cls} ${width} ${POPOVER} motion-safe:animate-motion-pop-in`}>
+      {children(() => setOpen(false))}
+    </div>
+  );
   return (
     <div ref={ref} className={className}>
       {trigger({ open, toggle: () => setOpen((o) => !o), id })}
-      {open && (
-        <div id={id} role="dialog" aria-label={label} className={`absolute top-full z-40 mt-2 ${width} ${align === "right" ? "right-0" : "left-0"} ${POPOVER} motion-safe:animate-motion-pop-in`}>
-          {children(() => setOpen(false))}
-        </div>
-      )}
+      {open && !portal && content(`absolute top-full z-40 mt-2 ${align === "right" ? "right-0" : "left-0"}`)}
+      {open &&
+        portal &&
+        pos &&
+        createPortal(content("ds fixed z-[60] font-sans", align === "right" ? { top: pos.top, right: pos.right } : { top: pos.top, left: pos.left }), document.body)}
     </div>
   );
 }
@@ -64,15 +95,18 @@ export function DropdownMenu({
   trigger,
   align = "right",
   className,
+  portal,
 }: {
   label: string;
   items: (MenuEntry | "separator")[];
   trigger: (props: { open: boolean; toggle: () => void }) => ReactNode;
   align?: "left" | "right";
   className?: string;
+  /** Abre por cima de tudo (ver `Popover`). */
+  portal?: boolean;
 }) {
   return (
-    <Popover label={label} align={align} width="w-64" className={className} trigger={({ open, toggle }) => trigger({ open, toggle })}>
+    <Popover label={label} align={align} width="w-64" className={className} portal={portal} trigger={({ open, toggle }) => trigger({ open, toggle })}>
       {(close) => (
         <div role="menu" aria-label={label}>
           {items.map((i, n) =>
