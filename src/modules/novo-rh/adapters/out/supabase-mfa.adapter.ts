@@ -1,8 +1,13 @@
+import { apiGet } from "../../../../lib/api.ts";
 import { supabase } from "../../../../lib/supabase.ts";
 import type { MfaEnrollment, MfaPort, MfaStatus } from "../../domain/ports/out/mfa.port.ts";
 
 /** MFA TOTP do Supabase Auth (tem de estar ativa no projeto: Authentication → MFA → TOTP). */
 export class SupabaseMfaAdapter implements MfaPort {
+  async required(): Promise<boolean> {
+    return (await apiGet<{ mfaRequired?: boolean }>("/api/me/session-policy")).mfaRequired === true;
+  }
+
   async status(): Promise<MfaStatus> {
     const [aal, factors] = await Promise.all([supabase.auth.mfa.getAuthenticatorAssuranceLevel(), supabase.auth.mfa.listFactors()]);
     if (aal.error) throw new Error(aal.error.message);

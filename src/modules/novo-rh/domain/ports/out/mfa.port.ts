@@ -15,6 +15,8 @@ export interface MfaEnrollment {
 }
 
 export interface MfaPort {
+  /** A empresa exige o segundo fator na gestão (Configurações → Segurança)? Desligado por omissão. */
+  required(): Promise<boolean>;
   status(): Promise<MfaStatus>;
   enroll(): Promise<MfaEnrollment>;
   /** Confirma o código de 6 dígitos (ativação ou entrada); a sessão passa a `aal2`. */

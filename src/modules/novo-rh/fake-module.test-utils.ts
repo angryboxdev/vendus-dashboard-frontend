@@ -47,7 +47,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
     inbox: { list: vi.fn(async () => ({ types: [], counters: {}, items: [] })), decide: vi.fn(async () => []) },
     demo: { status: vi.fn(async () => ({ exists: false, name: null })), create: vi.fn(async () => ({ exists: true, name: "Demo" })), refresh: vi.fn(async () => ({ punches: 0, scenario: false })) },
     settings: {} as NovoRhModule["settings"],
-    mfa: { status: vi.fn(async () => ({ level: "aal2" as const, factorId: "f" })), enroll: vi.fn(), verify: vi.fn() },
+    mfa: { required: vi.fn(async () => false), status: vi.fn(async () => ({ level: "aal2" as const, factorId: "f" })), enroll: vi.fn(), verify: vi.fn() },
     structure: {
       listDepartments: none(),
       createDepartment: vi.fn(),

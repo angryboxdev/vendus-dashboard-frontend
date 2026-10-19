@@ -5,15 +5,18 @@ import { AlertBanner, Button, FIELD, LABEL, SURFACE } from "../../../../componen
 import { useNovoRh } from "../../novo-rh.module.tsx";
 
 /**
- * TK-3: o Novo RH só abre com a sessão confirmada pelo segundo fator (`aal2`).
- * Sem fator → ativar (QR + código); com fator → pedir o código.
+ * TK-3: com a MFA ligada na empresa (Configurações → Segurança, desligada por
+ * omissão), o Novo RH só abre com a sessão confirmada pelo segundo fator
+ * (`aal2`). Sem fator → ativar (QR + código); com fator → pedir o código.
+ * Desligada → abre logo.
  */
 export function MfaGate({ children }: { children: ReactNode }) {
   const { t } = useI18n();
   const { mfa } = useNovoRh();
   const qc = useQueryClient();
   const [code, setCode] = useState("");
-  const status = useQuery({ queryKey: ["novo-rh", "mfa"], queryFn: () => mfa.status() });
+  const required = useQuery({ queryKey: ["novo-rh", "mfa", "required"], queryFn: () => mfa.required(), staleTime: 60_000 });
+  const status = useQuery({ queryKey: ["novo-rh", "mfa"], queryFn: () => mfa.status(), enabled: required.data === true });
   const enrollment = useMutation({ mutationFn: () => mfa.enroll() });
   const verify = useMutation({
     mutationFn: (factorId: string) => mfa.verify(factorId, code.trim()),
@@ -23,6 +26,9 @@ export function MfaGate({ children }: { children: ReactNode }) {
     },
   });
 
+  if (required.isLoading) return <p className="text-sm text-stone-400">{t("common.loading")}</p>;
+  // Desligada na empresa (ou sem resposta): não pede o código — o servidor decide na mesma.
+  if (required.data !== true) return <>{children}</>;
   if (status.isLoading) return <p className="text-sm text-stone-400">{t("common.loading")}</p>;
   if (status.isError || !status.data) return <AlertBanner tone="danger" title={t("mfa.error")}>{status.error instanceof Error ? status.error.message : ""}</AlertBanner>;
   if (status.data.level === "aal2") return <>{children}</>;
