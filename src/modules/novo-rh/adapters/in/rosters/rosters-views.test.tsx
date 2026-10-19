@@ -11,9 +11,13 @@ import { cellLabel, daysFrom, parseSegments, violationsOf } from "../../../domai
 import { cellRect, copyInputs, paintInputs } from "../../../domain/services/roster-edit.service.ts";
 import { afterRedo, afterUndo, emptyHistory, HISTORY_LIMIT, recordOp, type EditOp } from "../../../domain/services/edit-history.service.ts";
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
+import { coverageConfigured, coverageDeficits, shortDay, windowLabel } from "../../../domain/services/roster-coverage.service.ts";
+import { TOPICS, topicDefinitions } from "../../../domain/services/settings-topics.service.ts";
+import type { CoverageReport } from "../../../domain/entities/rosters.ts";
 import { fakeNovoRhModule } from "../../../fake-module.test-utils.ts";
 import { NovoRhProvider, type NovoRhModule } from "../../../novo-rh.module.tsx";
 import { RostersView } from "./RostersView.tsx";
+import { CoveragePanel } from "./CoveragePanel.tsx";
 
 // Datas da semana atual (a grelha abre na semana de hoje).
 const MON = weekOf(todayIn()).from;
@@ -732,5 +736,130 @@ describe("Escalas — áreas de trabalho", () => {
     await user.type(within(add).getByLabelText("Nome da área"), "Cozinha");
     await user.click(within(add).getByRole("button", { name: "Adicionar área" }));
     expect(m.rosters.createArea).toHaveBeenCalledWith({ locationId: "l1", name: "Cozinha" });
+  });
+});
+
+describe("Escalas — plano de cobertura", () => {
+  const W = { startsNextDay: false, endsNextDay: false, published: 0 };
+  const REPORT: CoverageReport = {
+    enabled: true,
+    locationId: "l1",
+    days: [
+      { date: TUE, areaId: "a1", status: "deficit", windows: [{ ...W, start: "12:00", end: "15:00", required: 3, planned: 1 }] },
+      { date: MON, areaId: null, status: "deficit", windows: [{ ...W, start: "09:00", end: "13:00", required: 2, planned: 2 }, { ...W, start: "13:00", end: "17:00", required: 2, planned: 1 }] },
+      { date: MON, areaId: "a1", status: "not_configured", windows: [] },
+    ],
+  };
+  const withCoverage = () => {
+    const m = mod();
+    m.rosters.listAreas = vi.fn(async () => [{ id: "a1", locationId: "l1", name: "Sala", sortOrder: 0, active: true }]);
+    m.rosters.coverageStatus = vi.fn(async () => ({ enabled: true }));
+    m.rosters.coverage = vi.fn(async () => REPORT);
+    return m;
+  };
+
+  it("regras do ecrã: défices por dia (centro antes das áreas), intervalos a passar a meia-noite, tema Funcionalidades", () => {
+    expect(coverageDeficits(REPORT).map((d) => [d.date, d.areaId, d.window.start, d.missing])).toEqual([
+      [MON, null, "13:00", 1],
+      [TUE, "a1", "12:00", 2],
+    ]);
+    expect(coverageDeficits({ ...REPORT, enabled: false })).toEqual([]);
+    expect(coverageConfigured(REPORT)).toBe(true);
+    expect(coverageConfigured({ ...REPORT, days: [REPORT.days[2]!] })).toBe(false);
+    expect(windowLabel({ start: "22:00", end: "02:00", startsNextDay: false, endsNextDay: true })).toBe("22:00–02:00 (+1)");
+    expect(windowLabel({ start: "01:00", end: "06:00", startsNextDay: true, endsNextDay: true })).toBe("01:00–06:00 (dia seguinte)");
+    expect(shortDay("2026-11-02")).toBe("seg 02/11");
+    const def = { key: "time_tracking.roster.coverage_enabled", domain: "time_tracking" } as never;
+    const rest = { key: "time_tracking.roster.rest_severity", domain: "time_tracking" } as never;
+    const topic = (k: string) => TOPICS.find((x) => x.key === k)!;
+    expect(topicDefinitions(topic("features"), [def, rest])).toEqual([def]);
+    expect(topicDefinitions(topic("rosters"), [def, rest])).toEqual([rest]);
+  });
+
+  it("desligado (por omissão): sem alertas, sem pedido de cobertura e sem entrada no menu", async () => {
+    const m = mod();
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(screen.getByRole("button", { name: "Adicionar" }));
+    expect(screen.queryByRole("menuitem", { name: "Plano de cobertura" })).toBeNull();
+    expect(m.rosters.coverage).not.toHaveBeenCalled();
+    expect(screen.queryByText(/abaixo do mínimo de cobertura/)).toBeNull();
+  });
+
+  it("ligado: alerta com os défices da semana; publicar avisa mas não bloqueia", async () => {
+    const m = withCoverage();
+    m.rosters.publish = vi.fn(async () => ({ id: "p", version: 2, reason: null, confirmedWarnings: [], changes: [], publishedBy: "x", createdAt: "2026-10-12T10:00:00Z" }));
+    renderWith(m);
+    const user = await openRoster();
+    expect(await screen.findByText("2 intervalo(s) abaixo do mínimo de cobertura")).toBeInTheDocument();
+    const list = screen.getByRole("list", { name: "Plano de cobertura" });
+    expect(within(list).getAllByRole("listitem").map((li) => li.textContent)).toEqual([
+      `${shortDay(MON)} · Centro inteiro · 13:00–17:00 — 1 de 2`,
+      `${shortDay(TUE)} · Sala · 12:00–15:00 — 1 de 3`,
+    ]);
+    expect(m.rosters.coverage).toHaveBeenCalledWith("r1", MON, daysFrom(MON, 7)[6]);
+    await user.click(screen.getByRole("button", { name: "Publicar escala" }));
+    expect(await screen.findByText(/Atenção: 2 intervalo\(s\) deste período/)).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Publicar agora" }));
+    expect(m.rosters.publish).toHaveBeenCalled();
+  });
+
+  it("gerir mínimos: semanal cria uma regra por dia escolhido; exceção numa data; alterar o mínimo e apagar", async () => {
+    const m = withCoverage();
+    const RULE = { id: "c1", locationId: "l1", areaId: null, weekday: 1, date: null, start: "09:00", end: "17:00", minPeople: 2 };
+    const EXC = { id: "c2", locationId: "l1", areaId: null, weekday: null, date: "2026-12-24", start: "22:00", end: "02:00", minPeople: 4 };
+    m.rosters.listCoverageRules = vi.fn(async () => [RULE, EXC]);
+    m.rosters.createCoverageRule = vi.fn(async (x) => ({ ...x, id: "n" }));
+    m.rosters.updateCoverageRule = vi.fn(async () => RULE);
+    m.rosters.deleteCoverageRule = vi.fn(async () => undefined);
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(screen.getByRole("button", { name: "Adicionar" }));
+    await user.click(screen.getByRole("menuitem", { name: "Plano de cobertura" }));
+    const monday = await screen.findByRole("list", { name: "Segunda" });
+    expect(monday).toHaveTextContent("09:00–17:00mín. 2");
+    expect(screen.getAllByText("Não configurado")).toHaveLength(6);
+    expect(within(screen.getByRole("list", { name: "Exceções" })).getByText("2026-12-24")).toBeInTheDocument();
+    expect(screen.getByText("22:00–02:00 (+1)")).toBeInTheDocument();
+
+    await user.click(within(monday).getByRole("button", { name: "Alterar o mínimo de 09:00–17:00" }));
+    const min = within(monday).getByLabelText("Mínimo de pessoas");
+    await user.clear(min);
+    await user.type(min, "3");
+    await user.click(within(monday).getByRole("button", { name: "Guardar" }));
+    expect(m.rosters.updateCoverageRule).toHaveBeenCalledWith("c1", { minPeople: 3 });
+    await user.click(screen.getByRole("button", { name: "Apagar a regra de 2026-12-24 22:00–02:00 (+1)" }));
+    expect(m.rosters.deleteCoverageRule).toHaveBeenCalledWith("c2");
+
+    // Novo mínimo semanal para a Sala, só ao sábado e domingo.
+    await user.selectOptions(screen.getByLabelText("Âmbito"), "a1");
+    const form = screen.getByRole("form", { name: "Adicionar mínimo" });
+    for (const d of ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"]) await user.click(within(form).getByLabelText(d));
+    await user.click(within(form).getByRole("button", { name: "Adicionar mínimo" }));
+    expect(m.rosters.createCoverageRule).toHaveBeenCalledTimes(2);
+    expect(m.rosters.createCoverageRule).toHaveBeenCalledWith({ locationId: "l1", areaId: "a1", weekday: 6, date: null, start: "12:00", end: "15:00", minPeople: 2 });
+    expect(m.rosters.createCoverageRule).toHaveBeenCalledWith(expect.objectContaining({ weekday: 7 }));
+    // Exceção numa data.
+    await user.click(within(form).getByLabelText("Exceção numa data"));
+    fireEvent.change(within(form).getByLabelText("Data"), { target: { value: "2026-12-31" } });
+    await user.click(within(form).getByRole("button", { name: "Adicionar mínimo" }));
+    expect(m.rosters.createCoverageRule).toHaveBeenLastCalledWith({ locationId: "l1", areaId: "a1", weekday: null, date: "2026-12-31", start: "12:00", end: "15:00", minPeople: 2 });
+  });
+
+  it("painel com a funcionalidade desligada: explica e leva às Funcionalidades (sem pedir regras)", async () => {
+    const m = mod();
+    const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+    render(
+      <QueryClientProvider client={qc}>
+        <NovoRhProvider module={m}>
+          <MemoryRouter>
+            <CoveragePanel />
+          </MemoryRouter>
+        </NovoRhProvider>
+      </QueryClientProvider>,
+    );
+    expect(await screen.findByText("O plano de cobertura está desligado")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Abrir Funcionalidades" })).toHaveAttribute("href", "/hr/novo/configuracoes?tema=features");
+    expect(m.rosters.listCoverageRules).not.toHaveBeenCalled();
   });
 });

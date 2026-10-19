@@ -6,11 +6,12 @@ import {
   IconChevronLeft,
   PageHeader,
 } from "../../../../../components/ui/index.ts";
+import { CoveragePanel } from "./CoveragePanel.tsx";
 import { AreasPanel, MyRosterPanel, SwapsPanel, TemplatesPanel } from "./OtherPanels.tsx";
 import { PlannerPanel } from "./PlannerPanel.tsx";
 import { RostersOverview } from "./RostersOverview.tsx";
 
-type View = "overview" | "planner" | "templates" | "areas" | "swaps" | "mine";
+type View = "overview" | "planner" | "templates" | "areas" | "coverage" | "swaps" | "mine";
 
 /** Escala aberta na grelha (a mesma chave que o PlannerPanel lê). */
 const ROSTER_KEY = "novo-rh-roster-id";
@@ -28,6 +29,7 @@ export function RostersView() {
   const sub: Record<Exclude<View, "overview" | "planner">, string> = {
     templates: t("ros.tab.templates"),
     areas: t("ros.tab.areas"),
+    coverage: t("ros.tab.coverage"),
     swaps: t("ros.tab.swaps"),
     mine: t("ros.tab.mine"),
   };
@@ -71,16 +73,18 @@ export function RostersView() {
           <PlannerPanel
             onOpenTemplates={() => setView("templates")}
             onOpenAreas={() => setView("areas")}
+            onOpenCoverage={() => setView("coverage")}
             onOpenSwaps={() => setView("swaps")}
             onOpenMine={() => setView("mine")}
           />
         </div>
       )}
-      {(view === "templates" || view === "areas" || view === "swaps" || view === "mine") && (
+      {(view === "templates" || view === "areas" || view === "coverage" || view === "swaps" || view === "mine") && (
         <div className="space-y-4 motion-safe:animate-motion-fade-up">
           {back("planner", t("ros.backToPlanner"))}
           {view === "templates" && <TemplatesPanel />}
           {view === "areas" && <AreasPanel />}
+          {view === "coverage" && <CoveragePanel />}
           {view === "swaps" && <SwapsPanel />}
           {view === "mine" && <MyRosterPanel />}
         </div>

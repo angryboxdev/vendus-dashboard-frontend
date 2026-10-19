@@ -12,6 +12,7 @@ import {
   DropdownMenu,
   EmptyState,
   FIELD,
+  IconActivity,
   IconAlert,
   IconButton,
   IconCalendar,
@@ -53,6 +54,7 @@ import {
   rosterRows,
 } from "../../../domain/services/roster-board.service.ts";
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
+import { coverageDeficits, shortDay, windowLabel } from "../../../domain/services/roster-coverage.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { downloadBlob } from "../download.ts";
 import { AssignPanel } from "./AssignPanel.tsx";
@@ -169,11 +171,13 @@ function ConflictNotice({
 export function PlannerPanel({
   onOpenTemplates,
   onOpenAreas,
+  onOpenCoverage,
   onOpenSwaps,
   onOpenMine,
 }: {
   onOpenTemplates: () => void;
   onOpenAreas?: () => void;
+  onOpenCoverage?: () => void;
   onOpenSwaps: () => void;
   onOpenMine: () => void;
 }) {
@@ -281,6 +285,14 @@ export function PlannerPanel({
     queryFn: () => rosters.check(rosterId, { from, to }),
     enabled: !!rosterId && !!shifts.data,
   });
+  // Plano de Cobertura (opcional por empresa): défices do centro no período visível; só informa.
+  const coverageOn = useQuery({ queryKey: [...KEY, "coverage", "status"], queryFn: () => rosters.coverageStatus() });
+  const coverage = useQuery({
+    queryKey: [...KEY, "coverage", rosterId, from, span, shifts.dataUpdatedAt],
+    queryFn: () => rosters.coverage(rosterId, from, to),
+    enabled: !!rosterId && coverageOn.data?.enabled === true && roster?.targetType === "location" && !!shifts.data,
+  });
+  const deficits = coverageDeficits(coverage.data);
   const name = (id: string) =>
     employees.data?.find((e) => e.id === id)?.label ?? id;
   const tpls = (templates.data ?? []).filter((x) => !x.archived);
@@ -943,6 +955,15 @@ export function PlannerPanel({
                   icon: <IconLayers size={16} />,
                   onSelect: onOpenTemplates,
                 },
+                ...(onOpenCoverage && coverageOn.data?.enabled
+                  ? [
+                      {
+                        label: t("ros.tab.coverage"),
+                        icon: <IconActivity size={16} />,
+                        onSelect: onOpenCoverage,
+                      },
+                    ]
+                  : []),
                 ...(onOpenAreas
                   ? [
                       {
@@ -1014,6 +1035,11 @@ export function PlannerPanel({
                 <p className="text-sm text-ink">
                   {t("ros.pending", { count: pending })}
                 </p>
+                {deficits.length > 0 && (
+                  <p className="rounded-lg bg-amber-50 px-2.5 py-2 text-xs text-amber-900">
+                    {t("ros.cov.publishWarn", { count: deficits.length })}
+                  </p>
+                )}
                 <label className="block">
                   <span className={LABEL}>{t("ros.publish.reason")}</span>
                   <input
@@ -1045,6 +1071,30 @@ export function PlannerPanel({
         </div>
       </Toolbar>
 
+      {deficits.length > 0 && (
+        <AlertBanner
+          tone="warning"
+          title={t("ros.cov.deficits", { count: deficits.length })}
+          action={
+            onOpenCoverage && (
+              <Button size="sm" onClick={onOpenCoverage}>
+                {t("ros.cov.configure")}
+              </Button>
+            )
+          }
+        >
+          <ul className="mt-1 space-y-0.5 text-xs" aria-label={t("ros.tab.coverage")}>
+            {deficits.slice(0, 6).map((d, i) => (
+              <li key={i} className="tabular-nums">
+                {shortDay(d.date)} · {areaName(d.areaId) ?? t("ros.cov.wholeCentre")} · {windowLabel(d.window)} —{" "}
+                {t("ros.cov.missing", { planned: d.window.planned, required: d.window.required })}
+              </li>
+            ))}
+            {deficits.length > 6 && <li>{t("ros.cov.more", { count: deficits.length - 6 })}</li>}
+          </ul>
+          <p className="mt-1 text-xs">{t("ros.cov.deficitsHint")}</p>
+        </AlertBanner>
+      )}
       {rejected.length > 0 && (
         <ConflictNotice
           kind="blocked"

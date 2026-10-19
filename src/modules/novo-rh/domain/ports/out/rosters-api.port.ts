@@ -1,4 +1,4 @@
-import type { Publication, PublishOptions, Roster, RosterCandidates, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation, WorkArea } from "../../entities/rosters.ts";
+import type { Publication, PublishOptions, Roster, RosterCandidates, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation, WorkArea, CoverageReport, CoverageRule } from "../../entities/rosters.ts";
 
 /** Escalas (`/api/novo-rh/rosters`) e o meu horário (`/api/me/roster`). */
 export interface RostersApiPort {
@@ -9,6 +9,14 @@ export interface RostersApiPort {
   listAreas(locationId?: string | null): Promise<WorkArea[]>;
   createArea(input: { locationId: string; name: string }): Promise<WorkArea>;
   updateArea(id: string, patch: { name?: string; sortOrder?: number; active?: boolean }): Promise<WorkArea>;
+  /** Plano de Cobertura (opcional por empresa). */
+  coverageStatus(): Promise<{ enabled: boolean }>;
+  listCoverageRules(locationId: string): Promise<CoverageRule[]>;
+  createCoverageRule(input: Omit<CoverageRule, "id">): Promise<CoverageRule>;
+  updateCoverageRule(id: string, patch: { start?: string; end?: string; minPeople?: number }): Promise<CoverageRule>;
+  deleteCoverageRule(id: string): Promise<void>;
+  /** Planeado vs. publicado do centro da escala no período (desligado → `enabled: false`). */
+  coverage(rosterId: string, from: string, to: string): Promise<CoverageReport>;
   /** Só a cor do modelo (null = automática). */
   setTemplateColor(id: string, color: string | null): Promise<ShiftTemplate>;
   listRosters(): Promise<Roster[]>;

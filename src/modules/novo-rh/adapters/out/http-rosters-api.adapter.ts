@@ -1,5 +1,5 @@
 import { apiGet, apiWrite } from "../../../../lib/api.ts";
-import type { Publication, PublishOptions, Roster, RosterCandidates, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation, WorkArea } from "../../domain/entities/rosters.ts";
+import type { Publication, PublishOptions, Roster, RosterCandidates, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation, WorkArea, CoverageReport, CoverageRule } from "../../domain/entities/rosters.ts";
 import type { RostersApiPort } from "../../domain/ports/out/rosters-api.port.ts";
 
 const R = "/api/novo-rh/rosters";
@@ -23,6 +23,24 @@ export class HttpRostersApiAdapter implements RostersApiPort {
   }
   async updateArea(id: string, patch: { name?: string; sortOrder?: number; active?: boolean }) {
     return (await apiWrite<WorkArea>(`${R}/areas/${id}`, { method: "PATCH", body: patch })).data;
+  }
+  coverageStatus() {
+    return apiGet<{ enabled: boolean }>(`${R}/coverage/status`);
+  }
+  listCoverageRules(locationId: string) {
+    return apiGet<CoverageRule[]>(`${R}/coverage/rules?locationId=${encodeURIComponent(locationId)}`);
+  }
+  async createCoverageRule(input: Omit<CoverageRule, "id">) {
+    return (await apiWrite<CoverageRule>(`${R}/coverage/rules`, { body: input })).data;
+  }
+  async updateCoverageRule(id: string, patch: { start?: string; end?: string; minPeople?: number }) {
+    return (await apiWrite<CoverageRule>(`${R}/coverage/rules/${id}`, { method: "PATCH", body: patch })).data;
+  }
+  async deleteCoverageRule(id: string) {
+    await apiWrite(`${R}/coverage/rules/${id}`, { method: "DELETE" });
+  }
+  coverage(rosterId: string, from: string, to: string) {
+    return apiGet<CoverageReport>(`${R}/${rosterId}/coverage?from=${from}&to=${to}`);
   }
   async archiveTemplate(id: string) {
     await apiWrite(`${R}/templates/${id}/archive`, {});

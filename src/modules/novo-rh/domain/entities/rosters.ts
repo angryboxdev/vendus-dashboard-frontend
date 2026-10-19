@@ -55,6 +55,43 @@ export interface WorkArea {
   active: boolean;
 }
 
+/** Plano de Cobertura: mínimo de pessoas num centro (areaId null) ou área, por dia da semana ou numa data. */
+export interface CoverageRule {
+  id: string;
+  locationId: string;
+  areaId: string | null;
+  /** 1 = segunda … 7 = domingo; null numa exceção datada. */
+  weekday: number | null;
+  /** Exceção (substitui as regras semanais desse dia); null numa regra semanal. */
+  date: string | null;
+  start: string;
+  end: string;
+  minPeople: number;
+}
+
+export interface CoverageWindow {
+  start: string;
+  end: string;
+  startsNextDay: boolean;
+  endsNextDay: boolean;
+  required: number;
+  planned: number;
+  published: number;
+}
+
+export interface CoverageDay {
+  date: string;
+  areaId: string | null;
+  status: "not_configured" | "ok" | "deficit";
+  windows: CoverageWindow[];
+}
+
+export interface CoverageReport {
+  enabled: boolean;
+  locationId: string | null;
+  days: CoverageDay[];
+}
+
 export interface RosterShift extends ShiftState {
   id: string;
   rosterId: string;
