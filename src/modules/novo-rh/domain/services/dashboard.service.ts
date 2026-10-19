@@ -228,6 +228,18 @@ export function dashboardRows<T extends { widgetId: string; span: number }>(widg
   return rows;
 }
 
+/**
+ * Colunas de uma linha em desktop: 50/50; com um expandido, ~72/28 a favor
+ * dele (o vizinho fica compacto, com largura mínima para ler e agir). Uma
+ * linha de um só widget usa a largura toda.
+ */
+export function rowColumns(count: number, expandedIndex: number): string {
+  if (count < 2) return "minmax(0, 1fr)";
+  if (expandedIndex === 0) return "minmax(0, 2.6fr) minmax(15rem, 1fr)";
+  if (expandedIndex === 1) return "minmax(15rem, 1fr) minmax(0, 2.6fr)";
+  return "minmax(0, 1fr) minmax(0, 1fr)";
+}
+
 /** Quantas entradas mostra um widget resumido. */
 export const SUMMARY_ITEMS = 3;
 

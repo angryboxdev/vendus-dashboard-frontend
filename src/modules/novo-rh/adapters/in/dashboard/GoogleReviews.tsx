@@ -251,3 +251,17 @@ export function GoogleLinkDrawer({ open, overview, onClose }: { open: boolean; o
     </Drawer>
   );
 }
+
+/** Vizinho compacto: só a média (mesma consulta do widget — sem pedidos novos). */
+export function GoogleReviewsCompact() {
+  const q = useGoogleOverview();
+  if (q.isLoading) return <WidgetSkeleton rows={1} />;
+  const o = q.data;
+  if (q.isError || !o?.configured || o.average.rating === null) return <p className="text-sm text-ink-secondary">Sem média disponível.</p>;
+  return (
+    <p className="flex items-baseline gap-1.5">
+      <strong className="text-2xl font-bold tabular-nums text-navy-900">{formatRating(o.average.rating)}</strong>
+      <span className="truncate text-sm text-ink-secondary">{o.average.count} avaliações</span>
+    </p>
+  );
+}
