@@ -73,6 +73,8 @@ export interface RosterBoardProps {
   rowActions?: {
     pending: (employeeId: string) => number;
     onClearWeek: (employeeId: string) => void;
+    /** «Exportar horário em PDF» (versão individual). */
+    onExportPdf?: (employeeId: string) => void;
     period: "week" | "period";
   };
   /** Turnos com conflito encontrado pelo servidor (borda vermelha + ponto com texto). */
@@ -669,6 +671,7 @@ function RowMenu({ p, r }: { p: RosterBoardProps; r: RosterRow }) {
       portal
       items={[
         { label: "Ver funcionário", onSelect: () => navigate(href) },
+        ...(a.onExportPdf ? [{ label: "Exportar horário em PDF", onSelect: () => a.onExportPdf!(r.employeeId) }] : []),
         {
           label: a.period === "week" ? "Limpar turnos pendentes da semana" : "Limpar turnos pendentes do período",
           onSelect: () => a.onClearWeek(r.employeeId),
