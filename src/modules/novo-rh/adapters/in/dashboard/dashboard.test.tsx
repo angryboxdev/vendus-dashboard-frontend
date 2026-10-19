@@ -17,7 +17,7 @@ const SNAP: OperationalSnapshot = {
   localDate: "2026-10-13",
   tomorrow: "2026-10-14",
   units: { operational: 2, requiringAttention: 1 },
-  team: { total: 29, working: 18, remote: 2, break: 1, finished: 2, not_started: 1, vacation: 3, absent: 2, late: 1, missing: 0 },
+  team: { total: 29, working: 19, remote: 2, finished: 2, not_started: 1, vacation: 3, absent: 2, late: 1, missing: 0 },
   coverage: { uncoveredToday: 1, uncoveredTomorrow: 2, uncoveredTotal: 3 },
   requests: { pending: 3, decidable: 3 },
   attention: [
@@ -69,9 +69,9 @@ describe("Dashboard — regras puras", () => {
 
   it("donut: arcos proporcionais, só categorias com valor", () => {
     const segs = donutSegments(SNAP.team, 100, 0);
-    expect(segs.map((s) => s.category)).toEqual(["working", "remote", "break", "finished", "not_started", "vacation", "absent"]);
+    expect(segs.map((s) => s.category)).toEqual(["working", "remote", "finished", "not_started", "vacation", "absent"]);
     expect(segs.reduce((n, s) => n + s.length, 0)).toBeCloseTo(100);
-    expect(donutSegments({ ...SNAP.team, total: 0, working: 0, remote: 0, break: 0, finished: 0, not_started: 0, vacation: 0, absent: 0 }, 100)).toEqual([]);
+    expect(donutSegments({ ...SNAP.team, total: 0, working: 0, remote: 0, finished: 0, not_started: 0, vacation: 0, absent: 0 }, 100)).toEqual([]);
   });
 
   it("registo: sem fonte, sem permissão, sem multiunidade ou oculto não aparece; layout nunca dá acesso", () => {
@@ -109,8 +109,8 @@ describe("Estado da equipa — formatos do gráfico", () => {
     expect(bar.filter((w) => w.chart).map((w) => w.widgetId)).toEqual(["TEAM_STATUS"]);
     // Ordem e visibilidade continuam a guardar o formato.
     expect(teamChartOf(moveBy(toggleHidden(bar, "TEAM_STATUS"), "TEAM_STATUS", 1))).toBe("bar");
-    expect(teamShare(SNAP.team, "working")).toBe(62);
-    expect(teamShare({ ...SNAP.team, total: 0, working: 0, remote: 0, break: 0, finished: 0, not_started: 0, vacation: 0, absent: 0 }, "working")).toBeNull();
+    expect(teamShare(SNAP.team, "working")).toBe(66);
+    expect(teamShare({ ...SNAP.team, total: 0, working: 0, remote: 0, finished: 0, not_started: 0, vacation: 0, absent: 0 }, "working")).toBeNull();
     expect(TEAM_CHARTS).toEqual(["donut", "bar"]);
     // Preferência guardada antes de a Pizza sair: mostra Rosca, sem apagar o resto do layout.
     expect(teamChartOf(setTeamChart(l, "pie"))).toBe("donut");
@@ -122,7 +122,7 @@ describe("Estado da equipa — formatos do gráfico", () => {
     const user = userEvent.setup();
     await screen.findByRole("img", { name: "29 colaboradores" });
     await user.click(screen.getByRole("radio", { name: "Barras" }));
-    expect(await screen.findByRole("button", { name: "Trabalhando: 18. Ver lista" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Trabalhando: 19. Ver lista" })).toBeInTheDocument();
     expect(screen.queryByRole("img", { name: "29 colaboradores" })).toBeNull();
     await vi.waitFor(() => expect(m.dashboard.saveLayout).toHaveBeenCalledTimes(1));
     const sent = (m.dashboard.saveLayout as ReturnType<typeof vi.fn>).mock.calls[0]![0] as WidgetPref[];
@@ -130,7 +130,7 @@ describe("Estado da equipa — formatos do gráfico", () => {
     expect(screen.queryByRole("radio", { name: "Pizza" })).toBeNull();
     await user.click(screen.getByRole("radio", { name: "Rosca" }));
     expect(await screen.findByRole("img", { name: "29 colaboradores" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Trabalhando: 18. Ver lista" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Trabalhando: 19. Ver lista" })).toBeInTheDocument();
   });
 });
 
@@ -229,7 +229,7 @@ describe("Dashboard — ecrã", () => {
     const user = userEvent.setup();
     await screen.findByRole("img", { name: "29 colaboradores" });
     expect(m.dashboard.team).not.toHaveBeenCalled();
-    await user.click(screen.getByRole("button", { name: "Trabalhando: 18. Ver lista" }));
+    await user.click(screen.getByRole("button", { name: "Trabalhando: 19. Ver lista" }));
     const drawer = await screen.findByRole("dialog", { name: "Trabalhando hoje" });
     expect(await within(drawer).findByRole("link", { name: "Ana Teste" })).toHaveAttribute("href", "/hr/novo/pessoas/e1");
     expect(m.dashboard.team).toHaveBeenCalledWith("working", { locationId: null, q: "", page: 1 }, expect.anything());

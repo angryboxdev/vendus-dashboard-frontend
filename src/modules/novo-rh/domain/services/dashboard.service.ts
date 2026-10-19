@@ -146,7 +146,7 @@ export function summaryParts(s: OperationalSnapshot): SummaryPart[] {
     parts.push({ key: "units", count: s.units.operational, label: pl(s.units.operational, "unidade operacional", "unidades operacionais"), tone: "neutral", target: "units" });
     if (s.units.requiringAttention) parts.push({ key: "attention", count: s.units.requiringAttention, label: pl(s.units.requiringAttention, "precisa de atenção", "precisam de atenção"), tone: "critical", target: "units_attention" });
   } else {
-    const present = s.team.working + s.team.remote + s.team.break;
+    const present = s.team.working + s.team.remote;
     parts.push({ key: "present", count: present, label: pl(present, "presente", "presentes"), tone: "neutral", target: "attendance" });
     if (s.team.late) parts.push({ key: "late", count: s.team.late, label: pl(s.team.late, "atraso", "atrasos"), tone: "warning", target: "attendance" });
     if (s.team.missing) parts.push({ key: "missing", count: s.team.missing, label: "em falta", tone: "critical", target: "attendance" });
@@ -161,7 +161,7 @@ export const isCalm = (s: OperationalSnapshot) => s.attention.length === 0;
 
 // ── Donut ────────────────────────────────────────────────────────────
 
-export const TEAM_LABEL: Record<TeamCategory, string> = { working: "Trabalhando", remote: "Remoto", break: "Em pausa", finished: "Terminaram", not_started: "Por entrar", vacation: "Férias", absent: "Ausentes" };
+export const TEAM_LABEL: Record<TeamCategory, string> = { working: "Trabalhando", remote: "Remoto", finished: "Terminaram", not_started: "Por entrar", vacation: "Férias", absent: "Ausentes" };
 
 export interface DonutSegment {
   category: TeamCategory;

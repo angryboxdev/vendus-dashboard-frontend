@@ -17,7 +17,7 @@ const SNAP: OperationalSnapshot = {
   localDate: "2026-10-14",
   tomorrow: "2026-10-15",
   units: { operational: 2, requiringAttention: 0 },
-  team: { total: 5, working: 3, remote: 0, break: 0, finished: 1, not_started: 1, vacation: 0, absent: 0, late: 0, missing: 0 },
+  team: { total: 5, working: 3, remote: 0, finished: 1, not_started: 1, vacation: 0, absent: 0, late: 0, missing: 0 },
   coverage: { uncoveredToday: 0, uncoveredTomorrow: 0, uncoveredTotal: 0 },
   requests: { pending: 1, decidable: 1 },
   attention: [],

@@ -1,13 +1,13 @@
 /** Contrato com `/api/novo-rh/dashboard` (backend, módulo dashboard). Só leitura + layout pessoal. */
 
-export type TeamCategory = "working" | "remote" | "break" | "finished" | "not_started" | "vacation" | "absent";
-export const TEAM_CATEGORIES: TeamCategory[] = ["working", "remote", "break", "finished", "not_started", "vacation", "absent"];
+/** Categorias do Estado da equipa (2026-10-19: «Em pausa» conta como a trabalhar — deixou de ser categoria). */
+export type TeamCategory = "working" | "remote" | "finished" | "not_started" | "vacation" | "absent";
+export const TEAM_CATEGORIES: TeamCategory[] = ["working", "remote", "finished", "not_started", "vacation", "absent"];
 
 export interface TeamCounts {
   total: number;
   working: number;
   remote: number;
-  break: number;
   finished: number;
   not_started: number;
   vacation: number;

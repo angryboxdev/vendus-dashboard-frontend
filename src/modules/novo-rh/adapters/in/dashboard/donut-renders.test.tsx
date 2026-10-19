@@ -10,7 +10,7 @@ vi.mock("../../../domain/services/dashboard.service.ts", async (importOriginal) 
   return { ...real, donutSegments: vi.fn(real.donutSegments) };
 });
 
-const TEAM: TeamCounts = { total: 10, working: 5, remote: 1, break: 1, finished: 1, not_started: 1, vacation: 1, absent: 0, late: 0, missing: 0 };
+const TEAM: TeamCounts = { total: 10, working: 5, remote: 1, finished: 1, not_started: 1, vacation: 1, absent: 0, late: 0, missing: 0 };
 const noop = () => {};
 
 describe("TeamStatusDonut — renders (perf)", () => {
