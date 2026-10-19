@@ -1,10 +1,14 @@
-import type { Publication, PublishOptions, Roster, RosterCandidates, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation } from "../../entities/rosters.ts";
+import type { Publication, PublishOptions, Roster, RosterCandidates, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation, WorkArea } from "../../entities/rosters.ts";
 
 /** Escalas (`/api/novo-rh/rosters`) e o meu horário (`/api/me/roster`). */
 export interface RostersApiPort {
   listTemplates(): Promise<ShiftTemplate[]>;
   createTemplate(input: Omit<ShiftTemplate, "id" | "archived">): Promise<ShiftTemplate>;
   archiveTemplate(id: string): Promise<void>;
+  /** Áreas de trabalho (com `locationId`: só as desse centro); inclui desativadas. */
+  listAreas(locationId?: string | null): Promise<WorkArea[]>;
+  createArea(input: { locationId: string; name: string }): Promise<WorkArea>;
+  updateArea(id: string, patch: { name?: string; sortOrder?: number; active?: boolean }): Promise<WorkArea>;
   /** Só a cor do modelo (null = automática). */
   setTemplateColor(id: string, color: string | null): Promise<ShiftTemplate>;
   listRosters(): Promise<Roster[]>;
@@ -13,7 +17,7 @@ export interface RostersApiPort {
   createRoster(input: Pick<Roster, "name" | "targetType" | "targetId">): Promise<Roster>;
   listShifts(rosterId: string, from: string, to: string): Promise<{ roster: Roster; pending: number; shifts: RosterShift[] }>;
   addShift(rosterId: string, input: ShiftInput): Promise<{ shift: RosterShift; warnings: Violation[] }>;
-  assignBulk(rosterId: string, input: { employeeIds: string[]; from: string; to: string; weekdays: string[]; kind: "shift" | "day_off"; templateId: string | null }): Promise<{ created: number; warnings: Violation[] }>;
+  assignBulk(rosterId: string, input: { employeeIds: string[]; from: string; to: string; weekdays: string[]; kind: "shift" | "day_off"; templateId: string | null; areaId?: string | null }): Promise<{ created: number; warnings: Violation[] }>;
   updateShift(id: string, patch: Partial<ShiftInput>, opts: PublishOptions): Promise<{ shift: RosterShift; warnings: Violation[]; publication: Publication | null }>;
   deleteShift(id: string, opts: PublishOptions): Promise<{ publication: Publication | null }>;
   /** Limpa numa só operação os turnos nunca publicados de um colaborador no período (opcionalmente só estes ids). */

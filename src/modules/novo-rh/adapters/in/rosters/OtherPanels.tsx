@@ -283,6 +283,162 @@ export function TemplatesPanel() {
 }
 
 /** Trocas à espera da gestão (o colega já aceitou). */
+/**
+ * Áreas de trabalho por centro (Sala, Caixa, Cozinha…): criar, mudar o nome,
+ * ordenar e desativar. Opcionais: escolhem-se em cada turno; uma área
+ * desativada deixa de se poder escolher mas fica nos turnos antigos.
+ */
+export function AreasPanel() {
+  const { t } = useI18n();
+  const { rosters, settings } = useNovoRh();
+  const qc = useQueryClient();
+  const locations = useQuery({
+    queryKey: ["novo-rh", "settings", "locations"],
+    queryFn: () => settings.listLocations(),
+  });
+  const [chosen, setChosen] = useState("");
+  const locationId = chosen || locations.data?.[0]?.id || "";
+  const q = useQuery({
+    queryKey: [...KEY, "areas", locationId],
+    queryFn: () => rosters.listAreas(locationId),
+    enabled: !!locationId,
+  });
+  const [name, setName] = useState("");
+  const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
+  const done = () => qc.invalidateQueries({ queryKey: [...KEY, "areas"] });
+  const create = useMutation({
+    mutationFn: () => rosters.createArea({ locationId, name }),
+    onSuccess: async () => {
+      setName("");
+      await done();
+    },
+  });
+  const update = useMutation({
+    mutationFn: (x: { id: string; patch: { name?: string; sortOrder?: number; active?: boolean } }) =>
+      rosters.updateArea(x.id, x.patch),
+    onSuccess: async () => {
+      setRenaming(null);
+      await done();
+    },
+  });
+  const list = [...(q.data ?? [])].sort(
+    (a, b) => Number(b.active) - Number(a.active) || a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "pt"),
+  );
+  const activeList = list.filter((a) => a.active);
+  // Trocar de lugar com a vizinha: as duas ficam com ordens distintas (mesmo que antes fossem iguais).
+  const move = async (i: number, dir: -1 | 1) => {
+    const a = activeList[i]!;
+    const b = activeList[i + dir]!;
+    const lo = Math.min(a.sortOrder, b.sortOrder);
+    const hi = Math.max(lo + 1, Math.max(a.sortOrder, b.sortOrder));
+    await update.mutateAsync({ id: a.id, patch: { sortOrder: dir === -1 ? lo : hi } });
+    await update.mutateAsync({ id: b.id, patch: { sortOrder: dir === -1 ? hi : lo } });
+  };
+  const error = create.error ?? update.error;
+  return (
+    <section className={`${SURFACE} space-y-4 p-4`}>
+      <p className="text-sm text-ink-secondary">{t("ros.areas.hint")}</p>
+      <label className="block max-w-sm">
+        <span className={LABEL}>{t("ros.areas.location")}</span>
+        <select
+          className={`${FIELD} w-full`}
+          value={locationId}
+          onChange={(e) => {
+            setChosen(e.target.value);
+            setRenaming(null);
+          }}
+        >
+          {(locations.data ?? []).map((l) => (
+            <option key={l.id} value={l.id}>
+              {l.label}
+            </option>
+          ))}
+        </select>
+      </label>
+      {q.data && list.length === 0 && (
+        <p className="text-sm text-ink-secondary">{t("ros.areas.empty")}</p>
+      )}
+      <ul className="divide-y divide-line-subtle rounded-xl border border-line text-sm" aria-label={t("ros.tab.areas")}>
+        {list.map((a) => {
+          const i = activeList.findIndex((x) => x.id === a.id);
+          return (
+            <li key={a.id} className="flex flex-wrap items-center gap-2 px-3 py-2">
+              {renaming?.id === a.id ? (
+                <form
+                  className="flex flex-1 flex-wrap items-center gap-2"
+                  onSubmit={(e) => {
+                    e.preventDefault();
+                    update.mutate({ id: a.id, patch: { name: renaming.name } });
+                  }}
+                >
+                  <input
+                    className={FIELD}
+                    aria-label={t("ros.areas.name")}
+                    maxLength={60}
+                    autoFocus
+                    value={renaming.name}
+                    onChange={(e) => setRenaming({ id: a.id, name: e.target.value })}
+                  />
+                  <Button size="sm" variant="primary" type="submit" disabled={!renaming.name.trim() || update.isPending}>
+                    {t("ros.areas.save")}
+                  </Button>
+                  <Button size="sm" variant="tertiary" onClick={() => setRenaming(null)}>
+                    {t("common.cancel")}
+                  </Button>
+                </form>
+              ) : (
+                <>
+                  <span className={`flex-1 font-medium ${a.active ? "text-navy-900" : "text-ink-muted"}`}>{a.name}</span>
+                  {!a.active && <StatusBadge tone="neutral">{t("ros.areas.inactive")}</StatusBadge>}
+                  {a.active && (
+                    <>
+                      <Button size="sm" variant="tertiary" aria-label={`${t("ros.areas.up")} ${a.name}`} disabled={i <= 0 || update.isPending} onClick={() => void move(i, -1)}>
+                        ↑
+                      </Button>
+                      <Button size="sm" variant="tertiary" aria-label={`${t("ros.areas.down")} ${a.name}`} disabled={i < 0 || i >= activeList.length - 1 || update.isPending} onClick={() => void move(i, 1)}>
+                        ↓
+                      </Button>
+                      <Button size="sm" variant="tertiary" aria-label={`${t("ros.areas.rename")} ${a.name}`} onClick={() => setRenaming({ id: a.id, name: a.name })}>
+                        {t("ros.areas.rename")}
+                      </Button>
+                    </>
+                  )}
+                  <Button
+                    size="sm"
+                    variant="tertiary"
+                    aria-label={`${a.active ? t("ros.areas.deactivate") : t("ros.areas.activate")} ${a.name}`}
+                    disabled={update.isPending}
+                    onClick={() => update.mutate({ id: a.id, patch: { active: !a.active } })}
+                  >
+                    {a.active ? t("ros.areas.deactivate") : t("ros.areas.activate")}
+                  </Button>
+                </>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      <form
+        className="flex flex-wrap items-end gap-2"
+        aria-label={t("ros.areas.add")}
+        onSubmit={(e) => {
+          e.preventDefault();
+          create.mutate();
+        }}
+      >
+        <label>
+          <span className={LABEL}>{t("ros.areas.name")}</span>
+          <input className={FIELD} maxLength={60} value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <Button variant="primary" type="submit" icon={<IconPlus size={16} />} disabled={!locationId || !name.trim() || create.isPending}>
+          {t("ros.areas.add")}
+        </Button>
+      </form>
+      {error && <p className="text-sm text-red-700" role="alert">{message(error, t("common.error"))}</p>}
+    </section>
+  );
+}
+
 export function SwapsPanel() {
   const { t } = useI18n();
   const { rosters, settings } = useNovoRh();

@@ -168,10 +168,12 @@ function ConflictNotice({
  */
 export function PlannerPanel({
   onOpenTemplates,
+  onOpenAreas,
   onOpenSwaps,
   onOpenMine,
 }: {
   onOpenTemplates: () => void;
+  onOpenAreas?: () => void;
   onOpenSwaps: () => void;
   onOpenMine: () => void;
 }) {
@@ -192,12 +194,15 @@ export function PlannerPanel({
   const days = daysFrom(from, span);
   const [mode, setMode] = useState<BoardMode>(() => {
     const v = load(MODE_KEY);
-    return v === "shifts" || v === "positions" ? v : "employees";
+    return v === "shifts" || v === "positions" || v === "areas" ? v : "employees";
   });
   const [sort, setSort] = useState<"asc" | "desc">("asc");
   const [searching, setSearching] = useState(false);
   const [search, setSearch] = useState("");
   const [paint, setPaint] = useState("");
+  // Área a atribuir com o pincel ("" = sem área) e área escolhida no turno aberto.
+  const [paintArea, setPaintArea] = useState("");
+  const [shiftArea, setShiftArea] = useState("");
   const [assignOpen, setAssignOpen] = useState(
     () =>
       typeof window === "undefined" ||
@@ -248,6 +253,13 @@ export function PlannerPanel({
   const persons = useQuery({
     queryKey: ["novo-rh", "people", "active", ""],
     queryFn: () => people.list({ status: "active" }),
+  });
+  // Áreas de trabalho: as do centro da escala (escala de grupo: de todos os centros).
+  const areaLocation = roster?.targetType === "location" ? roster.targetId : null;
+  const areas = useQuery({
+    queryKey: [...KEY, "areas", areaLocation ?? "all"],
+    queryFn: () => rosters.listAreas(areaLocation),
+    enabled: !!roster,
   });
   const positions = useQuery({
     queryKey: ["novo-rh", "catalog", "positions"],
@@ -310,6 +322,17 @@ export function PlannerPanel({
     queryFn: () => settings.listLocations(),
   });
   const locationName = (id: string | null) => (id ? (locationOptions.data?.find((l) => l.id === id)?.label ?? null) : null);
+  const areaList = areas.data ?? [];
+  const areaLabel = (a: { name: string; locationId: string }) =>
+    areaLocation ? a.name : `${a.name} · ${locationName(a.locationId) ?? "—"}`;
+  const areaName = (id: string | null | undefined) => {
+    const a = id ? areaList.find((x) => x.id === id) : undefined;
+    return a ? areaLabel(a) : null;
+  };
+  const areaOptions = [...areaList]
+    .filter((a) => a.active)
+    .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name, "pt"))
+    .map((a) => ({ id: a.id, label: areaLabel(a) }));
   const pickerPeople = useMemo(
     () =>
       (employees.data ?? []).map((e) => ({
@@ -354,6 +377,7 @@ export function PlannerPanel({
     kind: i.kind,
     segments: i.kind === "shift" ? (tpls.find((x) => x.id === i.templateId)?.segments ?? i.segments) : [],
     templateId: i.templateId,
+    areaId: i.kind === "shift" ? (i.areaId ?? null) : null,
     onCall: false,
     deleted: false,
     dirty: true,
@@ -383,11 +407,12 @@ export function PlannerPanel({
     from,
     to,
     record: edits.record,
-    enabled: !!rosterId && mode !== "shifts",
+    enabled: !!rosterId && mode !== "shifts" && mode !== "areas",
     people: order,
     days,
     occupied,
     paint,
+    paintArea: paintArea || null,
     openShift: selected,
     shiftTitle: (s) =>
       `${name(s.employeeId)} · ${cellLabel(s, tpls)} · ${s.workDate}`,
@@ -431,6 +456,7 @@ export function PlannerPanel({
   useEffect(() => {
     edits.reset();
     setPaint("");
+    setPaintArea("");
     // O aviso da última operação era desse período: não fica de pé noutra semana.
     setProblem(null);
     setRejected([]);
@@ -520,6 +546,7 @@ export function PlannerPanel({
         kind: paint === "day_off" ? "day_off" : "shift",
         templateId: paint === "day_off" ? null : paint,
         segments: [],
+        areaId: paint === "day_off" ? null : paintArea || null,
       }),
     onMutate: () => setProblem(null),
     onSuccess: (r) => {
@@ -538,9 +565,11 @@ export function PlannerPanel({
         (o) =>
           rosters.updateShift(
             s.id,
-            paint === "day_off"
-              ? { kind: "day_off" }
-              : { kind: "shift", templateId: paint },
+            {
+              ...(paint === "day_off" ? { kind: "day_off" as const } : paint ? { kind: "shift" as const, templateId: paint } : {}),
+              // A área muda como qualquer outra alteração (num turno publicado: motivo e nova versão).
+              ...(paint !== "day_off" && (shiftArea || null) !== (s.areaId ?? null) ? { areaId: shiftArea || null } : {}),
+            },
             o,
           ),
         { reason: reason.trim() || null, confirm: false },
@@ -684,6 +713,14 @@ export function PlannerPanel({
               label: (
                 <span className={mode === "positions" ? "text-brand-600" : ""}>
                   {t("ros.board.positions")}
+                </span>
+              ),
+            },
+            {
+              key: "areas",
+              label: (
+                <span className={mode === "areas" ? "text-brand-600" : ""}>
+                  {t("ros.board.areas")}
                 </span>
               ),
             },
@@ -906,6 +943,15 @@ export function PlannerPanel({
                   icon: <IconLayers size={16} />,
                   onSelect: onOpenTemplates,
                 },
+                ...(onOpenAreas
+                  ? [
+                      {
+                        label: t("ros.tab.areas"),
+                        icon: <IconStore size={16} />,
+                        onSelect: onOpenAreas,
+                      },
+                    ]
+                  : []),
                 {
                   label: t("ros.tab.swaps"),
                   icon: <IconUsers size={16} />,
@@ -1062,7 +1108,7 @@ export function PlannerPanel({
           </ul>
         </AlertBanner>
       )}
-      {rosterId && mode !== "shifts" && (editing.selectedCount > 0 || editing.notice || editing.busy) && createPortal(
+      {rosterId && mode !== "shifts" && mode !== "areas" && (editing.selectedCount > 0 || editing.notice || editing.busy) && createPortal(
         <div className="ds pointer-events-none fixed inset-x-0 bottom-6 z-40 flex justify-center px-4 font-sans">
         <div
           role="status"
@@ -1128,13 +1174,16 @@ export function PlannerPanel({
                 // Turno ainda a guardar ou em conflito (só no ecrã): não há nada no servidor para abrir.
                 if (s.id.startsWith("tmp-") || s.id.startsWith("rej-")) return;
                 setReason("");
+                setShiftArea(s.areaId ?? "");
                 setSelected(s);
               }}
               onPaint={(employeeId, workDate) =>
                 add.mutate({ employeeId, workDate })
               }
               summary={summary}
-              edit={mode !== "shifts" ? editing.edit : undefined}
+              edit={mode !== "shifts" && mode !== "areas" ? editing.edit : undefined}
+              areas={areaList}
+              areaName={areaName}
               rowActions={{
                 pending: (id) => pendingOf(id).length,
                 onClearWeek: setClearFor,
@@ -1186,6 +1235,10 @@ export function PlannerPanel({
             loading={templates.isLoading}
             value={paint}
             onChange={setPaint}
+            areas={areaOptions}
+            area={paintArea}
+            onAreaChange={setPaintArea}
+            onManageAreas={onOpenAreas}
             onCreate={onOpenTemplates}
             onSettings={onOpenTemplates}
             onClose={() => {
@@ -1317,7 +1370,7 @@ export function PlannerPanel({
               <Button
                 variant="primary"
                 disabled={
-                  !paint ||
+                  (!paint && !(selected.kind === "shift" && (shiftArea || null) !== (selected.areaId ?? null))) ||
                   change.isPending ||
                   (!!selected.published && !reason.trim())
                 }
@@ -1341,6 +1394,28 @@ export function PlannerPanel({
                 {t("ros.board.pickFirst")}
               </p>
             )}
+            {(areaOptions.length > 0 || selected.areaId) &&
+              (paint ? paint !== "day_off" : selected.kind === "shift") && (
+                <label className="block">
+                  <span className={LABEL}>{t("ros.area")}</span>
+                  <select
+                    className={`${FIELD} w-full`}
+                    value={shiftArea}
+                    onChange={(e) => setShiftArea(e.target.value)}
+                  >
+                    <option value="">{t("ros.area.none")}</option>
+                    {/* A área atual fica disponível mesmo desativada. */}
+                    {selected.areaId && !areaOptions.some((a) => a.id === selected.areaId) && (
+                      <option value={selected.areaId}>{areaName(selected.areaId) ?? "—"}</option>
+                    )}
+                    {areaOptions.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+              )}
             {selected.published && (
               <label className="block">
                 <span className={LABEL}>{t("ros.reason")}</span>
@@ -1414,7 +1489,7 @@ export function PlannerPanel({
         width="max-w-lg"
       >
         {rosterId && (
-          <BulkAssign rosterId={rosterId} defaultFrom={from} defaultTo={to} />
+          <BulkAssign rosterId={rosterId} defaultFrom={from} defaultTo={to} areas={areaOptions} />
         )}
       </Drawer>
 
@@ -1579,10 +1654,12 @@ function BulkAssign({
   rosterId,
   defaultFrom,
   defaultTo,
+  areas,
 }: {
   rosterId: string;
   defaultFrom: string;
   defaultTo: string;
+  areas: { id: string; label: string }[];
 }) {
   const { t } = useI18n();
   const { rosters, settings } = useNovoRh();
@@ -1601,6 +1678,7 @@ function BulkAssign({
     to: defaultTo,
     weekdays: ["1", "2", "3", "4", "5"],
     templateId: "",
+    areaId: "",
   });
   const m = useMutation({
     mutationFn: () =>
@@ -1611,6 +1689,7 @@ function BulkAssign({
         weekdays: v.weekdays,
         kind: v.templateId === "day_off" ? "day_off" : "shift",
         templateId: v.templateId === "day_off" ? null : v.templateId,
+        areaId: v.templateId === "day_off" ? null : v.areaId || null,
       }),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
   });
@@ -1698,6 +1777,23 @@ function BulkAssign({
           <option value="day_off">{t("ros.dayOff")}</option>
         </select>
       </label>
+      {areas.length > 0 && v.templateId !== "day_off" && (
+        <label className="block">
+          <span className={LABEL}>{t("ros.area")}</span>
+          <select
+            className={`${FIELD} w-full`}
+            value={v.areaId}
+            onChange={(e) => setV({ ...v, areaId: e.target.value })}
+          >
+            <option value="">{t("ros.area.none")}</option>
+            {areas.map((a) => (
+              <option key={a.id} value={a.id}>
+                {a.label}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
       <Button
         variant="primary"
         disabled={!v.employeeIds.length || !v.templateId || m.isPending}

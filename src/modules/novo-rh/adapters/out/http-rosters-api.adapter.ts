@@ -1,5 +1,5 @@
 import { apiGet, apiWrite } from "../../../../lib/api.ts";
-import type { Publication, PublishOptions, Roster, RosterCandidates, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation } from "../../domain/entities/rosters.ts";
+import type { Publication, PublishOptions, Roster, RosterCandidates, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation, WorkArea } from "../../domain/entities/rosters.ts";
 import type { RostersApiPort } from "../../domain/ports/out/rosters-api.port.ts";
 
 const R = "/api/novo-rh/rosters";
@@ -14,6 +14,15 @@ export class HttpRostersApiAdapter implements RostersApiPort {
   }
   async setTemplateColor(id: string, color: string | null) {
     return (await apiWrite<ShiftTemplate>(`${R}/templates/${id}/color`, { method: "PUT", body: { color } })).data;
+  }
+  listAreas(locationId?: string | null) {
+    return apiGet<WorkArea[]>(`${R}/areas${locationId ? `?locationId=${encodeURIComponent(locationId)}` : ""}`);
+  }
+  async createArea(input: { locationId: string; name: string }) {
+    return (await apiWrite<WorkArea>(`${R}/areas`, { body: input })).data;
+  }
+  async updateArea(id: string, patch: { name?: string; sortOrder?: number; active?: boolean }) {
+    return (await apiWrite<WorkArea>(`${R}/areas/${id}`, { method: "PATCH", body: patch })).data;
   }
   async archiveTemplate(id: string) {
     await apiWrite(`${R}/templates/${id}/archive`, {});

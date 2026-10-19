@@ -42,6 +42,17 @@ export interface ShiftState {
   segments: Segment[];
   templateId: string | null;
   onCall: boolean;
+  /** Área de trabalho da atribuição (opcional; ausente = «Sem área»). */
+  areaId?: string | null;
+}
+
+/** Área de trabalho de um centro (Sala, Caixa, Cozinha…). Desativada continua nos turnos antigos. */
+export interface WorkArea {
+  id: string;
+  locationId: string;
+  name: string;
+  sortOrder: number;
+  active: boolean;
 }
 
 export interface RosterShift extends ShiftState {
@@ -113,6 +124,8 @@ export interface ShiftInput {
   kind: "shift" | "day_off";
   templateId: string | null;
   segments: Segment[];
+  /** Área de trabalho da atribuição (opcional; ausente = «Sem área»). */
+  areaId?: string | null;
 }
 
 /** Opções de publicação/alteração: motivo (turno publicado) e confirmação de avisos. */

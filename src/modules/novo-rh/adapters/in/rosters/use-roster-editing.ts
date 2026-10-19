@@ -73,6 +73,8 @@ export function useRosterEditing(o: {
   /** Células que já têm turno (em massa, não se põe outro por cima). */
   occupied: Set<string>;
   paint: string;
+  /** Área a atribuir com o pincel (null = «Sem área»). */
+  paintArea?: string | null;
   /** Turno aberto no painel lateral (também se copia com Ctrl+C). */
   openShift: RosterShift | null;
   shiftTitle: (s: RosterShift) => string;
@@ -214,7 +216,7 @@ export function useRosterEditing(o: {
       const { paint } = latest.current;
       if (!paint || keys.size === 0) return;
       clearSelection();
-      await createAll(paintInputs(paint, [...keys].map(parseCellKey)), "atribuídos");
+      await createAll(paintInputs(paint, [...keys].map(parseCellKey), latest.current.paintArea ?? null), "atribuídos");
     },
     [clearSelection, createAll],
   );

@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ApiError } from "../../../../../lib/api.ts";
 import type { RosterShift } from "../../../domain/entities/rosters.ts";
 import { weekOf } from "../../../domain/services/attendance.service.ts";
-import { chipLabel, hoursLabel, hoursLong, overlappingIds, rosterRows, segmentsTone, shiftRows, templateTone } from "../../../domain/services/roster-board.service.ts";
+import { areaRows, chipLabel, hoursLabel, hoursLong, overlappingIds, rosterRows, segmentsTone, shiftRows, templateTone } from "../../../domain/services/roster-board.service.ts";
 import { cellLabel, daysFrom, parseSegments, violationsOf } from "../../../domain/services/rosters.service.ts";
 import { cellRect, copyInputs, paintInputs } from "../../../domain/services/roster-edit.service.ts";
 import { afterRedo, afterUndo, emptyHistory, HISTORY_LIMIT, recordOp, type EditOp } from "../../../domain/services/edit-history.service.ts";
@@ -233,8 +233,8 @@ describe("Escalas — ecrãs", () => {
     expect(screen.getByText("2 dia(s) escolhido(s)")).toBeInTheDocument();
     await user.keyboard("{Control>}v{/Control}");
     await vi.waitFor(() => expect(m.rosters.addShift).toHaveBeenCalledTimes(2));
-    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", { employeeId: "e1", workDate: wed, kind: "shift", templateId: "t1", segments: [] });
-    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", { employeeId: "e1", workDate: thu, kind: "shift", templateId: "t1", segments: [] });
+    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", { employeeId: "e1", workDate: wed, kind: "shift", templateId: "t1", segments: [], areaId: null });
+    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", { employeeId: "e1", workDate: thu, kind: "shift", templateId: "t1", segments: [], areaId: null });
   });
 
   it("arrastar um turno para outro dia pergunta mover/copiar; mover cria no novo dia e retira o original", async () => {
@@ -255,7 +255,7 @@ describe("Escalas — ecrãs", () => {
     const choice = within(cell(wed)).getByRole("group", { name: "Mover ou copiar o turno" });
     await user.click(within(choice).getByRole("button", { name: "Mover" }));
     await vi.waitFor(() => expect(m.rosters.deleteShift).toHaveBeenCalledWith("s2", { reason: null, confirm: false }));
-    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", { employeeId: "e1", workDate: wed, kind: "shift", templateId: "t1", segments: [] });
+    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", { employeeId: "e1", workDate: wed, kind: "shift", templateId: "t1", segments: [], areaId: null });
   });
 
   it("arrastar por vários dias pinta-os e copia para todos; um turno publicado só se move com motivo", async () => {
@@ -446,9 +446,9 @@ describe("Escalas — ecrãs", () => {
     const rect = cellRect(["e1", "e2"], [MON, TUE], { employeeId: "e2", workDate: TUE }, { employeeId: "e1", workDate: MON });
     expect(rect).toHaveLength(4);
     expect(copyInputs(PUBLISHED, [{ employeeId: "e1", workDate: MON }, { employeeId: "e2", workDate: MON }, { employeeId: "e2", workDate: MON }])).toEqual([
-      { employeeId: "e2", workDate: MON, kind: "shift", templateId: "t1", segments: [] },
+      { employeeId: "e2", workDate: MON, kind: "shift", templateId: "t1", segments: [], areaId: null },
     ]);
-    expect(paintInputs("day_off", [{ employeeId: "e1", workDate: TUE }])).toEqual([{ employeeId: "e1", workDate: TUE, kind: "day_off", templateId: null, segments: [] }]);
+    expect(paintInputs("day_off", [{ employeeId: "e1", workDate: TUE }])).toEqual([{ employeeId: "e1", workDate: TUE, kind: "day_off", templateId: null, segments: [], areaId: null }]);
   });
 
   it("troca: aprovar e recusar só com comentário", async () => {
@@ -634,5 +634,103 @@ describe("Escalas — turnos a guardar e em conflito ficam visíveis", () => {
     // Ainda sem resposta do servidor, o contador já desceu.
     expect(await screen.findByRole("button", { name: "Sem avisos na escala" })).toBeInTheDocument();
     finish();
+  });
+});
+
+describe("Escalas — áreas de trabalho", () => {
+  const SALA = { id: "a1", locationId: "l1", name: "Sala", sortOrder: 0, active: true };
+  const CAIXA = { id: "a2", locationId: "l1", name: "Caixa", sortOrder: 1, active: true };
+  const VELHA = { id: "a3", locationId: "l1", name: "Esplanada", sortOrder: 2, active: false };
+  const withAreas = () => {
+    const m = mod();
+    m.rosters.listAreas = vi.fn(async () => [SALA, CAIXA, VELHA]);
+    m.rosters.listShifts = vi.fn(async () => ({ roster: ROSTER, pending: 1, shifts: [{ ...PUBLISHED, areaId: "a2" }, { ...PUBLISHED, id: "s2", workDate: TUE, dirty: true, published: null, publishedVersion: null }] }));
+    return m;
+  };
+
+  it("regras: área vai com a cópia e com o pincel (folga nunca); agrupar por área com «Sem área» no fim", () => {
+    expect(copyInputs({ ...PUBLISHED, areaId: "a1" }, [{ employeeId: "e2", workDate: MON }])[0]!.areaId).toBe("a1");
+    expect(paintInputs("t1", [{ employeeId: "e1", workDate: TUE }], "a2")[0]!.areaId).toBe("a2");
+    expect(paintInputs("day_off", [{ employeeId: "e1", workDate: TUE }], "a2")[0]!.areaId).toBeNull();
+    const day = { ...PUBLISHED, id: "d1", kind: "day_off" as const, segments: [], templateId: null };
+    const rows = areaRows([{ ...PUBLISHED, areaId: "a2" }, { ...PUBLISHED, id: "x", areaId: "a3" }, { ...PUBLISHED, id: "y" }, day], [CAIXA, VELHA, SALA], [TPL]);
+    // Ativas pela ordem (mesmo vazias), desativada só com turnos, «Sem área» no fim; folgas fora.
+    expect(rows.map((r) => [r.label, [...r.byDate.values()].flat().length])).toEqual([["Sala", 0], ["Caixa", 1], ["Esplanada", 1], ["Sem área", 1]]);
+    expect(areaRows([], [VELHA], []).map((r) => r.key)).toEqual(["none"]);
+  });
+
+  it("vista «Áreas»: uma linha por área do centro e os turnos sem área em «Sem área»", async () => {
+    renderWith(withAreas());
+    const user = await openRoster();
+    await user.click(screen.getByRole("radio", { name: "Áreas" }));
+    expect(await screen.findByText("Áreas de trabalho")).toBeInTheDocument();
+    const rowOf = (label: string) => screen.getAllByRole("row").find((r) => within(r).queryByText(label))!;
+    expect(within(rowOf("Caixa")).getByRole("button", { name: `Ana Teste · Tarde ${MON}` })).toBeInTheDocument();
+    expect(within(rowOf("Sem área")).getByRole("button", { name: `Ana Teste · Tarde ${TUE}` })).toBeInTheDocument();
+    expect(rowOf("Sala")).toBeTruthy();
+    // Desativada e sem turnos: não aparece.
+    expect(screen.queryByText("Esplanada")).toBeNull();
+  });
+
+  it("pincel com área: o turno criado leva a área escolhida; só áreas ativas do centro", async () => {
+    const m = withAreas();
+    m.rosters.addShift = vi.fn(async () => ({ shift: PUBLISHED, warnings: [] }));
+    renderWith(m);
+    const user = await openRoster();
+    expect(m.rosters.listAreas).toHaveBeenCalledWith("l1");
+    const areas = await within(panel()).findByRole("group", { name: "Área de trabalho" });
+    expect(within(areas).queryByRole("button", { name: "Esplanada" })).toBeNull();
+    await user.click(within(areas).getByRole("button", { name: "Sala" }));
+    await user.click(within(panel()).getByRole("button", { name: /Tarde/ }));
+    const third = daysFrom(MON, 3)[2]!;
+    await user.click(within(grid()).getByRole("button", { name: `Ana Teste ${third}` }));
+    expect(m.rosters.addShift).toHaveBeenCalledWith("r1", expect.objectContaining({ workDate: third, templateId: "t1", areaId: "a1" }));
+  });
+
+  it("mudar a área de um turno publicado: só com motivo, como as outras alterações", async () => {
+    const m = withAreas();
+    m.rosters.updateShift = vi.fn(async () => ({ shift: PUBLISHED, warnings: [], publication: null }));
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(screen.getAllByRole("button", { name: `Ana Teste ${MON}` })[0]!);
+    const box = screen.getByRole("dialog", { name: `Turno de Ana Teste em ${MON}` });
+    const select = await within(box).findByLabelText("Área de trabalho");
+    expect(select).toHaveValue("a2");
+    await user.selectOptions(select, "a1");
+    const change = within(box).getByRole("button", { name: "Alterar para o modelo escolhido" });
+    expect(change).toBeDisabled();
+    await user.type(within(box).getByLabelText(/Motivo/), "Reforço na sala");
+    await user.click(change);
+    expect(m.rosters.updateShift).toHaveBeenCalledWith("s1", { areaId: "a1" }, { reason: "Reforço na sala", confirm: false });
+  });
+
+  it("gerir áreas por centro: criar, ordenar, mudar o nome e desativar", async () => {
+    const m = withAreas();
+    m.rosters.createArea = vi.fn(async () => ({ ...SALA, id: "a9", name: "Cozinha", sortOrder: 3 }));
+    m.rosters.updateArea = vi.fn(async () => SALA);
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(within(panel()).getByRole("button", { name: "Gerir áreas" }));
+    const list = await screen.findByRole("list", { name: "Áreas de trabalho" });
+    expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(list).getAllByRole("listitem")[2]).toHaveTextContent("Desativada");
+    expect(screen.getByRole("button", { name: "Subir Sala" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "Descer Sala" }));
+    expect(m.rosters.updateArea).toHaveBeenCalledWith("a1", { sortOrder: 1 });
+    expect(m.rosters.updateArea).toHaveBeenCalledWith("a2", { sortOrder: 0 });
+    await user.click(screen.getByRole("button", { name: "Desativar Caixa" }));
+    expect(m.rosters.updateArea).toHaveBeenCalledWith("a2", { active: false });
+    await user.click(screen.getByRole("button", { name: "Reativar Esplanada" }));
+    expect(m.rosters.updateArea).toHaveBeenCalledWith("a3", { active: true });
+    await user.click(screen.getByRole("button", { name: "Mudar o nome Sala" }));
+    const input = within(list).getByLabelText("Nome da área");
+    await user.clear(input);
+    await user.type(input, "Sala principal");
+    await user.click(within(list).getByRole("button", { name: "Guardar" }));
+    expect(m.rosters.updateArea).toHaveBeenCalledWith("a1", { name: "Sala principal" });
+    const add = screen.getByRole("form", { name: "Adicionar área" });
+    await user.type(within(add).getByLabelText("Nome da área"), "Cozinha");
+    await user.click(within(add).getByRole("button", { name: "Adicionar área" }));
+    expect(m.rosters.createArea).toHaveBeenCalledWith({ locationId: "l1", name: "Cozinha" });
   });
 });
