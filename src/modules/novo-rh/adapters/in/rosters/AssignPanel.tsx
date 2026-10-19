@@ -104,7 +104,7 @@ export function AssignPanel({
   // Recolhido: só um «+» laranja, pequeno, ao lado da grelha (reabre o painel tal como estava).
   if (collapsed)
     return (
-      <div className="sticky top-4 z-10 ml-3 shrink-0">
+      <div className="sticky top-[7.25rem] z-10 ml-3 shrink-0 md:top-[4.5rem]">
         <button
           ref={plusRef}
           type="button"
@@ -128,7 +128,7 @@ export function AssignPanel({
     <>
       <aside
         aria-label={t("ros.assign.title")}
-        className="sticky top-4 z-10 ml-3 flex max-h-[calc(100vh-2rem)] min-h-[560px] w-[260px] shrink-0 flex-col rounded-2.5xl border border-line bg-surface-card shadow-pop motion-safe:animate-motion-fade lg:ml-4 lg:w-[308px]"
+        className="sticky top-[7.25rem] z-10 ml-3 flex max-h-[calc(100dvh-8.25rem)] min-h-[min(560px,calc(100dvh-8.25rem))] w-[260px] shrink-0 flex-col rounded-2.5xl border border-line bg-surface-card shadow-pop motion-safe:animate-motion-fade md:top-[4.5rem] md:max-h-[calc(100dvh-5.5rem)] md:min-h-[min(560px,calc(100dvh-5.5rem))] lg:ml-4 lg:w-[308px]"
       >
         <div className="flex items-start justify-between gap-3 px-6 pb-2 pt-6">
           <h2 className="text-xl font-semibold text-navy-900">
