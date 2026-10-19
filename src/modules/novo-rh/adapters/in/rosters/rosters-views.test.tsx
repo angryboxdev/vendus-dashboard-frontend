@@ -548,7 +548,7 @@ describe("Escalas — criar turnos sem esperar pelo servidor", () => {
     const m = mod();
     let resolve: (v: { shift: RosterShift; warnings: never[] }) => void = () => {};
     const wed = daysFrom(MON, 3)[2]!;
-    m.rosters.addShift = vi.fn(() => new Promise((r) => (resolve = r)));
+    m.rosters.addShift = vi.fn(() => new Promise<{ shift: RosterShift; warnings: never[] }>((r) => (resolve = r)));
     m.rosters.publish = vi.fn(async () => ({}) as never);
     renderWith(m);
     const user = await openRoster();
@@ -564,5 +564,75 @@ describe("Escalas — criar turnos sem esperar pelo servidor", () => {
     resolve({ shift: { ...PUBLISHED, id: "s9", workDate: wed, dirty: true, published: null, publishedVersion: null }, warnings: [] });
     await vi.waitFor(() => expect(screen.queryByText("A guardar 1…")).toBeNull());
     expect(screen.queryByText(/Aguarde: ainda há/)).toBeNull();
+  });
+});
+
+describe("Escalas — turnos a guardar e em conflito ficam visíveis", () => {
+  const OVER = (workDate: string) => ({
+    rule: "overlap" as const,
+    severity: "block" as const,
+    employeeId: "e1",
+    workDate,
+    message: "Horário indisponível: já tem um turno na escala «Centro Braga». Sobreposição entre 16:00 e 22:00.",
+    shiftId: null,
+    rosterId: "r1",
+    conflict: { shiftId: "x9", rosterId: "r2", rosterName: "Centro Braga", workDate, hours: "16:00–22:00", published: true },
+    overlap: "16:00–22:00",
+  });
+  const card = (d: string) => within(grid()).getAllByRole("button", { name: `Ana Teste ${d}` }).find((b) => b.textContent?.includes("Tarde"));
+
+  it("um turno a guardar não desaparece quando outro lote termina e a grelha recarrega", async () => {
+    const m = mod();
+    const [, , wed, thu] = daysFrom(MON, 4);
+    const waiting: Record<string, (v: { shift: RosterShift; warnings: never[] }) => void> = {};
+    m.rosters.addShift = vi.fn((_r: string, i: { workDate: string }) => new Promise<{ shift: RosterShift; warnings: never[] }>((r) => (waiting[i.workDate] = r)));
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(within(panel()).getByRole("button", { name: /Tarde/ }));
+    await user.click(within(grid()).getByRole("button", { name: `Ana Teste ${wed}` }));
+    await user.click(within(grid()).getByRole("button", { name: `Ana Teste ${thu}` }));
+    expect(card(wed!)).toBeTruthy();
+    expect(card(thu!)).toBeTruthy();
+    // O primeiro lote grava e a grelha recarrega (o servidor ainda não tem o segundo).
+    await vi.waitFor(() => expect(waiting[wed!]).toBeDefined());
+    const saved = { ...PUBLISHED, id: "s-wed", workDate: wed!, dirty: true, published: null, publishedVersion: null };
+    m.rosters.listShifts = vi.fn(async () => ({ roster: ROSTER, pending: 2, shifts: [PUBLISHED, saved] }));
+    waiting[wed!]!({ shift: saved, warnings: [] });
+    await vi.waitFor(() => expect(waiting[thu!]).toBeDefined());
+    // O de quinta continua na grelha enquanto grava.
+    expect(card(thu!)).toBeTruthy();
+    expect(card(wed!)).toBeTruthy();
+  });
+
+  it("turnos recusados por conflito ficam na grelha a vermelho; retirar um desce logo o contador", async () => {
+    const m = mod();
+    const [, , wed, thu, fri] = daysFrom(MON, 5);
+    m.rosters.addShift = vi.fn(async (_r: string, i: { workDate: string }) => {
+      throw new ApiError("A escala não cumpre restrições obrigatórias.", 422, { violations: [OVER(i.workDate)] });
+    });
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(within(panel()).getByRole("button", { name: /Tarde/ }));
+    for (const d of [wed, thu, fri]) await user.click(within(grid()).getByRole("button", { name: `Ana Teste ${d}` }));
+    await vi.waitFor(() => expect(screen.getByText("3 conflitos encontrados")).toBeInTheDocument());
+    for (const d of [wed, thu, fri]) expect(card(d!)!.getAttribute("title")).toMatch(/em conflito/);
+    await user.click(within(card(thu!)!.parentElement!).getByRole("button", { name: "Remover turno" }));
+    expect(screen.getByText("2 conflitos encontrados")).toBeInTheDocument();
+    expect(card(thu!)).toBeUndefined();
+    expect(m.rosters.deleteShift).not.toHaveBeenCalled();
+  });
+
+  it("retirar um turno real em conflito tira-o logo do contador de avisos da barra", async () => {
+    const m = mod();
+    m.rosters.check = vi.fn(async () => ({ pending: 1, violations: [{ ...OVER(TUE), shiftId: "s2", conflict: { ...OVER(TUE).conflict } }] }));
+    let finish: () => void = () => {};
+    m.rosters.deleteShift = vi.fn(() => new Promise<never>(() => (finish = () => {})));
+    renderWith(m);
+    const user = await openRoster();
+    expect(await screen.findByRole("button", { name: "1 avisos na escala" })).toBeInTheDocument();
+    await user.click(within(within(grid()).getByRole("button", { name: `Ana Teste ${TUE}` }).parentElement!).getByRole("button", { name: "Remover turno" }));
+    // Ainda sem resposta do servidor, o contador já desceu.
+    expect(await screen.findByRole("button", { name: "Sem avisos na escala" })).toBeInTheDocument();
+    finish();
   });
 });

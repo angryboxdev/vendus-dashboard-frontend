@@ -216,9 +216,14 @@ export function PlannerPanel({
     confirmLabel?: string;
   } | null>(null);
   // Painel «Ver conflitos»: da última operação ou da verificação da semana.
-  const [conflictsOf, setConflictsOf] = useState<"problem" | "check" | null>(null);
+  const [conflictsOf, setConflictsOf] = useState<"problem" | "check" | "rejected" | null>(null);
   // Turno a abrir depois de navegar a partir de um conflito (escala/semana podem mudar primeiro).
   const [focus, setFocus] = useState<string | null>(null);
+  // Só no ecrã, fora da cache (uma recarga nunca os apaga): turnos a guardar e turnos recusados
+  // por conflito (marcados a vermelho até serem retirados); e turnos reais já retirados à espera do servidor.
+  const [pendingShifts, setPendingShifts] = useState<RosterShift[]>([]);
+  const [rejected, setRejected] = useState<{ shift: RosterShift; violations: Violation[] }[]>([]);
+  const [removedIds, setRemovedIds] = useState<Set<string>>(new Set());
   const [drawer, setDrawer] = useState<
     "new" | "bulk" | "history" | "add" | null
   >(null);
@@ -281,18 +286,23 @@ export function PlannerPanel({
       })),
     [employees.data, persons.data],
   );
+  // A grelha: o que o servidor tem (menos o que acabou de ser retirado) + o que ainda só está no ecrã.
+  const boardShifts = useMemo(
+    () => [...(shifts.data?.shifts ?? []).filter((s) => !removedIds.has(s.id)), ...pendingShifts, ...rejected.map((r) => r.shift)],
+    [shifts.data, removedIds, pendingShifts, rejected],
+  );
   const rows = useMemo(
     () =>
-      rosterRows(shifts.data?.shifts ?? [], extraRows, peopleIndex, tpls, {
+      rosterRows(boardShifts, extraRows, peopleIndex, tpls, {
         search,
         sort,
       }),
-    [shifts.data, extraRows, peopleIndex, tpls, search, sort],
+    [boardShifts, extraRows, peopleIndex, tpls, search, sort],
   );
   // Quem está na escala (sem o filtro da pesquisa): quem a pesquisa esconde não passa a «por adicionar».
   const inRoster = useMemo(
-    () => new Set(rosterRows(shifts.data?.shifts ?? [], extraRows, peopleIndex, tpls, { search: "", sort }).map((r) => r.employeeId)),
-    [shifts.data, extraRows, peopleIndex, tpls, sort],
+    () => new Set(rosterRows(boardShifts, extraRows, peopleIndex, tpls, { search: "", sort }).map((r) => r.employeeId)),
+    [boardShifts, extraRows, peopleIndex, tpls, sort],
   );
   const hidden = search.trim() ? inRoster.size - rows.length : 0;
   const locationOptions = useQuery({
@@ -327,40 +337,45 @@ export function PlannerPanel({
   const occupied = useMemo(
     () =>
       new Set(
-        (shifts.data?.shifts ?? [])
+        // Os turnos em conflito não ocupam o dia (pode pintar-se outro por cima).
+        [...(shifts.data?.shifts ?? []).filter((s) => !removedIds.has(s.id)), ...pendingShifts]
           .filter((s) => !s.deleted)
           .map(cellKey),
       ),
-    [shifts.data],
+    [shifts.data, removedIds, pendingShifts],
   );
   const edits = useEditHistory({ rosterId, refresh });
+  // Turno só no ecrã a partir do pedido (a guardar ou em conflito).
+  const localShift = (i: ShiftInput, id: string): RosterShift => ({
+    id,
+    rosterId,
+    employeeId: i.employeeId,
+    workDate: i.workDate,
+    kind: i.kind,
+    segments: i.kind === "shift" ? (tpls.find((x) => x.id === i.templateId)?.segments ?? i.segments) : [],
+    templateId: i.templateId,
+    onCall: false,
+    deleted: false,
+    dirty: true,
+    published: null,
+    publishedVersion: null,
+  });
   // Turnos «a guardar» (otimistas): entram já na grelha; o servidor responde depois.
-  const shiftsKey = [...KEY, "shifts", rosterId, from, span];
   const optimistic = {
     add: (inputs: ShiftInput[]) => {
-      const ids = inputs.map(() => `tmp-${crypto.randomUUID()}`);
-      qc.setQueryData(shiftsKey, (old: Awaited<ReturnType<typeof rosters.listShifts>> | undefined) => {
-        if (!old) return old;
-        const temps: RosterShift[] = inputs.map((i, n) => ({
-          id: ids[n]!,
-          rosterId,
-          employeeId: i.employeeId,
-          workDate: i.workDate,
-          kind: i.kind,
-          segments: i.kind === "shift" ? (tpls.find((x) => x.id === i.templateId)?.segments ?? i.segments) : [],
-          templateId: i.templateId,
-          onCall: false,
-          deleted: false,
-          dirty: true,
-          published: null,
-          publishedVersion: null,
-        }));
-        return { ...old, pending: old.pending + temps.length, shifts: [...old.shifts, ...temps] };
-      });
-      return ids;
+      const temps = inputs.map((i) => localShift(i, `tmp-${crypto.randomUUID()}`));
+      setPendingShifts((cur) => [...cur, ...temps]);
+      return temps.map((t) => t.id);
     },
-    remove: (ids: string[]) =>
-      qc.setQueryData(shiftsKey, (old: Awaited<ReturnType<typeof rosters.listShifts>> | undefined) => (old ? { ...old, shifts: old.shifts.filter((s) => !ids.includes(s.id)) } : old)),
+    remove: (ids: string[]) => setPendingShifts((cur) => cur.filter((s) => !ids.includes(s.id))),
+  };
+  /** Retirar um turno que só existe no ecrã (em conflito): sai logo, e o contador de conflitos desce. */
+  const removeLocal = (s: RosterShift) => {
+    if (s.id.startsWith("rej-")) {
+      setRejected((cur) => cur.filter((r) => r.shift.id !== s.id));
+      return true;
+    }
+    return s.id.startsWith("tmp-"); // ainda a guardar: espera pelo servidor
   };
   const [waitSaving, setWaitSaving] = useState(false);
   const editing = useRosterEditing({
@@ -380,6 +395,11 @@ export function PlannerPanel({
     onWarnings: (v) => setProblem({ kind: "confirm", violations: v, retry: null }),
     onConfirm: (v, retry) => setProblem({ kind: "confirm", violations: v, retry, confirmLabel: "Confirmar" }),
     onBlocked: (v) => setProblem({ kind: "blocked", violations: v, retry: null }),
+    // Recusado por conflito: fica na grelha a vermelho (não gravado) até ser retirado ou corrigido.
+    onRejected: (input, v) => setRejected((cur) => [...cur, { shift: localShift(input, `rej-${crypto.randomUUID()}`), violations: v }]),
+    onLocalRemove: removeLocal,
+    removed: (id) => setRemovedIds((cur) => new Set([...cur, id])),
+    restore: (id) => setRemovedIds((cur) => new Set([...cur].filter((x) => x !== id))),
     optimistic,
     refresh,
   });
@@ -413,6 +433,8 @@ export function PlannerPanel({
     setPaint("");
     // O aviso da última operação era desse período: não fica de pé noutra semana.
     setProblem(null);
+    setRejected([]);
+    setRemovedIds(new Set());
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rosterId, from, span]);
   // Depois de navegar a partir de um conflito: abre o turno quando a semana certa carregar.
@@ -531,7 +553,7 @@ export function PlannerPanel({
         reason: reason.trim() || null,
         confirm: false,
       }),
-    onSuccess: (ok) => ok && (setSelected(null), setReason("")),
+    onSuccess: (ok, s) => ok && (setRemovedIds((cur) => new Set([...cur, s.id])), setSelected(null), setReason("")),
   });
   const publish = useMutation({
     mutationFn: () =>
@@ -547,8 +569,15 @@ export function PlannerPanel({
 
   // Pendentes do período visível (é o que «Publicar» publica).
   const pending = check.data?.pending ?? (shifts.data?.shifts ?? []).filter((s) => s.dirty && s.workDate >= from && s.workDate <= to).length;
-  const warnings = useMemo(() => check.data?.violations ?? [], [check.data]);
-  const conflictIds = useMemo(() => conflictShiftIds([...warnings, ...(problem?.violations ?? [])]), [warnings, problem]);
+  // Um turno retirado sai logo das contas de conflitos (o servidor confirma a seguir).
+  const gone = (v: Violation) => (!!v.shiftId && removedIds.has(v.shiftId)) || (!!v.conflict?.shiftId && removedIds.has(v.conflict.shiftId));
+  const warnings = useMemo(() => (check.data?.violations ?? []).filter((v) => !gone(v)), [check.data, removedIds]); // eslint-disable-line react-hooks/exhaustive-deps
+  const rejectedViolations = useMemo(() => rejected.flatMap((r) => r.violations.map((v) => ({ ...v, shiftId: r.shift.id }))), [rejected]);
+  const problemViolations = (problem?.violations ?? []).filter((v) => !gone(v));
+  const conflictIds = useMemo(
+    () => new Set([...conflictShiftIds([...warnings, ...problemViolations]), ...rejected.map((r) => r.shift.id)]),
+    [warnings, problemViolations, rejected],
+  );
   const exportCsv = () => {
     const cell = (v: string) => (/^[=+\-@]/.test(v) ? `'${v}` : v);
     const lines = [
@@ -970,10 +999,22 @@ export function PlannerPanel({
         </div>
       </Toolbar>
 
-      {problem && (
+      {rejected.length > 0 && (
+        <ConflictNotice
+          kind="blocked"
+          violations={rejectedViolations}
+          name={name}
+          onView={() => setConflictsOf("rejected")}
+          onOpenOther={(v) => openConflict(v, "other")}
+          onConfirm={null}
+          confirmLabel="Confirmar"
+          onDismiss={() => setRejected([])}
+        />
+      )}
+      {problem && problemViolations.length > 0 && (
         <ConflictNotice
           kind={problem.kind}
-          violations={problem.violations}
+          violations={problemViolations}
           name={name}
           onView={() => setConflictsOf("problem")}
           onOpenOther={(v) => openConflict(v, "other")}
@@ -1072,7 +1113,7 @@ export function PlannerPanel({
               days={days}
               today={today}
               rows={rows}
-              shifts={shifts.data?.shifts ?? []}
+              shifts={boardShifts}
               templates={tpls}
               loading={shifts.isLoading}
               sort={sort}
@@ -1084,8 +1125,8 @@ export function PlannerPanel({
               hidden={hidden}
               painting={painting && !add.isPending}
               onOpen={(s) => {
-                // Turno ainda a guardar: abre-se quando o servidor responder.
-                if (s.id.startsWith("tmp-")) return;
+                // Turno ainda a guardar ou em conflito (só no ecrã): não há nada no servidor para abrir.
+                if (s.id.startsWith("tmp-") || s.id.startsWith("rej-")) return;
                 setReason("");
                 setSelected(s);
               }}
@@ -1354,7 +1395,7 @@ export function PlannerPanel({
       <ConflictsDrawer
         open={!!conflictsOf}
         title={conflictsOf === "check" ? "Conflitos da escala" : problem?.kind === "blocked" ? "Conflitos encontrados" : "Avisos de restrições"}
-        violations={conflictsOf === "check" ? warnings : (problem?.violations ?? [])}
+        violations={conflictsOf === "check" ? warnings : conflictsOf === "rejected" ? rejectedViolations : problemViolations}
         name={name}
         currentRosterName={roster?.name ?? ""}
         onClose={() => setConflictsOf(null)}

@@ -79,6 +79,15 @@ export function useRosterEditing(o: {
   onWarnings: (v: Violation[]) => void;
   /** Turnos recusados por conflito (sobreposição/regras obrigatórias), com o turno incompatível. */
   onBlocked?: (v: Violation[]) => void;
+  /** Um turno recusado por conflito (fica na grelha marcado, sem ser gravado). */
+  onRejected?: (input: ShiftInput, v: Violation[]) => void;
+  /**
+   * Retirar um turno: `local` trata os que só existem no ecrã (em conflito);
+   * `removed` esconde já um turno real (o servidor confirma depois; `restore` se falhar).
+   */
+  onLocalRemove?: (s: RosterShift) => boolean;
+  removed?: (id: string) => void;
+  restore?: (id: string) => void;
   /** 409 numa remoção: confirmar avisos e repetir. */
   onConfirm: (v: Violation[], retry: () => void) => void;
   refresh: () => Promise<unknown>;
@@ -169,7 +178,10 @@ export function useRosterEditing(o: {
         } catch (e) {
           // Conflitos (sobreposição e regras obrigatórias) vão para o aviso compacto com o turno incompatível.
           const v = violationsOf(e);
-          if (v?.kind === "blocked" && v.violations.length) blocked.push(...v.violations);
+          if (v?.kind === "blocked" && v.violations.length) {
+            if (latest.current.onRejected) latest.current.onRejected(input, v.violations);
+            else blocked.push(...v.violations);
+          }
           else failed.push({ cell: { employeeId: input.employeeId, workDate: input.workDate }, message: errorText(e) });
         }
       }
@@ -332,14 +344,19 @@ export function useRosterEditing(o: {
       onPromptMove: () => actions.current.move(),
       onPromptCopy: () => actions.current.copy(),
       onRemove: (s) => {
+        // Só no ecrã (em conflito, ou ainda a guardar): trata-se aqui, sem servidor.
+        if (latest.current.onLocalRemove?.(s)) return;
         if (s.published !== null || removing.current.has(s.id)) return;
         removing.current.add(s.id);
+        // Sai já da grelha (e dos conflitos); o servidor confirma a seguir.
+        latest.current.removed?.(s.id);
         void (async () => {
           try {
             await rosters.deleteShift(s.id, { reason: null, confirm: false });
             const { from, to } = latest.current;
             latest.current.record({ type: "REMOVE_SHIFT", affectedIds: [s.id], inversePayload: { byEmployee: { [s.employeeId]: [s.id] }, from, to } });
           } catch (e) {
+            latest.current.restore?.(s.id);
             setFailures([{ cell: s, message: errorText(e) }]);
           } finally {
             removing.current.delete(s.id);
