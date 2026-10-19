@@ -5,6 +5,9 @@ import type { MessageKey } from "./pt-PT.ts";
  * usam o texto pt-PT; `missingKeys("es-ES")` lista-as para o relatório de fase.
  */
 export const esES: Partial<Record<MessageKey, string>> = {
+  "ros.assign.collapse": "Contraer «Asignar turnos»",
+  "ros.assign.expand": "Expandir «Asignar turnos»",
+  "ros.assign.rail": "Modelos de turno (panel contraído)",
   "ros.board.areas": "Áreas",
   "cfg.topic.features": "Funcionalidades",
   "cfg.topic.features.intro": "Funcionalidades opcionales de la empresa. Plan de cobertura: mínimos de personas por centro, área y horario, con alertas de déficit en los cuadrantes (desactivado por defecto; nunca bloquea la publicación).",

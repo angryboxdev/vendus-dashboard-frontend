@@ -22,14 +22,23 @@ function renderGate(mfa: MfaPort) {
 }
 
 describe("Novo RH — MFA (TK-3)", () => {
+  it("MFA desligada na empresa (por omissão) → abre logo, sem pedir o código", async () => {
+    const mfa: MfaPort = { required: vi.fn(async () => false), status: vi.fn(), enroll: vi.fn(), verify: vi.fn() };
+    renderGate(mfa);
+    expect(await screen.findByText("conteúdo protegido")).toBeInTheDocument();
+    expect(mfa.status).not.toHaveBeenCalled();
+    expect(screen.queryByText("Confirme que é você")).toBeNull();
+  });
+
   it("sessão aal2 → mostra o conteúdo", async () => {
-    renderGate({ status: vi.fn(async () => ({ level: "aal2" as const, factorId: "f1" })), enroll: vi.fn(), verify: vi.fn() });
+    renderGate({ required: vi.fn(async () => true), status: vi.fn(async () => ({ level: "aal2" as const, factorId: "f1" })), enroll: vi.fn(), verify: vi.fn() });
     expect(await screen.findByText("conteúdo protegido")).toBeInTheDocument();
   });
 
   it("sem fator → ativar (QR) e confirmar o código; depois abre", async () => {
     let level: "aal1" | "aal2" = "aal1";
     const mfa: MfaPort = {
+      required: vi.fn(async () => true),
       status: vi.fn(async () => ({ level, factorId: level === "aal2" ? "f9" : null })),
       enroll: vi.fn(async () => ({ factorId: "f9", qrCode: "data:image/svg+xml;utf-8,<svg/>", secret: "ABCDEF" })),
       verify: vi.fn(async () => {
@@ -51,6 +60,7 @@ describe("Novo RH — MFA (TK-3)", () => {
 
   it("com fator mas sessão aal1 → pede o código; código errado mostra erro", async () => {
     renderGate({
+      required: vi.fn(async () => true),
       status: vi.fn(async () => ({ level: "aal1" as const, factorId: "f1" })),
       enroll: vi.fn(),
       verify: vi.fn(async () => {
