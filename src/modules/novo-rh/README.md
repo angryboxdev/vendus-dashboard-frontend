@@ -66,6 +66,7 @@ módulo a usar a base de i18n (`src/i18n`).
 - `time-bank/TimeBankView` → separador Todos (FE-034): saldos de todos, ordenar, total; clicar abre o histórico.
 - `absences/CalendarPanel` (Ausências → Calendário, separador inicial; FE-035): mês com aprovadas e pendentes, feriados e ausentes por dia; atribuir a mesma ausência a vários (em dias) com resultado por pessoa.
 - `overview/OverviewDashboard` (topo da Visão geral): números do dia clicáveis como filtro, lista de colaboradores (faltas e atrasos primeiro; procurar, filtrar por centro), pendentes com ligação à caixa certa, por centro, últimos 7 dias, próximos feriados; atualiza a cada minuto e permite escolher um dia passado. `overview/PersonDayDrawer`: horário vs. entrada, marcações do dia, últimos 7 dias, ligações à ficha e à assiduidade (`/hr/novo/assiduidade?employeeId=` abre já essa pessoa).
+- `people/PersonView` → «PIN do quiosque» no cabeçalho da ficha (só com `time_tracking.kiosk.enabled` ligado em `GET /api/me/features` e a pessoa ativa): diálogo com 4 dígitos mascarados, `people.setKioskPin` → `PUT /api/novo-rh/people/:id/kiosk-pin` (o PIN nunca é lido de volta).
 - `NovoRhLayout` + `NovoRhHomeView` → `/hr/novo` (com `DataModeSwitch`: Real/Demonstração, criar com confirmação).
 - `DemoModeBanner` (faixa em todo o Novo RH em Demonstração, com "Voltar ao modo Real"); `DemoAccessNotice` substitui Acessos em Demonstração.
 - `MfaGate` — só abre o Novo RH com sessão `aal2` (TK-3).

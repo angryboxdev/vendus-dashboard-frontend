@@ -20,6 +20,8 @@ export interface PeopleApiPort {
   update(id: string, etag: string | null, input: Partial<Person> & { reason?: string }): Promise<VersionedPerson>;
   deactivate(id: string, etag: string | null, reason: string): Promise<VersionedPerson>;
   reactivate(id: string, etag: string | null, reason: string): Promise<VersionedPerson>;
+  /** PIN do quiosque (4 dígitos; permissão hr.kiosk_pin). O PIN nunca volta do servidor. */
+  setKioskPin(id: string, pin: string): Promise<void>;
   transfer(input: { employeeId: string; locationId: string; effectiveDate: string; reason: string }): Promise<void>;
   exportCsv(): Promise<Blob>;
   importCsv(csv: string, dryRun: boolean): Promise<ImportResult>;
