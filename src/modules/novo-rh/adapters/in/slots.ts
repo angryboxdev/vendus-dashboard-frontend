@@ -6,10 +6,12 @@ import { createContext, useContext, type ReactNode } from "react";
  * (ex.: nos testes), cada ecrã mostra a alternativa simples.
  */
 export interface NovoRhSlots {
-  /** Documentos da ficha (motor de documentos do módulo `hr`, FE-022). */
+  /** Documentos da ficha (módulo `documents`, FE-022; ADR-0040 fase 1). */
   personDocuments?: (personId: string) => ReactNode;
   /** Documentos da empresa (módulo `documents`, FE-065). */
   companyDocuments?: () => ReactNode;
+  /** «Importar recibos» (módulo `documents`). */
+  payslipImport?: () => ReactNode;
 }
 
 export const NovoRhSlotsContext = createContext<NovoRhSlots>({});
