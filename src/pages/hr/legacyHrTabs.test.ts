@@ -11,7 +11,8 @@ describe("RH antigo", () => {
 
   it("/hr abre o Novo RH para quem pode; senão o primeiro ecrã antigo permitido", () => {
     expect(hrHomeFor(user(true, {}))).toBe("/hr/novo");
-    expect(hrHomeFor(user(false, { "hr.attendance": "READ" }))).toBe("/hr/assiduidade");
+    // Desde 2026-10-20 o Novo RH abre a quem tem permissões de RH (não só Admin).
+    expect(hrHomeFor(user(false, { "hr.attendance": "READ" }))).toBe("/hr/novo");
     expect(hrHomeFor(user(true, {}), true)).toBe("/hr/overview");
     expect(hrHomeFor(null)).toBe("/hr/overview");
   });

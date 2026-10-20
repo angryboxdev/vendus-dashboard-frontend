@@ -1,6 +1,6 @@
 # Módulo: hr
 
-> Status: ativo
+> Status: em descontinuação (remoção faseada — ADR-0040 do backend; não estender)
 > Última atualização: 2026-10-07 (RH 2.0 — Modelos de turno e Aplicar modelo, tickets 01–02)
 
 ## O que é e para que serve (perspectiva de negócio)
