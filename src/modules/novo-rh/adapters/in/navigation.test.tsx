@@ -50,6 +50,8 @@ describe("Navegação RH (MVP)", () => {
       "/hr/novo/assiduidade/fecho",
       "/hr/novo/assiduidade/relatorios",
     ]);
+    expect(areaTabs("attendance", { "time_tracking.bank.enabled": false }).map((s) => s.path)).not.toContain("/hr/novo/assiduidade/banco-de-horas");
+    expect(areaTabs("attendance", { "time_tracking.bank.enabled": true }).map((s) => s.path)).toContain("/hr/novo/assiduidade/banco-de-horas");
     expect(areaTabs("rosters")).toEqual([]);
   });
 

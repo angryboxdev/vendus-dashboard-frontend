@@ -4,6 +4,7 @@ import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import { AlertBanner, Button, Drawer, FIELD, LABEL } from "../../../../../components/ui/index.ts";
 import type { SettingData, SettingDefinition } from "../../../domain/entities/settings.ts";
 import { parseSettingInput, todayIn } from "../../../domain/services/settings-format.service.ts";
+import { optionLabel } from "../../../domain/services/features.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 
 const initialText = (v: SettingData | null, def: SettingDefinition): string => {
@@ -74,7 +75,7 @@ export function EditValueDrawer({
           <select {...common} value={text} onChange={(e) => setText(e.target.value)}>
             {(def.allowed ?? []).map((a) => (
               <option key={a} value={a}>
-                {a}
+                {optionLabel(a)}
               </option>
             ))}
           </select>

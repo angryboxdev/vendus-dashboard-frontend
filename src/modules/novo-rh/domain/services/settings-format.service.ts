@@ -1,5 +1,6 @@
 import type { MessageKey } from "../../../../i18n/i18n.ts";
 import type { Level, SettingData, SettingDefinition, SettingDomain } from "../entities/settings.ts";
+import { optionLabel } from "./features.service.ts";
 
 /** Chaves de texto (i18n) — o domínio não traduz, só escolhe a chave. */
 export const LEVEL_KEY: Record<Level, MessageKey> = {
@@ -28,9 +29,9 @@ export function formatSettingValue(def: Pick<SettingDefinition, "type" | "unit">
     const unit = def?.unit === "minutes" ? " min" : def?.unit === "days" ? " d" : def?.unit === "meters" ? " m" : "";
     return `${value}${unit}`;
   }
-  if (Array.isArray(value)) return value.join(", ");
+  if (Array.isArray(value)) return value.map((v) => optionLabel(String(v))).join(", ");
   if (typeof value === "object") return JSON.stringify(value);
-  return value;
+  return optionLabel(value);
 }
 
 /** Converte o texto de um campo no valor do tipo do parâmetro; `null` se inválido. */

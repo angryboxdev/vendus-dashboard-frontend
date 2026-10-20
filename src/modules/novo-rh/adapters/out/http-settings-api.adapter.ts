@@ -25,6 +25,9 @@ export class HttpSettingsApiAdapter implements SettingsApiPort {
     this.mode = mode;
   }
 
+  features() {
+    return apiGet<Record<string, boolean>>("/api/me/features");
+  }
   listDefinitions() {
     return apiGet<SettingDefinition[]>(`${BASE}/definitions`);
   }

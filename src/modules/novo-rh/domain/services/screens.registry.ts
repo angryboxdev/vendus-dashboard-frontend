@@ -12,6 +12,8 @@ import type { MessageKey } from "../../../../i18n/i18n.ts";
 export type Area = "overview" | "people" | "rosters" | "attendance" | "absences" | "documents" | "inbox" | "settings" | "other";
 
 export interface Screen {
+  /** Só aparece com esta funcionalidade ligada na empresa (ex.: banco de horas). */
+  feature?: string;
   path: string;
   label: MessageKey;
   area: Area;
@@ -46,7 +48,7 @@ export const SCREENS: Screen[] = [
   { path: "/hr/novo/escalas", label: "novoRh.tab.rosters", area: "rosters", tab: false },
   { path: "/hr/novo/assiduidade", label: "novoRh.tab.attendanceReview", area: "attendance", tab: true, end: true },
   { path: "/hr/novo/assiduidade/registos", label: "novoRh.tab.time", area: "attendance", tab: true },
-  { path: "/hr/novo/assiduidade/banco-de-horas", label: "novoRh.tab.timeBank", area: "attendance", tab: true },
+  { path: "/hr/novo/assiduidade/banco-de-horas", label: "novoRh.tab.timeBank", area: "attendance", tab: true, feature: "time_tracking.bank.enabled" },
   { path: "/hr/novo/assiduidade/fecho", label: "novoRh.tab.periods", area: "attendance", tab: true },
   { path: "/hr/novo/assiduidade/relatorios", label: "novoRh.tab.reports", area: "attendance", tab: true },
   { path: "/hr/novo/ausencias", label: "novoRh.tab.absences", area: "absences", tab: true, end: true },
@@ -99,9 +101,10 @@ export function areaFor(pathname: string): Area | null {
 }
 
 /** Separadores de uma área (vazio quando a área tem um só ecrã). */
-export function areaTabs(area: Area | null): Screen[] {
+/** Separadores da área; os de uma funcionalidade desligada na empresa não aparecem. */
+export function areaTabs(area: Area | null, features?: Record<string, boolean>): Screen[] {
   if (!area) return [];
-  const tabs = SCREENS.filter((s) => s.area === area && s.tab);
+  const tabs = SCREENS.filter((s) => s.area === area && s.tab && !(s.feature && features?.[s.feature] === false));
   return tabs.length > 1 ? tabs : [];
 }
 

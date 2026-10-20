@@ -6,7 +6,7 @@ import { AlertBanner, Button, SECTION_TITLE, SURFACE } from "../../../../../comp
 import { TOPICS, topicDefinitions, type Topic, type TopicKey } from "../../../domain/services/settings-topics.service.ts";
 import { useDataMode, useNovoRh } from "../../../novo-rh.module.tsx";
 import { ProfilePanel } from "./ProfilePanel.tsx";
-import { DataModeCard } from "../DemoMode.tsx";
+import { FeaturesPage } from "./FeaturesPage.tsx";
 import { SettingsView } from "./SettingsView.tsx";
 
 type Section = TopicKey | "catalogs" | "company" | "advanced";
@@ -42,7 +42,7 @@ export function SettingsHubView() {
   const { t } = useI18n();
   const [params, setParams] = useSearchParams();
   const raw = params.get("tema") as Section | null;
-  const section: Section = raw && (TOPICS.some((x) => x.key === raw) || ["catalogs", "company", "advanced"].includes(raw)) ? raw : "attendance";
+  const section: Section = raw && (TOPICS.some((x) => x.key === raw) || ["catalogs", "company", "advanced"].includes(raw)) ? raw : "features";
   const go = (s: Section) => setParams({ tema: s }, { replace: true });
   const item = (s: Section, label: string) => (
     <li key={s}>
@@ -59,7 +59,6 @@ export function SettingsHubView() {
 
   return (
     <div className="space-y-4">
-      <DataModeCard />
       <div className="grid gap-4 lg:grid-cols-[220px_1fr]">
       <nav aria-label={t("cfg.nav")} className={`${SURFACE} h-fit space-y-3 p-2`}>
         <div>
@@ -77,7 +76,8 @@ export function SettingsHubView() {
       </nav>
 
       <div className="min-w-0">
-        {TOPICS.some((x) => x.key === section) && <TopicPage topic={TOPICS.find((x) => x.key === section)!} onAdvanced={() => go("advanced")} />}
+        {section === "features" && <FeaturesPage />}
+        {section !== "features" && TOPICS.some((x) => x.key === section) && <TopicPage topic={TOPICS.find((x) => x.key === section)!} onAdvanced={() => go("advanced")} />}
         {section === "catalogs" && <LinkCards title={t("cfg.catalogs")} intro={t("cfg.catalogs.intro")} items={CATALOGS} />}
         {section === "company" && <CompanyPage />}
         {section === "advanced" && <SettingsView />}

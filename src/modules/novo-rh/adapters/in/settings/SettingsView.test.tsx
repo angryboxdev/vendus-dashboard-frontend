@@ -32,6 +32,7 @@ function setup(over: Partial<SettingsApiPort> = {}) {
   const api: SettingsApiPort = {
     listDefinitions: vi.fn(async () => DEFS),
     listProfiles: vi.fn(async () => [PROFILE]),
+    features: vi.fn(async () => ({})),
     getProfile: vi.fn(async () => ({
       detail: {
         profile: PROFILE,
