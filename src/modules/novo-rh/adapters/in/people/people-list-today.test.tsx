@@ -24,7 +24,7 @@ function setup(people: Person[], overviewPeople: PersonOverview[] | Error) {
   const m: NovoRhModule = fakeNovoRhModule({ settings: { listLocations: vi.fn(async () => [{ id: "loc-1", label: "Loja Porto" }]) } as unknown as NovoRhModule["settings"] });
   m.people.list = vi.fn(async () => people);
   m.people.listPositions = vi.fn(async () => [{ id: "pos-op", name: "Operador" }]);
-  m.overview.get = vi.fn(async () => {
+  m.overview.today = vi.fn(async () => {
     if (overviewPeople instanceof Error) throw overviewPeople;
     return { people: overviewPeople } as unknown as Overview;
   });
@@ -69,7 +69,7 @@ describe("Lista de colaboradores — Horário e Horas hoje", () => {
     const eva = await rowOf("Eva Demo");
     expect(within(eva).getByText("Férias")).toBeInTheDocument();
     expect(within(eva).getByText("37,5h semana")).toBeInTheDocument();
-    expect(m.overview.get).toHaveBeenCalledTimes(1);
+    expect(m.overview.today).toHaveBeenCalledTimes(1);
   });
 
   it("sem dados de hoje (ou erro na vista do dia) mostra «—», nunca 0h", async () => {

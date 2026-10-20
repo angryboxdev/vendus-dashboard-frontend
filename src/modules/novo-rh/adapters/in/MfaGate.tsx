@@ -15,7 +15,7 @@ export function MfaGate({ children }: { children: ReactNode }) {
   const { mfa } = useNovoRh();
   const qc = useQueryClient();
   const [code, setCode] = useState("");
-  const required = useQuery({ queryKey: ["novo-rh", "mfa", "required"], queryFn: () => mfa.required(), staleTime: 60_000 });
+  const required = useQuery({ queryKey: ["me", "mfa-required"], queryFn: () => mfa.required(), staleTime: 60_000 });
   const status = useQuery({ queryKey: ["novo-rh", "mfa"], queryFn: () => mfa.status(), enabled: required.data === true });
   const enrollment = useMutation({ mutationFn: () => mfa.enroll() });
   const verify = useMutation({

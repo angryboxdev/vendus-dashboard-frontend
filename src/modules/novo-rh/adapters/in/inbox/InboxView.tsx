@@ -26,7 +26,7 @@ export function InboxView() {
   const [open, setOpen] = useState<InboxRow | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [results, setResults] = useState<{ rows: InboxRow[]; results: DecisionResult[] } | null>(null);
-  const q = useQuery({ queryKey: [...KEY, type ?? "all", segment], queryFn: () => inbox.list({ type, segment }), refetchInterval: 60_000 });
+  const q = useQuery({ queryKey: [...KEY, type ?? "all", segment], queryFn: () => inbox.list({ type, segment }), refetchInterval: 120_000 });
 
   const rows = useMemo(() => (q.data?.items ?? []).filter((r) => !search || r.employeeName.toLowerCase().includes(search.toLowerCase())), [q.data, search]);
   const decidable = rows.filter((r) => r.canDecide);

@@ -61,7 +61,7 @@ const OVERVIEW: Overview = {
 
 describe("Dia da equipa (FE-030)", () => {
   it("linha do tempo por pessoa e filtro 'só faltas e atrasos'", async () => {
-    const mod = fakeNovoRhModule({ overview: { get: vi.fn(async () => OVERVIEW), plan: vi.fn() } });
+    const mod = fakeNovoRhModule({ overview: { get: vi.fn(async () => OVERVIEW), today: vi.fn(async () => OVERVIEW), plan: vi.fn() } });
     renderWith(mod, <TeamDayPanel />);
     expect(await screen.findByRole("img", { name: "Linha do tempo de Ana Demo" })).toBeInTheDocument();
     expect(screen.getByText("Eva Demo")).toBeInTheDocument();
@@ -92,7 +92,7 @@ describe("Planeado da equipa (FE-031)", () => {
         },
       ],
     }));
-    const mod = fakeNovoRhModule({ overview: { get: vi.fn(), plan } });
+    const mod = fakeNovoRhModule({ overview: { get: vi.fn(), today: vi.fn(), plan } });
     renderWith(mod, <TeamPlanPanel />);
     expect(await screen.findByText("09:00–17:00")).toBeInTheDocument();
     expect(screen.getByText("Férias")).toBeInTheDocument();

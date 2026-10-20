@@ -83,7 +83,8 @@ const TYPES: InboxType[] = ["leave", "clock", "overtime", "swap", "custom"];
 function PendingSummary() {
   const { t } = useI18n();
   const { inbox } = useNovoRh();
-  const q = useQuery({ queryKey: ["novo-rh", "inbox", "summary"], queryFn: () => inbox.list({ type: null, segment: "mine" }), refetchInterval: 60_000 });
+  // A mesma lista do botão «Pedidos» (mesma chave): um só pedido partilhado.
+  const q = useQuery({ queryKey: ["novo-rh", "inbox", "dashboard"], queryFn: () => inbox.list({ type: null, segment: "mine" }), staleTime: 60_000, refetchInterval: 180_000 });
   if (q.isError) return null;
   const counters = q.data?.counters ?? {};
   const rows = TYPES.filter((ty) => q.data?.types.includes(ty)).map((ty) => ({ ty, n: counters[ty]?.mine ?? 0 }));
