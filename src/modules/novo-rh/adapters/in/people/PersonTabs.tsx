@@ -439,9 +439,6 @@ export function DocumentsTab({ personId }: { personId: string }) {
       ) : (
         <section className={`${SURFACE} space-y-2 p-4`}>
           <p className="text-sm text-stone-600">{t("people.documents.hint")}</p>
-          <Link to={`/hr/people/${personId}`} className="text-sm font-medium text-[#C2410C] hover:underline">
-            {t("people.documents.open")} →
-          </Link>
         </section>
       )}
       <ReceivedDistributions personId={personId} />

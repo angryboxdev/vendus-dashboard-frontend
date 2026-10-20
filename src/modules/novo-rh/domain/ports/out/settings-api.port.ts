@@ -38,4 +38,6 @@ export interface SettingsApiPort {
   downloadHistoryCsv(): Promise<Blob>;
   listEmployees(): Promise<Option[]>;
   listLocations(): Promise<Option[]>;
+  /** Funcionalidades opcionais ligadas/desligadas na empresa (`GET /api/me/features`). */
+  features(): Promise<Record<string, boolean>>;
 }

@@ -8,7 +8,12 @@ import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { AddTargetDrawer } from "./AddTargetDrawer.tsx";
 import { EditValueDrawer } from "./EditValueDrawer.tsx";
 
-export function ProfilePanel({ profileId, definitions }: { profileId: string; definitions: SettingDefinition[] }) {
+/**
+ * Parâmetros de um perfil. `bare`: só a lista (dentro de outro cartão, ex.:
+ * as definições de uma funcionalidade). No perfil geral, um parâmetro que
+ * depende de outro (`requires`) só aparece quando esse está como exigido.
+ */
+export function ProfilePanel({ profileId, definitions, bare = false }: { profileId: string; definitions: SettingDefinition[]; bare?: boolean }) {
   const { t } = useI18n();
   const { settings } = useNovoRh();
   const [editing, setEditing] = useState<SettingDefinition | null>(null);
@@ -28,8 +33,20 @@ export function ProfilePanel({ profileId, definitions }: { profileId: string; de
   const labelOf = (type: string, id: string) =>
     (type === "employee" ? options.data?.employees : type === "location" ? options.data?.locations : undefined)?.find((o) => o.id === id)?.label ?? id;
 
+  // Depende de outro parâmetro desligado (ex.: «minutos do aviso» com o aviso desligado) → escondido.
+  const valueOf = (key: string) => {
+    const own = byKey.get(key)?.value;
+    if (own !== undefined && own !== null) return own;
+    return definitions.find((d) => d.key === key)?.defaultValue;
+  };
+  const shown = definitions.filter(
+    (def) => detail.profile.kind !== "global" || !(def.requires ?? []).some((r) => definitions.some((d) => d.key === r.key) && valueOf(r.key) !== r.equals),
+  );
+
   return (
-    <section className={`${SURFACE} p-4`} aria-labelledby="settings-profile-title">
+    <section className={bare ? "" : `${SURFACE} p-4`} aria-labelledby={bare ? undefined : "settings-profile-title"}>
+      {!bare && (
+        <>
       <h2 id="settings-profile-title" className="text-base font-semibold text-stone-900">
         {detail.profile.name}
       </h2>
@@ -61,9 +78,11 @@ export function ProfilePanel({ profileId, definitions }: { profileId: string; de
           </>
         )}
       </div>
+        </>
+      )}
 
-      <ul className="mt-4 divide-y divide-[#F5C992]/40">
-        {definitions.map((def) => {
+      <ul className={`${bare ? "" : "mt-4 "}divide-y divide-[#F5C992]/40`}>
+        {shown.map((def) => {
           const own = byKey.get(def.key);
           const requires = def.requires?.map((r) => definitions.find((d) => d.key === r.key)?.label ?? r.key);
           return (
@@ -74,7 +93,6 @@ export function ProfilePanel({ profileId, definitions }: { profileId: string; de
                 <div className="mt-1 flex flex-wrap gap-1.5">
                   {def.toValidate && <StatusBadge tone="warning">{t("settings.param.toValidate")}</StatusBadge>}
                   {def.legal && <StatusBadge tone="neutral">{t("settings.param.legal")}</StatusBadge>}
-                  {def.activeFromPhase && <StatusBadge tone="neutral">{t("settings.param.fromPhase", { phase: def.activeFromPhase })}</StatusBadge>}
                   {requires?.map((label) => (
                     <span key={label} className="text-xs text-stone-500">
                       {t("settings.param.requires", { label })}

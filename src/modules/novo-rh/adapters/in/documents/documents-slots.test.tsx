@@ -34,9 +34,9 @@ describe("Documentos — motores existentes encaixados (FE-022/FE-065)", () => {
     expect(m.distributions.forEmployee).toHaveBeenCalledWith("e1");
   });
 
-  it("ficha sem slot (ex.: testes): ligação para a página antiga", () => {
+  it("ficha sem slot (ex.: testes): só a indicação, sem ligação para o RH antigo", () => {
     renderWith(fakeNovoRhModule(), {}, <DocumentsTab personId="e1" />);
-    expect(screen.getByRole("link", { name: /→/ })).toHaveAttribute("href", "/hr/people/e1");
+    expect(screen.queryByRole("link", { name: /→/ })).toBeNull();
   });
 
   it("separador Documentos: empresa (slot) e envio a colaboradores", async () => {

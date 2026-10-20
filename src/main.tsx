@@ -17,6 +17,8 @@ const queryClient = new QueryClient({
     queries: {
       retry: 1,
       refetchOnWindowFocus: false,
+      // Dados com menos de 30 s não se voltam a pedir ao mudar de separador/página (antes: sempre).
+      staleTime: 30_000,
     },
   },
 });

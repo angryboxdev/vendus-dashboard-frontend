@@ -20,7 +20,7 @@ export function InboxButton({ active = false }: { active?: boolean }) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<"requests" | "notifications">("requests");
   // Mesma chave do widget Solicitações: um só pedido partilhado.
-  const q = useQuery({ queryKey: ["novo-rh", "inbox", "dashboard"], queryFn: () => inbox.list({ type: null, segment: "mine" }), staleTime: 30_000, refetchInterval: 60_000 });
+  const q = useQuery({ queryKey: ["novo-rh", "inbox", "dashboard"], queryFn: () => inbox.list({ type: null, segment: "mine" }), staleTime: 60_000, refetchInterval: 180_000 });
   const pending = (q.data?.items ?? []).filter((r) => r.canDecide).length;
   const unread = useUnreadNotifications();
   const total = pending + unread;

@@ -42,7 +42,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       cancel: vi.fn(async () => {}),
       transcribe: vi.fn(async () => ""),
     },
-    overview: { get: vi.fn(async () => { throw new Error("sem painel no teste"); }), plan: vi.fn(async () => ({ from: "", to: "", people: [] })) },
+    overview: { get: vi.fn(async () => { throw new Error("sem painel no teste"); }), today: vi.fn(async () => { throw new Error("sem painel no teste"); }), plan: vi.fn(async () => ({ from: "", to: "", people: [] })) },
     reminders: { run: vi.fn(async () => ({ people: 0, notices: 0 })) },
     inbox: { list: vi.fn(async () => ({ types: [], counters: {}, items: [] })), decide: vi.fn(async () => []) },
     demo: { status: vi.fn(async () => ({ exists: false, name: null })), create: vi.fn(async () => ({ exists: true, name: "Demo" })), refresh: vi.fn(async () => ({ punches: 0, scenario: false })) },

@@ -54,7 +54,7 @@ const OVERVIEW: Overview = {
 };
 
 function renderDashboard(setup: (m: ReturnType<typeof fakeNovoRhModule>) => void = () => {}) {
-  const mod = fakeNovoRhModule({ overview: { get: vi.fn(async () => OVERVIEW), plan: vi.fn() } });
+  const mod = fakeNovoRhModule({ overview: { get: vi.fn(async () => OVERVIEW), today: vi.fn(async () => OVERVIEW), plan: vi.fn() } });
   setup(mod);
   mod.attendance.days = vi.fn(async () => ({
     employeeId: "e-ana",

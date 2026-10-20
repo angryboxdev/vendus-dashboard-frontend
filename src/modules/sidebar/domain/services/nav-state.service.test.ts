@@ -85,9 +85,11 @@ describe("buildTree com acesso efetivo (Utilizadores & Perfis 2.0)", () => {
       access: { isAdmin: false, portalOnly: false, permissions: { "hr.employees": "MANAGE", "hr.schedules": "READ" } },
     });
     const paths = tree.flatMap((e) => (e.kind === "item" ? [e.path] : e.items.map((i) => i.path)));
-    // RH: os ecrãs antigos estão em "RH antigo" (as áreas do Novo RH continuam só para Admin).
+    // RH: o Novo RH abre a quem tem permissões de RH, cada área pela sua (2026-10-20); o RH antigo continua no menu.
     expect(paths).toContain("/hr/antigo");
-    expect(paths).not.toContain("/hr/novo/pessoas");
+    expect(paths).toContain("/hr/novo/pessoas");
+    expect(paths).toContain("/hr/novo/escalas");
+    expect(paths).not.toContain("/hr/novo/assiduidade");
     expect(paths).not.toContain("/financial/invoices");
     expect(paths).not.toContain("/admin/users");
     expect(tree.some((e) => e.kind === "group" && e.id === "financial")).toBe(false);

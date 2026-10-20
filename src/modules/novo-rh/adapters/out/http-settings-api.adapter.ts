@@ -25,6 +25,9 @@ export class HttpSettingsApiAdapter implements SettingsApiPort {
     this.mode = mode;
   }
 
+  features() {
+    return apiGet<Record<string, boolean>>("/api/me/features");
+  }
   listDefinitions() {
     return apiGet<SettingDefinition[]>(`${BASE}/definitions`);
   }
@@ -59,14 +62,10 @@ export class HttpSettingsApiAdapter implements SettingsApiPort {
   downloadHistoryCsv() {
     return apiGetBlob(`${BASE}/history.csv`);
   }
-  // Em Demonstração lê-se do Novo RH (organização fictícia); as rotas antigas são sempre da organização real.
+  // Sempre do Novo RH (Real ou Demonstração) — já não depende da API do RH antigo.
   async listEmployees(): Promise<Option[]> {
-    if (this.mode() === "demo") {
-      const rows = await apiGet<{ id: string; fullName: string; photoUrl?: string | null }[]>("/api/novo-rh/people?status=active");
-      return rows.map((e) => ({ id: e.id, label: e.fullName, photoUrl: e.photoUrl ?? null }));
-    }
-    const res = await apiGet<{ items: { id: string; fullName: string; photoUrl?: string | null }[] }>("/api/hr/people?status=active&page=1&pageSize=500");
-    return res.items.map((e) => ({ id: e.id, label: e.fullName, photoUrl: e.photoUrl ?? null }));
+    const rows = await apiGet<{ id: string; fullName: string; photoUrl?: string | null }[]>("/api/novo-rh/people?status=active");
+    return rows.map((e) => ({ id: e.id, label: e.fullName, photoUrl: e.photoUrl ?? null }));
   }
   async listLocations(): Promise<Option[]> {
     const rows = await apiGet<{ id: string; name: string }[]>(this.mode() === "demo" ? "/api/novo-rh/catalog/locations" : "/api/locations");

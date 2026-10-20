@@ -65,7 +65,8 @@ export function PeopleListView() {
   const positions = useQuery({ queryKey: ["novo-rh", "catalog", "positions"], queryFn: () => people.listPositions() });
   // «Horário» e «Horas hoje»: a mesma vista do dia da Visão geral (um pedido para todos, mesma cache).
   const wantsToday = status !== "inactive" && (columns.includes("schedule") || columns.includes("hoursToday"));
-  const today = useQuery({ queryKey: ["novo-rh", "overview", "today"], queryFn: () => overview.get(), enabled: wantsToday, retry: false });
+  // Só o dia de hoje (endpoint leve): antes pedia a semana inteira de toda a equipa.
+  const today = useQuery({ queryKey: ["novo-rh", "overview", "today-only"], queryFn: () => overview.today(), enabled: wantsToday, retry: false });
   const dayOf = new Map<string, PersonDayView>((today.data?.people ?? []).map((o) => [o.employeeId, o]));
   const locationName = (id: string | null) => (id ? (locations.data?.find((l) => l.id === id)?.label ?? "—") : "—");
   const positionName = (id: string | null) => (id ? (positions.data?.find((x) => x.id === id)?.name ?? "—") : "—");
