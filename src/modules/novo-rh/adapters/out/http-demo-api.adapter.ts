@@ -20,22 +20,25 @@ export class HttpDemoApiAdapter implements DemoApiPort {
   }
 }
 
-const STORAGE_KEY = "novo-rh.data-mode";
+/** Chave antiga: o modo ficava guardado no navegador e a Demonstração voltava em cada visita. */
+const LEGACY_STORAGE_KEY = "novo-rh.data-mode";
 
-export class LocalStorageDataModeStore implements DataModeStorePort {
+/**
+ * O Novo RH abre sempre com os dados Reais (decisão do utilizador,
+ * 2026-10-21); a Demonstração só se ativa à mão e vale enquanto a página
+ * estiver aberta — recarregar ou voltar a entrar volta a Real.
+ */
+export class SessionDataModeStore implements DataModeStorePort {
   load(): DataMode {
     try {
-      return localStorage.getItem(STORAGE_KEY) === "demo" ? "demo" : "real";
+      localStorage.removeItem(LEGACY_STORAGE_KEY);
     } catch {
-      return "real";
+      // Sem armazenamento: nada a limpar.
     }
+    return "real";
   }
-  save(mode: DataMode) {
-    try {
-      localStorage.setItem(STORAGE_KEY, mode);
-    } catch {
-      // Sem armazenamento: o modo vale só para esta página.
-    }
+  save() {
+    // Não se guarda: o modo vive só no estado da página.
   }
 }
 

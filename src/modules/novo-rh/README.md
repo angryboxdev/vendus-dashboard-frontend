@@ -91,7 +91,7 @@ módulo a usar a base de i18n (`src/i18n`).
 - `HttpPeriodsApiAdapter` (o download pede primeiro o link com token).
 - `http-engagement-api.adapters.ts` (comunicados, alertas, espaço de trabalho, relatórios).
 - `HttpOverviewApiAdapter`, `HttpInboxApiAdapter`.
-- `HttpDemoApiAdapter`, `LocalStorageDataModeStore`, `novoRhModeHeaders` (cabeçalho `X-Novo-RH-Mode: demo` só nos pedidos `/api/novo-rh/*`, ligado em `src/lib/api.ts` via `setRequestHeaderProvider`).
+- `HttpDemoApiAdapter`, `SessionDataModeStore` (abre sempre em Real; a Demonstração só à mão e não fica guardada — 2026-10-21), `novoRhModeHeaders` (cabeçalho `X-Novo-RH-Mode: demo` só nos pedidos `/api/novo-rh/*`, ligado em `src/lib/api.ts` via `setRequestHeaderProvider`).
 - `HttpAttendanceApiAdapter`, `HttpMyClockApiAdapter` (a marcação usa o `clientEventId` como Idempotency-Key), `LocalStoragePunchQueue` (só ids e tipo; em memória se o navegador não deixar guardar).
 
 ## Design decisions (ADR summary)
