@@ -84,6 +84,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       update: vi.fn(),
       deactivate: vi.fn(),
       reactivate: vi.fn(),
+      setKioskPin: vi.fn(),
       transfer: vi.fn(),
       exportCsv: vi.fn(),
       importCsv: vi.fn(),

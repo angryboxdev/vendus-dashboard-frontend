@@ -43,6 +43,9 @@ export class HttpPeopleApiAdapter implements PeopleApiPort {
     const { data, etag: next } = await apiWrite<Person>(`${P}/${id}/reactivate`, { body: { reason }, ifMatch: etag });
     return { person: data, etag: next };
   }
+  async setKioskPin(id: string, pin: string) {
+    await apiWrite(`${P}/${id}/kiosk-pin`, { method: "PUT", body: { pin } });
+  }
   async transfer(input: { employeeId: string; locationId: string; effectiveDate: string; reason: string }) {
     await apiWrite("/api/novo-rh/structure/transfers", { body: input });
   }

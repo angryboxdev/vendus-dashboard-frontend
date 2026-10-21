@@ -89,4 +89,30 @@ describe("Novo RH → Pessoas", () => {
     await user.click(btn);
     expect(m.people.deactivate).toHaveBeenCalledWith("e1", '"v3"', "Fim do contrato");
   });
+
+  it("ficha: PIN do quiosque só com o quiosque ligado; 4 dígitos", async () => {
+    const m = mod();
+    m.people.get = vi.fn(async () => ({ person: PERSON, etag: '"v3"' }));
+    m.people.setKioskPin = vi.fn(async () => {});
+    (m.settings as unknown as { features: () => Promise<Record<string, boolean>> }).features = vi.fn(async () => ({ "time_tracking.kiosk.enabled": true }));
+    renderAt("/hr/novo/pessoas/e1", <PersonView />, m);
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "PIN do quiosque" }));
+    const save = screen.getByRole("button", { name: "Guardar PIN" });
+    await user.type(screen.getByLabelText("Novo PIN (4 dígitos)"), "12a3");
+    expect(save).toBeDisabled();
+    await user.type(screen.getByLabelText("Novo PIN (4 dígitos)"), "4");
+    await user.click(save);
+    expect(m.people.setKioskPin).toHaveBeenCalledWith("e1", "1234");
+    expect(await screen.findByText("PIN do quiosque guardado.")).toBeInTheDocument();
+  });
+
+  it("ficha: sem o quiosque ligado não há botão de PIN", async () => {
+    const m = mod();
+    m.people.get = vi.fn(async () => ({ person: PERSON, etag: '"v3"' }));
+    (m.settings as unknown as { features: () => Promise<Record<string, boolean>> }).features = vi.fn(async () => ({ "time_tracking.kiosk.enabled": false }));
+    renderAt("/hr/novo/pessoas/e1", <PersonView />, m);
+    await screen.findByRole("button", { name: "Desativar" });
+    expect(screen.queryByRole("button", { name: "PIN do quiosque" })).toBeNull();
+  });
 });

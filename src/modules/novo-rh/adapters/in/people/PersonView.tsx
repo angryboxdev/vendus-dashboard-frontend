@@ -7,6 +7,7 @@ import {
   AlertBanner,
   Avatar,
   Button,
+  Dialog,
   FIELD,
   IconChevronLeft,
   StatusBadge,
@@ -65,6 +66,9 @@ export function PersonView() {
   const qc = useQueryClient();
   const [tab, setTab] = useState<Tab>("data");
   const [reason, setReason] = useState("");
+  const [pinOpen, setPinOpen] = useState(false);
+  const [pin, setPin] = useState("");
+  const [pinSaved, setPinSaved] = useState(false);
   const q = useQuery({
     queryKey: ["novo-rh", "person", id],
     queryFn: () => people.get(id),
@@ -81,6 +85,22 @@ export function PersonView() {
     queryKey: ["novo-rh", "catalog", "positions"],
     queryFn: () => people.listPositions(),
   });
+  // O PIN só aparece com o quiosque ligado (Configurações → Funcionalidades).
+  const features = useQuery({ queryKey: ["me", "features"], queryFn: () => settings.features(), staleTime: 5 * 60_000, retry: false });
+  const kiosk = features.data?.["time_tracking.kiosk.enabled"] === true;
+  const savePin = useMutation({
+    mutationFn: () => people.setKioskPin(id, pin),
+    onSuccess: () => {
+      setPinOpen(false);
+      setPin("");
+      setPinSaved(true);
+    },
+  });
+  const closePin = () => {
+    setPinOpen(false);
+    setPin("");
+    savePin.reset();
+  };
   const toggle = useMutation({
     mutationFn: () =>
       q.data!.person.status === "active"
@@ -150,6 +170,11 @@ export function PersonView() {
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          {kiosk && p.status === "active" && (
+            <Button variant="secondary" onClick={() => { setPinSaved(false); setPinOpen(true); }}>
+              {t("people.kioskPin")}
+            </Button>
+          )}
           <input
             aria-label={t("people.toggleReason")}
             placeholder={t("people.toggleReason")}
@@ -191,6 +216,42 @@ export function PersonView() {
           )}
         </div>
       )}
+      {pinSaved && (
+        <AlertBanner tone="success" title={t("people.kioskPin.saved")} />
+      )}
+      <Dialog
+        open={pinOpen}
+        title={t("people.kioskPin.title")}
+        description={t("people.kioskPin.description")}
+        onClose={closePin}
+        actions={
+          <>
+            <Button variant="secondary" onClick={closePin}>
+              {t("common.cancel")}
+            </Button>
+            <Button disabled={!/^\d{4}$/.test(pin) || savePin.isPending} onClick={() => savePin.mutate()}>
+              {t("people.kioskPin.save")}
+            </Button>
+          </>
+        }
+      >
+        <input
+          aria-label={t("people.kioskPin.field")}
+          placeholder={t("people.kioskPin.field")}
+          className={FIELD}
+          type="password"
+          inputMode="numeric"
+          autoComplete="off"
+          maxLength={4}
+          value={pin}
+          onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 4))}
+        />
+        {savePin.isError && (
+          <p role="alert" className="mt-2 text-sm text-red-700">
+            {savePin.error instanceof Error ? savePin.error.message : t("common.error")}
+          </p>
+        )}
+      </Dialog>
       {toggle.isError && (
         <AlertBanner tone="danger" title={t("common.error")}>
           {toggle.error instanceof Error ? toggle.error.message : ""}
