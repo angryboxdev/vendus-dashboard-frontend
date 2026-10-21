@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState, t
 import { QueryClientContext } from "@tanstack/react-query";
 import { Route, Routes, useParams } from "react-router-dom";
 import { setRequestHeaderProvider } from "../../lib/api.ts";
-import { HttpDemoApiAdapter, LocalStorageDataModeStore, novoRhModeHeaders } from "./adapters/out/http-demo-api.adapter.ts";
+import { HttpDemoApiAdapter, SessionDataModeStore, novoRhModeHeaders } from "./adapters/out/http-demo-api.adapter.ts";
 import { DemoModeBanner, DemoAccessNotice } from "./adapters/in/DemoMode.tsx";
 import type { DataMode } from "./domain/entities/roadmap.ts";
 import type { DataModeStorePort, DemoApiPort } from "./domain/ports/out/demo-api.port.ts";
@@ -145,7 +145,7 @@ export function useDataMode(): DataModeValue {
  */
 export function NovoRhProvider({ children, module: mod, modeStore }: { children: ReactNode; module?: NovoRhModule; modeStore?: DataModeStorePort }) {
   const qc = useContext(QueryClientContext);
-  const [store] = useState<DataModeStorePort>(() => modeStore ?? new LocalStorageDataModeStore());
+  const [store] = useState<DataModeStorePort>(() => modeStore ?? new SessionDataModeStore());
   const [mode, setModeState] = useState<DataMode>(() => {
     const initial = store.load();
     setRequestHeaderProvider(novoRhModeHeaders(initial));

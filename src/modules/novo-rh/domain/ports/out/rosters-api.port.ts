@@ -5,6 +5,8 @@ export interface RostersApiPort {
   listTemplates(): Promise<ShiftTemplate[]>;
   createTemplate(input: Omit<ShiftTemplate, "id" | "archived">): Promise<ShiftTemplate>;
   archiveTemplate(id: string): Promise<void>;
+  /** Editar: nunca usado → no lugar; usado → nova versão (`versioned`), o que já está feito fica no antigo. */
+  updateTemplate(id: string, input: Omit<ShiftTemplate, "id" | "archived" | "used">): Promise<{ template: ShiftTemplate; versioned: boolean }>;
   /** Áreas de trabalho (com `locationId`: só as desse centro); inclui desativadas. */
   listAreas(locationId?: string | null): Promise<WorkArea[]>;
   createArea(input: { locationId: string; name: string }): Promise<WorkArea>;

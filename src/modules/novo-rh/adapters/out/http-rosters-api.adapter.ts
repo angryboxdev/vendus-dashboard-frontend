@@ -12,6 +12,9 @@ export class HttpRostersApiAdapter implements RostersApiPort {
   async createTemplate(input: Omit<ShiftTemplate, "id" | "archived">) {
     return (await apiWrite<ShiftTemplate>(`${R}/templates`, { body: input })).data;
   }
+  async updateTemplate(id: string, input: Omit<ShiftTemplate, "id" | "archived" | "used">) {
+    return (await apiWrite<{ template: ShiftTemplate; versioned: boolean }>(`${R}/templates/${id}`, { method: "PUT", body: input })).data;
+  }
   async setTemplateColor(id: string, color: string | null) {
     return (await apiWrite<ShiftTemplate>(`${R}/templates/${id}/color`, { method: "PUT", body: { color } })).data;
   }
