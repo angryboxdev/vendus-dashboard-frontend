@@ -73,7 +73,7 @@ describe("Novo RH → Pessoas", () => {
     expect(screen.getByText("Sem permissão")).toBeInTheDocument(); // IBAN escondido
     await user.clear(nif);
     await user.type(nif, "999999999");
-    const save = screen.getByRole("button", { name: "Guardar" });
+    const save = screen.getByRole("button", { name: "Guardar alterações" });
     expect(save).toBeDisabled();
     await user.type(screen.getByLabelText("Motivo da alteração"), "Correção do NIF");
     await user.click(save);
@@ -86,10 +86,12 @@ describe("Novo RH → Pessoas", () => {
     m.people.deactivate = vi.fn(async () => ({ person: { ...PERSON, status: "inactive" as const }, etag: '"v4"' }));
     renderAt("/hr/novo/pessoas/e1", <PersonView />, m);
     const user = userEvent.setup();
-    const btn = await screen.findByRole("button", { name: "Desativar" });
+    await user.click(await screen.findByRole("button", { name: "Ações" }));
+    await user.click(screen.getByRole("menuitem", { name: "Desativar" }));
+    const dialog = screen.getByRole("dialog");
+    const btn = within(dialog).getByRole("button", { name: "Desativar" });
     expect(btn).toBeDisabled();
-    const header = btn.parentElement!;
-    await user.type(within(header).getByLabelText("Motivo para desativar ou reativar"), "Fim do contrato");
+    await user.type(within(dialog).getByLabelText("Motivo para desativar ou reativar"), "Fim do contrato");
     await user.click(btn);
     expect(m.people.deactivate).toHaveBeenCalledWith("e1", '"v3"', "Fim do contrato");
   });
@@ -101,7 +103,8 @@ describe("Novo RH → Pessoas", () => {
     (m.settings as unknown as { features: () => Promise<Record<string, boolean>> }).features = vi.fn(async () => ({ "time_tracking.kiosk.enabled": true }));
     renderAt("/hr/novo/pessoas/e1", <PersonView />, m);
     const user = userEvent.setup();
-    await user.click(await screen.findByRole("button", { name: "PIN do quiosque" }));
+    await user.click(await screen.findByRole("button", { name: "Ações" }));
+    await user.click(screen.getByRole("menuitem", { name: "PIN do quiosque" }));
     const save = screen.getByRole("button", { name: "Guardar PIN" });
     await user.type(screen.getByLabelText("Novo PIN (4 dígitos)"), "12a3");
     expect(save).toBeDisabled();
@@ -116,7 +119,9 @@ describe("Novo RH → Pessoas", () => {
     m.people.get = vi.fn(async () => ({ person: PERSON, etag: '"v3"' }));
     (m.settings as unknown as { features: () => Promise<Record<string, boolean>> }).features = vi.fn(async () => ({ "time_tracking.kiosk.enabled": false }));
     renderAt("/hr/novo/pessoas/e1", <PersonView />, m);
-    await screen.findByRole("button", { name: "Desativar" });
-    expect(screen.queryByRole("button", { name: "PIN do quiosque" })).toBeNull();
+    const user = userEvent.setup();
+    await user.click(await screen.findByRole("button", { name: "Ações" }));
+    expect(screen.getByRole("menuitem", { name: "Desativar" })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: "PIN do quiosque" })).toBeNull();
   });
 });

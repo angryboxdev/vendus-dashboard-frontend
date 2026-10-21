@@ -5,6 +5,8 @@ import { ApiError } from "../../../../lib/api.ts";
 import { PAYSLIP_DUPLICATE_MESSAGE } from "../../domain/entities/payslip-import.ts";
 import { defaultPayslipPeriod, formatPeriod } from "../../domain/services/payslip-import.service.ts";
 import { isCategoryApplicable } from "../../domain/services/document-applicability.service.ts";
+import { DOCUMENT_FOLDERS, documentFolderOf, type DocumentFolder } from "../../domain/services/document-folders.service.ts";
+import { AppIcon } from "../../../../components/ui/index.ts";
 import {
   DOCUMENT_CATEGORY_LABELS,
   DOCUMENT_ORIGIN_LABELS,
@@ -138,6 +140,8 @@ export function EmployeeDocumentsPanel({
   /** Recibo já existente no período (409 do backend): o utilizador cancela ou substitui a versão. */
   const [periodConflict, setPeriodConflict] = useState<{ documentId: string; file: File } | null>(null);
   const [historyDocId, setHistoryDocId] = useState<string | null>(null);
+  /** Pasta aberta (só filtra a lista; `null` = todas). */
+  const [folder, setFolder] = useState<DocumentFolder | null>(null);
   const uploaded = useSuccessFlash();
 
   const documentsQuery = useQuery({
@@ -201,6 +205,9 @@ export function EmployeeDocumentsPanel({
       (!usedCategories.has(c) && !hiddenSiblingCategories.has(c)),
   );
   const selectedRequiresPeriod = categoryOptionBySlug.get(category)?.requiresPeriod ?? false;
+  const folderOf = (doc: EmployeeDocument) => documentFolderOf(doc.category, categoryOptionBySlug.get(doc.category)?.requiresPeriod ?? false);
+  const folderCount = (f: DocumentFolder) => documents.filter((d) => folderOf(d) === f).length;
+  const shown = folder ? documents.filter((d) => folderOf(d) === folder) : documents;
 
   function invalidate() {
     void qc.invalidateQueries({ queryKey: ["novo-rh", "employee-documents", employeeId] });
@@ -451,12 +458,51 @@ export function EmployeeDocumentsPanel({
           )}
         </div>
 
+        {/* Pastas */}
+        <section aria-label="Pastas">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-sm text-stone-500">
+              <span className="font-semibold text-[#C2410C]">{DOCUMENT_FOLDERS.length}</span> pastas
+            </p>
+            {folder && (
+              <button type="button" onClick={() => setFolder(null)} className="text-sm font-medium text-[#C2410C] hover:underline">
+                Ver todos os documentos
+              </button>
+            )}
+          </div>
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
+            {DOCUMENT_FOLDERS.map((f) => {
+              const n = folderCount(f.key);
+              const active = folder === f.key;
+              return (
+                <li key={f.key}>
+                  <button
+                    type="button"
+                    aria-pressed={active}
+                    title={f.hint}
+                    onClick={() => setFolder(active ? null : f.key)}
+                    className={`flex h-full w-full flex-col items-center gap-2 rounded-xl border px-3 py-4 text-center transition-colors duration-150 ${
+                      active ? "border-[#C9643A] bg-[#FDF8F5]" : "border-[#F5C992]/40 bg-white hover:border-[#C9643A]/50 hover:bg-stone-50/60"
+                    }`}
+                  >
+                    <span className="flex h-12 w-12 items-center justify-center rounded-full bg-[#F7E8DF] text-[#C2410C]">
+                      <AppIcon name="folder" size={22} />
+                    </span>
+                    <span className="text-sm font-semibold text-stone-800">{f.label}</span>
+                    <span className="text-xs text-stone-500">{n === 0 ? "Sem elementos" : n === 1 ? "1 documento" : `${n} documentos`}</span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+
         {/* Table */}
         <div className="overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white">
           {documentsQuery.isLoading ? (
             <p className="py-10 text-center text-sm text-stone-400">A carregar…</p>
-          ) : documents.length === 0 ? (
-            <p className="py-10 text-center text-sm text-stone-400">Ainda não há documentos.</p>
+          ) : shown.length === 0 ? (
+            <p className="py-10 text-center text-sm text-stone-400">{folder ? "Esta pasta ainda não tem documentos." : "Ainda não há documentos."}</p>
           ) : (
             <table className="min-w-full text-sm">
               <thead className="border-b border-[#F5C992]/40 bg-stone-50/60">
@@ -471,7 +517,7 @@ export function EmployeeDocumentsPanel({
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#F5C992]/30">
-                {documents.map((doc) => (
+                {shown.map((doc) => (
                   <tr key={doc.id} className={MOTION_ROW_HOVER}>
                     <td className="px-3 py-2.5">
                       <p className="text-stone-700">

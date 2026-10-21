@@ -11,6 +11,7 @@ import { fakeNovoRhModule } from "../../../fake-module.test-utils.ts";
 import { NovoRhProvider, type NovoRhModule } from "../../../novo-rh.module.tsx";
 import { PeopleListView } from "./PeopleListView.tsx";
 import { PersonView } from "./PersonView.tsx";
+import { PersonAccessTab } from "./PersonInsightTabs.tsx";
 
 const PERSON: Person = {
   id: "e1", firstName: "Carla", lastName: "Demo", fullName: "Carla Maria Demo", nif: "123456789", email: "carla@demo.invalid", phone: null, personalEmail: null,
@@ -72,12 +73,15 @@ describe("Ficha do colaborador (FE-014, FE-023)", () => {
     m.attendance.days = vi.fn(async () => DAYS);
     m.audit.list = vi.fn(async () => [{ id: "a1", seq: 1, occurredAt: "2026-10-03T10:00:00Z", actor: "rh@demo.invalid", action: "people.employee.update", resourceType: "employee", resourceId: "e1", before: { email: "x" }, after: { email: "y" }, reason: "Pedido da colaboradora", ip: null, userAgent: null }] as never);
     renderAt("/hr/novo/pessoas/e1", <PersonView />, m);
-    expect(await screen.findByText("Operador · Loja Porto · desde 2026-01-05")).toBeInTheDocument();
+    expect(await screen.findByText("Operador · Loja Porto · desde 05/01/2026")).toBeInTheDocument();
     expect(screen.getByText("CD")).toBeInTheDocument();
     const user = userEvent.setup();
+    // Separadores retirados da ficha (decisão do utilizador).
+    for (const gone of ["Horário", "Campos da empresa", "Regras pessoais", "Acesso", "Organização", "Remuneração"]) expect(screen.queryByRole("tab", { name: gone })).toBeNull();
     await user.click(screen.getByRole("tab", { name: "Estatísticas" }));
-    expect(await screen.findByText("2 de 3")).toBeInTheDocument();
-    await user.click(screen.getByRole("tab", { name: "Histórico" }));
+    expect(await screen.findByText("2 / 3")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /^Mais/ }));
+    await user.click(screen.getByRole("menuitem", { name: "Histórico" }));
     expect(await screen.findByText("Campos: email")).toBeInTheDocument();
     expect(m.audit.list).toHaveBeenCalledWith({ resourceId: "e1" });
     await user.click(screen.getByRole("tab", { name: "Ponto" }));
@@ -186,8 +190,8 @@ describe("Assistente de criação, acesso e históricos (FE-012, FE-015, FE-016,
     m.access.listUsers = vi.fn(async () => [{ userId: "u1", label: "Carla (carla@demo.invalid)", profileId: "p1" }]);
     m.access.listProfiles = vi.fn(async () => [{ id: "p1", name: "Gestor de loja", systemKey: null }]);
     m.access.listScopes = vi.fn(async () => [{ id: "sc1", userId: "u1", scopeType: "location" as const, scopeId: "loc-1", validFrom: "2026-01-01", validTo: null }]);
-    renderAt("/hr/novo/pessoas/e1", <PersonView />, m);
-    await userEvent.click(await screen.findByRole("tab", { name: "Acesso" }));
+    // O separador Acesso saiu da ficha (gere-se em Utilizadores); o painel continua testado.
+    renderAt("/hr/novo/pessoas/e1", <PersonAccessTab person={{ ...PERSON, userId: "u1" }} />, m);
     expect(await screen.findByText("Gestor de loja")).toBeInTheDocument();
     expect(screen.getByText("Centro · 2026-01-01")).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Editar utilizador →" })).toHaveAttribute("href", "/admin/users/u1");

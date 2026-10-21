@@ -1,9 +1,9 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
-import { AlertBanner, Button, FIELD, IconPlus, LABEL, SECTION_TITLE, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR } from "../../../../../components/ui/index.ts";
+import { AlertBanner, Button, Dialog, DropdownMenu, FIELD, IconButton, IconMore, IconPlus, LABEL, SECTION_TITLE, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR } from "../../../../../components/ui/index.ts";
 import type { ContractInput, ManagerKind } from "../../../domain/entities/people.ts";
 import type { Option } from "../../../domain/ports/out/settings-api.port.ts";
 import { formatSettingValue, LEVEL_KEY, todayIn } from "../../../domain/services/settings-format.service.ts";
@@ -20,6 +20,8 @@ function ErrorBox({ error }: { error: unknown }) {
   );
 }
 
+const dmy = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}/${d.slice(0, 4)}`;
+
 const CONTRACT_TYPES = ["permanent", "fixed_term", "temporary", "internship", "other"] as const;
 
 export function ContractsTab({ personId }: { personId: string }) {
@@ -30,133 +32,201 @@ export function ContractsTab({ personId }: { personId: string }) {
   const agreements = useQuery({ queryKey: ["novo-rh", "catalog", "agreements"], queryFn: () => people.listAgreements() });
   const empty: ContractInput = { contractType: "permanent", code: null, startDate: "", endDate: null, seniorityDate: null, probationEnd: null, weeklyHours: 40, fte: 1, agreementId: null, remote: false, comment: null };
   const [form, setForm] = useState<ContractInput>(empty);
+  const [adding, setAdding] = useState(false);
+  const [cancelling, setCancelling] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const refresh = () => void qc.invalidateQueries({ queryKey: ["novo-rh", "person", personId, "contracts"] });
-  const create = useMutation({ mutationFn: () => people.createContract(personId, form), onSuccess: () => (setForm(empty), refresh()) });
-  const cancel = useMutation({ mutationFn: (id: string) => people.cancelContract(personId, list.data!.find((c) => c.id === id)!, cancelReason), onSuccess: () => (setCancelReason(""), refresh()) });
+  const create = useMutation({ mutationFn: () => people.createContract(personId, form), onSuccess: () => (setForm(empty), setAdding(false), refresh()) });
+  const cancel = useMutation({ mutationFn: (id: string) => people.cancelContract(personId, list.data!.find((c) => c.id === id)!, cancelReason), onSuccess: () => (setCancelReason(""), setCancelling(null), refresh()) });
+  const closeAdd = () => (setAdding(false), setForm(empty), create.reset());
+  const closeCancel = () => (setCancelling(null), setCancelReason(""), cancel.reset());
+  const agreementName = (id: string | null) => (id ? (agreements.data ?? []).find((a) => a.id === id)?.name ?? "—" : "—");
+  const date = (d: string | null) => (d ? dmy(d) : null);
+  const contracts = list.data ?? [];
+  // Atual = ativo e sem fim no passado; os outros (cancelados ou terminados) ficam em «Contratos anteriores».
+  const today = todayIn();
+  const isCurrent = (c: (typeof contracts)[number]) => c.status === "active" && (!c.endDate || c.endDate >= today);
+  const current = contracts.filter(isCurrent);
+  const previous = contracts.filter((c) => !isCurrent(c));
+  const block = (label: string, value: ReactNode) => (
+    <div>
+      <p className="text-[11px] font-medium uppercase tracking-wide text-ink-muted">{label}</p>
+      <p className="mt-1 text-sm text-ink">{value}</p>
+    </div>
+  );
+  const card = (c: (typeof contracts)[number]) => {
+    const active = isCurrent(c);
+    return (
+      <li key={c.id} className={`${SURFACE} p-4 sm:p-5`}>
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <h3 className="text-base font-semibold text-navy-900">{t(`contracts.type.${c.contractType}` as MessageKey)}</h3>
+          {c.code && <span className="text-sm text-ink-muted">| {c.code}</span>}
+          <span className="ml-auto flex items-center gap-2">
+            {active ? <StatusBadge tone="success">{t("contracts.current")}</StatusBadge> : <StatusBadge tone="neutral">{c.status === "cancelled" ? t("contracts.cancelled") : t("contracts.ended")}</StatusBadge>}
+            {c.status === "active" && (
+              <DropdownMenu
+                label={t("people.actions")}
+                items={[{ label: t("contracts.cancel"), danger: true, onSelect: () => setCancelling(c.id) }]}
+                trigger={({ toggle }) => (
+                  <IconButton label={t("people.actions")} onClick={toggle}>
+                    <IconMore size={16} />
+                  </IconButton>
+                )}
+              />
+            )}
+          </span>
+        </div>
+        <div className="grid gap-3 md:grid-cols-3">
+          <div className="space-y-3 rounded-xl bg-surface-soft p-4">
+            {block(t("contracts.type"), t(`contracts.type.${c.contractType}` as MessageKey))}
+            {block(t("contracts.agreement"), agreementName(c.agreementId))}
+          </div>
+          <div className="space-y-3 rounded-xl bg-surface-soft p-4">
+            {block(t("contracts.period"), `${date(c.startDate)} – ${date(c.endDate) ?? t("contracts.indefinite")}`)}
+            {block(t("contracts.probation"), date(c.probationEnd) ?? "—")}
+          </div>
+          <div className="space-y-3 rounded-xl bg-surface-soft p-4">
+            {block(t("contracts.workload"), c.weeklyHours !== null ? t("contracts.hoursWeek", { hours: c.weeklyHours }) : "—")}
+            {block(t("contracts.fte"), c.fte !== null ? t("contracts.fteValue", { fte: c.fte }) : "—")}
+            {c.remote && <StatusBadge tone="neutral">{t("contracts.remote")}</StatusBadge>}
+          </div>
+        </div>
+      </li>
+    );
+  };
 
   return (
-    <div className="space-y-4">
-      {(list.data ?? []).some((c) => c.status === "active") && (
-        <input aria-label={`${t("contracts.cancel")} — ${t("people.reason")}`} placeholder={`${t("contracts.cancel")} — ${t("people.reason")}`} className={`${FIELD} w-full max-w-sm`} value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
+    <section className="space-y-3" aria-labelledby="contracts-title">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 id="contracts-title" className="text-lg font-semibold text-navy-900">
+          {t("people.tab.contracts")}
+        </h2>
+        <Button variant="primary" icon={<IconPlus />} onClick={() => setAdding(true)}>
+          {t("contracts.add")}
+        </Button>
+      </div>
+      {list.isLoading && <p className="text-sm text-stone-400">{t("common.loading")}</p>}
+      {list.isSuccess && contracts.length === 0 && <p className={`${SURFACE} p-4 text-sm text-stone-500`}>{t("contracts.empty")}</p>}
+      <ul className="space-y-3">{current.map(card)}</ul>
+      {previous.length > 0 && (
+        <details className="group">
+          <summary className="cursor-pointer text-sm font-medium text-ink-secondary hover:text-ink">{t("contracts.previous", { count: previous.length })}</summary>
+          <ul className="mt-3 space-y-3">{previous.map(card)}</ul>
+        </details>
       )}
-      <section className={`${SURFACE} overflow-x-auto`}>
-        {(list.data ?? []).length === 0 ? (
-          <p className="p-4 text-sm text-stone-500">{t("contracts.empty")}</p>
-        ) : (
-          <table className={TABLE}>
-            <thead className={THEAD}>
-              <tr>
-                <th className={TH}>{t("contracts.type")}</th>
-                <th className={TH}>{t("contracts.start")}</th>
-                <th className={TH}>{t("common.to")}</th>
-                <th className={TH}>{t("contracts.weeklyHours")}</th>
-                <th className={TH}>{t("contracts.fte")}</th>
-                <th className={TH}>
-                  <span className="sr-only">{t("contracts.cancel")}</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {list.data!.map((c) => (
-                <tr key={c.id} className={TR}>
-                  <td className={TD}>
-                    {t(`contracts.type.${c.contractType}` as MessageKey)} {c.status === "cancelled" && <StatusBadge tone="neutral">{t("contracts.cancelled")}</StatusBadge>}
-                  </td>
-                  <td className={TD}>{c.startDate}</td>
-                  <td className={TD}>{c.endDate ?? t("contracts.indefinite")}</td>
-                  <td className={TD}>{c.weeklyHours ?? "—"}</td>
-                  <td className={TD}>{c.fte ?? "—"}</td>
-                  <td className={TD}>
-                    {c.status === "active" && (
-                      <Button size="sm" variant="tertiary" disabled={!cancelReason.trim()} onClick={() => cancel.mutate(c.id)}>
-                        {t("contracts.cancel")}
-                      </Button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        )}
-      </section>
-      <form
-        className={`${SURFACE} grid gap-3 p-4 sm:grid-cols-3`}
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (form.startDate) create.mutate();
-        }}
+      <ErrorBox error={cancel.error} />
+
+      <Dialog
+        open={cancelling !== null}
+        title={t("contracts.cancelTitle")}
+        description={t("contracts.cancelHint")}
+        onClose={closeCancel}
+        actions={
+          <>
+            <Button variant="secondary" onClick={closeCancel}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="danger" disabled={!cancelReason.trim() || cancel.isPending} onClick={() => cancel.mutate(cancelling!)}>
+              {t("contracts.cancel")}
+            </Button>
+          </>
+        }
       >
-        <h2 className={`${SECTION_TITLE} sm:col-span-3`}>{t("contracts.new")}</h2>
-        <div>
-          <label htmlFor="c-type" className={LABEL}>
-            {t("contracts.type")}
-          </label>
-          <select id="c-type" className={`${FIELD} w-full`} value={form.contractType} onChange={(e) => setForm({ ...form, contractType: e.target.value as ContractInput["contractType"] })}>
-            {CONTRACT_TYPES.map((k) => (
-              <option key={k} value={k}>
-                {t(`contracts.type.${k}` as MessageKey)}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="c-start" className={LABEL}>
-            {t("contracts.start")} *
-          </label>
-          <input id="c-start" type="date" className={`${FIELD} w-full`} value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
-        </div>
-        <div>
-          <label htmlFor="c-end" className={LABEL}>
-            {t("contracts.end")}
-          </label>
-          <input id="c-end" type="date" className={`${FIELD} w-full`} value={form.endDate ?? ""} onChange={(e) => setForm({ ...form, endDate: e.target.value || null })} />
-        </div>
-        <div>
-          <label htmlFor="c-prob" className={LABEL}>
-            {t("contracts.probation")}
-          </label>
-          <input id="c-prob" type="date" className={`${FIELD} w-full`} value={form.probationEnd ?? ""} onChange={(e) => setForm({ ...form, probationEnd: e.target.value || null })} />
-        </div>
-        <div>
-          <label htmlFor="c-hours" className={LABEL}>
-            {t("contracts.weeklyHours")}
-          </label>
-          <input id="c-hours" type="number" step="0.5" className={`${FIELD} w-full`} value={form.weeklyHours ?? ""} onChange={(e) => setForm({ ...form, weeklyHours: e.target.value ? Number(e.target.value) : null })} />
-        </div>
-        <div>
-          <label htmlFor="c-fte" className={LABEL}>
-            {t("contracts.fte")}
-          </label>
-          <input id="c-fte" type="number" step="0.05" min={0.05} max={1} className={`${FIELD} w-full`} value={form.fte ?? ""} onChange={(e) => setForm({ ...form, fte: e.target.value ? Number(e.target.value) : null })} />
-        </div>
-        <div>
-          <label htmlFor="c-agr" className={LABEL}>
-            {t("contracts.agreement")}
-          </label>
-          <select id="c-agr" className={`${FIELD} w-full`} value={form.agreementId ?? ""} onChange={(e) => setForm({ ...form, agreementId: e.target.value || null })}>
-            <option value="">{t("common.none")}</option>
-            {(agreements.data ?? []).filter((a) => !a.archived).map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <label className="flex items-center gap-2 self-end text-sm text-stone-700">
-          <input type="checkbox" checked={form.remote} onChange={(e) => setForm({ ...form, remote: e.target.checked })} />
-          {t("contracts.remote")}
+        <label htmlFor="c-cancel-reason" className={LABEL}>
+          {t("people.reason")}
         </label>
-        <div className="flex items-end justify-end">
-          <Button type="submit" variant="primary" icon={<IconPlus />} disabled={!form.startDate || create.isPending}>
-            {t("common.add")}
-          </Button>
-        </div>
-        <div className="sm:col-span-3">
-          <ErrorBox error={create.error ?? cancel.error} />
-        </div>
-      </form>
-    </div>
+        <input id="c-cancel-reason" className={`${FIELD} w-full`} value={cancelReason} onChange={(e) => setCancelReason(e.target.value)} />
+        <ErrorBox error={cancel.error} />
+      </Dialog>
+
+      <Dialog
+        open={adding}
+        title={t("contracts.new")}
+        onClose={closeAdd}
+        actions={
+          <>
+            <Button variant="secondary" onClick={closeAdd}>
+              {t("common.cancel")}
+            </Button>
+            <Button type="submit" form="contract-form" variant="primary" icon={<IconPlus />} disabled={!form.startDate || create.isPending}>
+              {t("common.add")}
+            </Button>
+          </>
+        }
+      >
+        <form
+          id="contract-form"
+          className="grid gap-3 sm:grid-cols-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (form.startDate) create.mutate();
+          }}
+        >
+          <div>
+            <label htmlFor="c-type" className={LABEL}>
+              {t("contracts.type")}
+            </label>
+            <select id="c-type" className={`${FIELD} w-full`} value={form.contractType} onChange={(e) => setForm({ ...form, contractType: e.target.value as ContractInput["contractType"] })}>
+              {CONTRACT_TYPES.map((k) => (
+                <option key={k} value={k}>
+                  {t(`contracts.type.${k}` as MessageKey)}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="c-agr" className={LABEL}>
+              {t("contracts.agreement")}
+            </label>
+            <select id="c-agr" className={`${FIELD} w-full`} value={form.agreementId ?? ""} onChange={(e) => setForm({ ...form, agreementId: e.target.value || null })}>
+              <option value="">{t("common.none")}</option>
+              {(agreements.data ?? []).filter((a) => !a.archived).map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label htmlFor="c-start" className={LABEL}>
+              {t("contracts.start")} *
+            </label>
+            <input id="c-start" type="date" className={`${FIELD} w-full`} value={form.startDate} onChange={(e) => setForm({ ...form, startDate: e.target.value })} />
+          </div>
+          <div>
+            <label htmlFor="c-end" className={LABEL}>
+              {t("contracts.end")}
+            </label>
+            <input id="c-end" type="date" className={`${FIELD} w-full`} value={form.endDate ?? ""} onChange={(e) => setForm({ ...form, endDate: e.target.value || null })} />
+          </div>
+          <div>
+            <label htmlFor="c-prob" className={LABEL}>
+              {t("contracts.probation")}
+            </label>
+            <input id="c-prob" type="date" className={`${FIELD} w-full`} value={form.probationEnd ?? ""} onChange={(e) => setForm({ ...form, probationEnd: e.target.value || null })} />
+          </div>
+          <div>
+            <label htmlFor="c-hours" className={LABEL}>
+              {t("contracts.weeklyHours")}
+            </label>
+            <input id="c-hours" type="number" step="0.5" className={`${FIELD} w-full`} value={form.weeklyHours ?? ""} onChange={(e) => setForm({ ...form, weeklyHours: e.target.value ? Number(e.target.value) : null })} />
+          </div>
+          <div>
+            <label htmlFor="c-fte" className={LABEL}>
+              {t("contracts.fte")}
+            </label>
+            <input id="c-fte" type="number" step="0.05" min={0.05} max={1} className={`${FIELD} w-full`} value={form.fte ?? ""} onChange={(e) => setForm({ ...form, fte: e.target.value ? Number(e.target.value) : null })} />
+          </div>
+          <label className="flex items-center gap-2 self-end pb-2 text-sm text-stone-700">
+            <input type="checkbox" checked={form.remote} onChange={(e) => setForm({ ...form, remote: e.target.checked })} />
+            {t("contracts.remote")}
+          </label>
+          <div className="sm:col-span-2">
+            <ErrorBox error={create.error} />
+          </div>
+        </form>
+      </Dialog>
+    </section>
   );
 }
 
@@ -205,7 +275,7 @@ export function OrganizationTab({ personId, locations }: { personId: string; loc
           <ul className="text-sm text-stone-700">
             {centres.map((a) => (
               <li key={a.id}>
-                {name(a.unitId)} · {a.validFrom} → {a.validTo ?? t("contracts.indefinite")}
+                {name(a.unitId)} · {dmy(a.validFrom)} → {a.validTo ? dmy(a.validTo) : t("contracts.indefinite")}
               </li>
             ))}
           </ul>

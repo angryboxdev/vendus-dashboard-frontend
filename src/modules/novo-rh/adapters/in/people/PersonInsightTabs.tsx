@@ -4,10 +4,8 @@ import { Link } from "react-router-dom";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
 import {
-  Button,
-  IconChevronLeft,
-  IconChevronRight,
   SECTION_TITLE,
+  SegmentedControl,
   SURFACE,
   TABLE,
   TD,
@@ -22,175 +20,121 @@ import {
   monthStats,
   statsNotes,
 } from "../../../domain/services/person-stats.service.ts";
+import { percent, statsBuckets, statsRange, type StatsPreset } from "../../../domain/services/person-overview.service.ts";
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
+import { PersonStatsChart } from "./PersonStatsChart.tsx";
 import type { Person } from "../../../domain/entities/people.ts";
 import { useDataMode, useNovoRh } from "../../../novo-rh.module.tsx";
 import { DemoAccessNotice } from "../DemoMode.tsx";
 
-const shiftMonth = (month: string, n: number) => {
-  const [y, m] = month.split("-").map(Number);
-  return new Date(Date.UTC(y!, m! - 1 + n, 1)).toISOString().slice(0, 7);
-};
-const lastDay = (month: string) => {
-  const [y, m] = month.split("-").map(Number);
-  return `${month}-${String(new Date(Date.UTC(y!, m!, 0)).getUTCDate()).padStart(2, "0")}`;
-};
-const monthLabel = (month: string) =>
-  new Intl.DateTimeFormat("pt-PT", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  }).format(new Date(`${month}-01T00:00:00Z`));
-/** Ficha → Estatísticas (FE-023): o mês do colaborador — trabalhado vs. previsto, faltas, atrasos, horários médios, ausências. */
+/**
+ * Ficha → Estatísticas (FE-023, redesign premium): o resumo do colaborador num
+ * período (este mês, últimos 3 meses, este ano) — trabalhado vs. programado,
+ * dias feitos vs. programados, faltas, atrasos, horários médios, barras por
+ * dia/semana/mês e ausências aprovadas. Números do apuramento (RE-6), só somados.
+ */
 export function PersonStatsTab({ personId }: { personId: string }) {
   const { t } = useI18n();
   const { attendance, absences } = useNovoRh();
   const today = todayIn();
-  const [month, setMonth] = useState(() => today.slice(0, 7));
-  const from = `${month}-01`;
-  const to = lastDay(month) < today ? lastDay(month) : today;
-  const future = from > today;
+  const [preset, setPreset] = useState<StatsPreset>("month");
+  const { from, to, bucket } = statsRange(preset, today);
   const q = useQuery({
     queryKey: ["novo-rh", "attendance", "days", personId, { from, to }],
     queryFn: () => attendance.days(personId, from, to),
-    enabled: !future,
   });
   const abs = useQuery({
-    queryKey: ["novo-rh", "absences", "requests", "approved", personId, month],
-    queryFn: () =>
-      absences.listRequests({
-        employeeId: personId,
-        status: "approved",
-        from,
-        to: lastDay(month),
-      }),
+    queryKey: ["novo-rh", "absences", "requests", "approved", personId, from, to],
+    queryFn: () => absences.listRequests({ employeeId: personId, status: "approved", from, to }),
   });
   const s = q.data ? monthStats(q.data) : null;
   const notes = q.data ? statsNotes(q.data) : null;
-  const byType = new Map<string, { amount: number; unit: string }>();
+  const buckets = q.data ? statsBuckets(q.data, bucket) : [];
+  const byType = new Map<string, { amount: number; unit: string; color: string | null }>();
   for (const r of abs.data ?? []) {
-    const cur = byType.get(r.typeName) ?? { amount: 0, unit: r.unit };
-    byType.set(r.typeName, { amount: cur.amount + r.amount, unit: r.unit });
+    const cur = byType.get(r.typeName) ?? { amount: 0, unit: r.unit, color: r.typeColor };
+    byType.set(r.typeName, { ...cur, amount: cur.amount + r.amount });
   }
-  const card = (label: string, value: string, tone = "text-stone-900") => (
-    <div className="rounded-lg border border-[#F5C992]/40 p-3">
-      <p className="text-xs text-stone-500">{label}</p>
-      <p className={`mt-1 text-lg font-semibold ${tone}`}>{value}</p>
+  const range = `${from.slice(8)}/${from.slice(5, 7)}/${from.slice(0, 4)} – ${to.slice(8)}/${to.slice(5, 7)}/${to.slice(0, 4)}`;
+
+  const tile = (label: string, value: string, opts: { tone?: string; sub?: string; meter?: number } = {}) => (
+    <div className={`${SURFACE} p-4`}>
+      <p className="text-xs font-medium text-ink-secondary">{label}</p>
+      <p className={`mt-1.5 text-2xl font-semibold tabular-nums ${opts.tone ?? "text-navy-900"}`}>{value}</p>
+      {opts.meter !== undefined && (
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-brand-100" aria-hidden="true">
+          <div className="h-full rounded-full bg-brand-600" style={{ width: `${Math.min(100, opts.meter)}%` }} />
+        </div>
+      )}
+      {opts.sub && <p className="mt-1.5 text-xs text-ink-secondary">{opts.sub}</p>}
     </div>
   );
+  const balance = s ? s.worked - s.theoretical : 0;
 
   return (
-    <section className={`${SURFACE} space-y-4 p-4`}>
-      <div className="flex items-center gap-2">
-        <Button
-          size="sm"
-          aria-label={t("abs.cal.prev")}
-          icon={<IconChevronLeft size={14} />}
-          onClick={() => setMonth(shiftMonth(month, -1))}
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-3">
+        <SegmentedControl<StatsPreset>
+          label={t("stats.period")}
+          value={preset}
+          onChange={setPreset}
+          items={[
+            { key: "month", label: t("stats.preset.month") },
+            { key: "quarter", label: t("stats.preset.quarter") },
+            { key: "year", label: t("stats.preset.year") },
+          ]}
         />
-        <span className="min-w-[140px] text-center text-sm font-semibold capitalize text-stone-900">
-          {monthLabel(month)}
-        </span>
-        <Button
-          size="sm"
-          aria-label={t("abs.cal.next")}
-          icon={<IconChevronRight size={14} />}
-          disabled={month >= today.slice(0, 7)}
-          onClick={() => setMonth(shiftMonth(month, 1))}
-        />
+        <span className="text-sm tabular-nums text-ink-secondary">{range}</span>
       </div>
       {q.isError && <p className="text-sm text-red-700">{q.error.message}</p>}
-      {q.isLoading && (
-        <p className="text-sm text-stone-400">{t("common.loading")}</p>
-      )}
+      {q.isLoading && <p className="text-sm text-stone-400">{t("common.loading")}</p>}
       {s && (
         <>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            {card(
-              t("people.stats.worked"),
-              `${formatDuration(s.worked)} / ${formatDuration(s.theoretical)}`,
-            )}
-            {card(
-              t("people.stats.balance"),
-              formatDuration(s.worked - s.theoretical),
-              s.worked - s.theoretical < 0
-                ? "text-red-700"
-                : "text-emerald-700",
-            )}
-            {card(
-              t("people.stats.days"),
-              t("people.stats.daysValue", {
-                worked: s.workedDays,
-                scheduled: s.scheduledDays,
-              }),
-            )}
-            {card(
-              t("people.stats.missing"),
-              String(s.missing),
-              s.missing ? "text-red-700" : "text-stone-900",
-            )}
-            {card(
-              t("people.stats.late"),
-              String(s.late),
-              s.late ? "text-amber-700" : "text-stone-900",
-            )}
-            {card(t("people.stats.forgotten"), String(s.forgotten))}
-            {card(t("people.stats.avgInOut"), `${s.avgIn} – ${s.avgOut}`)}
-            {card(t("people.stats.avgBreak"), formatDuration(s.avgBreak))}
+          <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            {tile(t("stats.worked"), formatDuration(s.worked), { meter: percent(s.worked, s.theoretical), sub: t("stats.compliance", { pct: percent(s.worked, s.theoretical) }) })}
+            {tile(t("stats.theoretical"), formatDuration(s.theoretical), { sub: t("stats.ofDays", { count: s.scheduledDays }) })}
+            {tile(t("stats.balance"), `${balance > 0 ? "+" : ""}${formatDuration(balance)}`, { tone: balance < 0 ? "text-red-700" : "text-emerald-700" })}
+            {tile(t("stats.days"), `${s.workedDays} / ${s.scheduledDays}`, { meter: percent(s.workedDays, s.scheduledDays), sub: t("stats.daysPct", { pct: percent(s.workedDays, s.scheduledDays) }) })}
+          </div>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
+            {tile(t("stats.missing"), String(s.missing), { tone: s.missing ? "text-red-700" : "text-navy-900" })}
+            {tile(t("stats.late"), String(s.late), { tone: s.late ? "text-amber-700" : "text-navy-900" })}
+            {tile(t("stats.forgotten"), String(s.forgotten))}
+            {tile(t("stats.avgInOut"), `${s.avgIn} – ${s.avgOut}`)}
+            {tile(t("stats.avgBreak"), formatDuration(s.avgBreak))}
           </div>
           {notes && (notes.noSchedule || notes.openBreakDays > 0) && (
-            <ul className="space-y-1 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800" aria-label={t("people.stats.notes")}>
-              {notes.noSchedule && <li>{t("people.stats.note.noSchedule")}</li>}
+            <ul className="space-y-1 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800" aria-label={t("people.stats.notes")}>
+              {notes.noSchedule && <li>{t("stats.note.noSchedule")}</li>}
               {notes.openBreakDays > 0 && <li>{t("people.stats.note.openBreaks", { count: notes.openBreakDays })}</li>}
             </ul>
           )}
-          <div>
-            <h4 className={SECTION_TITLE}>{t("people.stats.daysStrip")}</h4>
-            <div className="mt-2 flex flex-wrap gap-1">
-              {q.data!.days.map((d) => {
-                const tone = d.incidents.includes("missing_in")
-                  ? "bg-red-500"
-                  : d.incidents.includes("late")
-                    ? "bg-amber-400"
-                    : d.workedSeconds > 0
-                      ? "bg-emerald-500"
-                      : d.theoreticalSeconds > 0
-                        ? "bg-stone-300"
-                        : "bg-stone-100";
-                return (
-                  <span
-                    key={d.workDate}
-                    className={`h-6 w-6 rounded-sm text-center text-[10px] leading-6 text-white ${tone}`}
-                    title={`${d.workDate}: ${formatDuration(d.workedSeconds)} / ${formatDuration(d.theoreticalSeconds)}`}
-                  >
-                    {Number(d.workDate.slice(8))}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
+          <section className={`${SURFACE} p-4 sm:p-5`} aria-labelledby="stats-chart">
+            <h3 id="stats-chart" className="mb-3 text-base font-semibold text-navy-900">
+              {t("stats.chart")}
+            </h3>
+            <PersonStatsChart buckets={buckets} />
+          </section>
         </>
       )}
-      <div>
-        <h4 className={SECTION_TITLE}>{t("people.stats.absences")}</h4>
+      <section className={`${SURFACE} p-4 sm:p-5`} aria-labelledby="stats-abs">
+        <h3 id="stats-abs" className="text-base font-semibold text-navy-900">
+          {t("stats.absences")}
+        </h3>
         {byType.size === 0 ? (
-          <p className="mt-1 text-sm text-stone-500">
-            {t("people.stats.noAbsences")}
-          </p>
+          <p className="mt-1 text-sm text-ink-secondary">{t("stats.noAbsences")}</p>
         ) : (
-          <ul className="mt-1 space-y-1 text-sm text-stone-700">
+          <ul className="mt-2 flex flex-wrap gap-2 text-sm text-ink">
             {[...byType].map(([name, v]) => (
-              <li key={name}>
-                {name}: {v.amount}{" "}
-                {v.unit === "days"
-                  ? t("people.stats.unitDays")
-                  : t("people.stats.unitHours")}
+              <li key={name} className="flex items-center gap-2 rounded-xl bg-surface-soft px-3 py-1.5">
+                <span aria-hidden="true" className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: v.color ?? "#2563EB" }} />
+                {name}: <span className="font-semibold tabular-nums">{v.amount}</span> {v.unit === "days" ? t("people.stats.unitDays") : t("people.stats.unitHours")}
               </li>
             ))}
           </ul>
         )}
-      </div>
-    </section>
+      </section>
+    </div>
   );
 }
 
