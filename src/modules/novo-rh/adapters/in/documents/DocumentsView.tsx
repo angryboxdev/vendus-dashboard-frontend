@@ -20,6 +20,7 @@ export function DocumentsView() {
   const [tab, setTab] = useState<"company" | "distributions">(slots.companyDocuments ? "company" : "distributions");
   return (
     <div className="space-y-4">
+      {slots.payslipImport && <div className="flex justify-end">{slots.payslipImport()}</div>}
       {slots.companyDocuments && (
         <Tabs
           value={tab}

@@ -23,6 +23,9 @@ import type {
   UploadCompanyDocumentPort,
 } from "./domain/ports/in/company-documents.ports.ts";
 import type { CompanyDocumentsApiPort } from "./domain/ports/out/company-documents-api.port.ts";
+import { HttpEmployeeDocumentsApiAdapter } from "./adapters/out/http-employee-documents-api.adapter.ts";
+import { EmployeeDocumentsUseCases } from "./application/use-cases/employee-documents.use-cases.ts";
+import type { EmployeeDocumentsPort } from "./domain/ports/in/employee-documents.ports.ts";
 
 export interface DocumentsModule {
   listDocuments: ListCompanyDocumentsPort;
@@ -62,8 +65,26 @@ export function DocumentsProvider({ children, module: mod }: { children: ReactNo
   return <DocumentsContext.Provider value={value}>{children}</DocumentsContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useDocumentsModule(): DocumentsModule {
   const ctx = useContext(DocumentsContext);
   if (!ctx) throw new Error("useDocumentsModule must be used inside DocumentsProvider");
+  return ctx;
+}
+
+// ── Documentos de colaborador (ficha do Novo RH) e importação de recibos ──
+// ADR-0040, fase 1: saíram do módulo `hr`. Nos testes passa-se `module` com um fake.
+
+const EmployeeDocumentsContext = createContext<EmployeeDocumentsPort | null>(null);
+
+export function EmployeeDocumentsProvider({ children, module: mod }: { children: ReactNode; module?: EmployeeDocumentsPort }) {
+  const value = mod ?? new EmployeeDocumentsUseCases(new HttpEmployeeDocumentsApiAdapter());
+  return <EmployeeDocumentsContext.Provider value={value}>{children}</EmployeeDocumentsContext.Provider>;
+}
+
+// eslint-disable-next-line react-refresh/only-export-components
+export function useEmployeeDocuments(): EmployeeDocumentsPort {
+  const ctx = useContext(EmployeeDocumentsContext);
+  if (!ctx) throw new Error("useEmployeeDocuments must be used inside EmployeeDocumentsProvider");
   return ctx;
 }
