@@ -56,8 +56,14 @@ describe("Lista de colaboradores — Horário e Horas hoje", () => {
         today("e3", { status: "absent", absenceType: "Férias" }),
       ],
     );
+    await rowOf("Carla Demo");
+    // «Horas hoje» é opcional na lista premium: liga-se em «Colunas».
+    const { default: userEvent } = await import("@testing-library/user-event");
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Colunas" }));
+    await user.click(screen.getByRole("checkbox", { name: "Horas hoje" }));
     const carla = await rowOf("Carla Demo");
-    expect(screen.getByRole("columnheader", { name: "Horário" })).toBeInTheDocument();
+    expect(screen.getByRole("columnheader", { name: "Horário hoje" })).toBeInTheDocument();
     expect(screen.getByRole("columnheader", { name: "Horas hoje" })).toBeInTheDocument();
     expect(await within(carla).findByText("09:00–17:00")).toBeInTheDocument();
     expect(within(carla).getByText("40h semana")).toBeInTheDocument();
@@ -117,7 +123,7 @@ describe("Lista de colaboradores — Horário e Horas hoje", () => {
     const { default: userEvent } = await import("@testing-library/user-event");
     const user = userEvent.setup();
     await user.type(screen.getByRole("textbox", { name: "Pesquisar por nome" }), "zzz");
-    await user.click(screen.getByRole("button", { name: /Ficha a completar/ }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "Centro" }), "none");
     expect(await screen.findByText("Nenhum colaborador com estes filtros.")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Limpar filtros" }));
     expect(await screen.findByRole("link", { name: "Carla Demo" })).toBeInTheDocument();

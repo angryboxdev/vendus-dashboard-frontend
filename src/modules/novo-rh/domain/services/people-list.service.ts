@@ -59,3 +59,27 @@ export function mergeStoredColumns<C extends string>(stored: unknown, all: reado
   }
   return null;
 }
+
+/** Partículas que ligam apelidos (ficam com o apelido: «Maria da Silva»). */
+const PARTICLES = new Set(["da", "de", "do", "das", "dos", "del", "la", "van", "von", "di"]);
+
+/**
+ * Nome curto da lista: primeiro e último nome, sem partir apelidos compostos
+ * («Maria da Silva», «Ana Costa e Silva»). O nome completo continua no título,
+ * no leitor de ecrã, na pesquisa e na ficha.
+ */
+export function shortName(fullName: string): string {
+  const w = fullName.trim().split(/\s+/).filter(Boolean);
+  if (w.length <= 2) return w.join(" ");
+  let i = w.length - 1;
+  while (i > 1 && (PARTICLES.has(w[i - 1]!.toLocaleLowerCase("pt")) || w[i - 1]!.toLocaleLowerCase("pt") === "e")) {
+    i -= w[i - 1]!.toLocaleLowerCase("pt") === "e" ? 2 : 1;
+  }
+  return [w[0]!, ...w.slice(Math.max(i, 1))].join(" ");
+}
+
+/** `AAAA-MM-DD` → `DD/MM/AAAA`; sem data, «—». */
+export function displayDate(iso: string | null | undefined): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso ?? "");
+  return m ? `${m[3]}/${m[2]}/${m[1]}` : "—";
+}

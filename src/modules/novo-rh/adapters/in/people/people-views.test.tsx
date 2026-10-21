@@ -54,6 +54,10 @@ describe("Novo RH → Pessoas", () => {
     m.people.list = vi.fn(async () => [{ ...PERSON, hidden: ["nif"], missing: ["nif"] }]);
     renderAt("/hr/novo/pessoas", <PeopleListView />, m);
     expect(await screen.findByRole("link", { name: "Carla Demo" })).toHaveAttribute("href", "/hr/novo/pessoas/e1");
+    // O NIF é uma coluna opcional na lista premium.
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("button", { name: "Colunas" }));
+    await user.click(screen.getByRole("checkbox", { name: "NIF" }));
     expect(screen.getByText("Sem permissão")).toBeInTheDocument();
     expect(screen.getByText("A completar")).toBeInTheDocument();
     expect(await screen.findByRole("cell", { name: "Loja Porto" })).toBeInTheDocument();

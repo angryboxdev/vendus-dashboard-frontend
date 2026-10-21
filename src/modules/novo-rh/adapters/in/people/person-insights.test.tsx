@@ -86,7 +86,29 @@ describe("Ficha do colaborador (FE-014, FE-023)", () => {
 });
 
 describe("Lista de colaboradores (FE-011)", () => {
-  it("números de topo filtram; local filtra; colunas à escolha", async () => {
+  it("lista premium: Ativos sem badge repetido; Todos mostra o estado; menu Ações; nome curto com o completo acessível", async () => {
+    const m = mod();
+    m.people.list = vi.fn(async (f: { status?: string }) =>
+      f.status === "all"
+        ? [{ ...PERSON, fullName: "Maria Joana da Silva" }, { ...PERSON, id: "e9", fullName: "Ivo Antigo", status: "inactive" as const }]
+        : [{ ...PERSON, fullName: "Maria Joana da Silva" }],
+    );
+    renderAt("/hr/novo/pessoas", <PeopleListView />, m);
+    const link = await screen.findByRole("link", { name: "Maria Joana da Silva" });
+    expect(link).toHaveTextContent("Maria da Silva");
+    expect(screen.getByRole("columnheader", { name: "Situação" })).toBeInTheDocument();
+    expect(screen.queryByText("Ativo")).not.toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByRole("combobox", { name: "Estado" }), "all");
+    expect(await screen.findByText("Inativo")).toBeInTheDocument();
+    expect(screen.getByText("Ativo")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Ações" }));
+    expect(screen.getByRole("menuitem", { name: "Importar CSV" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Exportar CSV" })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: "Convites e pedidos de adesão" })).toBeInTheDocument();
+  });
+
+  it("alertas filtram (e voltam atrás); local filtra; colunas à escolha", async () => {
     const m = mod();
     m.people.list = vi.fn(async () => [
       PERSON,
@@ -96,11 +118,14 @@ describe("Lista de colaboradores (FE-011)", () => {
     renderAt("/hr/novo/pessoas", <PeopleListView />, m);
     await screen.findByRole("link", { name: "Rui Demo" });
     const user = userEvent.setup();
-    const kpis = screen.getByRole("group", { name: "Resumo da lista" });
-    await user.click(within(kpis).getByRole("button", { name: /Ficha a completar\s*1/ }));
+    expect(screen.getByText("3 colaboradores")).toBeInTheDocument();
+    const alerts = screen.getByRole("group", { name: "Alertas da lista" });
+    expect(within(alerts).getByRole("button", { name: /1 colaborador sem local/ })).toBeInTheDocument();
+    await user.click(within(alerts).getByRole("button", { name: /1 ficha por completar/ }));
     expect(screen.queryByRole("link", { name: "Carla Maria Demo" })).not.toBeInTheDocument();
-    expect(screen.getByText("1 de 3")).toBeInTheDocument();
-    await user.click(within(kpis).getByRole("button", { name: /Colaboradores\s*3/ }));
+    expect(screen.getByText("1 de 3 colaboradores")).toBeInTheDocument();
+    await user.click(within(alerts).getByRole("button", { name: /1 ficha por completar/, pressed: true }));
+    expect(screen.getByText("3 colaboradores")).toBeInTheDocument();
     await user.selectOptions(screen.getByRole("combobox", { name: "Centro" }), "loc-2");
     expect(screen.getByRole("link", { name: "Eva Demo" })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "Rui Demo" })).not.toBeInTheDocument();
