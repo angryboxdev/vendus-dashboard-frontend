@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -7,13 +8,15 @@ import { emptyType, flowProblems, formatAmount, formatPeriod } from "../../../do
 import { fakeNovoRhModule } from "../../../fake-module.test-utils.ts";
 import { NovoRhProvider, type NovoRhModule } from "../../../novo-rh.module.tsx";
 import { AbsencesView } from "./AbsencesView.tsx";
+import { FlowsPanel, TypesPanel } from "./ConfigPanels.tsx";
+import { MyAbsencesPanel, RequestsPanel } from "./RequestPanels.tsx";
 
-function renderWith(m: NovoRhModule) {
+function renderWith(m: NovoRhModule, view: ReactNode = <AbsencesView />) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
       <NovoRhProvider module={m}>
-        <AbsencesView />
+        {view}
       </NovoRhProvider>
     </QueryClientProvider>,
   );
@@ -59,9 +62,8 @@ describe("Ausências — ecrãs", () => {
     const m = mod();
     m.absences.listRequests = vi.fn(async () => [{ ...REQ, status: "approved" as const }]);
     m.absences.cancel = vi.fn(async () => ({ ...REQ, status: "cancelled" as const }));
-    renderWith(m);
+    renderWith(m, <RequestsPanel />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "Pedidos" }));
     const row = (await screen.findByText("19/10 – 23/10/2026")).closest("tr")!;
     const cancel = within(row).getByRole("button", { name: "Cancelar ausência" });
     expect(cancel).toBeDisabled();
@@ -75,9 +77,8 @@ describe("Ausências — ecrãs", () => {
     m.access.listUsers = vi.fn(async () => [{ userId: "u-rh", label: "RH", profileId: null }]);
     m.access.listProfiles = vi.fn(async () => []);
     m.absences.createFlow = vi.fn();
-    renderWith(m);
+    renderWith(m, <FlowsPanel />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "Fluxos de aprovação" }));
     await user.click(screen.getByRole("button", { name: "Novo fluxo" }));
     await user.type(screen.getByLabelText("Nome"), "Férias");
     await user.click(screen.getByRole("button", { name: "Adicionar nível" }));
@@ -93,9 +94,8 @@ describe("Ausências — ecrãs", () => {
     m.access.listUsers = vi.fn(async () => []);
     m.access.listProfiles = vi.fn(async () => []);
     m.absences.createFlow = vi.fn();
-    renderWith(m);
+    renderWith(m, <FlowsPanel />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "Fluxos de aprovação" }));
     await user.click(screen.getByRole("button", { name: "Novo fluxo" }));
     await user.type(screen.getByLabelText("Nome"), "Correções");
     await user.selectOptions(screen.getByLabelText("Para"), "clock");
@@ -108,9 +108,8 @@ describe("Ausências — ecrãs", () => {
     const m = mod();
     m.myAbsences.types = vi.fn(async () => [TYPE]);
     m.myAbsences.request = vi.fn(async () => REQ);
-    renderWith(m);
+    renderWith(m, <MyAbsencesPanel />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "As minhas" }));
     const box = await screen.findByRole("region", { name: "Pedir ausência" });
     await screen.findByRole("option", { name: "Consulta médica" });
     await user.selectOptions(within(box).getByLabelText("Tipo de ausência"), "t1");
@@ -122,9 +121,8 @@ describe("Ausências — ecrãs", () => {
   it("tipo novo vem com valores seguros e grava", async () => {
     const m = mod();
     m.absences.createType = vi.fn(async () => TYPE);
-    renderWith(m);
+    renderWith(m, <TypesPanel />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "Tipos" }));
     expect(await screen.findByText(/Ainda não há tipos de ausência/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Novo tipo" }));
     await user.type(screen.getByLabelText("Nome"), "Casamento");

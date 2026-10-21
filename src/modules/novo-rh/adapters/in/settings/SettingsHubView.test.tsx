@@ -104,7 +104,8 @@ describe("Configurações por tema (FE-090)", () => {
     setup([GLOBAL]);
     const nav = await screen.findByRole("navigation", { name: "Configurações" });
     await userEvent.click(within(nav).getByRole("button", { name: "Catálogos" }));
-    expect(screen.getByRole("link", { name: /Tipos de ausência/ })).toHaveAttribute("href", "/hr/novo/ausencias");
+    expect(screen.getByRole("link", { name: /Pausas/ })).toHaveAttribute("href", "/hr/novo/assiduidade");
+    expect(screen.queryByRole("link", { name: /Tipos de ausência|Feriados|Tipos de registo/ })).not.toBeInTheDocument();
     await userEvent.click(within(nav).getByRole("button", { name: "Empresa, locais e papéis" }));
     expect(screen.getByRole("link", { name: /Locais/ })).toHaveAttribute("href", "/empresa/locais");
   });

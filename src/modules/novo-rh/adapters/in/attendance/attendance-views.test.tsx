@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
@@ -8,13 +9,15 @@ import { formatDuration, nextActions, PunchQueue, utcToZoned, weekOf, zonedToUtc
 import { fakeNovoRhModule, memoryQueue } from "../../../fake-module.test-utils.ts";
 import { NovoRhProvider, type NovoRhModule } from "../../../novo-rh.module.tsx";
 import { AttendanceView } from "./AttendanceView.tsx";
+import { ClockTypesPanel } from "./ClockTypesPanel.tsx";
+import { MyClockPanel } from "./MyClockPanel.tsx";
 
-function renderWith(m: NovoRhModule) {
+function renderWith(m: NovoRhModule, view: ReactNode = <AttendanceView />) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
-  render(
+  return render(
     <QueryClientProvider client={qc}>
       <NovoRhProvider module={m}>
-        <AttendanceView />
+        {view}
       </NovoRhProvider>
     </QueryClientProvider>,
   );
@@ -142,9 +145,8 @@ describe("Assiduidade — o meu ponto", () => {
     m.myClock.punch = vi.fn(async () => {
       throw new TypeError("Failed to fetch");
     });
-    renderWith(m);
+    renderWith(m, <MyClockPanel />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "O meu ponto" }));
     await user.click(await screen.findByRole("button", { name: "Trabalho" }));
     await waitFor(() => expect(m.myClock.punch).toHaveBeenCalledWith(expect.objectContaining({ segmentType: "work", clientEventId: expect.any(String), occurredAt: expect.any(String) })));
     expect(await screen.findByText(/1 marcação\(ões\) por enviar/)).toBeInTheDocument();
@@ -155,9 +157,8 @@ describe("Assiduidade — o meu ponto", () => {
     m.myClock.status = vi.fn(async () => ({ ...STATUS, state: "work" as const, since: "2026-10-12T08:00:00Z" }));
     m.myClock.breakTypes = vi.fn(async () => [{ id: "b1", name: "Almoço", color: null, remuneration: "unpaid" as const, hybridPaidMinutes: null, maxMinutes: 60, windowStart: null, windowEnd: null, maxUsesPerDay: 1, weekdays: null, archived: false, version: 1 }]);
     m.myClock.punch = vi.fn(async () => ({ event: {} as never, duplicate: false }));
-    renderWith(m);
+    renderWith(m, <MyClockPanel />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "O meu ponto" }));
     await user.click(await screen.findByRole("button", { name: "Pausa: Almoço" }));
     expect(screen.queryByRole("button", { name: "Pausa" })).not.toBeInTheDocument();
     await waitFor(() => expect(m.myClock.punch).toHaveBeenCalledWith(expect.objectContaining({ segmentType: "break_unpaid", breakTypeId: "b1" })));
@@ -196,12 +197,12 @@ describe("Assiduidade — o meu ponto", () => {
     m.myClock.punch = vi.fn(async () => ({ event: {} as never, duplicate: false }));
     m.attendance.listClockTypes = vi.fn(async () => [home]);
     m.attendance.createClockType = vi.fn(async () => home);
-    renderWith(m);
+    const panel = renderWith(m, <MyClockPanel />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "O meu ponto" }));
     await user.click(await screen.findByRole("button", { name: "Começar: Teletrabalho" }));
     await waitFor(() => expect(m.myClock.punch).toHaveBeenCalledWith(expect.objectContaining({ segmentType: "remote", clockTypeId: "c2" })));
-    await user.click(screen.getByRole("tab", { name: "Tipos de registo" }));
+    panel.unmount();
+    renderWith(m, <ClockTypesPanel />);
     expect(await screen.findByText("Registo normal")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Novo tipo" }));
     const dialog = screen.getByRole("dialog");
@@ -221,9 +222,8 @@ describe("Assiduidade — o meu ponto", () => {
       refusable: [{ id: "r1", employeeId: "e1", operation: "update" as const, targetEventId: "ev1", occurredAt: null, segmentType: null, reason: "Entrou às 10h", author: "gestora", state: "active" as const, refusableUntil: "2026-10-14T09:00:00Z", anchorAt: "2026-10-09T08:00:00Z", createdAt: "2026-10-12T09:00:00Z" }],
     }));
     m.myClock.refuse = vi.fn(async () => ({}) as never);
-    renderWith(m);
+    renderWith(m, <MyClockPanel />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "O meu ponto" }));
     expect(await screen.findByText(/Entrou às 10h.*Pode recusar até/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Recusar correção" }));
     expect(m.myClock.refuse).toHaveBeenCalledWith("r1", null);
@@ -234,9 +234,7 @@ describe("Assiduidade — o meu ponto", () => {
     m.myClock.status = vi.fn(async () => {
       throw new ApiError("Esta conta não está ligada a uma ficha de colaborador.", 404);
     });
-    renderWith(m);
-    const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "O meu ponto" }));
+    renderWith(m, <MyClockPanel />);
     expect(await screen.findByText("Esta conta não está ligada a uma ficha de colaborador.")).toBeInTheDocument();
   });
 });

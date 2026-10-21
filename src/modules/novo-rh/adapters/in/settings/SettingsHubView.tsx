@@ -13,12 +13,7 @@ type Section = TopicKey | "catalogs" | "company" | "advanced";
 
 /** Catálogos do Novo RH: geridos nas áreas respetivas. */
 const CATALOGS: { key: MessageKey; hint: MessageKey; to: string }[] = [
-  { key: "cfg.catalog.absenceTypes", hint: "cfg.catalog.absenceTypes.hint", to: "/hr/novo/ausencias" },
-  { key: "cfg.catalog.flows", hint: "cfg.catalog.flows.hint", to: "/hr/novo/ausencias" },
-  { key: "cfg.catalog.schedules", hint: "cfg.catalog.schedules.hint", to: "/hr/novo/assiduidade/registos" },
   { key: "cfg.catalog.breaks", hint: "cfg.catalog.breaks.hint", to: "/hr/novo/assiduidade" },
-  { key: "cfg.catalog.clockTypes", hint: "cfg.catalog.clockTypes.hint", to: "/hr/novo/assiduidade" },
-  { key: "cfg.catalog.holidays", hint: "cfg.catalog.holidays.hint", to: "/hr/novo/assiduidade/registos" },
   { key: "cfg.catalog.shiftTemplates", hint: "cfg.catalog.shiftTemplates.hint", to: "/hr/novo/escalas" },
   { key: "cfg.catalog.structure", hint: "cfg.catalog.structure.hint", to: "/hr/novo/estrutura" },
   { key: "cfg.catalog.categories", hint: "cfg.catalog.categories.hint", to: "/hr/novo/assiduidade/banco-de-horas" },
