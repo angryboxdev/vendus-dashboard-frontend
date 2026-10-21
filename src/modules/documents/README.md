@@ -47,7 +47,7 @@ Documentos), vindos do módulo `hr` (que mantém as suas cópias até à fase 3)
 - `CompanyDocumentsView` — lista, renovar, histórico (linha expansível),
   remover com confirmação, gestão de categorias da Empresa.
 - `CompanyDocumentDrawer` — novo documento ou renovação.
-- `EmployeeDocumentsPanel` — separador Documentos da ficha do Novo RH
+- `EmployeeDocumentsPanel` — separador Documentos da ficha do Novo RH; pastas (2026-10-22: Documentos pessoais, Contrato e trabalho, Recibos e faturas, Saúde e formação, Outros — `domain/services/document-folders.service.ts`) só agrupam e filtram a lista pela categoria; categorias periódicas vão para Recibos, as da empresa e «Outro» para Outros. Sem pasta de fotos do ponto (não há fotos nas marcações)
   (encaixado pelo slot `personDocuments`); sem histórico antigo.
 - `ImportPayslipsModal` — «Importar recibos» (slot `payslipImport` em Novo
   RH → Documentos). `EmployeeDocumentsProvider` / `useEmployeeDocuments`.

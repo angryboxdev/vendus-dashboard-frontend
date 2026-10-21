@@ -89,7 +89,7 @@ describe("Campos da ficha — ecrã", () => {
     expect(iban).toHaveValue("PT50 0002 0123 1234 5678 9015 4");
     expect(screen.getByText("IBAN válido.")).toBeInTheDocument();
     await user.type(screen.getByLabelText("Motivo da alteração"), "Novo IBAN");
-    await user.click(screen.getByRole("button", { name: "Guardar" }));
+    await user.click(screen.getByRole("button", { name: "Guardar alterações" }));
     expect(m.people.update).toHaveBeenCalledWith("e1", '"v3"', { iban: VALID_PT, reason: "Novo IBAN" });
   });
 
@@ -104,7 +104,7 @@ describe("Campos da ficha — ecrã", () => {
     expect(screen.getByLabelText("Género")).toHaveValue("F");
     await user.selectOptions(screen.getByLabelText("Género"), "Feminino");
     await user.selectOptions(screen.getByLabelText("Nacionalidade"), "Portugal");
-    await user.click(screen.getByRole("button", { name: "Guardar" }));
+    await user.click(screen.getByRole("button", { name: "Guardar alterações" }));
     expect(m.people.update).toHaveBeenCalledWith("e1", '"v3"', { phone: "+34 912345678", gender: "Feminino", nationality: "Portugal" });
   });
 });

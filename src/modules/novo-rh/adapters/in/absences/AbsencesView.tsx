@@ -1,13 +1,12 @@
 import { useState } from "react";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import { Tabs } from "../../../../../components/ui/index.ts";
-import { FlowsPanel, TypesPanel } from "./ConfigPanels.tsx";
-import { ApprovalsPanel, BalancesPanel, MyAbsencesPanel, RequestsPanel } from "./RequestPanels.tsx";
+import { ApprovalsPanel } from "./RequestPanels.tsx";
 import { CalendarPanel } from "./CalendarPanel.tsx";
 
-type Tab = "calendar" | "approvals" | "requests" | "balances" | "types" | "flows" | "mine";
+type Tab = "calendar" | "approvals";
 
-/** Novo RH → Ausências (Fase 5). */
+/** Novo RH → Ausências (Fase 5): calendário e pedidos para aprovar. */
 export function AbsencesView() {
   const { t } = useI18n();
   const [tab, setTab] = useState<Tab>("approvals");
@@ -19,20 +18,10 @@ export function AbsencesView() {
         items={[
           { key: "calendar", label: t("abs.tab.calendar") },
           { key: "approvals", label: t("abs.tab.approvals") },
-          { key: "requests", label: t("abs.tab.requests") },
-          { key: "balances", label: t("abs.tab.balances") },
-          { key: "types", label: t("abs.tab.types") },
-          { key: "flows", label: t("abs.tab.flows") },
-          { key: "mine", label: t("abs.tab.mine") },
         ]}
       />
       {tab === "calendar" && <CalendarPanel />}
       {tab === "approvals" && <ApprovalsPanel />}
-      {tab === "requests" && <RequestsPanel />}
-      {tab === "balances" && <BalancesPanel />}
-      {tab === "types" && <TypesPanel />}
-      {tab === "flows" && <FlowsPanel />}
-      {tab === "mine" && <MyAbsencesPanel />}
     </div>
   );
 }

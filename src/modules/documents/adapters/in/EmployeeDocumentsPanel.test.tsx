@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import type { EmployeeDocument } from "../../domain/entities/employee-document.ts";
 import type { EmployeeDocumentSummary } from "../../domain/entities/employee-document-summary.ts";
@@ -19,7 +20,7 @@ const SUMMARY: EmployeeDocumentSummary = {
 
 function renderPanel() {
   const api = {
-    listEmployeeDocuments: vi.fn(async () => [DOC]),
+    listEmployeeDocuments: vi.fn(async () => [DOC, { ...DOC, id: "d2", category: "contrato_trabalho", fileName: "contrato-ficticio.pdf" }]),
     getDocumentSummary: vi.fn(async () => SUMMARY),
     listDocumentCategories: vi.fn(async () => []),
   } as unknown as EmployeeDocumentsPort;
@@ -42,5 +43,20 @@ describe("EmployeeDocumentsPanel (ficha do Novo RH)", () => {
     expect(screen.getByText("Documento em falta: Contrato de trabalho")).toBeInTheDocument();
     expect(screen.queryByText("Histórico documental")).toBeNull();
     expect(api.getDocumentSummary).toHaveBeenCalledWith("e1");
+  });
+
+  it("pastas: contam os documentos e filtram a lista sem mudar de página", async () => {
+    renderPanel();
+    const user = userEvent.setup();
+    expect(await screen.findByText("contrato-ficticio.pdf")).toBeInTheDocument();
+    const personal = screen.getByRole("button", { name: /Documentos pessoais/ });
+    expect(personal).toHaveTextContent("1 documento");
+    expect(screen.getByRole("button", { name: /Recibos e faturas/ })).toHaveTextContent("Sem elementos");
+    await user.click(personal);
+    expect(personal).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("cc-ficticio.pdf")).toBeInTheDocument();
+    expect(screen.queryByText("contrato-ficticio.pdf")).toBeNull();
+    await user.click(screen.getByRole("button", { name: "Ver todos os documentos" }));
+    expect(screen.getByText("contrato-ficticio.pdf")).toBeInTheDocument();
   });
 });

@@ -1,18 +1,20 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import type { ReactNode } from "react";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { dayMinutes, formatMinutes, versionDaysFromDraft, weeklyMinutes, emptyDraft } from "../../../domain/services/time-format.service.ts";
 import { fakeNovoRhModule } from "../../../fake-module.test-utils.ts";
 import { NovoRhProvider, type NovoRhModule } from "../../../novo-rh.module.tsx";
-import { TimeView } from "./TimeView.tsx";
+import { HolidaysPanel } from "./HolidaysPanel.tsx";
+import { SchedulesPanel } from "./SchedulesPanel.tsx";
 
-function renderWith(m: NovoRhModule) {
+function renderWith(m: NovoRhModule, view: ReactNode) {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
       <NovoRhProvider module={m}>
-        <TimeView />
+        {view}
       </NovoRhProvider>
     </QueryClientProvider>,
   );
@@ -35,9 +37,8 @@ describe("Tempo — editor de horários", () => {
   it("criar horário envia a primeira versão com os dias", async () => {
     const m = mod();
     m.time.createSchedule = vi.fn(async () => ({ id: "s1", name: "Loja", kind: "fixed" as const, archived: false, versions: [] }));
-    renderWith(m);
+    renderWith(m, <SchedulesPanel />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "Horários" }));
     const box = screen.getByRole("region", { name: "Novo horário" });
     await user.type(within(box).getByLabelText("Nome"), "Loja");
     await user.click(within(box).getByRole("button", { name: "Adicionar" }));
@@ -55,9 +56,8 @@ describe("Tempo — feriados", () => {
     const m = mod();
     m.time.listHolidayCalendars = vi.fn(async () => [CAL]);
     m.time.updateHoliday = vi.fn(async () => ({ ...CAL.days[0]!, status: "confirmed" as const }));
-    renderWith(m);
+    renderWith(m, <HolidaysPanel />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "Feriados" }));
     const card = await screen.findByRole("region", { name: "Porto" });
     expect(within(card).getByText("A confirmar")).toBeInTheDocument();
     await user.click(within(card).getByRole("button", { name: "Confirmar Natal" }));
@@ -69,9 +69,8 @@ describe("Tempo — feriados", () => {
     m.time.listHolidayCalendars = vi.fn(async () => [CAL]);
     m.time.deletePreview = vi.fn(async () => ({ name: "Porto", days: 13, employees: 6, assignments: 1 }));
     m.time.deleteCalendar = vi.fn(async () => ({ name: "Porto", days: 13, employees: 6, assignments: 1 }));
-    renderWith(m);
+    renderWith(m, <HolidaysPanel />);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "Feriados" }));
     const card = await screen.findByRole("region", { name: "Porto" });
     await user.click(within(card).getByRole("button", { name: "Eliminar calendário" }));
     expect(await within(card).findByText(/13 dia\(s\) e 6 colaborador\(es\) afetados/)).toBeInTheDocument();

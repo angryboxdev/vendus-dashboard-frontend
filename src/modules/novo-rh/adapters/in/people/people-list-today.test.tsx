@@ -112,7 +112,7 @@ describe("Lista de colaboradores — Horário e Horas hoje", () => {
     );
     expect(await screen.findByText("Falta: NIF, Centro principal")).toBeInTheDocument();
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "Histórico" }));
+    await user.click(screen.getByRole("tab", { name: "Contratos" }));
     await user.click(screen.getByRole("button", { name: "Completar dados" }));
     expect(screen.getByRole("tab", { name: "Dados" })).toHaveAttribute("aria-selected", "true");
   });

@@ -34,7 +34,7 @@ describe("Ponto no cabeçalho (FE-003)", () => {
     await user.click(screen.getByRole("button", { name: "Trabalho" }));
     expect(m.myClock.punch).toHaveBeenCalledTimes(1);
     expect(m.myClock.punch).toHaveBeenCalledWith(expect.objectContaining({ segmentType: "work", clientEventId: expect.any(String) }));
-    expect(screen.getByRole("link", { name: "O meu ponto" })).toHaveAttribute("href", "/hr/novo/assiduidade?tab=myClock");
+    expect(screen.queryByRole("link", { name: "O meu ponto" })).not.toBeInTheDocument();
   });
 
   it("sem ficha ligada (erro do servidor), o widget não aparece", async () => {

@@ -1,5 +1,4 @@
 import { useQuery } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
 import { Button, StatusBadge } from "../../../../../components/ui/index.ts";
@@ -9,8 +8,8 @@ import { useMyClockPunch } from "./use-my-clock-punch.ts";
 
 /**
  * FE-003: o meu ponto no cabeçalho — estado e total de hoje vindos do
- * servidor (nunca somados aqui), a ação seguinte com um toque e o resto no
- * painel "O meu ponto". Sem ficha ligada (ou sem permissão), não aparece.
+ * servidor (nunca somados aqui) e a ação seguinte com um toque. Sem ficha
+ * ligada (ou sem permissão), não aparece.
  */
 export function ClockWidget() {
   const { t } = useI18n();
@@ -33,9 +32,6 @@ export function ClockWidget() {
           {busy || pending > 0 ? t("att.widget.confirming") : t(`att.action.${next}` as MessageKey)}
         </Button>
       )}
-      <Link to="/hr/novo/assiduidade?tab=myClock" className="hidden text-sm font-medium text-brand-600 hover:underline md:inline">
-        {t("att.widget.more")}
-      </Link>
       {error && (
         <span role="alert" className="max-w-48 truncate text-xs text-red-700" title={error}>
           {error}

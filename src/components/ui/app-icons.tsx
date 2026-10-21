@@ -1,6 +1,12 @@
 import type { LucideIcon, LucideProps } from "lucide-react";
 import {
   Archive,
+  Briefcase,
+  CreditCard,
+  Folder,
+  IdCard,
+  MapPin,
+  Phone,
   ArrowLeftRight,
   Building2,
   CalendarDays,
@@ -76,6 +82,12 @@ export const APP_ICONS = {
   collapse: wrap(PanelLeftClose),
   expand: wrap(PanelLeftOpen),
   logout: wrap(LogOut),
+  folder: wrap(Folder),
+  identity: wrap(IdCard),
+  contact: wrap(Phone),
+  address: wrap(MapPin),
+  work: wrap(Briefcase),
+  pay: wrap(CreditCard),
 } as const;
 
 export type AppIconKey = keyof typeof APP_ICONS;
