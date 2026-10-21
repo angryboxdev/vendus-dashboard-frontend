@@ -13,7 +13,11 @@ export interface ShiftTemplate {
   onCall: boolean;
   segments: Segment[];
   archived: boolean;
+  /** Já atribuído alguma vez (rascunho, publicado ou histórico) — vem da lista de gestão. */
+  used?: boolean;
 }
+
+export type ShiftTemplateInput = Omit<ShiftTemplate, "id" | "archived" | "used">;
 
 export interface Roster {
   id: string;

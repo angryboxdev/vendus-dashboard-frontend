@@ -1,20 +1,30 @@
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
 import {
   Button,
+  Dialog,
+  DropdownMenu,
   FIELD,
+  iconButtonClass,
+  IconMore,
   IconPlus,
   IconTrash,
   LABEL,
+  Popover,
   SECTION_TITLE,
   StatusBadge,
   ShiftTypeChip,
   SURFACE,
+  TABLE,
+  TD,
+  TH,
+  THEAD,
   TimePicker,
+  TR,
 } from "../../../../../components/ui/index.ts";
-import type { Segment } from "../../../domain/entities/rosters.ts";
+import type { Segment, ShiftTemplate } from "../../../domain/entities/rosters.ts";
 import {
   daysFrom,
   formatSegments,
@@ -86,7 +96,98 @@ function TonePicker({
   );
 }
 
-/** Modelos de turno (RE-15): nome e abreviatura obrigatórios, uma ou mais faixas. */
+/** Faixas do modelo: uma por linha visual, com «+1» quando acaba no dia seguinte. */
+function SegmentsCell({ segments }: { segments: Segment[] }) {
+  const { t } = useI18n();
+  return (
+    <span className="flex flex-wrap items-center gap-1.5">
+      {segments.map((s, i) => (
+        <span key={i} className="inline-flex items-center gap-1 rounded-md bg-surface-soft px-2 py-0.5 tabular-nums text-ink">
+          {s.start}–{s.end}
+          {s.end <= s.start && (
+            <span className="text-xs text-ink-muted" title={t("ros.template.nextDay")} aria-label={t("ros.template.nextDay")}>
+              +1
+            </span>
+          )}
+        </span>
+      ))}
+    </span>
+  );
+}
+
+/** Abreviatura no quadrado da cor. Nunca usado: abre a paleta. Já usado: cor bloqueada (com explicação acessível). */
+function AbbreviationCell({
+  template,
+  disabled,
+  onColor,
+}: {
+  template: ShiftTemplate;
+  disabled: boolean;
+  onColor: (color: string | null) => void;
+}) {
+  const { t } = useI18n();
+  const tipId = useId();
+  const chip = <ShiftTypeChip tone={templateTone(template)}>{template.abbreviation}</ShiftTypeChip>;
+  if (template.used) {
+    return (
+      <span className="group relative inline-flex">
+        <span tabIndex={0} aria-describedby={tipId} className="inline-flex cursor-not-allowed rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500">
+          {chip}
+        </span>
+        <span
+          id={tipId}
+          role="tooltip"
+          className="pointer-events-none absolute left-0 top-full z-30 mt-1 hidden w-56 rounded-lg bg-navy-900 px-2.5 py-1.5 text-xs text-white shadow-pop group-hover:block group-focus-within:block"
+        >
+          {t("ros.template.colorLocked")}
+        </span>
+      </span>
+    );
+  }
+  return (
+    <Popover
+      label={t("ros.template.colorOf", { name: template.name })}
+      width="w-auto"
+      trigger={({ open, toggle }) => (
+        <button
+          type="button"
+          aria-haspopup="dialog"
+          aria-expanded={open}
+          aria-label={t("ros.template.colorChange", { name: template.name })}
+          disabled={disabled}
+          onClick={toggle}
+          className="inline-flex rounded-md focus-visible:outline focus-visible:outline-2 focus-visible:outline-brand-500 disabled:opacity-50"
+        >
+          {chip}
+        </button>
+      )}
+    >
+      {(close) => (
+        <div className="p-2">
+          <TonePicker
+            label={t("ros.template.colorOf", { name: template.name })}
+            value={template.color}
+            onChange={(color) => {
+              close();
+              onColor(color);
+            }}
+          />
+        </div>
+      )}
+    </Popover>
+  );
+}
+
+const DEFAULT_SEGMENTS: Segment[] = [{ start: "09:00", end: "17:00" }];
+const EMPTY_FORM = { name: "", abbreviation: "", color: null as string | null, onCall: false };
+
+/**
+ * Modelos de turno (RE-15): tabela «Abreviatura | Nome do turno | Horário(s) |
+ * Ações» e um bloco à parte para criar ou editar. Editar um modelo já usado
+ * cria uma nova versão — o que já está feito (rascunho ou publicado) mantém o
+ * modelo anterior; só as atribuições novas usam o editado. A cor muda no
+ * quadrado da abreviatura, só em modelos nunca usados.
+ */
 export function TemplatesPanel() {
   const { t } = useI18n();
   const { rosters } = useNovoRh();
@@ -95,189 +196,259 @@ export function TemplatesPanel() {
     queryKey: [...KEY, "templates"],
     queryFn: () => rosters.listTemplates(),
   });
-  const [v, setV] = useState({
-    name: "",
-    abbreviation: "",
-    color: null as string | null,
-    onCall: false,
-  });
+  const formRef = useRef<HTMLDivElement>(null);
+  const [editing, setEditing] = useState<ShiftTemplate | null>(null);
+  const [v, setV] = useState(EMPTY_FORM);
   // Faixas escolhidas no relógio (sem escrever); até 3 por modelo.
-  const [segments, setSegments] = useState<Segment[]>([
-    { start: "09:00", end: "17:00" },
-  ]);
+  const [segments, setSegments] = useState<Segment[]>(DEFAULT_SEGMENTS);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [toDeactivate, setToDeactivate] = useState<ShiftTemplate | null>(null);
   const valid = segments.every((s) => s.start !== s.end);
   const setSegment = (i: number, patch: Partial<Segment>) =>
     setSegments(segments.map((s, j) => (j === i ? { ...s, ...patch } : s)));
-  const create = useMutation({
-    mutationFn: () =>
-      rosters.createTemplate({
-        name: v.name,
-        abbreviation: v.abbreviation,
-        color: v.color,
-        onCall: v.onCall,
-        segments,
-      }),
-    onSuccess: async () => {
-      setV({ ...v, name: "", abbreviation: "" });
-      setSegments([{ start: "09:00", end: "17:00" }]);
+  const resetForm = () => {
+    setEditing(null);
+    setV(EMPTY_FORM);
+    setSegments(DEFAULT_SEGMENTS);
+  };
+  const startEdit = (x: ShiftTemplate) => {
+    setNotice(null);
+    save.reset();
+    setEditing(x);
+    setV({ name: x.name, abbreviation: x.abbreviation, color: x.color, onCall: x.onCall });
+    setSegments(x.segments.map((s) => ({ ...s })));
+    formRef.current?.scrollIntoView?.({ block: "nearest", behavior: "smooth" });
+  };
+  const input = () => ({ name: v.name, abbreviation: v.abbreviation, color: v.color, onCall: v.onCall, segments });
+  const save = useMutation({
+    mutationFn: async () => {
+      if (!editing) {
+        await rosters.createTemplate(input());
+        return null;
+      }
+      return rosters.updateTemplate(editing.id, input());
+    },
+    onSuccess: async (out) => {
+      setNotice(out ? t(out.versioned ? "ros.template.versioned" : "ros.template.saved") : null);
+      resetForm();
       await qc.invalidateQueries({ queryKey: KEY });
     },
+    // Os campos ficam como estão; a lista atualiza (ex.: o modelo acabou de ser usado).
+    onError: () => void qc.invalidateQueries({ queryKey: [...KEY, "templates"] }),
   });
   const recolor = useMutation({
     mutationFn: (x: { id: string; color: string | null }) =>
       rosters.setTemplateColor(x.id, x.color),
     onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onError: () => void qc.invalidateQueries({ queryKey: [...KEY, "templates"] }),
   });
   const archive = useMutation({
     mutationFn: (id: string) => rosters.archiveTemplate(id),
-    onSuccess: () => qc.invalidateQueries({ queryKey: KEY }),
+    onSuccess: async (_r, id) => {
+      setToDeactivate(null);
+      if (editing?.id === id) resetForm();
+      await qc.invalidateQueries({ queryKey: KEY });
+    },
   });
   const list = (q.data ?? []).filter((x) => !x.archived);
+  const groupLabel = editing ? t("ros.template.editTitle") : t("ros.template.create");
   return (
-    <section className={`${SURFACE} space-y-3 p-4`}>
+    <section className={`${SURFACE} space-y-4 p-4`}>
       {q.data && list.length === 0 && (
         <p className="text-sm text-stone-500">{t("ros.templates.none")}</p>
       )}
-      <ul className="space-y-2 text-sm">
-        {list.map((x) => (
-          <li key={x.id} className="flex flex-wrap items-center gap-2">
-            <ShiftTypeChip tone={templateTone(x)}>{x.abbreviation}</ShiftTypeChip>
-            <span className="font-medium text-stone-900">{x.name}</span>
-            <span className="text-stone-500">{formatSegments(x.segments)}</span>
-            {x.onCall && (
-              <StatusBadge tone="neutral">
-                {t("ros.template.onCall")}
-              </StatusBadge>
-            )}
-            <TonePicker
-              label={t("ros.template.colorOf", { name: x.name })}
-              value={x.color}
-              disabled={recolor.isPending}
-              onChange={(color) => recolor.mutate({ id: x.id, color })}
-            />
-            <Button
-              size="sm"
-              variant="tertiary"
-              aria-label={`${t("abs.archive")} ${x.name}`}
-              onClick={() => archive.mutate(x.id)}
-            >
-              {t("abs.archive")}
-            </Button>
-          </li>
-        ))}
-      </ul>
-      <div
-        className="flex flex-wrap items-end gap-2"
-        role="group"
-        aria-label={t("ros.template.create")}
-      >
-        <label>
-          <span className={LABEL}>{t("ros.template.name")}</span>
-          <input
-            className={FIELD}
-            maxLength={80}
-            value={v.name}
-            onChange={(e) => setV({ ...v, name: e.target.value })}
-          />
-        </label>
-        <label>
-          <span className={LABEL}>{t("ros.template.abbr")}</span>
-          <input
-            className={`${FIELD} w-20`}
-            maxLength={6}
-            value={v.abbreviation}
-            onChange={(e) => setV({ ...v, abbreviation: e.target.value })}
-          />
-        </label>
-        <fieldset className="min-w-[220px] flex-1">
-          <legend className={LABEL}>{t("ros.template.segments")}</legend>
-          <div className="flex flex-wrap items-center gap-2">
-            {segments.map((s, i) => (
-              <div key={i} className="flex items-center gap-1.5">
-                <TimePicker
-                  label={`${t("ros.template.start")} ${i + 1}`}
-                  value={s.start}
-                  onChange={(start) => setSegment(i, { start })}
-                />
-                <span className="text-ink-muted">–</span>
-                <TimePicker
-                  label={`${t("ros.template.end")} ${i + 1}`}
-                  value={s.end}
-                  onChange={(end) => setSegment(i, { end })}
-                />
-                {segments.length > 1 && (
-                  <Button
-                    size="sm"
-                    variant="tertiary"
-                    aria-label={`${t("ros.template.removeSegment")} ${i + 1}`}
-                    onClick={() =>
-                      setSegments(segments.filter((_, j) => j !== i))
-                    }
-                  >
-                    <IconTrash size={16} />
-                  </Button>
-                )}
-              </div>
-            ))}
-            {segments.length < 3 && (
-              <Button
-                size="sm"
-                variant="tertiary"
-                icon={<IconPlus size={16} />}
-                onClick={() => {
-                  const last = segments[segments.length - 1]!;
-                  // Nova faixa começa onde a última acaba e dura 4 h.
-                  const [h, m] = last.end.split(":").map(Number);
-                  const end = `${String(((h ?? 0) + 4) % 24).padStart(2, "0")}:${String(m ?? 0).padStart(2, "0")}`;
-                  setSegments([...segments, { start: last.end, end }]);
-                }}
-              >
-                {t("ros.template.addSegment")}
-              </Button>
-            )}
-          </div>
-        </fieldset>
-        <div>
-          <span className={LABEL}>{t("ros.template.color")}</span>
-          <div className="flex h-10 items-center">
-            <TonePicker
-              label={t("ros.template.color")}
-              value={v.color}
-              onChange={(color) => setV({ ...v, color })}
-            />
-          </div>
+      {list.length > 0 && (
+        <div className="overflow-x-auto">
+          <table className={TABLE}>
+            <thead className={THEAD}>
+              <tr>
+                <th scope="col" className={`${TH} w-28`}>{t("ros.template.col.abbr")}</th>
+                <th scope="col" className={TH}>{t("ros.template.col.name")}</th>
+                <th scope="col" className={TH}>{t("ros.template.col.hours")}</th>
+                <th scope="col" className={`${TH} w-20 text-right`}>{t("ros.template.col.actions")}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {list.map((x) => (
+                <tr key={x.id} className={TR}>
+                  <td className={TD}>
+                    <AbbreviationCell template={x} disabled={recolor.isPending} onColor={(color) => recolor.mutate({ id: x.id, color })} />
+                  </td>
+                  <td className={TD}>
+                    <span className="flex min-w-0 items-center gap-2">
+                      <span className="truncate font-medium text-navy-900" title={x.name.length > 32 ? x.name : undefined}>
+                        {x.name}
+                      </span>
+                      {x.onCall && <StatusBadge tone="neutral">{t("ros.template.onCall")}</StatusBadge>}
+                    </span>
+                  </td>
+                  <td className={TD}>
+                    <SegmentsCell segments={x.segments} />
+                  </td>
+                  <td className={`${TD} text-right`}>
+                    <DropdownMenu
+                      label={t("ros.template.actions", { name: x.name })}
+                      portal
+                      items={[
+                        { label: t("ros.template.edit"), onSelect: () => startEdit(x) },
+                        { label: t("ros.template.deactivate"), danger: true, onSelect: () => setToDeactivate(x) },
+                      ]}
+                      trigger={({ open, toggle }) => (
+                        <button
+                          type="button"
+                          aria-haspopup="menu"
+                          aria-expanded={open}
+                          aria-label={t("ros.template.actions", { name: x.name })}
+                          onClick={toggle}
+                          className={iconButtonClass("sm")}
+                        >
+                          <IconMore size={18} />
+                        </button>
+                      )}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-        <label className="flex items-center gap-1 pb-2 text-sm text-stone-700">
-          <input
-            type="checkbox"
-            checked={v.onCall}
-            onChange={(e) => setV({ ...v, onCall: e.target.checked })}
-          />
-          {t("ros.template.onCall")}
-        </label>
-        <Button
-          variant="primary"
-          disabled={!valid || create.isPending}
-          onClick={() => create.mutate()}
-        >
-          {t("ros.template.create")}
-        </Button>
-      </div>
-      {!valid && (
-        <p className="text-sm text-red-700">
-          {t("ros.template.invalidSegments")}
-        </p>
       )}
       {recolor.isError && (
-        <p className="text-sm text-red-700">
-          {message(recolor.error, t("common.error"))}
+        <p className="text-sm text-red-700">{message(recolor.error, t("common.error"))}</p>
+      )}
+      {archive.isError && !toDeactivate && (
+        <p className="text-sm text-red-700">{message(archive.error, t("common.error"))}</p>
+      )}
+      {notice && (
+        <p role="status" className="text-sm text-emerald-700">
+          {notice}
         </p>
       )}
-      {create.isError && (
-        <p className="text-sm text-red-700">
-          {message(create.error, t("common.error"))}
-        </p>
-      )}
+
+      <div ref={formRef} className="space-y-3 rounded-2xl border border-line-subtle bg-surface-soft/50 p-4">
+        <h3 className={SECTION_TITLE}>{editing ? t("ros.template.editTitle") : t("ros.template.newTitle")}</h3>
+        {editing?.used && <p className="text-sm text-ink-secondary">{t("ros.template.usedNote")}</p>}
+        <div className="flex flex-wrap items-end gap-2" role="group" aria-label={groupLabel}>
+          <label>
+            <span className={LABEL}>{t("ros.template.name")}</span>
+            <input
+              className={FIELD}
+              maxLength={80}
+              value={v.name}
+              onChange={(e) => setV({ ...v, name: e.target.value })}
+            />
+          </label>
+          <label>
+            <span className={LABEL}>{t("ros.template.abbr")}</span>
+            <input
+              className={`${FIELD} w-20`}
+              maxLength={6}
+              value={v.abbreviation}
+              onChange={(e) => setV({ ...v, abbreviation: e.target.value })}
+            />
+          </label>
+          <fieldset className="min-w-[220px] flex-1">
+            <legend className={LABEL}>{t("ros.template.segments")}</legend>
+            <div className="flex flex-wrap items-center gap-2">
+              {segments.map((s, i) => (
+                <div key={i} className="flex items-center gap-1.5">
+                  <TimePicker
+                    label={`${t("ros.template.start")} ${i + 1}`}
+                    value={s.start}
+                    onChange={(start) => setSegment(i, { start })}
+                  />
+                  <span className="text-ink-muted">–</span>
+                  <TimePicker
+                    label={`${t("ros.template.end")} ${i + 1}`}
+                    value={s.end}
+                    onChange={(end) => setSegment(i, { end })}
+                  />
+                  {segments.length > 1 && (
+                    <Button
+                      size="sm"
+                      variant="tertiary"
+                      aria-label={`${t("ros.template.removeSegment")} ${i + 1}`}
+                      onClick={() => setSegments(segments.filter((_, j) => j !== i))}
+                    >
+                      <IconTrash size={16} />
+                    </Button>
+                  )}
+                </div>
+              ))}
+              {segments.length < 3 && (
+                <Button
+                  size="sm"
+                  variant="tertiary"
+                  icon={<IconPlus size={16} />}
+                  onClick={() => {
+                    const last = segments[segments.length - 1]!;
+                    // Nova faixa começa onde a última acaba e dura 4 h.
+                    const [h, m] = last.end.split(":").map(Number);
+                    const end = `${String(((h ?? 0) + 4) % 24).padStart(2, "0")}:${String(m ?? 0).padStart(2, "0")}`;
+                    setSegments([...segments, { start: last.end, end }]);
+                  }}
+                >
+                  {t("ros.template.addSegment")}
+                </Button>
+              )}
+            </div>
+          </fieldset>
+          <div>
+            <span className={LABEL}>{t("ros.template.color")}</span>
+            <div className="flex h-10 items-center">
+              <TonePicker
+                label={t("ros.template.color")}
+                value={v.color}
+                onChange={(color) => setV({ ...v, color })}
+              />
+            </div>
+          </div>
+          <label className="flex items-center gap-1 pb-2 text-sm text-stone-700">
+            <input
+              type="checkbox"
+              checked={v.onCall}
+              onChange={(e) => setV({ ...v, onCall: e.target.checked })}
+            />
+            {t("ros.template.onCall")}
+          </label>
+          <Button variant="primary" disabled={!valid || save.isPending} onClick={() => save.mutate()}>
+            {editing ? t("ros.template.save") : t("ros.template.create")}
+          </Button>
+          {editing && (
+            <Button variant="secondary" disabled={save.isPending} onClick={() => { save.reset(); resetForm(); }}>
+              {t("common.cancel")}
+            </Button>
+          )}
+        </div>
+        {!valid && (
+          <p className="text-sm text-red-700">{t("ros.template.invalidSegments")}</p>
+        )}
+        {save.isError && (
+          <p role="alert" className="text-sm text-red-700">{message(save.error, t("common.error"))}</p>
+        )}
+      </div>
+
+      <Dialog
+        open={toDeactivate !== null}
+        title={t("ros.template.deactivateTitle", { name: toDeactivate?.name ?? "" })}
+        description={t("ros.template.deactivateBody")}
+        onClose={() => {
+          setToDeactivate(null);
+          archive.reset();
+        }}
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => { setToDeactivate(null); archive.reset(); }}>
+              {t("common.cancel")}
+            </Button>
+            <Button variant="danger" disabled={archive.isPending} onClick={() => toDeactivate && archive.mutate(toDeactivate.id)}>
+              {t("ros.template.deactivate")}
+            </Button>
+          </>
+        }
+      >
+        {archive.isError && <p role="alert" className="text-sm text-red-700">{message(archive.error, t("common.error"))}</p>}
+      </Dialog>
     </section>
   );
 }

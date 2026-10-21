@@ -171,6 +171,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       listTemplates: none(),
       createTemplate: vi.fn(),
       archiveTemplate: vi.fn(),
+      updateTemplate: vi.fn(),
       setTemplateColor: vi.fn(),
       listAreas: vi.fn(async () => []),
       createArea: vi.fn(),
