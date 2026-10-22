@@ -137,6 +137,27 @@ export interface ReportParams {
   columns: string[];
 }
 
+/** Relatório de assiduidade por blocos (`GET /api/novo-rh/reports/attendance/days`, ≤ 31 dias). */
+export interface AttendanceDaysQuery {
+  from: string;
+  to: string;
+  locationIds: string[];
+  groupIds: string[];
+  departmentIds: string[];
+  employeeIds: string[];
+}
+export interface AttendanceDaysResult {
+  people: { id: string; name: string; locationId: string | null; hireDate: string | null }[];
+  days: { employeeId: string; workDate: string; worked: number; planned: number; late: boolean; lateMinutes: number; missing: boolean; forgotten: boolean; excused: boolean }[];
+}
+/** Tabela já calculada, para o servidor formatar em Excel. */
+export interface ExportTable {
+  title: string;
+  subtitle: string;
+  columns: string[];
+  rows: (string | number)[][];
+}
+
 export interface ReportResult {
   definition: ReportDefinition;
   columns: ReportColumn[];

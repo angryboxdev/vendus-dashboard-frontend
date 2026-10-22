@@ -12,6 +12,9 @@ import type {
   ReportResult,
   RequestForm,
   WhosIn,
+  AttendanceDaysQuery,
+  AttendanceDaysResult,
+  ExportTable,
 } from "../../entities/engagement.ts";
 
 /** Comunicados (`/api/novo-rh/announcements`, `/api/me/announcements`). */
@@ -63,4 +66,8 @@ export interface ReportsApiPort {
   catalog(): Promise<ReportDefinition[]>;
   run(key: string, params: ReportParams): Promise<ReportResult>;
   csv(key: string, params: ReportParams): Promise<Blob>;
+  /** Dias apurados de um bloco (≤ 31 dias) das pessoas no âmbito e nos filtros. */
+  attendanceDays(q: AttendanceDaysQuery): Promise<AttendanceDaysResult>;
+  /** Excel de uma tabela já calculada. */
+  exportXlsx(table: ExportTable): Promise<{ blob: Blob; fileName: string | null }>;
 }
