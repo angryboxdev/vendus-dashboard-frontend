@@ -76,6 +76,13 @@ export class HttpPeopleApiAdapter implements PeopleApiPort {
     return (await apiWrite<ManagerLink>(`${P}/${id}/managers/${linkId}/end`, { body: { validTo } })).data;
   }
 
+  orgChart(date: string) {
+    return apiGet<{ employeeId: string; managerEmployeeId: string; linkId: string; validFrom: string }[]>(`/api/novo-rh/org-chart?date=${encodeURIComponent(date)}`);
+  }
+  async setDirectManager(id: string, managerEmployeeId: string | null, validFrom: string) {
+    return (await apiWrite<ManagerLink | null>(`${P}/${id}/direct-manager`, { method: "PUT", body: { managerEmployeeId, validFrom } })).data;
+  }
+
   listCompensations(id: string) {
     return apiGet<CompensationAssignment[]>(`${P}/${id}/compensations`);
   }

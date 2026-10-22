@@ -55,6 +55,7 @@ export const SCREENS: Screen[] = [
   { path: "/hr/novo/ausencias/relatorios", label: "novoRh.tab.reports", area: "absences", tab: true },
   { path: "/hr/novo/documentos", label: "novoRh.tab.documents", area: "more", tab: true },
   { path: "/hr/novo/relatorios", label: "novoRh.tab.reports", area: "more", tab: true },
+  { path: "/hr/novo/organograma", label: "novoRh.tab.orgChart", area: "more", tab: true },
   { path: "/hr/novo/pedidos", label: "novoRh.tab.inbox", area: "inbox", tab: false },
   { path: "/hr/novo/notificacoes", label: "notifications.title", area: "other", tab: false },
   { path: "/hr/novo/configuracoes", label: "novoRh.tab.settingsGeneral", area: "settings", tab: true },

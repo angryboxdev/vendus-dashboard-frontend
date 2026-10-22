@@ -95,6 +95,8 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       listManagers: none(),
       addManager: vi.fn(),
       endManager: vi.fn(),
+      orgChart: none(),
+      setDirectManager: vi.fn(),
       listCompensations: none(),
       assignCompensation: vi.fn(),
       endCompensation: vi.fn(),

@@ -5,6 +5,8 @@ import { EmployeeDocumentsPanel } from "../documents/adapters/in/EmployeeDocumen
 import { EmployeeArchiveView } from "../documents/adapters/in/EmployeeArchiveView.tsx";
 import { ImportPayslipsModal } from "../documents/adapters/in/ImportPayslipsModal.tsx";
 import { DocumentsProvider, EmployeeDocumentsProvider } from "../documents/documents.module.tsx";
+import { useQuery } from "@tanstack/react-query";
+import { OrganizationProvider, useOrganizationModule } from "../organization/organization.module.tsx";
 
 /** Documentos da ficha: módulo `documents` (requisitos, validade, versões) — ADR-0040, fase 1 (já sem o RH antigo). */
 export function PersonDocumentsSlot({ personId }: { personId: string }) {
@@ -43,5 +45,20 @@ export function PayslipImportSlot() {
       </Button>
       {open && <ImportPayslipsModal onClose={() => setOpen(false)} />}
     </EmployeeDocumentsProvider>
+  );
+}
+
+function CompanyNameInner() {
+  const { getProfile } = useOrganizationModule();
+  const q = useQuery({ queryKey: ["organization-profile"], queryFn: () => getProfile.execute(), staleTime: 10 * 60_000, retry: false });
+  return <>{q.data?.name || "Empresa"}</>;
+}
+
+/** Nome comercial da empresa (módulo `organization`) para o topo do organograma. */
+export function CompanyNameSlot() {
+  return (
+    <OrganizationProvider>
+      <CompanyNameInner />
+    </OrganizationProvider>
   );
 }

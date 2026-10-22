@@ -67,12 +67,13 @@ import { InvitationsView } from "./adapters/in/people/InvitationsView.tsx";
 import { JoinView } from "./adapters/in/people/JoinView.tsx";
 import { NovoRhSlotsContext, type NovoRhSlots } from "./adapters/in/slots.ts";
 import { ClockWidget } from "./adapters/in/attendance/ClockWidget.tsx";
-import { CompanyDocumentsSlot, EmployeeArchiveSlot, PayslipImportSlot, PersonDocumentsSlot } from "./novo-rh.slots.tsx";
+import { CompanyDocumentsSlot, CompanyNameSlot, EmployeeArchiveSlot, PayslipImportSlot, PersonDocumentsSlot } from "./novo-rh.slots.tsx";
 
 /** Ecrãs de outros módulos encaixados no Novo RH (ver `slots.ts`). */
 const SLOTS: NovoRhSlots = {
   personDocuments: (personId) => <PersonDocumentsSlot personId={personId} />,
   employeeArchive: () => <EmployeeArchiveSlot />,
+  companyName: () => <CompanyNameSlot />,
   companyDocuments: () => <CompanyDocumentsSlot />,
   payslipImport: () => <PayslipImportSlot />,
 };
@@ -84,6 +85,7 @@ import { AlertsView } from "./adapters/in/engagement/AlertsView.tsx";
 import { WorkspaceView } from "./adapters/in/engagement/WorkspaceView.tsx";
 import { ReportsView } from "./adapters/in/engagement/ReportsView.tsx";
 import { ReportsHub } from "./adapters/in/engagement/ReportsHub.tsx";
+import { OrgChartView } from "./adapters/in/orgchart/OrgChartView.tsx";
 import { NovoRhHomeView, PreviousOverviewView } from "./adapters/in/NovoRhHomeView.tsx";
 import { NovoRhLayout } from "./adapters/in/NovoRhLayout.tsx";
 import { LegacyRedirect } from "./adapters/in/common/LegacyRedirect.tsx";
@@ -287,6 +289,7 @@ function NovoRhRoutes() {
         <Route path="alertas" element={<AlertsView />} />
         <Route path="tarefas" element={<WorkspaceView />} />
         <Route path="relatorios" element={<ReportsHub />} />
+        <Route path="organograma" element={<OrgChartView />} />
         <Route path="configuracoes" element={<SettingsHubView />} />
         <Route path="estrutura" element={<StructureView />} />
         <Route path="entidades" element={<LegalEntitiesView />} />

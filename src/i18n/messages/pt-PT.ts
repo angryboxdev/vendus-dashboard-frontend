@@ -1751,6 +1751,7 @@ export const ptPT = {
   "arep.col.forgotten": "Esquecidas",
   "arep.col.excused": "Ausências",
   "arep.col.punctuality": "Pontualidade",
+  "novoRh.tab.orgChart": "Organograma",
 } as const;
 
 export type MessageKey = keyof typeof ptPT;
