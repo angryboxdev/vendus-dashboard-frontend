@@ -10,6 +10,7 @@ import type {
   ManagerLink,
   Person,
   VersionedPerson,
+  PositionDetail,
 } from "../../entities/people.ts";
 
 /** Novo RH → Pessoas e catálogos. */
@@ -33,6 +34,10 @@ export interface PeopleApiPort {
   listManagers(id: string): Promise<ManagerLink[]>;
   addManager(id: string, input: Omit<ManagerLink, "id" | "employeeId">): Promise<ManagerLink>;
   endManager(id: string, linkId: string, validTo: string): Promise<ManagerLink>;
+  /** Organograma: chefias diretas em vigor num dia (só entre quem se pode ver). */
+  orgChart(date: string): Promise<{ employeeId: string; managerEmployeeId: string; linkId: string; validFrom: string }[]>;
+  /** Organograma: responsáveis diretos a partir de `validFrom` (lista completa; vazia = sem chefia; vários = co-chefia). */
+  setDirectManagers(id: string, managerEmployeeIds: string[], validFrom: string): Promise<ManagerLink[]>;
 
   listCompensations(id: string): Promise<CompensationAssignment[]>;
   assignCompensation(id: string, input: { itemId: string; amount: number | null; validFrom: string; validTo: string | null }): Promise<CompensationAssignment>;
@@ -43,6 +48,11 @@ export interface PeopleApiPort {
 
   /** Cargos ativos (catálogo do Novo RH). */
   listPositions(): Promise<{ id: string; name: string }[]>;
+  /** Gestão de cargos (ativos e inativos, com o n.º de colaboradores). */
+  listPositionDetails(): Promise<PositionDetail[]>;
+  createPosition(input: { name: string; description: string | null }): Promise<PositionDetail>;
+  updatePosition(id: string, input: { name?: string; description?: string | null }): Promise<PositionDetail>;
+  setPositionActive(id: string, active: boolean): Promise<PositionDetail>;
   listAgreements(): Promise<Agreement[]>;
   createAgreement(input: { name: string; code: string | null }): Promise<Agreement>;
   archiveAgreement(id: string): Promise<void>;

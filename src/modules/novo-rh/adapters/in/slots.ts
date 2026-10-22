@@ -10,6 +10,8 @@ export interface NovoRhSlots {
   personDocuments?: (personId: string) => ReactNode;
   /** Documentos dos colaboradores por pastas (módulo `documents`, Mais → Documentos). */
   employeeArchive?: () => ReactNode;
+  /** Nome da empresa (módulo `organization`), no topo do organograma. */
+  companyName?: () => ReactNode;
   /** Documentos da empresa (módulo `documents`, FE-065). */
   companyDocuments?: () => ReactNode;
   /** «Importar recibos» (módulo `documents`). */

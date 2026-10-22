@@ -1,4 +1,4 @@
-import { apiGet, apiGetBlob, apiGetVersioned, apiWrite } from "../../../../lib/api.ts";
+import { apiGet, apiGetBlob, apiGetVersioned, apiPatch, apiPost, apiWrite } from "../../../../lib/api.ts";
 import type {
   Agreement,
   CompensationAssignment,
@@ -11,6 +11,7 @@ import type {
   ManagerLink,
   Person,
   VersionedPerson,
+  PositionDetail,
 } from "../../domain/entities/people.ts";
 import type { PeopleApiPort } from "../../domain/ports/out/people-api.port.ts";
 
@@ -76,6 +77,13 @@ export class HttpPeopleApiAdapter implements PeopleApiPort {
     return (await apiWrite<ManagerLink>(`${P}/${id}/managers/${linkId}/end`, { body: { validTo } })).data;
   }
 
+  orgChart(date: string) {
+    return apiGet<{ employeeId: string; managerEmployeeId: string; linkId: string; validFrom: string }[]>(`/api/novo-rh/org-chart?date=${encodeURIComponent(date)}`);
+  }
+  async setDirectManagers(id: string, managerEmployeeIds: string[], validFrom: string) {
+    return (await apiWrite<ManagerLink[]>(`${P}/${id}/direct-manager`, { method: "PUT", body: { managerEmployeeIds, validFrom } })).data;
+  }
+
   listCompensations(id: string) {
     return apiGet<CompensationAssignment[]>(`${P}/${id}/compensations`);
   }
@@ -95,6 +103,19 @@ export class HttpPeopleApiAdapter implements PeopleApiPort {
 
   listPositions() {
     return apiGet<{ id: string; name: string }[]>("/api/novo-rh/catalog/positions");
+  }
+  // Gestão de cargos (`company.positions`): os handlers de sempre em /api/novo-rh/positions (respeita o modo Demonstração).
+  listPositionDetails() {
+    return apiGet<PositionDetail[]>("/api/novo-rh/positions");
+  }
+  createPosition(input: { name: string; description: string | null }) {
+    return apiPost<PositionDetail>("/api/novo-rh/positions", input);
+  }
+  updatePosition(id: string, input: { name?: string; description?: string | null }) {
+    return apiPatch<PositionDetail>(`/api/novo-rh/positions/${encodeURIComponent(id)}`, input);
+  }
+  setPositionActive(id: string, active: boolean) {
+    return apiPatch<PositionDetail>(`/api/novo-rh/positions/${encodeURIComponent(id)}/active`, { active });
   }
   listAgreements() {
     return apiGet<Agreement[]>(`${C}/agreements`);

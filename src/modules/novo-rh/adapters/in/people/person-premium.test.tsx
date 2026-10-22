@@ -56,6 +56,19 @@ describe("Ficha do colaborador — redesign premium", () => {
     expect(screen.getByLabelText("Localidade")).toHaveValue("");
   });
 
+  it("Trabalho: escolher o cargo e gravar envia positionId", async () => {
+    const m = setup((m) => {
+      m.people.listPositions = vi.fn(async () => [{ id: "pos-1", name: "Gerente de loja" }]);
+      m.people.update = vi.fn(async () => ({ person: { ...PERSON, positionId: "pos-1", version: 4 }, etag: '"4"' }));
+    });
+    const user = userEvent.setup();
+    const cargo = await screen.findByRole("combobox", { name: "Cargo" });
+    await screen.findByRole("option", { name: "Gerente de loja" });
+    await user.selectOptions(cargo, "pos-1");
+    await user.click(screen.getByRole("button", { name: "Guardar alterações" }));
+    expect(m.people.update).toHaveBeenCalledWith("e1", '"3"', { positionId: "pos-1" });
+  });
+
   it("Ausências e férias: saldos em cartões e calendário com aprovadas e pendentes", async () => {
     const balance: Balance = { typeId: "t1", typeName: "Férias", unit: "days", limited: true, period: YEAR, accrued: 22, used: 7, adjusted: 0, balance: 15, pending: 2, available: 13, entries: [] };
     const req = (over: Partial<AbsenceRequest>): AbsenceRequest => ({
