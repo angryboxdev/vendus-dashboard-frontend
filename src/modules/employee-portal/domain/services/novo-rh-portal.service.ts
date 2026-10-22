@@ -99,12 +99,21 @@ export function homeFromNovoRh(profile: NovoRhProfile, status: NovoRhClockStatus
     nextShift: shifts.find((s) => s.workDate >= today) ?? null,
     punch: {
       state: working ? "in" : "not_in",
-      since: working ? status.since : null,
+      // Hora local ("20:12"; de outro dia, "20/10 20:12") — nunca o ISO do servidor.
+      since: working && status.since ? sinceLabel(status.since, status.timeZone, today) : null,
       action: working ? "out" : "in",
       blockedReason: null,
-      geofencePolicy: "off",
+      // A localização pede-se sempre: é o servidor (regras «Exigir localização» / «Bloquear fora da zona») que decide.
+      geofencePolicy: "warn",
     },
   };
+}
+
+/** Hora de uma marcação no fuso da organização; com o dia se não for hoje. */
+export function sinceLabel(iso: string, timeZone: string, today: string): string {
+  const date = localDateIn(iso, timeZone);
+  const time = localTimeIn(iso, timeZone);
+  return date === today ? time : `${date.slice(8, 10)}/${date.slice(5, 7)} ${time}`;
 }
 
 export function punchSegment(kind: PunchKind): "work" | "off" {

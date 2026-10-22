@@ -53,7 +53,10 @@ describe("Portal sobre o Novo RH — mapeamentos", () => {
     expect(off.punch).toMatchObject({ state: "not_in", since: null, action: "in", blockedReason: null });
     const working = homeFromNovoRh(profile, { employeeId: "e1", timeZone: "Europe/Lisbon", state: "work", since: "2026-10-18T08:00:00.000Z" }, [], "2026-10-18");
     expect(working.nextShift).toBeNull();
-    expect(working.punch).toMatchObject({ state: "in", since: "2026-10-18T08:00:00.000Z", action: "out" });
+    // Hora local de Lisboa (verão: UTC+1) e a localização pede-se sempre (o servidor decide).
+    expect(working.punch).toMatchObject({ state: "in", since: "09:00", action: "out", geofencePolicy: "warn" });
+    const older = homeFromNovoRh(profile, { employeeId: "e1", timeZone: "Europe/Lisbon", state: "work", since: "2026-10-16T19:12:09.306Z" }, [], "2026-10-18");
+    expect(older.punch.since).toBe("16/10 20:12");
   });
 
   it("resultado da picagem: hora local e repetição (mesmo clientEventId)", () => {
