@@ -119,3 +119,14 @@ export const DOCUMENT_STATUS_LABELS: Record<DocumentDisplayStatus, { label: stri
   rejected: { label: "Rejeitado", cls: "bg-red-50 text-red-600", dot: "bg-red-500" },
   removed: { label: "Removido", cls: "bg-stone-100 text-stone-500", dot: "bg-stone-400" },
 };
+
+/** Arquivo por pastas (`GET /api/novo-rh/documents/archive`): colaborador ativo × categoria com documentos. */
+export interface DocumentArchiveRow {
+  employeeId: string;
+  employeeName: string;
+  category: string;
+  requiresPeriod: boolean;
+  count: number;
+  /** Último arquivamento (ISO). */
+  lastUploadedAt: string;
+}

@@ -33,6 +33,9 @@ export class EmployeeDocumentsUseCases implements EmployeeDocumentsPort {
   listDocumentCategories() {
     return this.api.listDocumentCategories();
   }
+  getDocumentArchive() {
+    return this.api.getDocumentArchive();
+  }
   listEmployees() {
     return this.api.listEmployees();
   }

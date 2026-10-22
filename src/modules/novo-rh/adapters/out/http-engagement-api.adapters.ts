@@ -1,5 +1,5 @@
-import { apiDeleteNoContent, apiGet, apiGetBlob, apiWrite } from "../../../../lib/api.ts";
-import type { Alert, AlertRule, Announcement, AnnouncementReport, Audience, CustomRequest, MyAnnouncement, OpsTask, ReportDefinition, ReportParams, ReportResult, RequestForm, WhosIn } from "../../domain/entities/engagement.ts";
+import { apiDeleteNoContent, apiGet, apiGetBlob, apiWrite, apiPostFormDataFile } from "../../../../lib/api.ts";
+import type { Alert, AlertRule, Announcement, AnnouncementReport, Audience, CustomRequest, MyAnnouncement, OpsTask, ReportDefinition, ReportParams, ReportResult, RequestForm, WhosIn, AttendanceDaysQuery, AttendanceDaysResult, ExportTable } from "../../domain/entities/engagement.ts";
 import type { AlertsApiPort, AnnouncementsApiPort, ReportsApiPort, WorkspaceApiPort } from "../../domain/ports/out/engagement-api.port.ts";
 
 const qs = (o: Record<string, string | undefined>) => new URLSearchParams(Object.entries(o).filter((e): e is [string, string] => !!e[1])).toString();
@@ -117,5 +117,14 @@ export class HttpReportsApiAdapter implements ReportsApiPort {
   }
   csv(key: string, params: ReportParams) {
     return apiGetBlob(`${this.R}/${key}/csv?${this.query(params)}`);
+  }
+  attendanceDays(q: AttendanceDaysQuery) {
+    const list = (v: string[]) => (v.length ? v.join(",") : undefined);
+    return apiGet<AttendanceDaysResult>(`${this.R}/attendance/days?${qs({ from: q.from, to: q.to, locations: list(q.locationIds), groups: list(q.groupIds), departments: list(q.departmentIds), employees: list(q.employeeIds) })}`);
+  }
+  exportXlsx(table: ExportTable) {
+    const form = new FormData();
+    form.append("table", JSON.stringify(table));
+    return apiPostFormDataFile(`${this.R}/export/xlsx`, form);
   }
 }

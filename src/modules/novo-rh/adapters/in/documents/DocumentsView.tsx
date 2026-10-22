@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
-import { Button, FIELD, IconDownload, LABEL, SECTION_TITLE, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR, Tabs } from "../../../../../components/ui/index.ts";
+import { Button, FIELD, IconDownload, LABEL, SECTION_TITLE, SegmentedControl, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR, Tabs } from "../../../../../components/ui/index.ts";
 import { DISTRIBUTION_MAX_BYTES, DISTRIBUTION_MIME, type Distribution, type DistributionAudience } from "../../../domain/entities/distributions.ts";
 import { shortDateTime } from "../../../domain/services/engagement.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
@@ -13,25 +13,50 @@ const KEY = ["novo-rh", "document-distributions"];
 const message = (e: unknown, fallback: string) => (e instanceof Error ? e.message : fallback);
 const sizeLabel = (bytes: number) => (bytes >= 1024 * 1024 ? `${(bytes / 1024 / 1024).toLocaleString("pt-PT", { maximumFractionDigits: 1 })} MB` : `${Math.max(1, Math.round(bytes / 1024))} KB`);
 
-/** Novo RH → Documentos: documentos da empresa (motor existente, encaixado pela raiz) e envio a colaboradores (FE-065). */
+/**
+ * Novo RH → Mais → Documentos: «Colaboradores» (pastas → colaboradores com
+ * quantidade e último arquivamento; importar recibos) e «Empresa» (documentos
+ * da empresa e envio a colaboradores, FE-065) — separados, como pedido pelo
+ * utilizador. Os ecrãs do módulo `documents` entram pela raiz (slots).
+ */
 export function DocumentsView() {
   const { t } = useI18n();
   const slots = useNovoRhSlots();
+  const [area, setArea] = useState<"people" | "company">(slots.employeeArchive ? "people" : "company");
   const [tab, setTab] = useState<"company" | "distributions">(slots.companyDocuments ? "company" : "distributions");
   return (
     <div className="space-y-4">
-      {slots.payslipImport && <div className="flex justify-end">{slots.payslipImport()}</div>}
-      {slots.companyDocuments && (
-        <Tabs
-          value={tab}
-          onChange={setTab}
+      {slots.employeeArchive && (
+        <SegmentedControl<"people" | "company">
+          label={t("novoRh.tab.documents")}
+          value={area}
+          onChange={setArea}
           items={[
-            { key: "company", label: t("docs.tab.company") },
-            { key: "distributions", label: t("docs.tab.distributions") },
+            { key: "people", label: t("docs.area.people") },
+            { key: "company", label: t("docs.area.company") },
           ]}
         />
       )}
-      {tab === "company" && slots.companyDocuments ? slots.companyDocuments() : <DistributionsPanel />}
+      {area === "people" && slots.employeeArchive ? (
+        <>
+          {slots.payslipImport && <div className="flex justify-end">{slots.payslipImport()}</div>}
+          {slots.employeeArchive()}
+        </>
+      ) : (
+        <>
+          {slots.companyDocuments && (
+            <Tabs
+              value={tab}
+              onChange={setTab}
+              items={[
+                { key: "company", label: t("docs.tab.company") },
+                { key: "distributions", label: t("docs.tab.distributions") },
+              ]}
+            />
+          )}
+          {tab === "company" && slots.companyDocuments ? slots.companyDocuments() : <DistributionsPanel />}
+        </>
+      )}
     </div>
   );
 }

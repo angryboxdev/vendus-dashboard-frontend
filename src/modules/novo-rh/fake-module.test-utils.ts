@@ -56,6 +56,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       createGroup: vi.fn(),
       updateGroup: vi.fn(),
       listAssignments: none(),
+      listAllAssignments: none(),
       assign: vi.fn(),
       endAssignment: vi.fn(),
       listContacts: none(),
@@ -211,7 +212,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
     invitations: { list: none(), create: vi.fn(), revoke: vi.fn(), requests: none(), accept: vi.fn(), complete: vi.fn(), reject: vi.fn() },
     alerts: { list: none(), run: vi.fn(), take: vi.fn(), close: vi.fn(), rules: none(), createRule: vi.fn() },
     workspace: { tasks: none(), createTask: vi.fn(), toggleItem: vi.fn(), completeTask: vi.fn(), forms: none(), createForm: vi.fn(), requests: none(), decide: vi.fn(), whosIn: vi.fn() },
-    reports: { catalog: none(), run: vi.fn(), csv: vi.fn() },
+    reports: { catalog: none(), run: vi.fn(), csv: vi.fn(), attendanceDays: vi.fn(async () => ({ people: [], days: [] })), exportXlsx: vi.fn() },
     ...over,
   };
 }

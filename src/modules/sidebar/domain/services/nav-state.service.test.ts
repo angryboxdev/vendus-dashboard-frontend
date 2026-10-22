@@ -85,8 +85,8 @@ describe("buildTree com acesso efetivo (Utilizadores & Perfis 2.0)", () => {
       access: { isAdmin: false, portalOnly: false, permissions: { "hr.employees": "MANAGE", "hr.schedules": "READ" } },
     });
     const paths = tree.flatMap((e) => (e.kind === "item" ? [e.path] : e.items.map((i) => i.path)));
-    // RH: o Novo RH abre a quem tem permissões de RH, cada área pela sua (2026-10-20); o RH antigo continua no menu.
-    expect(paths).toContain("/hr/antigo");
+    // RH: o Novo RH abre a quem tem permissões de RH, cada área pela sua (2026-10-20); o RH antigo saiu do menu (2026-10-22).
+    expect(paths).not.toContain("/hr/antigo");
     expect(paths).toContain("/hr/novo/pessoas");
     expect(paths).toContain("/hr/novo/escalas");
     expect(paths).not.toContain("/hr/novo/assiduidade");
@@ -98,7 +98,7 @@ describe("buildTree com acesso efetivo (Utilizadores & Perfis 2.0)", () => {
     const admin = buildTree({ email: "a@example.com", role: "admin", access: { isAdmin: true, portalOnly: false, permissions: {} } });
     expect(admin.some((e) => e.kind === "item" && e.path === "/admin/users")).toBe(true);
     const hr = admin.find((e) => e.kind === "group" && e.id === "hr");
-    expect(hr && hr.kind === "group" ? hr.items.map((i) => i.label) : []).toEqual(["Visão geral", "Colaboradores", "Escalas", "Assiduidade", "Ausências", "Documentos", "RH antigo"]);
+    expect(hr && hr.kind === "group" ? hr.items.map((i) => i.label) : []).toEqual(["Visão geral", "Colaboradores", "Escalas", "Assiduidade", "Ausências", "Mais"]);
     const noHr = buildTree({ email: "x@example.com", role: "manager", access: { isAdmin: false, portalOnly: false, permissions: { "crm.customers": "READ" } } });
     expect(noHr.some((e) => e.kind === "group" && e.id === "hr")).toBe(false);
   });

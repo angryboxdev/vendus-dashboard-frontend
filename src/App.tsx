@@ -14,23 +14,6 @@ import { StockMovementHistoryPage } from "./pages/stock/StockMovementHistoryPage
 import { StockPage } from "./pages/stock/StockPage";
 import { Sidebar } from "./modules/sidebar/adapters/in/SidebarView.tsx";
 import { SidebarProvider } from "./modules/sidebar/sidebar.module.tsx";
-import { HrCalendarPage } from "./pages/hr/HrCalendarPage";
-import { HrEmployeeDetailPage } from "./pages/hr/HrEmployeeDetailPage";
-import { HrLayout } from "./pages/hr/HrLayout";
-import { HrHomeRedirect, LegacyHrRedirect } from "./pages/hr/HrRedirects";
-import { HrAuditLogPage } from "./pages/hr/HrAuditLogPage";
-import { AttendanceView } from "./modules/hr/adapters/in/AttendanceView.tsx";
-import { AttendanceEmployeeDetailView } from "./modules/hr/adapters/in/AttendanceEmployeeDetailView.tsx";
-import { HrProvider } from "./modules/hr/hr.module.tsx";
-import { PeopleListView } from "./modules/hr/adapters/in/PeopleListView.tsx";
-import { PeopleDocumentsView } from "./modules/hr/adapters/in/PeopleDocumentsView.tsx";
-import { PositionsView } from "./modules/hr/adapters/in/PositionsView.tsx";
-import { EmployeeProfileView } from "./modules/hr/adapters/in/EmployeeProfileView.tsx";
-import { OverviewView } from "./modules/hr/adapters/in/OverviewView.tsx";
-import { ShiftsToReviewView } from "./modules/hr/adapters/in/ShiftsToReviewView.tsx";
-import { SchedulesView } from "./modules/hr/adapters/in/SchedulesView.tsx";
-import { HrRequestsView } from "./modules/hr/adapters/in/HrRequestsView.tsx";
-import { LeaveView } from "./modules/hr/adapters/in/LeaveView.tsx";
 import { NovoRhJoinPage, NovoRhPage } from "./modules/novo-rh/novo-rh.module.tsx";
 import { KioskDisplayPage } from "./pages/kiosk/KioskDisplayPage";
 import { KioskCheckinPage } from "./pages/kiosk/KioskCheckinPage";
@@ -306,106 +289,23 @@ export default function App() {
                   path="/angrybox/hr"
                   element={<Navigate to="/hr" replace />}
                 />
-                <Route element={<HrLayout />}>
-                  <Route path="/hr" element={<HrHomeRedirect />} />
-                  <Route path="/hr/antigo" element={<LegacyHrRedirect />} />
-                  <Route
-                    path="/hr/overview"
-                    element={
-                      <HrProvider>
-                        <OverviewView />
-                      </HrProvider>
-                    }
-                  />
-                  <Route
-                    path="/hr/overview/shifts-to-review"
-                    element={
-                      <HrProvider>
-                        <ShiftsToReviewView />
-                      </HrProvider>
-                    }
-                  />
-                  <Route
-                    path="/hr/people"
-                    element={
-                      <HrProvider>
-                        <PeopleListView />
-                      </HrProvider>
-                    }
-                  />
-                  <Route
-                    path="/hr/people/cargos"
-                    element={
-                      <HrProvider>
-                        <PositionsView />
-                      </HrProvider>
-                    }
-                  />
-                  <Route
-                    path="/hr/people/documentos"
-                    element={
-                      <HrProvider>
-                        <PeopleDocumentsView />
-                      </HrProvider>
-                    }
-                  />
-                  <Route
-                    path="/hr/people/:id"
-                    element={
-                      <HrProvider>
-                        <EmployeeProfileView />
-                      </HrProvider>
-                    }
-                  />
-                  <Route
-                    path="/hr/schedules"
-                    element={
-                      <HrProvider>
-                        <SchedulesView />
-                      </HrProvider>
-                    }
-                  />
-                  <Route path="/hr/calendar" element={<HrCalendarPage />} />
-                  <Route
-                    path="/hr/ferias"
-                    element={
-                      <HrProvider>
-                        <LeaveView />
-                      </HrProvider>
-                    }
-                  />
-                  <Route path="/hr/relatorio" element={<Navigate to="/hr/assiduidade" replace />} />
-                  <Route
-                    path="/hr/assiduidade"
-                    element={
-                      <HrProvider>
-                        <AttendanceView />
-                      </HrProvider>
-                    }
-                  />
-                  <Route
-                    path="/hr/assiduidade/colaborador/:employeeId"
-                    element={
-                      <HrProvider>
-                        <AttendanceEmployeeDetailView />
-                      </HrProvider>
-                    }
-                  />
-                  <Route
-                    path="/hr/pedidos"
-                    element={
-                      <HrProvider>
-                        <HrRequestsView />
-                      </HrProvider>
-                    }
-                  />
-                  <Route path="/hr/historico" element={<HrAuditLogPage />} />
-                  <Route path="/hr/novo/*" element={<NovoRhPage />} />
-                  <Route
-                    path="/hr/employees/:id"
-                    element={<HrEmployeeDetailPage />}
-                  />
-                </Route>
+                {/* RH antigo retirado do menu (2026-10-22): os caminhos antigos abrem o ecrã equivalente do Novo RH. O código
+                    antigo só se apaga quando o quiosque existir no Novo RH (ADR-0040, fases 3–4). */}
+                <Route path="/hr" element={<Navigate to="/hr/novo" replace />} />
+                <Route path="/hr/antigo" element={<Navigate to="/hr/novo" replace />} />
+                <Route path="/hr/overview/*" element={<Navigate to="/hr/novo" replace />} />
+                <Route path="/hr/people/cargos" element={<Navigate to="/hr/novo/estrutura" replace />} />
+                <Route path="/hr/people/documentos" element={<Navigate to="/hr/novo/documentos" replace />} />
+                <Route path="/hr/people/*" element={<Navigate to="/hr/novo/pessoas" replace />} />
+                <Route path="/hr/employees/*" element={<Navigate to="/hr/novo/pessoas" replace />} />
+                <Route path="/hr/schedules" element={<Navigate to="/hr/novo/escalas" replace />} />
+                <Route path="/hr/calendar" element={<Navigate to="/hr/novo/escalas" replace />} />
+                <Route path="/hr/ferias" element={<Navigate to="/hr/novo/ausencias" replace />} />
+                <Route path="/hr/relatorio" element={<Navigate to="/hr/novo/assiduidade" replace />} />
+                <Route path="/hr/assiduidade/*" element={<Navigate to="/hr/novo/assiduidade" replace />} />
+                <Route path="/hr/pedidos" element={<Navigate to="/hr/novo/pedidos" replace />} />
+                <Route path="/hr/historico" element={<Navigate to="/hr/novo/auditoria" replace />} />
+                <Route path="/hr/novo/*" element={<NovoRhPage />} />
                 <Route element={<CrmLayout />}>
                   <Route path="/crm" element={<CrmDashboardPage />} />
                   <Route path="/crm/customers" element={<CrmCustomersPage />} />

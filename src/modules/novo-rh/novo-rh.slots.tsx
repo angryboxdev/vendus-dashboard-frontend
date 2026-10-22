@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Button } from "../../components/ui/index.ts";
 import { CompanyDocumentsView } from "../documents/adapters/in/CompanyDocumentsView.tsx";
 import { EmployeeDocumentsPanel } from "../documents/adapters/in/EmployeeDocumentsPanel.tsx";
+import { EmployeeArchiveView } from "../documents/adapters/in/EmployeeArchiveView.tsx";
 import { ImportPayslipsModal } from "../documents/adapters/in/ImportPayslipsModal.tsx";
 import { DocumentsProvider, EmployeeDocumentsProvider } from "../documents/documents.module.tsx";
 
@@ -10,6 +11,15 @@ export function PersonDocumentsSlot({ personId }: { personId: string }) {
   return (
     <EmployeeDocumentsProvider>
       <EmployeeDocumentsPanel employeeId={personId} />
+    </EmployeeDocumentsProvider>
+  );
+}
+
+/** Documentos dos colaboradores por pastas; o nome abre a ficha no separador Documentos. */
+export function EmployeeArchiveSlot() {
+  return (
+    <EmployeeDocumentsProvider>
+      <EmployeeArchiveView personHref={(id) => `/hr/novo/pessoas/${encodeURIComponent(id)}?tab=documents`} />
     </EmployeeDocumentsProvider>
   );
 }

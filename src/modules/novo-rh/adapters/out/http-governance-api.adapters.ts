@@ -49,6 +49,9 @@ export class HttpStructureApiAdapter implements StructureApiPort {
   listAssignments(employeeId: string) {
     return apiGet<Assignment[]>(`${S}/assignments${qs({ employeeId })}`);
   }
+  listAllAssignments() {
+    return apiGet<Assignment[]>(`${S}/assignments`);
+  }
   async assign(input: { employeeId: string; unitType: UnitType; unitId: string; validFrom: string; validTo: string | null }) {
     return (await apiWrite<Assignment>(`${S}/assignments`, { body: input })).data;
   }
