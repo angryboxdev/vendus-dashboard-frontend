@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useI18n } from "../../../../../i18n/I18nProvider.tsx";
 import type { MessageKey } from "../../../../../i18n/i18n.ts";
 import { AlertBanner, AppIcon, Button, FIELD, LABEL, SURFACE, type AppIconKey } from "../../../../../components/ui/index.ts";
@@ -28,6 +28,8 @@ export function PersonDataTab({ data, locations, onDirtyChange }: { data: Versio
   const [draft, setDraft] = useState<PersonDraft>(() => draftOf(p));
   const [reason, setReason] = useState("");
   const [current, setCurrent] = useState<SectionKey>("identity");
+  // Cargos ativos (Configurações → Estrutura → Cargos); o atual fica visível mesmo se tiver sido desativado.
+  const positions = useQuery({ queryKey: ["novo-rh", "catalog", "positions"], queryFn: () => people.listPositions() });
   const refs = useRef<Partial<Record<SectionKey, HTMLElement | null>>>({});
   const changes = changedFields(p, draft);
   const dirty = Object.keys(changes).length > 0;
@@ -143,6 +145,16 @@ export function PersonDataTab({ data, locations, onDirtyChange }: { data: Versio
                       <p id={id} className="text-sm text-stone-400">
                         {t("people.hiddenValue")}
                       </p>
+                    ) : type === "position" ? (
+                      <select id={id} className={`${FIELD} w-full`} value={draft[field] ?? ""} onChange={(e) => setDraft({ ...draft, [field]: e.target.value })}>
+                        <option value="">{t("common.none")}</option>
+                        {p.positionId && !(positions.data ?? []).some((x) => x.id === p.positionId) && <option value={p.positionId}>{t("people.position.inactive")}</option>}
+                        {(positions.data ?? []).map((x) => (
+                          <option key={x.id} value={x.id}>
+                            {x.name}
+                          </option>
+                        ))}
+                      </select>
                     ) : type === "select" ? (
                       <>
                         <select id={id} className={`${FIELD} w-full`} value={draft[field] ?? ""} disabled={!!p.primaryLocationId} onChange={(e) => setDraft({ ...draft, [field]: e.target.value })}>

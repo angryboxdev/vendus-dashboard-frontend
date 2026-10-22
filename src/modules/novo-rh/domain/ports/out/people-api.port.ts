@@ -10,6 +10,7 @@ import type {
   ManagerLink,
   Person,
   VersionedPerson,
+  PositionDetail,
 } from "../../entities/people.ts";
 
 /** Novo RH → Pessoas e catálogos. */
@@ -47,6 +48,11 @@ export interface PeopleApiPort {
 
   /** Cargos ativos (catálogo do Novo RH). */
   listPositions(): Promise<{ id: string; name: string }[]>;
+  /** Gestão de cargos (ativos e inativos, com o n.º de colaboradores). */
+  listPositionDetails(): Promise<PositionDetail[]>;
+  createPosition(input: { name: string; description: string | null }): Promise<PositionDetail>;
+  updatePosition(id: string, input: { name?: string; description?: string | null }): Promise<PositionDetail>;
+  setPositionActive(id: string, active: boolean): Promise<PositionDetail>;
   listAgreements(): Promise<Agreement[]>;
   createAgreement(input: { name: string; code: string | null }): Promise<Agreement>;
   archiveAgreement(id: string): Promise<void>;

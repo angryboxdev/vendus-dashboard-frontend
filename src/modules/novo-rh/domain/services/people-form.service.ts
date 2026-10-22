@@ -2,7 +2,7 @@ import type { Person, PersonField } from "../entities/people.ts";
 import { compactIban, ibanToSave } from "./person-fields.service.ts";
 
 /** Secções da ficha (ordem do ecrã). `type` decide o controlo. */
-export const PERSON_SECTIONS: { key: "identity" | "contact" | "address" | "work" | "pay"; fields: { field: PersonField; type: "text" | "date" | "email" | "number" | "select" }[] }[] = [
+export const PERSON_SECTIONS: { key: "identity" | "contact" | "address" | "work" | "pay"; fields: { field: PersonField; type: "text" | "date" | "email" | "number" | "select" | "position" }[] }[] = [
   {
     key: "identity",
     fields: [
@@ -38,6 +38,7 @@ export const PERSON_SECTIONS: { key: "identity" | "contact" | "address" | "work"
     fields: [
       { field: "hireDate", type: "date" },
       { field: "primaryLocationId", type: "select" },
+      { field: "positionId", type: "position" },
     ],
   },
   {

@@ -1752,6 +1752,8 @@ export const ptPT = {
   "arep.col.excused": "Ausências",
   "arep.col.punctuality": "Pontualidade",
   "novoRh.tab.orgChart": "Organograma",
+  "people.field.positionId": "Cargo",
+  "people.position.inactive": "Cargo atual (desativado)",
 } as const;
 
 export type MessageKey = keyof typeof ptPT;

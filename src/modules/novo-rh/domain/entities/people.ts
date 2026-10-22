@@ -130,3 +130,14 @@ export interface VersionedPerson {
   person: Person;
   etag: string | null;
 }
+
+/** Cargo (Configurações → Estrutura → Cargos; `/api/novo-rh/positions`). Cargo ≠ permissão. */
+export interface PositionDetail {
+  id: string;
+  name: string;
+  description: string | null;
+  active: boolean;
+  /** Colaboradores ativos com este cargo. */
+  employeeCount: number;
+  updatedAt: string;
+}
