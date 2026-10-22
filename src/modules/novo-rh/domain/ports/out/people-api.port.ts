@@ -36,8 +36,8 @@ export interface PeopleApiPort {
   endManager(id: string, linkId: string, validTo: string): Promise<ManagerLink>;
   /** Organograma: chefias diretas em vigor num dia (só entre quem se pode ver). */
   orgChart(date: string): Promise<{ employeeId: string; managerEmployeeId: string; linkId: string; validFrom: string }[]>;
-  /** Organograma: mudar a chefia direta a partir de `validFrom` (`null` = sem chefia). */
-  setDirectManager(id: string, managerEmployeeId: string | null, validFrom: string): Promise<ManagerLink | null>;
+  /** Organograma: responsáveis diretos a partir de `validFrom` (lista completa; vazia = sem chefia; vários = co-chefia). */
+  setDirectManagers(id: string, managerEmployeeIds: string[], validFrom: string): Promise<ManagerLink[]>;
 
   listCompensations(id: string): Promise<CompensationAssignment[]>;
   assignCompensation(id: string, input: { itemId: string; amount: number | null; validFrom: string; validTo: string | null }): Promise<CompensationAssignment>;

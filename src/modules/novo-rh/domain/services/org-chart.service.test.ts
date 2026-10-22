@@ -38,4 +38,20 @@ describe("Organograma — árvores", () => {
     expect([...hits]).toEqual(["c"]);
     expect([...open]).toEqual(["company", "unit:Sem centro"]);
   });
+
+  it("co-chefia: quem reporta aos dois sócios fica por baixo de um cartão conjunto, com a equipa por baixo", () => {
+    const people = [p("raul", "Raul"), p("bruno", "Bruno"), p("gab", "Gabriel"), p("x", "Xana"), p("y", "Yuri")];
+    const tree = managersTree("Empresa Demo", people, [
+      { employeeId: "gab", managerEmployeeId: "raul" },
+      { employeeId: "gab", managerEmployeeId: "bruno" },
+      { employeeId: "x", managerEmployeeId: "gab" },
+      { employeeId: "y", managerEmployeeId: "raul" },
+    ]);
+    expect(tree.children.map((n) => [n.kind, n.label])).toEqual([["group", "Bruno + Raul"]]);
+    const group = tree.children[0]!;
+    expect(group.children.map((n) => n.label)).toEqual(["Gabriel", "Yuri"]);
+    expect(group.children[0]!.children.map((n) => n.label)).toEqual(["Xana"]);
+    expect(teamSize(tree)).toBe(5);
+    expect([...descendants(tree, "raul")].sort()).toEqual(["gab", "x", "y"]);
+  });
 });
