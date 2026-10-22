@@ -35,6 +35,8 @@ export interface StructureApiPort {
   createGroup(input: GroupInput): Promise<Group>;
   updateGroup(g: Group, patch: Partial<GroupInput> & { archived?: boolean }): Promise<Group>;
   listAssignments(employeeId: string): Promise<Assignment[]>;
+  /** Todas as pertenças da organização (Análise da equipa: por departamento e grupo). */
+  listAllAssignments(): Promise<Assignment[]>;
   assign(input: { employeeId: string; unitType: UnitType; unitId: string; validFrom: string; validTo: string | null }): Promise<Assignment>;
   endAssignment(id: string, validTo: string): Promise<Assignment>;
   listContacts(): Promise<Contact[]>;

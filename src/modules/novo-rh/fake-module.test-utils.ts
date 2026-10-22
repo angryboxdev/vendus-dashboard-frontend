@@ -56,6 +56,7 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       createGroup: vi.fn(),
       updateGroup: vi.fn(),
       listAssignments: none(),
+      listAllAssignments: none(),
       assign: vi.fn(),
       endAssignment: vi.fn(),
       listContacts: none(),
