@@ -1695,6 +1695,9 @@ export const ptPT = {
   "stats.absences": "Ausências aprovadas no período",
   "stats.noAbsences": "Sem ausências aprovadas neste período.",
   "stats.note.noSchedule": "Sem horário atribuído nem turnos publicados neste período: o programado fica a 0 e as horas trabalhadas contam na mesma.",
+  "novoRh.tab.more": "Mais",
+  "docs.area.people": "Colaboradores",
+  "docs.area.company": "Empresa",
 } as const;
 
 export type MessageKey = keyof typeof ptPT;

@@ -34,3 +34,25 @@ export function documentFolderOf(category: string, requiresPeriod = false): Docu
   if (requiresPeriod) return "payslips";
   return BY_SLUG[category] ?? "other";
 }
+
+export interface FolderPerson {
+  employeeId: string;
+  employeeName: string;
+  count: number;
+  lastUploadedAt: string;
+}
+
+/** Pasta → colaboradores com documentos nela (quantidade e último arquivamento), por nome. */
+export function archiveByFolder(rows: { employeeId: string; employeeName: string; category: string; requiresPeriod: boolean; count: number; lastUploadedAt: string }[]): Record<DocumentFolder, FolderPerson[]> {
+  const out = Object.fromEntries(DOCUMENT_FOLDERS.map((f) => [f.key, new Map<string, FolderPerson>()])) as Record<DocumentFolder, Map<string, FolderPerson>>;
+  for (const r of rows) {
+    const people = out[documentFolderOf(r.category, r.requiresPeriod)];
+    const cur = people.get(r.employeeId) ?? { employeeId: r.employeeId, employeeName: r.employeeName, count: 0, lastUploadedAt: r.lastUploadedAt };
+    cur.count += r.count;
+    if (r.lastUploadedAt > cur.lastUploadedAt) cur.lastUploadedAt = r.lastUploadedAt;
+    people.set(r.employeeId, cur);
+  }
+  return Object.fromEntries(
+    Object.entries(out).map(([k, m]) => [k, [...m.values()].sort((a, b) => a.employeeName.localeCompare(b.employeeName, "pt"))]),
+  ) as Record<DocumentFolder, FolderPerson[]>;
+}

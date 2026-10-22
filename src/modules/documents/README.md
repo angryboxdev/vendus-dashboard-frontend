@@ -49,8 +49,14 @@ Documentos), vindos do módulo `hr` (que mantém as suas cópias até à fase 3)
 - `CompanyDocumentDrawer` — novo documento ou renovação.
 - `EmployeeDocumentsPanel` — separador Documentos da ficha do Novo RH; pastas (2026-10-22: Documentos pessoais, Contrato e trabalho, Recibos e faturas, Saúde e formação, Outros — `domain/services/document-folders.service.ts`) só agrupam e filtram a lista pela categoria; categorias periódicas vão para Recibos, as da empresa e «Outro» para Outros. Sem pasta de fotos do ponto (não há fotos nas marcações)
   (encaixado pelo slot `personDocuments`); sem histórico antigo.
+- `EmployeeArchiveView` — Novo RH → Mais → Documentos → Colaboradores (slot
+  `employeeArchive`, 2026-10-22): pastas com n.º de colaboradores e documentos;
+  abrir uma pasta lista os colaboradores (ícone de pasta, quantidade, último
+  arquivamento, pesquisa); o nome abre a ficha (`personHref`, dado pela raiz).
+  Dados de `getDocumentArchive()` → `GET /api/novo-rh/documents/archive`,
+  agrupados por `archiveByFolder`.
 - `ImportPayslipsModal` — «Importar recibos» (slot `payslipImport` em Novo
-  RH → Documentos). `EmployeeDocumentsProvider` / `useEmployeeDocuments`.
+  RH → Mais → Documentos → Colaboradores). `EmployeeDocumentsProvider` / `useEmployeeDocuments`.
 ### Saída
 - `HttpCompanyDocumentsApiAdapter` (multipart via `apiPostFormData`).
 - `InMemoryCompanyDocumentsApiAdapter` — testes (dados fictícios).

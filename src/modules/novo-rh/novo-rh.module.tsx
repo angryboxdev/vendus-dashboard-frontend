@@ -67,11 +67,12 @@ import { InvitationsView } from "./adapters/in/people/InvitationsView.tsx";
 import { JoinView } from "./adapters/in/people/JoinView.tsx";
 import { NovoRhSlotsContext, type NovoRhSlots } from "./adapters/in/slots.ts";
 import { ClockWidget } from "./adapters/in/attendance/ClockWidget.tsx";
-import { CompanyDocumentsSlot, PayslipImportSlot, PersonDocumentsSlot } from "./novo-rh.slots.tsx";
+import { CompanyDocumentsSlot, EmployeeArchiveSlot, PayslipImportSlot, PersonDocumentsSlot } from "./novo-rh.slots.tsx";
 
 /** Ecrãs de outros módulos encaixados no Novo RH (ver `slots.ts`). */
 const SLOTS: NovoRhSlots = {
   personDocuments: (personId) => <PersonDocumentsSlot personId={personId} />,
+  employeeArchive: () => <EmployeeArchiveSlot />,
   companyDocuments: () => <CompanyDocumentsSlot />,
   payslipImport: () => <PayslipImportSlot />,
 };

@@ -8,6 +8,8 @@ import { createContext, useContext, type ReactNode } from "react";
 export interface NovoRhSlots {
   /** Documentos da ficha (módulo `documents`, FE-022; ADR-0040 fase 1). */
   personDocuments?: (personId: string) => ReactNode;
+  /** Documentos dos colaboradores por pastas (módulo `documents`, Mais → Documentos). */
+  employeeArchive?: () => ReactNode;
   /** Documentos da empresa (módulo `documents`, FE-065). */
   companyDocuments?: () => ReactNode;
   /** «Importar recibos» (módulo `documents`). */

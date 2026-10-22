@@ -69,7 +69,10 @@ function PersonFile({ id }: { id: string }) {
   const { t } = useI18n();
   const { people, settings } = useNovoRh();
   const qc = useQueryClient();
-  const [tab, setTab] = useState<Tab>("data");
+  const [tab, setTab] = useState<Tab>(() => {
+    const asked = new URLSearchParams(window.location.search).get("tab") as Tab | null;
+    return asked && asked in TAB_LABEL ? asked : "data";
+  });
   const [dataDirty, setDataDirty] = useState(false);
   const [reason, setReason] = useState("");
   const [toggleOpen, setToggleOpen] = useState(false);

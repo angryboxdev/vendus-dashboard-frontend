@@ -22,19 +22,18 @@ const STOCK_ITEMS: NavItem[] = [
   { kind: "item", path: "/stock/planeamento", label: "Planeamento" },
 ];
 
-/** Ecrãs do RH antigo: juntos em "RH antigo", com separadores no topo (`HrLayout`). */
+/** Caminhos do RH antigo (hoje redirecionam para o Novo RH). */
 export const LEGACY_HR_PATHS = ["/hr/overview", "/hr/people", "/hr/schedules", "/hr/calendar", "/hr/ferias", "/hr/assiduidade", "/hr/pedidos", "/hr/historico", "/hr/employees"] as const;
 
-// Recursos Humanos: as áreas do Novo RH são os módulos principais; "RH antigo" fica no fim
-// (pedido do utilizador em 2026-10-14: manter visível para consulta).
+// Recursos Humanos: as áreas do Novo RH. «Mais» junta Documentos, Relatórios e Organograma;
+// o «RH antigo» saiu do menu (pedido do utilizador em 2026-10-22; os caminhos antigos redirecionam).
 const HR_ITEMS: NavItem[] = [
   { kind: "item", path: "/hr/novo", label: "Visão geral", end: true, icon: "overview" },
   { kind: "item", path: "/hr/novo/pessoas", label: "Colaboradores", icon: "people" },
   { kind: "item", path: "/hr/novo/escalas", label: "Escalas", icon: "rosters" },
   { kind: "item", path: "/hr/novo/assiduidade", label: "Assiduidade", icon: "attendance" },
   { kind: "item", path: "/hr/novo/ausencias", label: "Ausências", icon: "absences" },
-  { kind: "item", path: "/hr/novo/documentos", label: "Documentos", icon: "documents" },
-  { kind: "item", path: "/hr/antigo", label: "RH antigo", icon: "legacy", badgeKey: "hr-requests", match: LEGACY_HR_PATHS },
+  { kind: "item", path: "/hr/novo/documentos", label: "Mais", icon: "more", match: ["/hr/novo/documentos", "/hr/novo/relatorios", "/hr/novo/organograma"] },
 ];
 
 const CRM_ITEMS: NavItem[] = [

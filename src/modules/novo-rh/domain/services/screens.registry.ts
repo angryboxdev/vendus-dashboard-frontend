@@ -5,11 +5,11 @@ import type { MessageKey } from "../../../../i18n/i18n.ts";
  * os separadores de cada área, a pesquisa "Ir para…" e o título do documento.
  *
  * Navegação MVP: 6 áreas (Visão geral | Colaboradores | Escalas | Assiduidade |
- * Ausências | Documentos) + Pedidos e Configurações à direita. O resto vive
+ * Ausências | Mais — Documentos, Relatórios, Organograma) + Pedidos e Configurações à direita. O resto vive
  * dentro da área certa; os caminhos antigos redirecionam (`LEGACY_REDIRECTS`).
  * Só navegação: as permissões continuam a ser validadas no servidor.
  */
-export type Area = "overview" | "people" | "rosters" | "attendance" | "absences" | "documents" | "inbox" | "settings" | "other";
+export type Area = "overview" | "people" | "rosters" | "attendance" | "absences" | "more" | "inbox" | "settings" | "other";
 
 export interface Screen {
   /** Só aparece com esta funcionalidade ligada na empresa (ex.: banco de horas). */
@@ -35,7 +35,7 @@ export const MAIN_NAV: MainNavItem[] = [
   { area: "rosters", path: "/hr/novo/escalas", label: "novoRh.tab.rosters" },
   { area: "attendance", path: "/hr/novo/assiduidade", label: "novoRh.tab.attendance" },
   { area: "absences", path: "/hr/novo/ausencias", label: "novoRh.tab.absences" },
-  { area: "documents", path: "/hr/novo/documentos", label: "novoRh.tab.documents" },
+  { area: "more", path: "/hr/novo/documentos", label: "novoRh.tab.more" },
 ];
 
 export const SCREENS: Screen[] = [
@@ -53,7 +53,8 @@ export const SCREENS: Screen[] = [
   { path: "/hr/novo/assiduidade/relatorios", label: "novoRh.tab.reports", area: "attendance", tab: true },
   { path: "/hr/novo/ausencias", label: "novoRh.tab.absences", area: "absences", tab: true, end: true },
   { path: "/hr/novo/ausencias/relatorios", label: "novoRh.tab.reports", area: "absences", tab: true },
-  { path: "/hr/novo/documentos", label: "novoRh.tab.documents", area: "documents", tab: false },
+  { path: "/hr/novo/documentos", label: "novoRh.tab.documents", area: "more", tab: true },
+  { path: "/hr/novo/relatorios", label: "novoRh.tab.reports", area: "more", tab: true },
   { path: "/hr/novo/pedidos", label: "novoRh.tab.inbox", area: "inbox", tab: false },
   { path: "/hr/novo/notificacoes", label: "notifications.title", area: "other", tab: false },
   { path: "/hr/novo/configuracoes", label: "novoRh.tab.settingsGeneral", area: "settings", tab: true },
@@ -64,7 +65,6 @@ export const SCREENS: Screen[] = [
   { path: "/hr/novo/alertas", label: "novoRh.tab.alerts", area: "settings", tab: true },
   { path: "/hr/novo/auditoria", label: "novoRh.tab.audit", area: "settings", tab: true },
   // Ocultos no MVP (implementação mantida; abrem por ligação ou pesquisa).
-  { path: "/hr/novo/relatorios", label: "novoRh.tab.reportsAll", area: "other", tab: false },
   { path: "/hr/novo/comunicados", label: "novoRh.tab.announcements", area: "other", tab: false },
   { path: "/hr/novo/tarefas", label: "novoRh.tab.workspace", area: "other", tab: false },
 ];
