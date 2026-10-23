@@ -1,0 +1,604 @@
+/*
+ * Cenário do login (LoginScene.tsx). Estilos só desta rota: o ficheiro vem no
+ * chunk `lazy` do cenário. Cores pelos tokens do Design System (index.css).
+ *
+ * Desempenho: só se animam `transform` e `opacity`, só no painel/conector sob
+ * o rato, e cada efeito corre uma vez (nada contínuo em repouso). Sombras e
+ * realces são camadas estáticas cuja opacidade varia. Sem backdrop-filter.
+ * Medidas em `--u` = 1 píxel da imagem de referência (o palco escala como
+ * `cover`).
+ */
+
+.ls-root {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  user-select: none;
+}
+
+.ls-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.ls-bg--mobile {
+  object-position: 50% 60%;
+}
+
+.ls-stage {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: max(100vw, 177.683vh);
+  aspect-ratio: 1672 / 941;
+  transform: translate(-50%, -50%);
+  container-type: inline-size;
+  --u: calc(100cqw / 1672);
+  font-family: Poppins, ui-sans-serif, system-ui, sans-serif;
+  color: rgb(var(--text-primary));
+}
+
+/* ---------- Conectores ---------- */
+.ls-defs {
+  position: absolute;
+}
+.ls-link {
+  position: absolute;
+  z-index: 0;
+  overflow: visible;
+}
+.ls-link path {
+  fill: none;
+  stroke-linecap: round;
+}
+.ls-link__base {
+  stroke-width: 2.2;
+}
+.ls-link__active {
+  stroke-width: 2.6;
+  opacity: 0;
+}
+.ls-link__pulse {
+  stroke: rgb(var(--brand-500));
+  stroke-width: 4;
+  stroke-dasharray: 70 1000;
+  stroke-dashoffset: 70;
+  opacity: 0;
+}
+.ls-stop-brand {
+  stop-color: rgb(var(--brand-600));
+}
+.ls-stop-navy {
+  stop-color: rgb(var(--navy-800));
+}
+.ls-node__ring {
+  fill: rgb(var(--surface-card) / 0.55);
+  stroke: rgb(var(--surface-card) / 0.95);
+  stroke-width: 2.5;
+}
+.ls-node__dot {
+  fill: rgb(var(--navy-800) / 0.55);
+  transition: fill 220ms ease-out;
+}
+
+/* ---------- Painéis ---------- */
+/*
+ * Transformações com valores fixos (sem var()/unidades de contentor) para a
+ * transição ser composta. Os da esquerda recuam para a direita e vice-versa
+ * (perspetiva da referência); a origem fica no lado do conector.
+ */
+.ls-panel {
+  position: absolute;
+  z-index: 1;
+  pointer-events: auto;
+  cursor: default;
+  border-radius: calc(var(--u) * 18);
+  transition: transform 220ms cubic-bezier(0.2, 0.7, 0.3, 1);
+  will-change: transform;
+}
+.ls-panel--left {
+  transform: perspective(1600px) rotateY(-7deg);
+  transform-origin: 100% 50%;
+}
+.ls-panel--right {
+  transform: perspective(1600px) rotateY(7deg);
+  transform-origin: 0% 50%;
+}
+.ls-panel__body {
+  position: relative;
+  padding: calc(var(--u) * 14) calc(var(--u) * 18);
+  border-radius: inherit;
+  background: rgb(var(--surface-card) / 0.9);
+  border: 1px solid rgb(var(--surface-card) / 0.8);
+  box-shadow: 0 calc(var(--u) * 10) calc(var(--u) * 30) rgb(var(--navy-950) / 0.12);
+}
+/* Realce: sombra maior e contorno em camadas estáticas; só a opacidade muda. */
+.ls-panel::before,
+.ls-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  opacity: 0;
+  pointer-events: none;
+}
+/* will-change: camada própria, rasterizada uma vez; a opacidade só é composta. */
+.ls-panel::before {
+  box-shadow: 0 calc(var(--u) * 18) calc(var(--u) * 44) rgb(var(--navy-950) / 0.2);
+  transition: opacity 220ms ease-out;
+  will-change: opacity;
+}
+.ls-panel::after {
+  border: calc(var(--u) * 1.5) solid rgb(var(--brand-500) / 0.55);
+  z-index: 1;
+  will-change: opacity;
+}
+
+.ls-head {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 12);
+  margin-bottom: calc(var(--u) * 8);
+}
+.ls-head__icon svg {
+  display: block;
+  width: calc(var(--u) * 26);
+  height: calc(var(--u) * 26);
+}
+.ls-head__title {
+  font-size: calc(var(--u) * 18);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: rgb(var(--navy-950));
+}
+.ls-tone-brand {
+  color: rgb(var(--brand-600));
+}
+.ls-tone-navy {
+  color: rgb(var(--navy-800));
+}
+
+/* Linhas internas: realce discreto da linha sob o rato. */
+/* Realce da linha: camada sempre presente (sem layout no hover); só a opacidade muda. */
+.ls-row {
+  position: relative;
+  z-index: 0;
+  border-radius: calc(var(--u) * 10);
+}
+.ls-row::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: rgb(var(--shift-afternoon-bg) / 0.75);
+  box-shadow: inset calc(var(--u) * 3) 0 0 rgb(var(--brand-500));
+  opacity: 0;
+}
+.ls-list {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 3);
+}
+
+.ls-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: calc(var(--u) * 4);
+  justify-self: end;
+  white-space: nowrap;
+  border-radius: 999px;
+  padding: calc(var(--u) * 4) calc(var(--u) * 11);
+  font-size: calc(var(--u) * 12);
+  font-weight: 500;
+}
+.ls-pill--ok {
+  background: rgb(var(--shift-split-bg));
+  color: rgb(var(--shift-split-ink));
+}
+.ls-pill--info {
+  background: rgb(var(--shift-afternoon-bg));
+  color: rgb(var(--shift-afternoon-ink));
+}
+.ls-pill--brand {
+  background: rgb(var(--brand-100));
+  color: rgb(var(--brand-600));
+}
+.ls-pill__icon {
+  width: calc(var(--u) * 13);
+  height: calc(var(--u) * 13);
+}
+
+/* Visão Geral */
+.ls-tabs {
+  display: flex;
+  gap: calc(var(--u) * 6);
+  margin-bottom: calc(var(--u) * 14);
+}
+.ls-tab {
+  padding: calc(var(--u) * 5) calc(var(--u) * 22);
+  border-radius: calc(var(--u) * 10);
+  font-size: calc(var(--u) * 13);
+  color: rgb(var(--text-secondary));
+}
+.ls-tab--on {
+  background: rgb(var(--brand-100));
+  color: rgb(var(--brand-600));
+  font-weight: 500;
+}
+.ls-overview {
+  display: grid;
+  grid-template-columns: 1fr calc(var(--u) * 150);
+  gap: calc(var(--u) * 18);
+}
+.ls-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: calc(var(--u) * 12);
+  height: calc(var(--u) * 116);
+  padding: 0 calc(var(--u) * 6) calc(var(--u) * 6);
+  border-bottom: 1px solid rgb(var(--border-soft));
+}
+.ls-bar {
+  flex: 1;
+  border-radius: calc(var(--u) * 3) calc(var(--u) * 3) 0 0;
+  background: rgb(var(--navy-800));
+}
+.ls-bar--brand {
+  background: rgb(var(--brand-600));
+}
+.ls-kpis {
+  display: flex;
+  flex-direction: column;
+  gap: calc(var(--u) * 8);
+}
+.ls-kpi {
+  display: flex;
+  gap: calc(var(--u) * 10);
+  padding: calc(var(--u) * 6);
+}
+.ls-kpi + .ls-kpi {
+  border-top: 1px solid rgb(var(--border-subtle));
+}
+.ls-kpi__icon {
+  flex: none;
+  width: calc(var(--u) * 26);
+  height: calc(var(--u) * 26);
+}
+.ls-kpi__value {
+  font-size: calc(var(--u) * 19);
+  font-weight: 600;
+  line-height: 1.2;
+  color: rgb(var(--navy-950));
+}
+.ls-kpi__label {
+  font-size: calc(var(--u) * 11);
+  line-height: 1.3;
+  color: rgb(var(--text-secondary));
+}
+
+/* Pedidos */
+.ls-order {
+  display: grid;
+  grid-template-columns: calc(var(--u) * 62) 1fr calc(var(--u) * 26) calc(var(--u) * 132);
+  align-items: center;
+  gap: calc(var(--u) * 12);
+  padding: calc(var(--u) * 4) calc(var(--u) * 6);
+}
+.ls-order__img {
+  width: calc(var(--u) * 64);
+  height: calc(var(--u) * 40);
+  border-radius: calc(var(--u) * 8);
+  object-fit: cover;
+}
+.ls-order__name,
+.ls-stock__name,
+.ls-money__label {
+  white-space: nowrap;
+  font-size: calc(var(--u) * 14);
+  color: rgb(var(--text-primary));
+}
+.ls-order__qty,
+.ls-stock__qty {
+  font-size: calc(var(--u) * 14);
+  color: rgb(var(--text-primary));
+  text-align: right;
+}
+.ls-order .ls-pill {
+  justify-content: center;
+}
+
+/* Financeiro */
+.ls-revenue {
+  display: grid;
+  grid-template-columns: 1fr calc(var(--u) * 130);
+  align-items: end;
+  gap: calc(var(--u) * 8);
+  padding: calc(var(--u) * 10) calc(var(--u) * 12);
+  margin-bottom: calc(var(--u) * 8);
+  border-radius: calc(var(--u) * 12);
+  background: rgb(var(--surface-app) / 0.8);
+}
+.ls-revenue__label {
+  font-size: calc(var(--u) * 13);
+  color: rgb(var(--text-secondary));
+}
+.ls-revenue__value {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 8);
+  font-size: calc(var(--u) * 22);
+  font-weight: 600;
+  color: rgb(var(--navy-950));
+}
+.ls-revenue__value .ls-pill {
+  font-size: calc(var(--u) * 11.5);
+  padding: calc(var(--u) * 2) calc(var(--u) * 8);
+}
+.ls-revenue__side {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: calc(var(--u) * 6);
+}
+.ls-chip {
+  padding: calc(var(--u) * 3) calc(var(--u) * 12);
+  border-radius: calc(var(--u) * 8);
+  background: rgb(var(--surface-card));
+  font-size: calc(var(--u) * 12);
+  color: rgb(var(--text-primary));
+}
+.ls-spark {
+  width: calc(var(--u) * 120);
+  height: calc(var(--u) * 40);
+}
+.ls-spark__bar {
+  fill: rgb(var(--brand-100));
+}
+.ls-spark__line {
+  fill: none;
+  stroke: rgb(var(--brand-600));
+  stroke-width: 2.4;
+  stroke-linecap: round;
+}
+.ls-money {
+  display: grid;
+  grid-template-columns: calc(var(--u) * 24) 1fr auto calc(var(--u) * 48);
+  align-items: center;
+  gap: calc(var(--u) * 12);
+  padding: calc(var(--u) * 6);
+}
+.ls-money__dot {
+  display: grid;
+  place-items: center;
+  width: calc(var(--u) * 24);
+  height: calc(var(--u) * 24);
+  border-radius: 999px;
+  color: rgb(var(--surface-card));
+}
+.ls-money__dot svg {
+  width: calc(var(--u) * 14);
+  height: calc(var(--u) * 14);
+}
+.ls-money__dot--up {
+  background: rgb(var(--brand-600));
+}
+.ls-money__dot--down {
+  background: rgb(185 28 28); /* vermelho de estado (Tailwind red-700), como no kit */
+}
+.ls-money__dot--muted {
+  background: rgb(var(--text-muted));
+}
+.ls-money__value {
+  font-size: calc(var(--u) * 14);
+  color: rgb(var(--text-primary));
+}
+.ls-money__delta {
+  font-size: calc(var(--u) * 13);
+  text-align: right;
+}
+.ls-money__delta--up {
+  color: rgb(var(--shift-split-ink));
+}
+.ls-money__delta--down {
+  color: rgb(185 28 28);
+}
+
+/* Stock */
+.ls-stock {
+  display: grid;
+  grid-template-columns: calc(var(--u) * 26) 1fr calc(var(--u) * 44) calc(var(--u) * 84);
+  align-items: center;
+  gap: calc(var(--u) * 12);
+  padding: calc(var(--u) * 3) calc(var(--u) * 6);
+}
+.ls-stock__img {
+  width: calc(var(--u) * 26);
+  height: calc(var(--u) * 26);
+  object-fit: contain;
+}
+.ls-meter {
+  position: relative;
+  height: calc(var(--u) * 7);
+  border-radius: 999px;
+  background: rgb(var(--border-soft));
+  overflow: hidden;
+}
+.ls-meter__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  border-radius: inherit;
+}
+.ls-meter__fill--ok {
+  background: rgb(var(--shift-split-line));
+}
+.ls-meter__fill--brand {
+  background: rgb(var(--brand-500));
+}
+
+/* RH */
+.ls-hr {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--u) * 12);
+  padding: calc(var(--u) * 5) calc(var(--u) * 12);
+  background: rgb(var(--surface-app) / 0.75);
+}
+.ls-hr__icon {
+  flex: none;
+  width: calc(var(--u) * 24);
+  height: calc(var(--u) * 24);
+}
+.ls-hr__title {
+  font-size: calc(var(--u) * 13.5);
+  font-weight: 500;
+  color: rgb(var(--navy-950));
+}
+.ls-hr__sub {
+  font-size: calc(var(--u) * 11);
+  line-height: 1.3;
+  color: rgb(var(--text-secondary));
+}
+
+/* Delivery */
+.ls-delivery {
+  display: grid;
+  grid-template-columns: calc(var(--u) * 140) 1fr auto;
+  align-items: center;
+  gap: calc(var(--u) * 14);
+  margin: calc(var(--u) * -4) 0 calc(var(--u) * -14) calc(var(--u) * -2);
+}
+.ls-delivery__rider {
+  width: calc(var(--u) * 140);
+  height: calc(var(--u) * 89);
+}
+
+/* ---------- Entrada (uma vez, breve, sem bloquear o formulário) ---------- */
+@media (prefers-reduced-motion: no-preference) {
+  .ls-panel,
+  .ls-link {
+    animation: ls-enter 520ms ease-out both;
+  }
+  .ls-panel--orders,
+  .ls-panel--stock {
+    animation-delay: 60ms;
+  }
+  .ls-panel--rh,
+  .ls-panel--delivery {
+    animation-delay: 120ms;
+  }
+}
+@keyframes ls-enter {
+  from {
+    opacity: 0;
+  }
+}
+
+/* ---------- Hover: só rato/trackpad (touch não simula hover) ---------- */
+@media (hover: hover) and (pointer: fine) {
+  .ls-panel--left:hover {
+    transform: perspective(1600px) rotateY(-7deg) translateY(-3px) scale(1.012);
+  }
+  .ls-panel--right:hover {
+    transform: perspective(1600px) rotateY(7deg) translateY(-3px) scale(1.012);
+  }
+  .ls-panel:hover::before {
+    opacity: 1;
+  }
+  .ls-row:hover::before {
+    opacity: 1;
+  }
+
+  .ls-panel:hover + .ls-link .ls-link__active {
+    opacity: 1;
+  }
+  .ls-panel:hover + .ls-link .ls-node__dot {
+    fill: rgb(var(--navy-800));
+  }
+}
+
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+  .ls-panel:hover::after {
+    animation: ls-panel-pulse 650ms ease-out 1 both;
+  }
+  .ls-panel:hover + .ls-link .ls-link__pulse {
+    animation: ls-link-pulse 900ms ease-in-out 1 both;
+  }
+}
+@keyframes ls-panel-pulse {
+  0% {
+    opacity: 0;
+  }
+  35% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.45;
+  }
+}
+@keyframes ls-link-pulse {
+  0% {
+    stroke-dashoffset: 70;
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.9;
+  }
+  85% {
+    opacity: 0.9;
+  }
+  100% {
+    stroke-dashoffset: -1000;
+    opacity: 0;
+  }
+}
+
+/* Movimento reduzido: sem elevação, pulso nem entrada; fica só o realce estático. */
+@media (prefers-reduced-motion: reduce) {
+  .ls-panel,
+  .ls-panel::before,
+  .ls-node__dot {
+    transition: none;
+  }
+  .ls-panel--left:hover {
+    transform: perspective(1600px) rotateY(-7deg);
+  }
+  .ls-panel--right:hover {
+    transform: perspective(1600px) rotateY(7deg);
+  }
+  .ls-panel:hover::after {
+    opacity: 0.45;
+  }
+}
+
+/* Alturas da referência: cada painel cobre por inteiro a sua zona no fundo. */
+.ls-panel__body {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(var(--u) * var(--h));
+}
+.ls-panel--overview { --h: 258; }
+.ls-panel--orders { --h: 236; }
+.ls-panel--finance { --h: 284; }
+.ls-panel--stock { --h: 222; }
+.ls-panel--rh { --h: 154; }
+.ls-panel--delivery { --h: 162; }
+.ls-panel__body > :last-child {
+  margin-top: auto;
+}
+.ls-panel--orders .ls-list,
+.ls-panel--stock .ls-list {
+  flex: 1;
+  justify-content: space-around;
+}
+.ls-panel--orders .ls-order {
+  grid-template-columns: calc(var(--u) * 62) 1fr calc(var(--u) * 24) calc(var(--u) * 124);
+}
+.ls-order .ls-pill {
+  justify-self: stretch;
+  padding-inline: 0;
+  font-size: calc(var(--u) * 11.5);
+}
