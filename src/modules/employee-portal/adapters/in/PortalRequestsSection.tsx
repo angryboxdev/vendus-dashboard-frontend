@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { REQUEST_REASONS, type MyRequest, type RequestKind } from "../../domain/entities/portal.ts";
 import { addDays, dayLabel, shiftHours } from "../../domain/services/portal-text.service.ts";
+import { FOCUS_RING, IconCalendar, IconChevronRight, IconHistory } from "../../../../components/ui";
 import { useEmployeePortalModule } from "../../employee-portal.module.tsx";
 import { todayLisbon } from "./portal-today.ts";
 import { PeriodSheet } from "./PeriodSheet.tsx";
@@ -18,11 +19,11 @@ const STATUS: Record<MyRequest["status"], { label: string; cls: string }> = {
   pending: { label: "Pendente", cls: "bg-amber-50 text-amber-800" },
   approved: { label: "Aprovado", cls: "bg-emerald-50 text-emerald-800" },
   rejected: { label: "Rejeitado", cls: "bg-red-50 text-red-800" },
-  cancelled: { label: "Cancelado", cls: "bg-stone-100 text-stone-600" },
+  cancelled: { label: "Cancelado", cls: "bg-surface-soft text-ink-secondary" },
 };
 
-const inputCls = "w-full rounded-lg border border-stone-300 bg-white px-3 py-2 text-sm";
-const labelCls = "mb-1 block text-xs font-medium text-stone-700";
+const inputCls = `min-h-11 w-full rounded-xl border border-line bg-surface-card px-3 py-2 text-base text-ink sm:text-sm ${FOCUS_RING}`;
+const labelCls = "mb-1 block text-xs font-medium text-ink";
 
 function ReasonFields({ kind, code, text, onCode, onText }: { kind: RequestKind; code: string; text: string; onCode: (c: string) => void; onText: (t: string) => void }) {
   return (
@@ -90,7 +91,7 @@ function JustifyForm({ onDone }: { onDone: () => void }) {
             </option>
           ))}
         </select>
-        {shifts && past.length === 0 && <p className="mt-1 text-xs text-stone-500">Sem turnos nos últimos {JUSTIFY_LOOKBACK_DAYS} dias.</p>}
+        {shifts && past.length === 0 && <p className="mt-1 text-xs text-ink-secondary">Sem turnos nos últimos {JUSTIFY_LOOKBACK_DAYS} dias.</p>}
       </div>
       <ReasonFields kind="justify_absence" code={code} text={text} onCode={setCode} onText={setText} />
       <div>
@@ -105,10 +106,10 @@ function JustifyForm({ onDone }: { onDone: () => void }) {
         </p>
       )}
       <div className="flex gap-2">
-        <button type="submit" disabled={!shiftId || !code || create.isPending} className="rounded-lg bg-[#ED5C32] px-4 py-2 text-sm font-medium text-white disabled:opacity-50">
+        <button type="submit" disabled={!shiftId || !code || create.isPending} className="min-h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white disabled:opacity-50">
           {create.isPending ? "A enviar…" : "Enviar ao RH"}
         </button>
-        <button type="button" onClick={onDone} className="rounded-lg border border-stone-200 px-4 py-2 text-sm text-stone-600">
+        <button type="button" onClick={onDone} className="min-h-11 rounded-xl border border-line px-4 text-sm text-ink-secondary">
           Cancelar
         </button>
       </div>
@@ -143,15 +144,16 @@ function DayOffForm({ onDone }: { onDone: () => void }) {
         <button
           type="button"
           onClick={() => setPicking(true)}
-          className={`flex w-full items-center justify-between rounded-lg border bg-white px-3 py-2.5 text-left text-sm ${period ? "border-[#ED5C32] text-stone-900" : "border-stone-300 text-stone-500"}`}
+          className={`flex min-h-11 w-full items-center justify-between rounded-xl border bg-surface-card px-3 py-2.5 text-left text-sm ${FOCUS_RING} ${period ? "border-brand-500 text-navy-900" : "border-line text-ink-secondary"}`}
         >
-          <span>
-            📅 {period ? (period.start === period.end ? shortDate(period.start) : `${shortDate(period.start)} → ${shortDate(period.end)}`) : "Escolher dias"}
+          <span className="flex items-center gap-2">
+            <IconCalendar size={16} />
+            {period ? (period.start === period.end ? shortDate(period.start) : `${shortDate(period.start)} → ${shortDate(period.end)}`) : "Escolher dias"}
           </span>
-          <span className="text-stone-400">›</span>
+          <IconChevronRight size={16} className="text-ink-muted" />
         </button>
         {period && (
-          <p className="mt-1 text-xs text-stone-500">
+          <p className="mt-1 text-xs text-ink-secondary">
             {daysInclusive(period.start, period.end)} {daysInclusive(period.start, period.end) === 1 ? "dia" : "dias"}
           </p>
         )}
@@ -163,14 +165,14 @@ function DayOffForm({ onDone }: { onDone: () => void }) {
         </p>
       )}
       <div className="grid grid-cols-2 gap-2">
-        <button type="submit" disabled={!period || !code || create.isPending} className="rounded-lg bg-[#ED5C32] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50">
+        <button type="submit" disabled={!period || !code || create.isPending} className="min-h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white disabled:opacity-50">
           {create.isPending ? "A enviar…" : "Enviar pedido"}
         </button>
-        <button type="button" onClick={onDone} className="rounded-lg border border-stone-200 px-4 py-2.5 text-sm text-stone-600">
+        <button type="button" onClick={onDone} className="min-h-11 rounded-xl border border-line px-4 text-sm text-ink-secondary">
           Cancelar
         </button>
       </div>
-      <p className="text-xs text-stone-500">Vai para o gerente. Se for aprovado, ele ajusta a escala desses dias.</p>
+      <p className="text-xs text-ink-secondary">Vai para o gerente. Se for aprovado, ele ajusta a escala desses dias.</p>
       {picking && (
         <PeriodSheet
           initial={{ start: period?.start ?? null, end: period?.end ?? null }}
@@ -191,12 +193,14 @@ function DayOffForm({ onDone }: { onDone: () => void }) {
 function NewRequestCard({ onDone }: { onDone: () => void }) {
   const [kind, setKind] = useState<RequestKind>("day_off");
   return (
-    <section className="space-y-3 rounded-2xl border border-[#F5C992]/50 bg-white p-4 shadow-sm" aria-label="Novo pedido">
+    <section className="space-y-3 rounded-2xl border border-line bg-surface-card p-4 shadow-card" aria-label="Novo pedido">
       <div className="flex items-center gap-3">
-        <span className="flex h-10 w-10 items-center justify-center rounded-full bg-orange-50 text-lg">📅</span>
+        <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-50 text-brand-600">
+          <IconCalendar size={20} />
+        </span>
         <div>
-          <p className="text-base font-semibold text-stone-900">Novo pedido</p>
-          <p className="text-xs text-stone-500">Peça uma folga ou justifique uma falta.</p>
+          <p className="text-base font-semibold text-navy-900">Novo pedido</p>
+          <p className="text-xs text-ink-secondary">Peça uma folga ou justifique uma falta.</p>
         </div>
       </div>
       <div>
@@ -225,21 +229,21 @@ function RequestItem({ r }: { r: MyRequest }) {
   return (
     <li className="px-4 py-3">
       <div className="flex items-center gap-3">
-        <span className="text-stone-400">📅</span>
-        <p className="min-w-0 flex-1 text-sm text-stone-900">{periodLabel(r.startDate, r.endDate)}</p>
-        <span className="flex items-center gap-1.5 text-xs text-stone-600">
+        <IconCalendar size={16} className="shrink-0 text-ink-muted" />
+        <p className="min-w-0 flex-1 text-sm text-navy-900">{periodLabel(r.startDate, r.endDate)}</p>
+        <span className="flex items-center gap-1.5 text-xs text-ink-secondary">
           <span className={`h-2 w-2 rounded-full ${isDayOff ? "bg-orange-500" : "bg-emerald-500"}`} />
           {isDayOff ? "Folga" : "Justificação"}
         </span>
         <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${st.cls}`}>{st.label}</span>
       </div>
-      <p className="mt-1 pl-7 text-xs text-stone-500">
+      <p className="mt-1 pl-7 text-xs text-ink-secondary">
         {r.reasonLabel}
         {r.attachmentName && " · com comprovativo"}
       </p>
-      {r.decisionNote && <p className={`pl-7 text-xs ${r.status === "rejected" ? "text-red-700" : "text-stone-600"}`}>{r.decisionNote}</p>}
+      {r.decisionNote && <p className={`pl-7 text-xs ${r.status === "rejected" ? "text-red-700" : "text-ink-secondary"}`}>{r.decisionNote}</p>}
       {r.status === "pending" && (
-        <button type="button" disabled={cancel.isPending} onClick={() => cancel.mutate()} className="mt-1 pl-7 text-xs font-medium text-stone-500 underline disabled:opacity-50">
+        <button type="button" disabled={cancel.isPending} onClick={() => cancel.mutate()} className={`ml-6 mt-1 inline-flex min-h-11 items-center rounded-lg px-1 text-sm font-medium text-ink-secondary underline disabled:opacity-50 ${FOCUS_RING}`}>
           Cancelar pedido
         </button>
       )}
@@ -255,30 +259,33 @@ export function PortalRequestsSection() {
 
   return (
     <section className="space-y-3" aria-label="Pedidos">
-      <h1 className="text-base font-semibold text-stone-900">Pedidos</h1>
+      <h1 className="text-lg font-bold text-navy-900">Pedidos</h1>
       {creating ? (
         <NewRequestCard onDone={() => setCreating(false)} />
       ) : (
-        <button type="button" onClick={() => setCreating(true)} className="w-full rounded-xl bg-[#ED5C32] px-3 py-3 text-sm font-semibold text-white shadow-sm">
+        <button type="button" onClick={() => setCreating(true)} className={`h-12 w-full rounded-2xl bg-brand-600 px-3 text-sm font-semibold text-white active:bg-brand-500 ${FOCUS_RING}`}>
           + Novo pedido
         </button>
       )}
 
       {isLoading ? (
-        <p className="text-sm text-stone-500">A carregar…</p>
+        <p className="text-sm text-ink-secondary">A carregar…</p>
       ) : isError ? (
         <p className="text-sm text-red-700">Não foi possível carregar os pedidos.</p>
       ) : data && data.length > 0 ? (
-        <div className="rounded-2xl border border-[#F5C992]/50 bg-white shadow-sm">
-          <p className="border-b border-stone-100 px-4 py-3 text-sm font-semibold text-stone-900">🕘 Pedidos recentes</p>
-          <ul className="divide-y divide-stone-100">
+        <div className="rounded-2.5xl border border-line bg-surface-card shadow-card">
+          <p className="flex items-center gap-2 border-b border-line-subtle px-4 py-3 text-sm font-semibold text-navy-900">
+            <IconHistory size={16} className="text-ink-secondary" />
+            Pedidos recentes
+          </p>
+          <ul className="divide-y divide-line-subtle">
             {data.map((r) => (
               <RequestItem key={r.id} r={r} />
             ))}
           </ul>
         </div>
       ) : (
-        <p className="text-sm text-stone-500">Ainda não fez nenhum pedido.</p>
+        <p className="text-sm text-ink-secondary">Ainda não fez nenhum pedido.</p>
       )}
     </section>
   );

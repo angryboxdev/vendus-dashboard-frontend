@@ -4,9 +4,9 @@ import { missingAnswers, missingRequired, type MyTask, type RequestForm } from "
 import { PortalRequestError } from "../../domain/entities/portal.ts";
 import { useEmployeePortalModule } from "../../employee-portal.module.tsx";
 
-const CARD = "rounded-2xl border border-[#F5C992]/50 bg-white p-4 shadow-sm";
-const FIELD = "w-full rounded-xl border border-stone-300 bg-white px-3 py-2 text-sm text-stone-700";
-const PRIMARY = "rounded-xl bg-[#ED5C32] px-3 py-2 text-sm font-medium text-white disabled:opacity-50";
+const CARD = "rounded-2xl border border-line bg-surface-card p-4 shadow-card";
+const FIELD = "min-h-11 w-full rounded-xl border border-line bg-surface-card px-3 py-2 text-base text-ink sm:text-sm";
+const PRIMARY = "min-h-11 rounded-xl bg-brand-600 px-4 text-sm font-medium text-white disabled:opacity-50";
 const day = (iso: string | null) => (iso ? iso.slice(0, 10).split("-").reverse().join("/") : "");
 const time = (iso: string) => new Intl.DateTimeFormat("pt-PT", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/Lisbon" }).format(new Date(iso));
 const message = (e: unknown) => (e instanceof Error ? e.message : "Não foi possível concluir.");
@@ -17,9 +17,9 @@ const message = (e: unknown) => (e instanceof Error ? e.message : "Não foi poss
 export function PortalTasksView() {
   const { engagement } = useEmployeePortalModule();
   const { data, isLoading, isError } = useQuery({ queryKey: ["portal-tasks"], queryFn: () => engagement.tasks(), retry: false });
-  if (isLoading) return <p className="text-sm text-stone-500">A carregar…</p>;
+  if (isLoading) return <p className="text-sm text-ink-secondary">A carregar…</p>;
   if (isError || !data) return <p className="text-sm text-red-700">Não foi possível carregar as tarefas.</p>;
-  if (data.length === 0) return <p className="text-sm text-stone-500">Não tem tarefas atribuídas.</p>;
+  if (data.length === 0) return <p className="text-sm text-ink-secondary">Não tem tarefas atribuídas.</p>;
   return (
     <div className="space-y-3">
       {data.map((t) => (
@@ -40,18 +40,18 @@ function TaskCard({ task }: { task: MyTask }) {
   return (
     <article className={`${CARD} space-y-2`} aria-label={task.title}>
       <div>
-        <p className={`text-sm font-semibold ${open ? "text-stone-900" : "text-stone-500 line-through"}`}>{task.title}</p>
-        {task.dueAt && <p className="text-xs text-stone-500">Prazo: {day(task.dueAt)}</p>}
-        {task.description && <p className="text-sm text-stone-700">{task.description}</p>}
+        <p className={`text-sm font-semibold ${open ? "text-navy-900" : "text-ink-secondary line-through"}`}>{task.title}</p>
+        {task.dueAt && <p className="text-xs text-ink-secondary">Prazo: {day(task.dueAt)}</p>}
+        {task.description && <p className="text-sm text-ink">{task.description}</p>}
       </div>
       <ul className="space-y-1">
         {task.checklist.map((i) => (
           <li key={i.id}>
-            <label className="flex items-start gap-2 text-sm text-stone-700">
-              <input type="checkbox" className="mt-1" checked={i.done} disabled={!open || toggle.isPending} onChange={(e) => toggle.mutate({ itemId: i.id, done: e.target.checked })} />
+            <label className="flex items-start gap-2 text-sm text-ink">
+              <input type="checkbox" className="mt-0.5 h-5 w-5 accent-brand-600" checked={i.done} disabled={!open || toggle.isPending} onChange={(e) => toggle.mutate({ itemId: i.id, done: e.target.checked })} />
               <span>
                 {i.text}
-                {i.required && <span className="ml-1 text-xs text-[#C2410C]">(obrigatório)</span>}
+                {i.required && <span className="ml-1 text-xs text-brand-600">(obrigatório)</span>}
               </span>
             </label>
           </li>
@@ -62,7 +62,7 @@ function TaskCard({ task }: { task: MyTask }) {
           Concluir tarefa
         </button>
       )}
-      {open && missing.length > 0 && <p className="text-xs text-stone-500">Faltam {missing.length} item(ns) obrigatório(s).</p>}
+      {open && missing.length > 0 && <p className="text-xs text-ink-secondary">Faltam {missing.length} item(ns) obrigatório(s).</p>}
       {(toggle.isError || complete.isError) && <p className="text-sm text-red-700">{message(toggle.error ?? complete.error)}</p>}
     </article>
   );
@@ -82,12 +82,12 @@ export function PortalCustomRequestsView() {
   return (
     <div className="space-y-4">
       <section className={`${CARD} space-y-3`} aria-label="Nova solicitação">
-        <h2 className="text-sm font-semibold text-stone-900">Nova solicitação</h2>
+        <h2 className="text-sm font-semibold text-navy-900">Nova solicitação</h2>
         {forms.isError && <p className="text-sm text-red-700">Não foi possível carregar os formulários.</p>}
-        {forms.data && forms.data.length === 0 && <p className="text-sm text-stone-500">A empresa ainda não criou formulários.</p>}
+        {forms.data && forms.data.length === 0 && <p className="text-sm text-ink-secondary">A empresa ainda não criou formulários.</p>}
         {forms.data && forms.data.length > 0 && (
           <label className="block">
-            <span className="mb-1 block text-xs font-medium text-stone-600">Formulário</span>
+            <span className="mb-1 block text-xs font-medium text-ink-secondary">Formulário</span>
             <select className={FIELD} value={formId} onChange={(e) => setFormId(e.target.value)}>
               <option value="">Escolher…</option>
               {forms.data.map((f) => (
@@ -101,16 +101,16 @@ export function PortalCustomRequestsView() {
         {form && <CustomRequestForm key={form.id} form={form} onSent={() => setFormId("")} />}
       </section>
       <section className="space-y-2" aria-label="As minhas solicitações">
-        <h2 className="text-sm font-semibold text-stone-900">As minhas solicitações</h2>
-        {mine.data && mine.data.length === 0 && <p className="text-sm text-stone-500">Ainda não fez solicitações.</p>}
+        <h2 className="text-sm font-semibold text-navy-900">As minhas solicitações</h2>
+        {mine.data && mine.data.length === 0 && <p className="text-sm text-ink-secondary">Ainda não fez solicitações.</p>}
         {(mine.data ?? []).map((r) => (
           <article key={r.id} className={CARD}>
-            <p className="text-sm font-medium text-stone-900">{forms.data?.find((f) => f.id === r.formId)?.title ?? "Solicitação"}</p>
-            <p className="text-xs text-stone-500">
+            <p className="text-sm font-medium text-navy-900">{forms.data?.find((f) => f.id === r.formId)?.title ?? "Solicitação"}</p>
+            <p className="text-xs text-ink-secondary">
               {day(r.createdAt)} · {STATUS[r.status]}
               {r.status === "pending" && r.dueAt && ` · resposta até ${day(r.dueAt)}`}
             </p>
-            {r.decisionComment && <p className="mt-1 text-sm text-stone-700">{r.decisionComment}</p>}
+            {r.decisionComment && <p className="mt-1 text-sm text-ink">{r.decisionComment}</p>}
           </article>
         ))}
       </section>
@@ -140,17 +140,17 @@ function CustomRequestForm({ form, onSent }: { form: RequestForm; onSent: () => 
         if (!missingAnswers(form, answers).length) send.mutate();
       }}
     >
-      {form.responseDays && <p className="text-xs text-stone-500">Resposta prevista em {form.responseDays} dia(s).</p>}
+      {form.responseDays && <p className="text-xs text-ink-secondary">Resposta prevista em {form.responseDays} dia(s).</p>}
       {form.fields.map((f) => (
         <fieldset key={f.id} className="space-y-1">
-          <legend className="text-sm font-medium text-stone-800">
+          <legend className="text-sm font-medium text-ink">
             {f.title}
-            {f.required && <span className="text-[#C2410C]"> *</span>}
+            {f.required && <span className="text-brand-600"> *</span>}
           </legend>
           {f.type === "text" && <textarea className={FIELD} rows={2} aria-label={f.title} value={String(answers[f.id] ?? "")} onChange={(e) => setAnswers({ ...answers, [f.id]: e.target.value })} />}
           {f.type === "single" &&
             f.options.map((o) => (
-              <label key={o} className="flex items-center gap-2 text-sm text-stone-700">
+              <label key={o} className="flex items-center gap-2 text-sm text-ink">
                 <input type="radio" name={f.id} checked={answers[f.id] === o} onChange={() => setAnswers({ ...answers, [f.id]: o })} />
                 {o}
               </label>
@@ -159,7 +159,7 @@ function CustomRequestForm({ form, onSent }: { form: RequestForm; onSent: () => 
             f.options.map((o) => {
               const cur = Array.isArray(answers[f.id]) ? (answers[f.id] as string[]) : [];
               return (
-                <label key={o} className="flex items-center gap-2 text-sm text-stone-700">
+                <label key={o} className="flex items-center gap-2 text-sm text-ink">
                   <input type="checkbox" checked={cur.includes(o)} onChange={(e) => setAnswers({ ...answers, [f.id]: e.target.checked ? [...cur, o] : cur.filter((x) => x !== o) })} />
                   {o}
                 </label>
@@ -184,19 +184,19 @@ const STATE = { work: "A trabalhar", remote: "Remoto", break_paid: "Em pausa", b
 export function PortalTeamView() {
   const { engagement } = useEmployeePortalModule();
   const { data, isLoading, error } = useQuery({ queryKey: ["portal-whos-in"], queryFn: () => engagement.whosIn(), retry: false, refetchInterval: 60_000 });
-  if (isLoading) return <p className="text-sm text-stone-500">A carregar…</p>;
+  if (isLoading) return <p className="text-sm text-ink-secondary">A carregar…</p>;
   // FE-116: secção desligada pela empresa → "não disponível", nunca "não encontrada".
-  if (error instanceof PortalRequestError) return <p className="text-sm text-stone-600">Esta secção não está disponível.</p>;
+  if (error instanceof PortalRequestError) return <p className="text-sm text-ink-secondary">Esta secção não está disponível.</p>;
   if (error || !data) return <p className="text-sm text-red-700">Não foi possível carregar quem está.</p>;
   return (
     <section className={`${CARD} space-y-2`} aria-label="Quem está">
-      <p className="text-xs text-stone-500">{data.scope === "own_location" ? "A mostrar só o seu centro." : "A mostrar toda a empresa."}</p>
-      {data.people.length === 0 && <p className="text-sm text-stone-500">Ninguém registou entrada ainda.</p>}
-      <ul className="divide-y divide-stone-100">
+      <p className="text-xs text-ink-secondary">{data.scope === "own_location" ? "A mostrar só o seu centro." : "A mostrar toda a empresa."}</p>
+      {data.people.length === 0 && <p className="text-sm text-ink-secondary">Ninguém registou entrada ainda.</p>}
+      <ul className="divide-y divide-line-subtle">
         {data.people.map((p) => (
           <li key={p.employeeId} className="flex items-center justify-between py-2 text-sm">
-            <span className="text-stone-800">{p.name}</span>
-            <span className="text-xs text-stone-500">
+            <span className="text-ink">{p.name}</span>
+            <span className="text-xs text-ink-secondary">
               {STATE[p.state] ?? p.state} · desde {time(p.since)}
             </span>
           </li>

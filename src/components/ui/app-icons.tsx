@@ -36,6 +36,13 @@ import {
   UserPlus,
   Users,
   Wallet,
+  House,
+  ClipboardList,
+  Megaphone,
+  ListChecks,
+  MessageSquareText,
+  UserRound,
+  ChevronRight,
 } from "lucide-react";
 
 /**
@@ -90,6 +97,14 @@ export const APP_ICONS = {
   address: wrap(MapPin),
   work: wrap(Briefcase),
   pay: wrap(CreditCard),
+  // Portal do Colaborador (barra de baixo e «Mais»).
+  home: wrap(House),
+  requests: wrap(ClipboardList),
+  news: wrap(Megaphone),
+  tasks: wrap(ListChecks),
+  customRequests: wrap(MessageSquareText),
+  profile: wrap(UserRound),
+  chevronRight: wrap(ChevronRight),
 } as const;
 
 export type AppIconKey = keyof typeof APP_ICONS;

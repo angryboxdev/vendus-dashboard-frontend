@@ -40,29 +40,29 @@ function ReplaceForm({ doc, onDone, onCancel }: { doc: MyDocument; onDone: () =>
     if (file) send.mutate();
   };
   return (
-    <form onSubmit={submit} className="space-y-2 border-t border-stone-100 bg-stone-50/60 px-4 py-3">
-      <label className="block text-xs font-medium text-stone-700" htmlFor={`file-${doc.id}`}>
+    <form onSubmit={submit} className="space-y-2 border-t border-line-subtle bg-surface-soft/60 px-4 py-3">
+      <label className="block text-xs font-medium text-ink" htmlFor={`file-${doc.id}`}>
         Novo ficheiro (PDF ou foto)
       </label>
       <input id={`file-${doc.id}`} type="file" accept="application/pdf,image/jpeg,image/png" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="block w-full text-xs" />
-      <label className="block text-xs font-medium text-stone-700" htmlFor={`exp-${doc.id}`}>
+      <label className="block text-xs font-medium text-ink" htmlFor={`exp-${doc.id}`}>
         Nova data de validade (se souber)
       </label>
-      <input id={`exp-${doc.id}`} type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} className="rounded-md border border-stone-300 px-2 py-1 text-sm" />
+      <input id={`exp-${doc.id}`} type="date" value={expiresAt} onChange={(e) => setExpiresAt(e.target.value)} className="rounded-md border border-line px-2 py-1 text-sm" />
       {send.isError && (
         <p role="alert" className="text-xs text-red-700">
           {send.error instanceof Error ? send.error.message : "Não foi possível enviar."}
         </p>
       )}
       <div className="flex gap-2">
-        <button type="submit" disabled={!file || send.isPending} className="rounded-lg bg-[#ED5C32] px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
+        <button type="submit" disabled={!file || send.isPending} className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white disabled:opacity-50">
           {send.isPending ? "A enviar…" : "Enviar"}
         </button>
-        <button type="button" onClick={onCancel} className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs text-stone-600">
+        <button type="button" onClick={onCancel} className="rounded-lg border border-line px-3 py-1.5 text-xs text-ink-secondary">
           Cancelar
         </button>
       </div>
-      <p className="text-xs text-stone-500">Depois de enviado, fica a aguardar validação do RH e não pode ser removido.</p>
+      <p className="text-xs text-ink-secondary">Depois de enviado, fica a aguardar validação do RH e não pode ser removido.</p>
     </form>
   );
 }
@@ -76,14 +76,14 @@ function DocumentRow({ doc, title, today, onOpen, busy }: { doc: MyDocument; tit
     <li>
       <div className="flex items-center justify-between gap-3 px-4 py-3">
         <div className="min-w-0">
-          <p className="truncate text-sm font-medium text-stone-900">{title}</p>
+          <p className="truncate text-sm font-medium text-navy-900">{title}</p>
           {pending ? (
             <p className="text-xs font-medium text-sky-700">Em validação pelo RH</p>
           ) : (
             <>
               {expiry === "expired" && <p className="text-xs font-medium text-red-700">Vencido a {dateLabel(doc.expiresAt!)}</p>}
               {expiry === "expiring" && <p className="text-xs font-medium text-amber-700">Vence a {dateLabel(doc.expiresAt!)}</p>}
-              {expiry === "ok" && doc.expiresAt && <p className="text-xs text-stone-500">Válido até {dateLabel(doc.expiresAt)}</p>}
+              {expiry === "ok" && doc.expiresAt && <p className="text-xs text-ink-secondary">Válido até {dateLabel(doc.expiresAt)}</p>}
             </>
           )}
           {doc.lastRejection && !pending && <p className="text-xs text-red-700">Envio rejeitado: {doc.lastRejection.note}</p>}
@@ -91,11 +91,11 @@ function DocumentRow({ doc, title, today, onOpen, busy }: { doc: MyDocument; tit
         </div>
         <div className="flex shrink-0 gap-2">
           {doc.canReplace && !replacing && (
-            <button type="button" onClick={() => setReplacing(true)} className="rounded-lg bg-[#ED5C32] px-3 py-1.5 text-xs font-medium text-white">
+            <button type="button" onClick={() => setReplacing(true)} className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-medium text-white">
               Substituir
             </button>
           )}
-          <button type="button" onClick={onOpen} disabled={busy} className="rounded-lg border border-stone-200 px-3 py-1.5 text-xs font-medium text-stone-700 disabled:opacity-50">
+          <button type="button" onClick={onOpen} disabled={busy} className="rounded-lg border border-line px-3 py-1.5 text-xs font-medium text-ink disabled:opacity-50">
             {busy ? "A abrir…" : "Abrir"}
           </button>
         </div>
@@ -130,7 +130,7 @@ export function PortalDocumentsView() {
       .finally(() => setOpening(null));
   };
 
-  if (isLoading) return <p className="text-sm text-stone-500">A carregar…</p>;
+  if (isLoading) return <p className="text-sm text-ink-secondary">A carregar…</p>;
   if (isError || !data) return <p className="text-sm text-red-700">Não foi possível carregar os documentos.</p>;
   const { payslips, others } = splitDocuments(data);
 
@@ -142,11 +142,11 @@ export function PortalDocumentsView() {
         </p>
       )}
       <section>
-        <h1 className="mb-2 text-base font-semibold text-stone-900">Recibos</h1>
+        <h1 className="mb-2 text-base font-semibold text-navy-900">Recibos</h1>
         {payslips.length === 0 ? (
-          <p className="rounded-2xl border border-[#F5C992]/50 bg-white p-4 text-sm text-stone-600">Ainda não há recibos.</p>
+          <p className="rounded-2xl border border-line bg-surface-card p-4 text-sm text-ink-secondary">Ainda não há recibos.</p>
         ) : (
-          <ul className="divide-y divide-stone-100 rounded-2xl border border-[#F5C992]/50 bg-white shadow-sm" aria-label="Recibos">
+          <ul className="divide-y divide-line-subtle rounded-2xl border border-line bg-surface-card shadow-card" aria-label="Recibos">
             {payslips.map((d) => (
               <DocumentRow key={d.id} doc={d} title={`${d.period ? periodLabel(d.period) : ""} · ${d.categoryLabel}`} today={today} onOpen={() => open(d.id)} busy={opening === d.id} />
             ))}
@@ -154,11 +154,11 @@ export function PortalDocumentsView() {
         )}
       </section>
       <section>
-        <h2 className="mb-2 text-base font-semibold text-stone-900">Documentos</h2>
+        <h2 className="mb-2 text-base font-semibold text-navy-900">Documentos</h2>
         {others.length === 0 ? (
-          <p className="rounded-2xl border border-[#F5C992]/50 bg-white p-4 text-sm text-stone-600">Sem documentos.</p>
+          <p className="rounded-2xl border border-line bg-surface-card p-4 text-sm text-ink-secondary">Sem documentos.</p>
         ) : (
-          <ul className="divide-y divide-stone-100 rounded-2xl border border-[#F5C992]/50 bg-white shadow-sm" aria-label="Documentos">
+          <ul className="divide-y divide-line-subtle rounded-2xl border border-line bg-surface-card shadow-card" aria-label="Documentos">
             {others.map((d) => (
               <DocumentRow key={d.id} doc={d} title={d.categoryLabel} today={today} onOpen={() => open(d.id)} busy={opening === d.id} />
             ))}
