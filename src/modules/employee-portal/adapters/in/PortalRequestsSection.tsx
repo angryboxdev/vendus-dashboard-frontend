@@ -74,7 +74,7 @@ function JustifyForm({ onDone }: { onDone: () => void }) {
     e.preventDefault();
     create.mutate();
   };
-  const past = [...(shifts ?? [])].reverse();
+  const past = [...(shifts ?? [])].filter((s) => s.kind !== "day_off").reverse();
 
   return (
     <form onSubmit={submit} className="space-y-3" aria-label="Justificar falta">

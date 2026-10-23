@@ -23,6 +23,8 @@ export interface PortalShift {
   secondEndTime: string | null;
   locationId: string;
   locationName: string;
+  /** Novo RH: todos os períodos do turno (pode haver mais de dois). */
+  segments?: { start: string; end: string }[];
 }
 
 export interface PortalHome {
@@ -84,6 +86,10 @@ export class PortalOfflineError extends Error {
 
 export interface MyShift extends PortalShift {
   id: string;
+  /** Novo RH: uma folga publicada também conta (sem horas). Sem valor = turno. */
+  kind?: "shift" | "day_off";
+  areaName?: string | null;
+  template?: { name: string; abbreviation: string; color: string | null } | null;
 }
 
 /** Quem trabalha comigo — só nome curto, cargo e horário (o servidor não manda mais nada). */

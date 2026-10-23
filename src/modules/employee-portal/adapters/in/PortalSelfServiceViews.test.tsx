@@ -9,6 +9,7 @@ import { EmployeePortalProvider, type EmployeePortalModule } from "../../employe
 import { PortalDocumentsView } from "./PortalDocumentsView.tsx";
 import { PortalLeaveView } from "./PortalLeaveView.tsx";
 import { PortalScheduleView } from "./PortalScheduleView.tsx";
+import { addDays, mondayOf } from "../../domain/services/portal-text.service.ts";
 import { todayLisbon } from "./portal-today.ts";
 
 // Dados fictícios (RGPD).
@@ -55,6 +56,26 @@ describe("PortalScheduleView", () => {
   it("semana sem turnos", async () => {
     renderWith(<PortalScheduleView />, { listShifts: vi.fn(async () => []) });
     expect(await screen.findByText("Sem turnos publicados nesta semana.")).toBeInTheDocument();
+  });
+
+  it("folga, modelo e área, e os dias sem escala da semana", async () => {
+    const dayOff: MyShift = { ...SHIFT, id: "f1", kind: "day_off", startTime: "", endTime: "", segments: [] };
+    const withTemplate: MyShift = { ...SHIFT, areaName: "Bar", template: { name: "Manhã", abbreviation: "M", color: "#2a78d6" } };
+    const other = today === addDays(mondayOf(today), 6) ? addDays(today, -1) : addDays(today, 1);
+    renderWith(<PortalScheduleView />, { listShifts: vi.fn(async () => [withTemplate, { ...dayOff, workDate: other }]) });
+    expect(await screen.findByText("Hoje · 09:00–17:00")).toBeInTheDocument();
+    expect(screen.getByText("Manhã")).toBeInTheDocument();
+    expect(screen.getByText("Loja Teste · Bar")).toBeInTheDocument();
+    expect(screen.getByText(/· Folga$/)).toBeInTheDocument();
+    expect(screen.getAllByText(/Sem turno publicado$/)).toHaveLength(5);
+  });
+
+  it("erro: mostra «Tentar novamente» e volta a pedir", async () => {
+    const listShifts = vi.fn<() => Promise<MyShift[]>>().mockRejectedValueOnce(new Error("offline")).mockResolvedValue([SHIFT]);
+    renderWith(<PortalScheduleView />, { listShifts });
+    await userEvent.setup().click(await screen.findByRole("button", { name: "Tentar novamente" }));
+    expect(await screen.findByText("Hoje · 09:00–17:00")).toBeInTheDocument();
+    expect(listShifts).toHaveBeenCalledTimes(2);
   });
 });
 
