@@ -31,7 +31,7 @@ const absence = (o: Partial<NovoRhAbsence>): NovoRhAbsence => ({
 });
 
 describe("Portal sobre o Novo RH — mapeamentos", () => {
-  it("turnos: só os de trabalho, com dois períodos, noturno e o centro da ficha", () => {
+  it("escala: turnos e folgas, dois períodos, noturno e o centro da ficha quando o turno não traz", () => {
     const shifts = shiftsFromRoster(
       [
         { id: "s2", workDate: "2026-10-21", kind: "shift", segments: [{ start: "22:00", end: "06:00" }] },
@@ -40,9 +40,42 @@ describe("Portal sobre o Novo RH — mapeamentos", () => {
       ],
       "Loja Teste",
     );
-    expect(shifts.map((s) => s.id)).toEqual(["s1", "s2"]);
+    expect(shifts.map((s) => s.id)).toEqual(["s1", "s2", "s3"]);
     expect(shifts[0]).toMatchObject({ startTime: "09:00", endTime: "13:00", secondStartTime: "14:00", secondEndTime: "18:00", endsNextDay: false, locationName: "Loja Teste" });
     expect(shifts[1]).toMatchObject({ endsNextDay: true, secondStartTime: null });
+    expect(shifts[2]).toMatchObject({ kind: "day_off", startTime: "" });
+  });
+
+  it("escala: centro, área e modelo do turno; três períodos e o último depois da meia-noite", () => {
+    const [s] = shiftsFromRoster(
+      [
+        {
+          id: "s1",
+          workDate: "2026-10-20",
+          kind: "shift",
+          segments: [{ start: "12:00", end: "15:00" }, { start: "19:00", end: "23:30" }, { start: "00:00", end: "01:00" }],
+          locationId: "l2",
+          locationName: "Loja Ribeira",
+          areaName: "Bar",
+          template: { name: "Fecho", abbreviation: "F", color: "#2a78d6" },
+        },
+      ],
+      "Loja Teste",
+    );
+    expect(s).toMatchObject({ locationId: "l2", locationName: "Loja Ribeira", areaName: "Bar", template: { abbreviation: "F" }, endsNextDay: true });
+    expect(s!.segments).toHaveLength(3);
+  });
+
+  it("início: a próxima é um turno, nunca uma folga", () => {
+    const shifts = shiftsFromRoster(
+      [
+        { id: "f", workDate: "2026-10-20", kind: "day_off", segments: [] },
+        { id: "t", workDate: "2026-10-21", kind: "shift", segments: [{ start: "09:00", end: "17:00" }] },
+      ],
+      null,
+    );
+    const home = homeFromNovoRh(profile, { employeeId: "e1", timeZone: "Europe/Lisbon", state: "off", since: null }, shifts, "2026-10-20");
+    expect(home.nextShift).toMatchObject({ workDate: "2026-10-21" });
   });
 
   it("início: fora de trabalho → Registar entrada; a trabalhar → Registar saída desde a marcação", () => {

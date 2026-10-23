@@ -33,13 +33,20 @@ function Coworkers({ shiftId }: { shiftId: string }) {
 function ShiftCard({ shift, today }: { shift: MyShift; today: string }) {
   const [open, setOpen] = useState(false);
   const isToday = shift.workDate === today;
+  const where = [shift.locationName, shift.areaName].filter(Boolean).join(" · ");
   return (
     <li className={`rounded-2xl border bg-white p-4 shadow-sm ${isToday ? "border-[#ED5C32]" : "border-[#F5C992]/50"}`}>
       <p className="text-sm font-semibold text-stone-900">
         {dayLabel(shift.workDate, today)} · {shiftHours(shift)}
         {shift.endsNextDay && <span className="font-normal text-stone-500"> (termina no dia seguinte)</span>}
       </p>
-      <p className="text-sm text-stone-600">{shift.locationName}</p>
+      {shift.template && (
+        <p className="mt-0.5 flex items-center gap-1.5 text-xs text-stone-600">
+          <span aria-hidden className="inline-block h-2 w-2 rounded-full bg-[#ED5C32]" style={shift.template.color ? { backgroundColor: shift.template.color } : undefined} />
+          {shift.template.name}
+        </p>
+      )}
+      {where && <p className="text-sm text-stone-600">{where}</p>}
       <button type="button" onClick={() => setOpen((o) => !o)} aria-expanded={open} className="mt-2 text-xs font-medium text-[#ED5C32]">
         {open ? "Esconder colegas" : "Quem trabalha comigo"}
       </button>
@@ -48,18 +55,28 @@ function ShiftCard({ shift, today }: { shift: MyShift; today: string }) {
   );
 }
 
-/** A minha escala — semana a semana, só turnos publicados (ticket 07). */
+function DayOffCard({ shift, today }: { shift: MyShift; today: string }) {
+  return (
+    <li className="rounded-2xl border border-[#F5C992]/50 bg-[#FFF8F0] p-4">
+      <p className="text-sm font-semibold text-stone-900">{dayLabel(shift.workDate, today)} · Folga</p>
+      {shift.locationName && <p className="text-sm text-stone-600">{shift.locationName}</p>}
+    </li>
+  );
+}
+
+/** A minha escala — semana a semana, só o publicado: turnos, folgas e dias sem escala. */
 export function PortalScheduleView() {
   const { selfService } = useEmployeePortalModule();
   const today = todayLisbon();
   const [monday, setMonday] = useState(() => mondayOf(today));
   const sunday = addDays(monday, 6);
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery({
     queryKey: ["portal-shifts", monday],
     queryFn: () => selfService.listShifts(monday, sunday),
     retry: false,
   });
   const isCurrentWeek = monday === mondayOf(today);
+  const days = Array.from({ length: 7 }, (_, i) => addDays(monday, i));
 
   return (
     <div className="space-y-4">
@@ -84,14 +101,26 @@ export function PortalScheduleView() {
       {isLoading ? (
         <p className="text-sm text-stone-500">A carregar…</p>
       ) : isError ? (
-        <p className="text-sm text-red-700">Não foi possível carregar a escala.</p>
+        <section role="alert" className="rounded-2xl border border-red-200 bg-white p-5 text-center text-sm shadow-sm">
+          <p className="text-red-700">Não foi possível carregar a escala.</p>
+          <button type="button" onClick={() => void refetch()} disabled={isFetching} className="mt-2 text-xs font-medium text-[#ED5C32] disabled:opacity-50">
+            Tentar novamente
+          </button>
+        </section>
       ) : !data || data.length === 0 ? (
         <section className="rounded-2xl border border-[#F5C992]/50 bg-white p-5 text-center text-sm text-stone-600 shadow-sm">Sem turnos publicados nesta semana.</section>
       ) : (
         <ul className="space-y-3">
-          {data.map((s) => (
-            <ShiftCard key={s.id} shift={s} today={today} />
-          ))}
+          {days.flatMap((d) => {
+            const items = data.filter((s) => s.workDate === d);
+            if (!items.length)
+              return [
+                <li key={d} className="px-1 text-xs text-stone-500">
+                  {dayLabel(d, today)} · Sem turno publicado
+                </li>,
+              ];
+            return items.map((s) => (s.kind === "day_off" ? <DayOffCard key={s.id} shift={s} today={today} /> : <ShiftCard key={s.id} shift={s} today={today} />));
+          })}
         </ul>
       )}
     </div>

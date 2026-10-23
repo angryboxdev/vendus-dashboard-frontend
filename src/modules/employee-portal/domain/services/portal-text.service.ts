@@ -17,7 +17,8 @@ export function dayLabel(workDate: string, today: string): string {
 }
 
 /** "09:00–17:00" ou "11:00–15:00 · 19:00–23:00". */
-export function shiftHours(shift: Pick<PortalShift, "startTime" | "endTime" | "secondStartTime" | "secondEndTime">): string {
+export function shiftHours(shift: Pick<PortalShift, "startTime" | "endTime" | "secondStartTime" | "secondEndTime" | "segments">): string {
+  if (shift.segments && shift.segments.length > 2) return shift.segments.map((s) => `${s.start}–${s.end}`).join(" · ");
   const first = `${shift.startTime}–${shift.endTime}`;
   return shift.secondStartTime && shift.secondEndTime ? `${first} · ${shift.secondStartTime}–${shift.secondEndTime}` : first;
 }

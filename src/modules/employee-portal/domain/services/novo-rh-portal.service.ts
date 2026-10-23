@@ -16,6 +16,11 @@ export interface NovoRhShift {
   workDate: string;
   kind: "shift" | "day_off";
   segments: NovoRhSegment[];
+  /** Campos aditivos do servidor (podem faltar numa versão antiga). */
+  locationId?: string | null;
+  locationName?: string | null;
+  areaName?: string | null;
+  template?: { name: string; abbreviation: string; color: string | null } | null;
 }
 
 export interface NovoRhClockStatus {
@@ -64,23 +69,39 @@ export function localTimeIn(iso: string, timeZone: string): string {
   return new Intl.DateTimeFormat("pt-PT", { timeZone, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(new Date(iso));
 }
 
-/** Turnos publicados (só os de trabalho) no formato do Portal; ordenados por dia e hora. */
-export function shiftsFromRoster(shifts: NovoRhShift[], locationName: string | null): MyShift[] {
+/** Passa da meia-noite: um período acaba antes de começar, ou o seguinte começa antes do anterior. */
+export function crossesMidnight(segments: NovoRhSegment[]): boolean {
+  let prev = "";
+  for (const s of segments) {
+    if (s.start < prev || s.end <= s.start) return true;
+    prev = s.end;
+  }
+  return false;
+}
+
+/**
+ * Escala publicada no formato do Portal: turnos (todos os períodos) e folgas;
+ * ordenada por dia e hora. O centro vem do turno (área ou escala); sem ele, o da ficha.
+ */
+export function shiftsFromRoster(shifts: NovoRhShift[], profileLocationName: string | null): MyShift[] {
   return shifts
-    .filter((s) => s.kind === "shift" && s.segments.length > 0)
-    .map((s) => {
+    .filter((s) => s.kind === "day_off" || s.segments.length > 0)
+    .map((s): MyShift => {
       const [first, second] = s.segments;
-      const last = second ?? first!;
       return {
         id: s.id,
         workDate: s.workDate,
-        startTime: first!.start,
-        endTime: first!.end,
-        endsNextDay: last.end <= first!.start,
+        kind: s.kind,
+        startTime: first?.start ?? "",
+        endTime: first?.end ?? "",
+        endsNextDay: crossesMidnight(s.segments),
         secondStartTime: second?.start ?? null,
         secondEndTime: second?.end ?? null,
-        locationId: "",
-        locationName: locationName ?? "",
+        segments: s.segments,
+        locationId: s.locationId ?? "",
+        locationName: s.locationName ?? profileLocationName ?? "",
+        areaName: s.areaName ?? null,
+        template: s.template ?? null,
       };
     })
     .sort((a, b) => a.workDate.localeCompare(b.workDate) || a.startTime.localeCompare(b.startTime));
@@ -96,7 +117,7 @@ export function homeFromNovoRh(profile: NovoRhProfile, status: NovoRhClockStatus
   const shortName = profile.firstName?.trim() || profile.fullName.split(/\s+/)[0] || profile.fullName;
   return {
     employee: { id: profile.employeeId, shortName },
-    nextShift: shifts.find((s) => s.workDate >= today) ?? null,
+    nextShift: shifts.find((s) => s.workDate >= today && s.kind !== "day_off") ?? null,
     punch: {
       state: working ? "in" : "not_in",
       // Hora local ("20:12"; de outro dia, "20/10 20:12") — nunca o ISO do servidor.
