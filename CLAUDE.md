@@ -45,9 +45,7 @@ padrão novo, abra o `README.md` dele e veja o campo `Status`; sem README ou com
 - `vendus` (agosto 2026)
 - `locations` (agosto 2026)
 - `sales-summary` (setembro 2026)
-- `hr` (setembro 2026) — só a área "Pessoas & Documentos" (lista, perfil 360º,
-  dossiê documental, foto); turnos/pagamentos/férias/kiosk/auditoria
-  continuam em `src/pages/hr/*` (legacy)
+- ~~`hr`~~ — removido com `src/pages/hr/*` e `src/pages/kiosk/*` (ADR-0040, fase 5, 2026-10-24); o RH vive em `src/modules/novo-rh` e `src/modules/documents`.
 - `stock-purchase-review` (setembro 2026) — "Compras por rever" (Fase 1:
   lista + formulário simples, sem wizard)
 - `stock-count` (setembro 2026) — "Contagens de stock" (Fase 1: funcional
