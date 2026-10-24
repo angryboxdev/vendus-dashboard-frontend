@@ -49,6 +49,13 @@ describe("draft-amounts (formulário → motor único)", () => {
     expect(docQuantityToField("20.000", 20000, "1.235", null)).toBe("20000");
   });
 
+  test("CPF/2530: sem preço unitário, o preço é derivado do total da linha e não multiplica de novo", () => {
+    // 4 unidades, total da linha 190,00 € → 47,50 € (4 × 47,50 = 190,00, nunca 4 × 190,00).
+    expect(docPriceToField(null, null, { totalCents: 19000, quantity: 4 })).toBe("47.50");
+    // Divisão não exata mantém casas suficientes para fechar ao cêntimo (3 × 33,333333 = 100,00).
+    expect(docPriceToField(null, null, { totalCents: 10000, quantity: 3 })).toBe("33.333333");
+  });
+
   test("modo simples e payload de valores", () => {
     expect(previewSimple(header()).canFinalize).toBe(true);
     expect(previewSimple(header({ totalStr: "119.00" })).differenceCents).toBe(70);

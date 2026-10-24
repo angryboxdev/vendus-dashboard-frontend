@@ -36,7 +36,13 @@ export function docPriceToField(unitPriceText: string | null | undefined, unitPr
   const fromText = unitPriceText ? parseDocument(unitPriceText) : null;
   if (fromText) return decToString(fromText);
   if (unitPriceCents != null) return decToString({ units: BigInt(Math.round(unitPriceCents)), scale: 2 });
-  if (fallbackFromTotal && fallbackFromTotal.quantity > 0) return (fallbackFromTotal.totalCents / 100 / fallbackFromTotal.quantity).toFixed(2);
+  if (fallbackFromTotal && fallbackFromTotal.quantity > 0) {
+    // Preço derivado do total da linha: 2 casas quando é exato (190,00 / 4 = 47,50); senão 6 casas,
+    // para quantidade × preço voltar a dar o total ao cêntimo (100,00 / 3 → 33,333333).
+    const unit = fallbackFromTotal.totalCents / 100 / fallbackFromTotal.quantity;
+    const two = unit.toFixed(2);
+    return Math.round(Number(two) * fallbackFromTotal.quantity * 100) === fallbackFromTotal.totalCents ? two : unit.toFixed(6);
+  }
   return "";
 }
 

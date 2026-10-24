@@ -1028,6 +1028,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
 
   // Valores do documento (F1 §1.3) — descontos globais/rodapé, ajustes e quadro de IVA extraídos.
   const extracted = importResult.extractedAmounts;
+  const perLineVatRounding = !isEdit && !reopenDraft && !!importResult.reading?.issues.some((i) => i.code === "vat_rounded_per_line");
   const restoredHeader = restoring ? restoreDraftHeader(inv.storedAmounts) : null;
   const [amountsHeader, setAmountsHeader] = useState<Omit<DraftAmountHeader, "totalStr" | "subtotalStr" | "vatStr" | "roundingCents">>(() => restoredHeader ? {
     globalDiscountKind: restoredHeader.globalDiscountKind,
@@ -1041,10 +1042,11 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
     globalDiscountValue: (extracted?.globalDiscountPct ?? 0) > 0 ? String(extracted!.globalDiscountPct) : (extracted?.globalDiscountAmount ?? 0) > 0 ? (extracted!.globalDiscountAmount! / 100).toFixed(2) : "",
     footerDiscount: (extracted?.footerDiscountAmount ?? 0) > 0 ? (extracted!.footerDiscountAmount! / 100).toFixed(2) : "",
     adjustments: "",
-    roundingReason: "",
+    // Leitor: emitente que arredonda o IVA linha a linha → ajuste de arredondamento já proposto.
+    roundingReason: perLineVatRounding ? "IVA arredondado linha a linha pelo emitente (conforme o QR fiscal)" : "",
     vatSummary: extracted?.vatSummary ?? null,
   }));
-  const [roundingOn, setRoundingOn] = useState(restoredHeader?.roundingOn ?? false);
+  const [roundingOn, setRoundingOn] = useState(restoredHeader?.roundingOn ?? perLineVatRounding);
   // Conflitos devolvidos ao confirmar e as decisões explícitas da pessoa.
   const [conflict, setConflict] = useState<ConfirmConflict | null>(null);
   const [notADuplicate, setNotADuplicate] = useState(false);
