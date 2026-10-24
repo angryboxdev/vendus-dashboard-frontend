@@ -2,6 +2,8 @@ import { useRef, useState } from "react";
 import type { InvoiceImportResultDTO, InvoiceDocumentType } from "../../domain/entities/invoice.ts";
 import { DOCUMENT_TYPE_LABELS } from "../../domain/entities/invoice.ts";
 import { useInvoicesModule } from "../../invoices.module.tsx";
+import { isPaymentDocument, type PaymentDocumentImportDTO } from "../../domain/entities/payment-document.ts";
+import { PaymentDocumentReview } from "./PaymentDocumentReview.tsx";
 
 const ACCEPTED_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const ACCEPTED_EXT = ".pdf,.jpg,.jpeg,.png";
@@ -22,15 +24,19 @@ const EXTRACTED_FIELDS = [
 interface Props {
   onClose(): void;
   onImported(result: InvoiceImportResultDTO): void;
+  /** Documento de cobrança já registado: abrir a fatura existente. */
+  onOpenInvoice?(invoiceId: string): void;
 }
 
-export function ImportInvoiceModal({ onClose, onImported }: Props) {
+export function ImportInvoiceModal({ onClose, onImported, onOpenInvoice }: Props) {
   const { api } = useInvoicesModule();
   const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [docType, setDocType] = useState<InvoiceDocumentType>("invoice");
   const inputRef = useRef<HTMLInputElement>(null);
+  // Documento de cobrança (Finanças/Segurança Social): revisão própria, sem criar fatura.
+  const [payment, setPayment] = useState<{ file: File; result: PaymentDocumentImportDTO } | null>(null);
 
   async function handleFile(file: File) {
     if (!ACCEPTED_TYPES.includes(file.type)) {
@@ -49,9 +55,24 @@ export function ImportInvoiceModal({ onClose, onImported }: Props) {
       // permite que a deteção automática da IA continue a funcionar mesmo
       // que o utilizador nunca mexa neste botão.
       const result = await api.importInvoice(file, docType === "credit_note" ? docType : undefined);
-      onImported(result);
+      if (isPaymentDocument(result)) setPayment({ file, result });
+      else onImported(result);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erro ao processar fatura.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  async function launchAsInvoice() {
+    if (!payment) return;
+    setError(null);
+    setUploading(true);
+    try {
+      const result = await api.importInvoice(payment.file, undefined, { treatAsInvoice: true });
+      if (!isPaymentDocument(result)) onImported(result);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erro ao processar o documento.");
     } finally {
       setUploading(false);
     }
@@ -79,9 +100,9 @@ export function ImportInvoiceModal({ onClose, onImported }: Props) {
         {/* header */}
         <div className="flex items-center justify-between border-b border-stone-100 px-6 py-4">
           <div>
-            <h2 className="text-base font-semibold text-stone-900">Importar fatura</h2>
+            <h2 className="text-base font-semibold text-stone-900">{payment ? "Rever documento de cobrança" : "Importar fatura"}</h2>
             <p className="mt-0.5 text-xs text-stone-500">
-              Envie um ficheiro para extração automática de dados.
+              {payment ? payment.file.name : "Envie um ficheiro para extração automática de dados."}
             </p>
           </div>
           <button
@@ -95,6 +116,19 @@ export function ImportInvoiceModal({ onClose, onImported }: Props) {
           </button>
         </div>
 
+        {payment ? (
+          <div className="p-6">
+            <PaymentDocumentReview
+              result={payment.result}
+              busy={uploading}
+              onOpenExisting={(id) => onOpenInvoice?.(id)}
+              onLaunchAsInvoice={() => void launchAsInvoice()}
+              onClose={onClose}
+            />
+            {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
+          </div>
+        ) : (
+        <>
         {/* body */}
         <div className="flex gap-6 p-6">
           {/* Drop zone */}
@@ -153,7 +187,7 @@ export function ImportInvoiceModal({ onClose, onImported }: Props) {
                       d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"
                     />
                   </svg>
-                  <p className="text-sm font-medium text-stone-600">A processar com IA…</p>
+                  <p className="text-sm font-medium text-stone-600">A ler o documento…</p>
                   <p className="text-xs text-stone-400">Aguarde, pode demorar alguns segundos.</p>
                 </>
               ) : (
@@ -211,6 +245,8 @@ export function ImportInvoiceModal({ onClose, onImported }: Props) {
             Cancelar
           </button>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

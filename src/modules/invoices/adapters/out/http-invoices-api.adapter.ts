@@ -7,6 +7,7 @@ import {
   apiPut,
 } from "../../../../lib/api.ts";
 import type { InvoicesApiPort, AddInvoiceLinePayload } from "../../domain/ports/out/invoices-api.port.ts";
+import type { PaymentDocumentImportDTO } from "../../domain/entities/payment-document.ts";
 import type {
   InvoiceDTO,
   InvoiceLineDTO,
@@ -118,10 +119,11 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     );
   }
 
-  async importInvoice(file: File, documentType?: InvoiceDocumentType): Promise<InvoiceImportResultDTO> {
+  async importInvoice(file: File, documentType?: InvoiceDocumentType, options?: { treatAsInvoice?: boolean }): Promise<InvoiceImportResultDTO | PaymentDocumentImportDTO> {
     const formData = new FormData();
     formData.append("file", file);
     if (documentType) formData.append("documentType", documentType);
+    if (options?.treatAsInvoice) formData.append("treatAsInvoice", "true");
     return apiPostFormData(`${BASE}/import`, formData);
   }
 

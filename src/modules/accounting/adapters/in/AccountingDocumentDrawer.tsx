@@ -370,7 +370,7 @@ export function AccountingDocumentDrawer({
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-400">Classificação</p>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Centro de custo</label>
+                <label className={labelCls}>Categoria</label>
                 <select
                   value={groupId}
                   onChange={(e) => {

@@ -21,6 +21,7 @@ import type {
   SaveDraftResultDTO,
   StockRoutingSuggestion,
 } from "../../entities/invoice.ts";
+import type { PaymentDocumentImportDTO } from "../../entities/payment-document.ts";
 
 export interface AddInvoiceLinePayload {
   description: string;
@@ -51,7 +52,8 @@ export interface InvoicesApiPort {
   deleteLine(invoiceId: string, lineId: string): Promise<void>;
   classifyLine(invoiceId: string, lineId: string, payload: ClassifyLinePayload): Promise<InvoiceLineDTO>;
   setLineDeductibilityOverride(invoiceId: string, lineId: string, payload: SetLineDeductibilityOverridePayload): Promise<InvoiceLineDTO>;
-  importInvoice(file: File, documentType?: InvoiceDocumentType): Promise<InvoiceImportResultDTO>;
+  /** Documento de cobrança AT/SS → `PaymentDocumentImportDTO` (não cria fatura); `treatAsInvoice` força o fluxo de faturas. */
+  importInvoice(file: File, documentType?: InvoiceDocumentType, options?: { treatAsInvoice?: boolean }): Promise<InvoiceImportResultDTO | PaymentDocumentImportDTO>;
   confirmImportedInvoice(id: string, payload: ConfirmImportedInvoicePayload): Promise<InvoiceDTO>;
   getInvoiceAlerts(): Promise<InvoiceAlertsDTO>;
   suggestLineClassification(supplierId: string, description?: string): Promise<SuggestClassificationResult | null>;

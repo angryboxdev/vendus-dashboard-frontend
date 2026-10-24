@@ -618,7 +618,7 @@ function AddLineForm({
         onChange={(e) => setCatId(e.target.value)}
         className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
       >
-        <option value="">Subcategoria CC</option>
+        <option value="">Subcategoria</option>
         {categories
           .filter((c) => c.isActive)
           .map((c) => (
@@ -835,7 +835,7 @@ function EditLineForm({
         onChange={(e) => setCatId(e.target.value)}
         className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
       >
-        <option value="">Subcategoria CC</option>
+        <option value="">Subcategoria</option>
         {categories
           .filter((c) => c.isActive)
           .map((c) => (
@@ -4629,6 +4629,10 @@ export function InvoicesView() {
         {showImport && (
           <ImportInvoiceModal
             onClose={() => setShowImport(false)}
+            onOpenInvoice={(id) => {
+              setShowImport(false);
+              void api.getInvoice(id).then(setDetail).catch(() => setImportNotice("Não foi possível abrir o registo existente."));
+            }}
             onImported={(result) => {
               setShowImport(false);
               // Documento já existente (mesmo ficheiro ou mesma identidade fiscal, F1 v1.2): abre-se o

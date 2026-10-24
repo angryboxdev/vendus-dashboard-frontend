@@ -855,7 +855,7 @@ export function ClassifyDrawer({
                       const c = categories.find((c) => c.id === movement.costCenterCategoryId);
                       return g ? (
                         <div className="flex items-center justify-between text-sm">
-                          <span className="text-stone-500">Centro de custo</span>
+                          <span className="text-stone-500">Categoria</span>
                           <span className="font-medium text-stone-800 text-right">
                             {g.name}{c ? ` › ${c.name}` : ""}
                           </span>
@@ -1348,16 +1348,16 @@ export function ClassifyDrawer({
                 {showsCostCenter(subType) && (
                   <div className="space-y-2">
                     <div>
-                      <label className={labelCls}>Grupo de custo *</label>
+                      <label className={labelCls}>Categoria *</label>
                       <select value={groupId} onChange={(e) => handleGroupChange(e.target.value)} className={inputCls} required>
-                        <option value="">Seleccionar grupo…</option>
+                        <option value="">Seleccionar categoria…</option>
                         {groups.map((g) => <option key={g.id} value={g.id}>{g.code} — {g.name}</option>)}
                       </select>
                     </div>
                     <div>
-                      <label className={labelCls}>Categoria *</label>
+                      <label className={labelCls}>Subcategoria *</label>
                       <select value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={inputCls} disabled={!groupId} required>
-                        <option value="">{groupId ? "Seleccionar categoria…" : "Primeiro selecciona o grupo"}</option>
+                        <option value="">{groupId ? "Seleccionar subcategoria…" : "Primeiro selecciona a categoria"}</option>
                         {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                       </select>
                     </div>

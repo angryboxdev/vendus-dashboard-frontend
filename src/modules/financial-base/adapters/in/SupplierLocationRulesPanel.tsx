@@ -82,7 +82,7 @@ export function SupplierLocationRulesPanel({ supplierId, categories }: { supplie
           ))}
         </select>
         <select aria-label="Subcategoria nesta loja" value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={fieldCls}>
-          <option value="">CC: igual ao geral</option>
+          <option value="">Categoria: igual à geral</option>
           {categories.filter((c) => c.isActive).map((c) => (
             <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
           ))}

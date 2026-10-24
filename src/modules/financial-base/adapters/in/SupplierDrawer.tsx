@@ -125,7 +125,7 @@ export function SupplierDrawer({ open, editing, groups, categories, onClose, onS
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-stone-700">Grupo de CC padrão</label>
+            <label className="mb-1.5 block text-sm font-medium text-stone-700">Categoria padrão</label>
             <select value={defaultGroupId} onChange={(e) => handleGroupChange(e.target.value)} className={inputCls}>
               <option value="">Nenhum</option>
               {activeGroups.map((g) => (
@@ -135,7 +135,7 @@ export function SupplierDrawer({ open, editing, groups, categories, onClose, onS
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-stone-700">Subcategoria de CC padrão</label>
+            <label className="mb-1.5 block text-sm font-medium text-stone-700">Subcategoria padrão</label>
             <select
               value={defaultCategoryId}
               onChange={(e) => setDefaultCategoryId(e.target.value)}
@@ -147,7 +147,7 @@ export function SupplierDrawer({ open, editing, groups, categories, onClose, onS
                 <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
               ))}
             </select>
-            {!defaultGroupId && <p className="mt-1 text-xs text-stone-400">Selecione um grupo primeiro.</p>}
+            {!defaultGroupId && <p className="mt-1 text-xs text-stone-400">Selecione uma categoria primeiro.</p>}
           </div>
 
           <div>

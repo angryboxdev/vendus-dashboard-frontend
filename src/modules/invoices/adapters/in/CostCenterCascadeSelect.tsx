@@ -48,9 +48,9 @@ export function CostCenterCascadeSelect({
         value={groupId ?? ""}
         onChange={(e) => handleGroupChange(e.target.value)}
         className={inputCls}
-        aria-label="Grupo de centro de custo"
+        aria-label="Categoria"
       >
-        <option value="">— Grupo CC —</option>
+        <option value="">— Categoria —</option>
         {activeGroups.map((g) => (
           <option key={g.id} value={g.id}>{g.code} — {g.name}</option>
         ))}
@@ -59,7 +59,7 @@ export function CostCenterCascadeSelect({
         value={categoryId ?? ""}
         onChange={(e) => handleCategoryChange(e.target.value)}
         className={inputCls}
-        aria-label="Subcategoria de centro de custo"
+        aria-label="Subcategoria"
       >
         <option value="">— Subcategoria —</option>
         {filteredCats.map((c) => (
