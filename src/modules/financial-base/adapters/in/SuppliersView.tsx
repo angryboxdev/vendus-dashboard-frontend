@@ -362,7 +362,7 @@ export function SuppliersView() {
               }}
               className="appearance-none rounded-md border border-stone-300 bg-white py-1.5 pl-3 pr-8 text-sm text-stone-700 outline-none transition focus:border-[#ED5C32]"
             >
-              <option value="">Centro de custo padrão</option>
+              <option value="">Categoria padrão</option>
               {groups
                 .filter((g) => g.isActive)
                 .map((g) => (

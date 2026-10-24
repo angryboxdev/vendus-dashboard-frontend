@@ -197,7 +197,7 @@ function GroupDrawer({ open, editing, onClose, onSave, saving }: GroupDrawerProp
       <aside className="fixed inset-y-0 right-0 z-50 flex w-full max-w-md flex-col bg-white shadow-xl">
         <div className="flex items-center justify-between border-b border-[#F5C992]/40 px-6 py-4">
           <h2 className="text-base font-semibold text-stone-800">
-            {isEdit ? "Editar grupo" : "Novo grupo de centro de custo"}
+            {isEdit ? "Editar categoria" : "Nova categoria"}
           </h2>
           <button
             type="button"
@@ -274,7 +274,7 @@ function GroupDrawer({ open, editing, onClose, onSave, saving }: GroupDrawerProp
             onClick={handleSubmit}
             className="rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white shadow-sm transition-opacity disabled:opacity-60"
           >
-            {saving ? "A guardar…" : isEdit ? "Guardar alterações" : "Criar grupo"}
+            {saving ? "A guardar…" : isEdit ? "Guardar alterações" : "Criar categoria"}
           </button>
         </div>
       </aside>
@@ -395,7 +395,7 @@ function CategoryDrawer({
                   onChange={(e) => setGroupId(e.target.value)}
                   className={inputCls}
                 >
-                  <option value="">Selecionar grupo…</option>
+                  <option value="">Selecionar categoria…</option>
                   {groups
                     .filter((g) => g.isActive)
                     .map((g) => (
@@ -542,7 +542,7 @@ function Tab1Estrutura({
     <div className="flex flex-col gap-5">
       {/* KPIs */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <KpiCard label="Grupos ativos" value={String(activeGroups)} sub={`${groups.length} no total`} />
+        <KpiCard label="Categorias ativas" value={String(activeGroups)} sub={`${groups.length} no total`} />
         <KpiCard
           label="Subcategorias ativas"
           value={String(activeCategories)}
@@ -559,7 +559,7 @@ function Tab1Estrutura({
       {/* Accordion */}
       {groups.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border border-[#F5C992]/40 bg-white py-16 text-center shadow-sm">
-          <p className="text-sm font-medium text-stone-500">Ainda não há grupos de centros de custo.</p>
+          <p className="text-sm font-medium text-stone-500">Ainda não há categorias.</p>
           <p className="mt-1 text-xs text-stone-400">
             Use o separador "Cadastro Essencial" para carregar os dados padrão ou criar manualmente.
           </p>
@@ -619,7 +619,7 @@ function Tab1Estrutura({
                 {isExpanded && (
                   <div className="border-t border-stone-50 bg-stone-50/30">
                     {gCats.length === 0 ? (
-                      <p className="px-12 py-4 text-xs text-stone-400">Nenhuma subcategoria neste grupo.</p>
+                      <p className="px-12 py-4 text-xs text-stone-400">Nenhuma subcategoria nesta categoria.</p>
                     ) : (
                       <div className="divide-y divide-stone-50">
                         {gCats.map((c) => (
@@ -732,7 +732,7 @@ function Tab2Regras({
           onChange={(e) => setFilterGroup(e.target.value)}
           className="rounded-lg border border-stone-200 bg-white px-3 py-1.5 text-sm text-stone-700 shadow-sm outline-none transition focus:border-[#ED5C32]"
         >
-          <option value="">Todos os grupos</option>
+          <option value="">Todas as categorias</option>
           {groups.map((g) => (
             <option key={g.id} value={g.id}>
               {g.code} — {g.name}
@@ -784,7 +784,7 @@ function Tab2Regras({
               <tr className="border-b border-stone-100 bg-stone-50/60 text-left font-semibold uppercase tracking-wide text-stone-400">
                 <th className="px-3 py-3">Código</th>
                 <th className="px-3 py-3">Subcategoria</th>
-                <th className="px-3 py-3">Grupo</th>
+                <th className="px-3 py-3">Categoria</th>
                 <th className="px-3 py-3">Tipo financeiro</th>
                 <th className="px-3 py-3 text-center">DRE</th>
                 <th className="px-3 py-3 text-center">Fluxo</th>
@@ -925,7 +925,7 @@ function Tab3Aplicacao({ groups, categories, suppliers, invoices }: Tab3Props) {
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-stone-100 bg-stone-50/60 text-left text-xs font-semibold uppercase tracking-wide text-stone-400">
-              <th className="px-4 py-3">Grupo</th>
+              <th className="px-4 py-3">Categoria</th>
               <th className="px-4 py-3">Subcategoria</th>
               <th className="px-4 py-3 text-center">Faturas</th>
               <th className="px-4 py-3">Fornecedores</th>
@@ -1371,7 +1371,7 @@ export function CostCentersView() {
       <div className="border-b border-[#F5C992]/40 bg-white px-6 pt-4">
         <div className="flex items-center justify-between pb-4">
           <div>
-            <h1 className="text-xl font-bold text-stone-900">Centros de Custo</h1>
+            <h1 className="text-xl font-bold text-stone-900">Categorias</h1>
             <p className="mt-0.5 text-sm text-stone-500">
               Estruture despesas em grupos e subcategorias com regras financeiras precisas.
             </p>

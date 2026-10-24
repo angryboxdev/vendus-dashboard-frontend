@@ -436,13 +436,13 @@ export function SupplierDetailView() {
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-stone-400">Grupo CC padrão</dt>
+                      <dt className="text-xs text-stone-400">Categoria padrão</dt>
                       <dd className="mt-0.5 font-medium text-stone-700">
                         {group ? `${group.code} — ${group.name}` : <span className="text-stone-400">—</span>}
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-stone-400">Subcategoria CC padrão</dt>
+                      <dt className="text-xs text-stone-400">Subcategoria padrão</dt>
                       <dd className="mt-0.5 font-medium text-stone-700">
                         {category ? `${category.code} — ${category.name}` : <span className="text-stone-400">—</span>}
                       </dd>

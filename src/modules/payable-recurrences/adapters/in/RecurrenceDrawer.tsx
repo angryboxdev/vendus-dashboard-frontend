@@ -309,7 +309,7 @@ export function RecurrenceDrawer({
                 )}
               </div>
               <div>
-                <label className={labelCls}>Centro de custo *</label>
+                <label className={labelCls}>Categoria *</label>
                 <select
                   value={costCenterId}
                   onChange={(e) => {
@@ -318,7 +318,7 @@ export function RecurrenceDrawer({
                   }}
                   className={inputCls}
                 >
-                  <option value="">Selecionar centro de custo</option>
+                  <option value="">Selecionar categoria</option>
                   {costCenterGroups.map((g) => (
                     <option key={g.id} value={g.id}>
                       {g.code} — {g.name}

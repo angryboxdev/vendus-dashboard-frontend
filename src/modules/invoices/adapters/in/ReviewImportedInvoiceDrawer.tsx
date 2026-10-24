@@ -332,7 +332,7 @@ function SupplierPanel({
           />
           {groups.length > 0 && (
             <>
-              <p className="text-[11px] font-medium text-stone-400 pt-1">Centro de custo padrão</p>
+              <p className="text-[11px] font-medium text-stone-400 pt-1">Categoria padrão</p>
               <CostCenterCascadeSelect
                 groups={groups}
                 categories={categories}
@@ -673,7 +673,7 @@ function EditableLinesSection({ lines, categories, preview, onChange }: Editable
                 {/* Subcategoria CC */}
                 {activeCategories.length > 0 && (
                   <div>
-                    <label className="mb-1 block text-xs font-medium text-stone-500">Subcategoria CC</label>
+                    <label className="mb-1 block text-xs font-medium text-stone-500">Subcategoria</label>
                     <select
                       value={l.catId}
                       onChange={(e) => updateLine(l.key, { catId: e.target.value })}
@@ -1612,7 +1612,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
           {/* Modo simples: centro de custo global */}
           {detailMode === "simple" && groups.length > 0 && (
             <div className="space-y-2">
-              <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Centro de custo</p>
+              <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Categoria</p>
               <CostCenterCascadeSelect
                 groups={groups as CostCenterGroup[]}
                 categories={categories as CostCenterCategory[]}

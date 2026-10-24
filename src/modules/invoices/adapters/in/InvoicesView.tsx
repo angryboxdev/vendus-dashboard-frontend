@@ -618,7 +618,7 @@ function AddLineForm({
         onChange={(e) => setCatId(e.target.value)}
         className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
       >
-        <option value="">Subcategoria CC</option>
+        <option value="">Subcategoria</option>
         {categories
           .filter((c) => c.isActive)
           .map((c) => (
@@ -835,7 +835,7 @@ function EditLineForm({
         onChange={(e) => setCatId(e.target.value)}
         className="w-full rounded-md border border-stone-300 bg-white px-2 py-1.5 text-xs focus:outline-none focus:border-[#ED5C32]"
       >
-        <option value="">Subcategoria CC</option>
+        <option value="">Subcategoria</option>
         {categories
           .filter((c) => c.isActive)
           .map((c) => (

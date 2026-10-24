@@ -43,7 +43,7 @@ const CRM_ITEMS: NavItem[] = [
 ];
 
 const FINANCIAL_ITEMS: NavItem[] = [
-  { kind: "item", path: "/financial/cost-centers", label: "Centros de Custo" },
+  { kind: "item", path: "/financial/cost-centers", label: "Categorias" },
   { kind: "item", path: "/financial/suppliers", label: "Fornecedores" },
   { kind: "item", path: "/financial/invoices", label: "Faturas" },
   { kind: "item", path: "/financial/recurrences", label: "Recorrências" },
