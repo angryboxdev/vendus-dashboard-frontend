@@ -1,6 +1,6 @@
-import { apiDeleteNoContent, apiGet, apiPostFormData } from "../../../../lib/api.ts";
+import { apiDeleteNoContent, apiGet, apiPost, apiPostFormData } from "../../../../lib/api.ts";
 import type { DocumentCategoryDefinition } from "../../domain/entities/document-category.ts";
-import type { DocumentArchiveRow, EmployeeDocument, ReplaceDocumentPayload, UploadDocumentPayload } from "../../domain/entities/employee-document.ts";
+import type { DocumentArchiveRow, DocumentReviewDecision, EmployeeDocument, PendingDocument, ReplaceDocumentPayload, UploadDocumentPayload } from "../../domain/entities/employee-document.ts";
 import type { EmployeeDocumentSummary } from "../../domain/entities/employee-document-summary.ts";
 import type { PayslipCategory, PayslipImportResult, PayslipMappingEntry, PayslipPreviewRow } from "../../domain/entities/payslip-import.ts";
 import type { EmployeeDocumentsApiPort } from "../../domain/ports/out/employee-documents-api.port.ts";
@@ -47,6 +47,12 @@ export class HttpEmployeeDocumentsApiAdapter implements EmployeeDocumentsApiPort
   }
   getDocumentArchive() {
     return apiGet<DocumentArchiveRow[]>("/api/novo-rh/documents/archive");
+  }
+  listPendingDocuments() {
+    return apiGet<PendingDocument[]>("/api/novo-rh/documents/pending");
+  }
+  reviewEmployeeDocument(employeeId: string, documentId: string, decision: DocumentReviewDecision, note?: string) {
+    return apiPost<EmployeeDocument>(`${doc(employeeId, documentId)}/review`, { decision, ...(note ? { note } : {}) });
   }
   async listEmployees() {
     const people = await apiGet<Array<{ id: string; fullName: string }>>(`${PEOPLE}?status=all`);

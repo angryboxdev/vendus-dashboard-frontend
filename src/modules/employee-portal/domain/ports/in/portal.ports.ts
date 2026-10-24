@@ -1,5 +1,5 @@
 import type { MyAnnouncement, MyCustomRequest, MyDistribution, MyTask, RequestForm, WhosIn } from "../../entities/portal-engagement.ts";
-import type { Coworker, GeofencePolicy, MyDocument, MyLeave, MyRequest, MyShift, NewRequest, PortalHome, PunchKind, PunchResult } from "../../entities/portal.ts";
+import type { Coworker, DocumentChecklist, GeofencePolicy, MyDocument, NewDocumentSubmission, MyLeave, MyRequest, MyShift, NewRequest, PortalHome, PunchKind, PunchResult } from "../../entities/portal.ts";
 
 export interface GetPortalHomePort {
   execute(): Promise<PortalHome>;
@@ -25,6 +25,8 @@ export interface PortalSelfServicePort {
   documentUrl(documentId: string): Promise<string>;
   getLeave(year: number): Promise<MyLeave>;
   replaceDocument(documentId: string, file: File, expiresAt: string | null): Promise<MyDocument>;
+  documentChecklist(): Promise<DocumentChecklist>;
+  submitDocument(submission: NewDocumentSubmission): Promise<MyDocument>;
   listRequests(): Promise<MyRequest[]>;
   createRequest(request: NewRequest): Promise<MyRequest>;
   cancelRequest(requestId: string): Promise<MyRequest>;

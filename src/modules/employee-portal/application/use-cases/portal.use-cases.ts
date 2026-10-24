@@ -1,4 +1,4 @@
-import { PortalOfflineError, type Coworker, type MyDocument, type MyLeave, type MyRequest, type MyShift, type NewRequest, type PortalHome, type PunchResult } from "../../domain/entities/portal.ts";
+import { PortalOfflineError, type Coworker, type DocumentChecklist, type MyDocument, type NewDocumentSubmission, type MyLeave, type MyRequest, type MyShift, type NewRequest, type PortalHome, type PunchResult } from "../../domain/entities/portal.ts";
 import type { GetPortalHomePort, PortalSelfServicePort, RegisterPunchInput, RegisterPunchPort } from "../../domain/ports/in/portal.ports.ts";
 import type { GeolocationPort } from "../../domain/ports/out/geolocation.port.ts";
 import type { PortalApiPort } from "../../domain/ports/out/portal-api.port.ts";
@@ -72,6 +72,14 @@ export class PortalSelfServiceUseCase implements PortalSelfServicePort {
 
   replaceDocument(documentId: string, file: File, expiresAt: string | null): Promise<MyDocument> {
     return this.api.replaceDocument(documentId, file, expiresAt);
+  }
+
+  documentChecklist(): Promise<DocumentChecklist> {
+    return this.api.getDocumentChecklist();
+  }
+
+  submitDocument(submission: NewDocumentSubmission): Promise<MyDocument> {
+    return this.api.submitDocument(submission);
   }
 
   listRequests(): Promise<MyRequest[]> {

@@ -29,6 +29,8 @@ function setup(responses: Array<PunchResult | Error>) {
     getDocumentUrl: vi.fn(),
     getMyLeave: vi.fn(),
     replaceDocument: vi.fn(),
+    getDocumentChecklist: vi.fn(),
+    submitDocument: vi.fn(),
     listMyRequests: vi.fn(),
     createRequest: vi.fn(),
     cancelRequest: vi.fn(),

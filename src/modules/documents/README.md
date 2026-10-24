@@ -47,6 +47,7 @@ Documentos), vindos do módulo `hr` (que mantém as suas cópias até à fase 3)
 - `CompanyDocumentsView` — lista, renovar, histórico (linha expansível),
   remover com confirmação, gestão de categorias da Empresa.
 - `CompanyDocumentDrawer` — novo documento ou renovação.
+- `DocumentReview.tsx` — `ReviewActions` (Validar / Rejeitar com motivo) e `PendingDocumentsSection` (Mais → Documentos → Colaboradores: envios do Portal por validar, `GET /api/novo-rh/documents/pending`; só aparece quando há). Na ficha, os documentos «A validar» têm os mesmos botões (2026-10-23).
 - `EmployeeDocumentsPanel` — separador Documentos da ficha do Novo RH; pastas (2026-10-22: Documentos pessoais, Contrato e trabalho, Recibos e faturas, Saúde e formação, Outros — `domain/services/document-folders.service.ts`) só agrupam e filtram a lista pela categoria; categorias periódicas vão para Recibos, as da empresa e «Outro» para Outros. Sem pasta de fotos do ponto (não há fotos nas marcações)
   (encaixado pelo slot `personDocuments`); sem histórico antigo.
 - `EmployeeArchiveView` — Novo RH → Mais → Documentos → Colaboradores (slot
