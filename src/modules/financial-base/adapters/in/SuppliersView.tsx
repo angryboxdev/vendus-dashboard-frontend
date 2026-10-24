@@ -547,8 +547,9 @@ export function SuppliersView() {
                               onClick={() =>
                                 navigate(`/financial/suppliers/${s.id}`)
                               }
-                              className="text-left font-medium text-stone-800 transition-colors hover:text-[#ED5C32]"
+                              className="flex items-center gap-2 text-left font-medium text-stone-800 transition-colors hover:text-[#ED5C32]"
                             >
+                              {s.logoUrl && <img src={s.logoUrl} alt="" className="h-6 w-6 shrink-0 rounded border border-stone-100 bg-white object-contain" />}
                               {s.name}
                             </button>
                           </td>

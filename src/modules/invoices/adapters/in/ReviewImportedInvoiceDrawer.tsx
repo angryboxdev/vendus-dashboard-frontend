@@ -913,6 +913,8 @@ interface ConfirmConflict {
 export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", existingLineIds = [], reopenDraft = false, onClose, onConfirmed, onOpenExisting }: Props) {
   const { api } = useInvoicesModule();
   const fbModule = useFinancialBaseModule();
+  // E3b: logótipo encontrado na fatura — só vai para o fornecedor se a pessoa marcar.
+  const [useSuggestedLogo, setUseSuggestedLogo] = useState(false);
   const qc = useQueryClient();
   const isEdit = mode === "edit";
 
@@ -1131,6 +1133,11 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
     onSuccess: (confirmed) => {
       void qc.invalidateQueries({ queryKey: ["invoices"] });
       void qc.invalidateQueries({ queryKey: ["invoice-alerts"] });
+      const logo = importResult.logoSuggestion?.url;
+      if (useSuggestedLogo && logo && confirmed.supplierId) {
+        // Falhar aqui não desfaz a fatura: o logótipo pode ser definido depois na ficha.
+        void fbModule.api.updateSupplier(confirmed.supplierId, { logoUrl: logo }).then(() => qc.invalidateQueries({ queryKey: ["suppliers"] })).catch(() => undefined);
+      }
       onConfirmed(confirmed);
     },
     onError: (err) => {
@@ -1406,6 +1413,14 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
           {/* Fornecedor — 2 colunas: campos à esq, card à dir */}
           <div className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Fornecedor</p>
+            {!isEdit && importResult.logoSuggestion && (
+              <label className="flex items-center gap-3 rounded-lg border border-stone-200 bg-stone-50/60 px-3 py-2 text-sm text-stone-700">
+                <img src={importResult.logoSuggestion.url} alt="Logótipo encontrado na fatura" className="h-10 max-w-[120px] rounded bg-white object-contain p-0.5" />
+                <span className="flex-1 text-xs text-stone-600">Logótipo encontrado na fatura</span>
+                <input type="checkbox" checked={useSuggestedLogo} onChange={(e) => setUseSuggestedLogo(e.target.checked)} />
+                <span className="text-xs font-medium">Usar como logótipo do fornecedor</span>
+              </label>
+            )}
             <div className="grid grid-cols-2 gap-4 items-start">
               <div className="space-y-3">
                 <div>

@@ -293,9 +293,13 @@ export function SupplierDetailView() {
         <div className="flex items-start justify-between gap-4">
           {/* Avatar + identity */}
           <div className="flex items-center gap-4">
-            <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#ED5C32] to-[#EF8935] text-base font-bold text-white shadow-sm">
-              {initials(supplier.name)}
-            </div>
+            {supplier.logoUrl ? (
+              <img src={supplier.logoUrl} alt="" className="h-12 w-12 shrink-0 rounded-full border border-stone-200 bg-white object-contain p-1 shadow-sm" />
+            ) : (
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#ED5C32] to-[#EF8935] text-base font-bold text-white shadow-sm">
+                {initials(supplier.name)}
+              </div>
+            )}
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold text-stone-900">{supplier.name}</h1>

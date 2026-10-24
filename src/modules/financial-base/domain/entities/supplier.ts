@@ -56,6 +56,8 @@ export interface Supplier {
   defaultFinancialMode?: FinancialMode | null;
   /** Destino habitual — uma loja concreta, nunca «todas». */
   defaultLocationId?: string | null;
+  /** Logótipo (proposto a partir de uma fatura e confirmado pela pessoa). */
+  logoUrl?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -114,6 +116,7 @@ export interface CreateSupplierPayload {
   defaultFinancialType?: string | null;
   defaultFinancialMode?: FinancialMode | null;
   defaultLocationId?: string | null;
+  logoUrl?: string | null;
 }
 
 export interface UpdateSupplierPayload {
@@ -131,4 +134,5 @@ export interface UpdateSupplierPayload {
   defaultFinancialType?: string | null;
   defaultFinancialMode?: FinancialMode | null;
   defaultLocationId?: string | null;
+  logoUrl?: string | null;
 }

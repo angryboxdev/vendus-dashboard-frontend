@@ -37,6 +37,7 @@ export function SupplierDrawer({ open, editing, groups, categories, onClose, onS
   const [defaultStockPolicy, setDefaultStockPolicy] = useState<DefaultStockPolicy>(editing?.defaultStockPolicy ?? "inherit");
   const [defaultFinancialMode, setDefaultFinancialMode] = useState<FinancialMode | "">(editing?.defaultFinancialMode ?? "");
   const [defaultLocationId, setDefaultLocationId] = useState<string | null>(editing?.defaultLocationId ?? null);
+  const [logoRemoved, setLogoRemoved] = useState(false);
 
   const filteredCategories = categories.filter(
     (c) => c.isActive && (!defaultGroupId || c.groupId === defaultGroupId),
@@ -63,6 +64,7 @@ export function SupplierDrawer({ open, editing, groups, categories, onClose, onS
       defaultStockPolicy,
       defaultFinancialMode: defaultFinancialMode || null,
       defaultLocationId,
+      ...(isEdit && editing?.logoUrl && logoRemoved ? { logoUrl: null } : {}),
     };
     onSave(payload, isEdit ? editing!.id : undefined);
   }
@@ -189,6 +191,14 @@ export function SupplierDrawer({ open, editing, groups, categories, onClose, onS
             </div>
             <LocationSelect value={defaultLocationId} onChange={setDefaultLocationId} allowUnset label="Destino habitual" className={inputCls} />
           </div>
+          {isEdit && editing?.logoUrl && (
+            <div className="flex items-center gap-3">
+              {!logoRemoved && <img src={editing.logoUrl} alt="Logótipo" className="h-10 w-10 rounded border border-stone-200 bg-white object-contain p-0.5" />}
+              <button type="button" onClick={() => setLogoRemoved((v) => !v)} className="text-xs font-medium text-stone-500 underline hover:text-stone-700">
+                {logoRemoved ? "Manter logótipo" : "Remover logótipo"}
+              </button>
+            </div>
+          )}
 
           {isEdit && <SupplierLocationRulesPanel supplierId={editing!.id} categories={categories} />}
 
