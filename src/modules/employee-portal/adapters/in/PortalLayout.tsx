@@ -1,5 +1,7 @@
 import { useEffect } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { NavLink, Outlet, useLocation } from "react-router-dom";
+import { useEmployeePortalModule } from "../../employee-portal.module.tsx";
 import { useAuth } from "../../../../contexts/AuthContext.tsx";
 import { AppIcon, BRAND, FOCUS_RING, type AppIconKey } from "../../../../components/ui";
 import { SetPasswordView } from "./SetPasswordView.tsx";
@@ -39,6 +41,16 @@ function usePortalPwa() {
   }, []);
 }
 
+/** Número laranja de notificações (1, 2, … 9+). */
+function NavBadge({ n }: { n: number }) {
+  if (n <= 0) return null;
+  return (
+    <span className="inline-flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-brand-600 px-1 text-[10px] font-semibold leading-none text-white ring-2 ring-surface-card" aria-label={`${n} por tratar`}>
+      {n > 9 ? "9+" : n}
+    </span>
+  );
+}
+
 /**
  * Portal do Colaborador — mobile-first, sem a barra lateral de gestão.
  * Telemóvel: cabeçalho curto e barra de baixo fixa (ícone + nome, alvos ≥ 44 px,
@@ -49,6 +61,10 @@ export function PortalLayout() {
   const { pathname } = useLocation();
   usePortalPwa();
   const showNav = !user?.mustChangePassword;
+  const { engagement } = useEmployeePortalModule();
+  // Número laranja no «Mais»: comunicados/documentos da empresa, tarefas e solicitações que pedem ação.
+  const pending = useQuery({ queryKey: ["portal-pending"], queryFn: () => engagement.pendingCount(), retry: false, enabled: showNav, refetchInterval: 5 * 60_000 });
+  const badge = (t: (typeof TABS)[number]) => (t.to === "/portal/mais" ? (pending.data ?? 0) : 0);
   const active = (t: (typeof TABS)[number], isActive: boolean) => isActive || (t.to === "/portal/mais" && MORE.includes(pathname));
 
   return (
@@ -73,6 +89,7 @@ export function PortalLayout() {
                     >
                       <AppIcon name={t.icon} size={18} />
                       {t.label}
+                      <NavBadge n={badge(t)} />
                     </NavLink>
                   </li>
                 ))}
@@ -100,8 +117,13 @@ export function PortalLayout() {
                 >
                   {({ isActive }) => (
                     <>
-                      <span className={`flex h-7 w-12 items-center justify-center rounded-full transition-colors ${active(t, isActive) ? "bg-brand-50" : ""}`}>
+                      <span className={`relative flex h-7 w-12 items-center justify-center rounded-full transition-colors ${active(t, isActive) ? "bg-brand-50" : ""}`}>
                         <AppIcon name={t.icon} size={20} />
+                        {badge(t) > 0 && (
+                          <span className="absolute -right-0.5 -top-1">
+                            <NavBadge n={badge(t)} />
+                          </span>
+                        )}
                       </span>
                       {t.label}
                     </>

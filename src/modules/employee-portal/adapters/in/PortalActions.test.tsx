@@ -2,6 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import type { MyDocument, MyRequest } from "../../domain/entities/portal.ts";
 import type { PortalSelfServicePort } from "../../domain/ports/in/portal.ports.ts";
@@ -21,7 +22,9 @@ function renderWith(ui: ReactNode, selfService: Partial<PortalSelfServicePort>) 
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <EmployeePortalProvider module={mod}>{ui}</EmployeePortalProvider>
+      <MemoryRouter>
+        <EmployeePortalProvider module={mod}>{ui}</EmployeePortalProvider>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
 }
@@ -29,6 +32,7 @@ function renderWith(ui: ReactNode, selfService: Partial<PortalSelfServicePort>) 
 const EXPIRED: MyDocument = {
   id: "d1",
   categoryLabel: "Atestado de saúde",
+  category: "atestado_saude",
   fileName: "a.pdf",
   status: "valid",
   canReplace: true,
@@ -43,7 +47,7 @@ const EXPIRED: MyDocument = {
 describe("Portal — substituir documento", () => {
   it("mostra a rejeição anterior e envia o ficheiro escolhido", async () => {
     const replaceDocument = vi.fn(async () => ({ ...EXPIRED, status: "pending_validation", canReplace: false }));
-    renderWith(<PortalDocumentsView />, { listDocuments: vi.fn(async () => [EXPIRED]), replaceDocument });
+    renderWith(<PortalDocumentsView />, { documentChecklist: vi.fn(async () => ({ categories: [], missingMandatory: [] })), listDocuments: vi.fn(async () => [EXPIRED]), replaceDocument });
     const user = userEvent.setup();
     expect(await screen.findByText("Envio rejeitado: Foto ilegível")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Substituir" }));
@@ -55,7 +59,9 @@ describe("Portal — substituir documento", () => {
   });
 
   it("em validação: sem botão Substituir", async () => {
-    renderWith(<PortalDocumentsView />, { listDocuments: vi.fn(async () => [{ ...EXPIRED, status: "pending_validation", canReplace: false, lastRejection: null }]) });
+    renderWith(<PortalDocumentsView />, { documentChecklist: vi.fn(async () => ({ categories: [], missingMandatory: [] })), listDocuments: vi.fn(async () => [{ ...EXPIRED, status: "pending_validation", canReplace: false, lastRejection: null }]) });
+    expect(screen.queryByText("Precisa da sua atenção")).toBeNull();
+    await userEvent.setup().click(await screen.findByRole("button", { name: /Saúde e formação/ }));
     expect(await screen.findByText("Em validação pelo RH")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Substituir" })).not.toBeInTheDocument();
   });

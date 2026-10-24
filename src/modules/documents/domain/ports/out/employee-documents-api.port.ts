@@ -1,5 +1,5 @@
 import type { DocumentCategoryDefinition } from "../../entities/document-category.ts";
-import type { DocumentArchiveRow, EmployeeDocument, ReplaceDocumentPayload, UploadDocumentPayload } from "../../entities/employee-document.ts";
+import type { DocumentArchiveRow, DocumentReviewDecision, EmployeeDocument, PendingDocument, ReplaceDocumentPayload, UploadDocumentPayload } from "../../entities/employee-document.ts";
 import type { EmployeeDocumentSummary } from "../../entities/employee-document-summary.ts";
 import type { PayslipCategory, PayslipImportResult, PayslipMappingEntry, PayslipPreviewRow } from "../../entities/payslip-import.ts";
 
@@ -15,6 +15,10 @@ export interface EmployeeDocumentsApiPort {
   listDocumentCategories(): Promise<DocumentCategoryDefinition[]>;
   /** Arquivo por pastas: contagem e último arquivamento por colaborador × categoria. */
   getDocumentArchive(): Promise<DocumentArchiveRow[]>;
+  /** Envios do Portal por validar, mais antigos primeiro. */
+  listPendingDocuments(): Promise<PendingDocument[]>;
+  /** Validar ou rejeitar (com motivo) um envio do colaborador — gerente ou acima. */
+  reviewEmployeeDocument(employeeId: string, documentId: string, decision: DocumentReviewDecision, note?: string): Promise<EmployeeDocument>;
   /** Colaboradores (todos) para associar recibos na importação. */
   listEmployees(): Promise<Array<{ id: string; fullName: string }>>;
   previewPayslipImport(category: PayslipCategory, period: string, files: File[]): Promise<PayslipPreviewRow[]>;

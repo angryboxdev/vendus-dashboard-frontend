@@ -54,8 +54,8 @@ Spec e tickets: backend `.scratch/portal-colaborador/`.
 - `PortalHomeView` (+ `usePortalHome`) — próximo turno, estado e botão.
 - `PortalScheduleView` — semana a semana (só publicados), "Quem trabalha
   comigo" por turno (nome curto + cargo + horário, carregado ao abrir).
-- `PortalDocumentsView` — Recibos (por período, "OUT 2026") e Documentos com
-  aviso de vencido / a vencer em 30 dias; "Abrir" pede o URL assinado.
+- `PortalDocumentsView` — as mesmas 5 pastas da ficha do RH (`DOCUMENT_FOLDERS`/`documentFolderOf`, função pura do módulo `documents`, via `portalFolders` em `domain/services/portal-documents.service.ts`), com contagem e número laranja do que pede ação; «Precisa da sua atenção» no topo (obrigatórios em falta com «Enviar», vencidos/a vencer com «Substituir», motivo de rejeição). Pasta aberta: documentos (tipo · data, estado, «Abrir»), em falta nesta pasta e «Enviar documento» (só categorias permitidas pelo servidor — `GET /api/me/documents/checklist`; recibo verde pede o mês; validação de 10 MB/formato antes de enviar; arrastar no computador). Envio → «Em validação» até o RH ou o gerente aprovar. Fotos pré-visualizadas no Portal, PDF no visualizador do browser. Os documentos enviados pela empresa ficam em Mais → Comunicados.
+- `PortalLayout` — número laranja no separador «Mais» (`engagement.pendingCount`, 1…9+), na barra de baixo e no cabeçalho.
 - `PortalLeaveView` (separador **Pedidos**) — `PortalRequestsSection` (Justificar falta → RH, com comprovativo opcional; Pedir folga → gerente; lista com estado, motivo da decisão e cancelar enquanto pendente) + ausências do ano (só consulta; sem saldo nem feriados).
 - `DocumentsAlert` (Início) — aviso de documentos vencidos/a vencer que pode substituir.
 - `PortalProfileView`, `SetPasswordView`.
