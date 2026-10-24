@@ -22,7 +22,9 @@ export const FEATURES: Feature[] = [
   { key: "time_tracking.bank.enabled", domain: "time_tracking", sub: (k) => k.startsWith("time_tracking.bank.") && k !== "time_tracking.bank.enabled" },
   { key: "time_tracking.roster.coverage_enabled", domain: "time_tracking", sub: none, link: { to: "/hr/novo/escalas", label: "Definir mínimos nas Escalas" } },
   { key: "time_tracking.kiosk.enabled", domain: "time_tracking", sub: (k) => k === "time_tracking.kiosk.methods" },
-  { key: "time_tracking.geofence.require_coordinates", domain: "time_tracking", sub: (k) => k === "time_tracking.geofence.block_outside" },
+  { key: "time_tracking.geofence.require_coordinates", domain: "time_tracking", sub: none },
+  // Interruptor próprio, ligado por omissão (2026-10-24): bloqueia a entrada fora do raio sem guardar a localização.
+  { key: "time_tracking.geofence.block_outside", domain: "time_tracking", sub: none },
   { key: "time_tracking.auto_close.enabled", domain: "time_tracking", sub: none },
   { key: "time_tracking.correction.employee_can_refuse", domain: "time_tracking", sub: (k) => k === "time_tracking.correction.refusal_hours" },
   { key: "security.mfa.required", domain: "security", sub: none },
