@@ -960,12 +960,13 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   const [paidAt, setPaidAt] = useState(inv.invoiceDate ?? todayStr());
   const [isDirectDebit, setIsDirectDebit] = useState(false);
   const [directDebitDate, setDirectDebitDate] = useState(inv.dueDate ?? "");
-  // Modo financeiro (F2 §2.2): «Única» | «Por artigo» | «Por valores».
+  // Modo financeiro (F2 §2.2): «Por artigo» | «Única» | «Por valores».
   // Em edição vale o modo gravado. Num rascunho reaberto vale o modo gravado
   // quando não é o «Única» por defeito. Numa importação nova, enquanto o
-  // utilizador não escolher (`manualDetailMode`), vem da ficha do fornecedor:
-  // modo preferido; senão "normalmente gera revisão de stock" → «Por artigo»
-  // (sem linhas classificadas o Stock não resolve a revisão); senão «Única».
+  // utilizador não escolher (`manualDetailMode`): com linhas lidas → «Por artigo»
+  // (decisão do utilizador, 2026-10-24: classificação por linha é mais precisa),
+  // salvo preferência explícita «Por valores» do fornecedor; sem linhas → modo
+  // preferido do fornecedor ou «Única».
   const [manualDetailMode, setManualDetailMode] = useState<LineDetailMode | null>(() => {
     if (isEdit) return inv.lineDetailMode ?? (importResult.extractedLines.length > 0 ? "detailed" : "simple");
     if (inv.lineDetailMode && inv.lineDetailMode !== "simple") return inv.lineDetailMode;
@@ -978,7 +979,8 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   const fileNif = linkedSupplier?.nif ?? (importResult.supplierMatch?.id === supplierId ? importResult.supplierMatch?.nif ?? null : null);
   const supplierPreferredMode = linkedSupplier?.defaultFinancialMode ? LINE_DETAIL_MODE_OF[linkedSupplier.defaultFinancialMode] : null;
   const detailMode: LineDetailMode =
-    manualDetailMode ?? supplierPreferredMode ?? (linkedSupplier?.defaultStockPolicy === "usually_creates_review" ? "detailed" : "simple");
+    manualDetailMode ??
+    (supplierPreferredMode === "by_values" ? "by_values" : importResult.extractedLines.length > 0 ? "detailed" : supplierPreferredMode ?? "simple");
   // Repartições «Por valores» (mantidas em memória ao trocar de modo — nada se perde).
   const [allocRows, setAllocRows] = useState<DraftAllocation[]>(() => allocationsFromDTO(inv.allocations ?? []));
   // Versão atual: «Guardar rascunho» incrementa-a; confirmar a seguir tem de enviar a nova.
@@ -1621,7 +1623,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Modo de classificação</p>
             <div role="radiogroup" aria-label="Modo de classificação" className="flex rounded-lg border border-stone-200 p-0.5 bg-stone-50">
-              {(["simple", "detailed", "by_values"] as const).map((m) => (
+              {(["detailed", "simple", "by_values"] as const).map((m) => (
                 <button
                   key={m}
                   type="button"

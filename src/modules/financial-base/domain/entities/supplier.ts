@@ -13,9 +13,10 @@ export const DEFAULT_STOCK_POLICY_LABELS: Record<DefaultStockPolicy, string> = {
 
 /** Modo de classificação financeira (F2 §2.2). */
 export type FinancialMode = "single" | "by_item" | "by_values";
+// Ordem de apresentação: «Por artigo» primeiro (modo por omissão com linhas lidas), depois «Única».
 export const FINANCIAL_MODE_LABELS: Record<FinancialMode, string> = {
-  single: "Única",
   by_item: "Por artigo",
+  single: "Única",
   by_values: "Por valores",
 };
 
