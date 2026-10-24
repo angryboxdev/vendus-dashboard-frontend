@@ -1,6 +1,7 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { PunchRefusedError, type PortalHome, type PunchResult } from "../../domain/entities/portal.ts";
 import { EmployeePortalProvider, type EmployeePortalModule } from "../../employee-portal.module.tsx";
@@ -43,9 +44,11 @@ function renderView(opts: { homes: PortalHome[]; punch: (key: string) => Promise
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={qc}>
-      <EmployeePortalProvider module={mod}>
-        <PortalHomeView />
-      </EmployeePortalProvider>
+      <MemoryRouter>
+        <EmployeePortalProvider module={mod}>
+          <PortalHomeView />
+        </EmployeePortalProvider>
+      </MemoryRouter>
     </QueryClientProvider>,
   );
   return { mod, keys };

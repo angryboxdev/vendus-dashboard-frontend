@@ -8,6 +8,8 @@ import {
   REQUEST_REASONS,
   type ClientLocation,
   type Coworker,
+  type DocumentChecklist,
+  type NewDocumentSubmission,
   type MyDocument,
   type MyLeave,
   type MyRequest,
@@ -83,9 +85,9 @@ export class HttpNovoRhPortalApiAdapter implements PortalApiPort {
   /** Turnos já vistos (para saber o dia a justificar). */
   private readonly shiftDates = new Map<string, string>();
 
-  private readonly documents: Pick<PortalApiPort, "listMyDocuments" | "getDocumentUrl" | "replaceDocument">;
+  private readonly documents: Pick<PortalApiPort, "listMyDocuments" | "getDocumentUrl" | "replaceDocument" | "getDocumentChecklist" | "submitDocument">;
 
-  constructor(documents: Pick<PortalApiPort, "listMyDocuments" | "getDocumentUrl" | "replaceDocument">) {
+  constructor(documents: Pick<PortalApiPort, "listMyDocuments" | "getDocumentUrl" | "replaceDocument" | "getDocumentChecklist" | "submitDocument">) {
     this.documents = documents;
   }
 
@@ -159,6 +161,14 @@ export class HttpNovoRhPortalApiAdapter implements PortalApiPort {
 
   replaceDocument(documentId: string, file: File, expiresAt: string | null): Promise<MyDocument> {
     return this.documents.replaceDocument(documentId, file, expiresAt);
+  }
+
+  getDocumentChecklist(): Promise<DocumentChecklist> {
+    return this.documents.getDocumentChecklist();
+  }
+
+  submitDocument(submission: NewDocumentSubmission): Promise<MyDocument> {
+    return this.documents.submitDocument(submission);
   }
 
   async getMyLeave(year: number): Promise<MyLeave> {

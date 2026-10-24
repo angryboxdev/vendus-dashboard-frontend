@@ -1,4 +1,4 @@
-import type { ReplaceDocumentPayload, UploadDocumentPayload } from "../../domain/entities/employee-document.ts";
+import type { DocumentReviewDecision, ReplaceDocumentPayload, UploadDocumentPayload } from "../../domain/entities/employee-document.ts";
 import type { PayslipCategory, PayslipMappingEntry } from "../../domain/entities/payslip-import.ts";
 import type { EmployeeDocumentsPort } from "../../domain/ports/in/employee-documents.ports.ts";
 import type { EmployeeDocumentsApiPort } from "../../domain/ports/out/employee-documents-api.port.ts";
@@ -35,6 +35,12 @@ export class EmployeeDocumentsUseCases implements EmployeeDocumentsPort {
   }
   getDocumentArchive() {
     return this.api.getDocumentArchive();
+  }
+  listPendingDocuments() {
+    return this.api.listPendingDocuments();
+  }
+  reviewEmployeeDocument(employeeId: string, documentId: string, decision: DocumentReviewDecision, note?: string) {
+    return this.api.reviewEmployeeDocument(employeeId, documentId, decision, note);
   }
   listEmployees() {
     return this.api.listEmployees();

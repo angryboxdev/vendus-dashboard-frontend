@@ -1,9 +1,12 @@
 import { useRef, useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
+import { AppIcon, FOCUS_RING } from "../../../../components/ui";
 import { useEmployeePortalModule } from "../../employee-portal.module.tsx";
 import { PortalNotLinkedError, PunchRefusedError, type PunchKind } from "../../domain/entities/portal.ts";
 import {
   dayLabel,
+  longDateLabel,
   LOCATION_NOTICE,
   punchStateLabel,
   punchSuccessMessage,
@@ -29,16 +32,16 @@ export function PortalHomeView() {
   // Uma chave por intenção: se a resposta se perder e o colaborador tocar de novo, o servidor reconhece o pedido.
   const pendingKey = useRef<{ kind: PunchKind; key: string } | null>(null);
 
-  if (isLoading) return <p className="py-16 text-center text-sm text-stone-500">A carregar…</p>;
+  if (isLoading) return <p className="py-16 text-center text-sm text-ink-secondary">A carregar…</p>;
   if (error || !home) {
     const notLinked = error instanceof PortalNotLinkedError;
     return (
       <div className="space-y-3 py-16 text-center">
-        <p className="text-sm text-stone-600">
+        <p className="text-sm text-ink-secondary">
           {notLinked ? "Esta conta ainda não está ligada a uma ficha de colaborador. Fale com o seu gestor." : "Não foi possível carregar o Portal."}
         </p>
         {!notLinked && (
-          <button onClick={() => void refetch()} className="rounded-lg border border-stone-200 px-4 py-2 text-sm font-medium text-stone-700">
+          <button onClick={() => void refetch()} className="min-h-11 rounded-xl border border-line bg-surface-card px-4 text-sm font-medium text-navy-900">
             Tentar novamente
           </button>
         )}
@@ -74,57 +77,79 @@ export function PortalHomeView() {
   const buttonLabel = busy === "locating" ? "A obter localização…" : busy === "sending" ? "A registar…" : action === "out" ? "Registar saída" : "Registar entrada";
   const disabled = !action || !!blocked || !!busy;
 
+  const working = punch.state === "in";
+
   return (
-    <div className="space-y-4">
-      <h1 className="text-xl font-semibold text-stone-900">Olá, {home.employee.shortName}</h1>
+    <div className="space-y-5">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight text-navy-900">Olá, {home.employee.shortName}</h1>
+        <p className="mt-0.5 text-sm text-ink-secondary">{longDateLabel(today)}</p>
+      </div>
 
       <DocumentsAlert />
-      <section className="rounded-2xl border border-[#F5C992]/50 bg-white p-5 shadow-sm" aria-label="Próximo turno">
-        <p className="text-xs font-semibold uppercase tracking-wide text-stone-500">Próximo turno</p>
-        {nextShift ? (
-          <>
-            <p className="mt-1 text-2xl font-semibold text-stone-900">
-              {dayLabel(nextShift.workDate, today)} · {shiftHours(nextShift)}
-            </p>
-            <p className="text-sm text-stone-600">{nextShift.locationName}</p>
-          </>
-        ) : (
-          <p className="mt-1 text-sm text-stone-600">Sem turnos publicados nos próximos dias.</p>
-        )}
-      </section>
 
-      <section className="space-y-3 rounded-2xl border border-[#F5C992]/50 bg-white p-5 shadow-sm" aria-label="Picagem">
-        <p className="text-sm font-medium text-stone-700" data-testid="punch-state">
-          {punchStateLabel(punch)}
-        </p>
-
-        {action && (
-          <button
-            onClick={() => void handlePunch()}
-            disabled={disabled}
-            className={`w-full rounded-xl px-4 py-4 text-lg font-semibold text-white shadow-sm transition-colors disabled:opacity-50 ${
-              action === "out" ? "bg-stone-800 active:bg-stone-900" : "bg-[#ED5C32] active:bg-[#d94f28]"
-            }`}
-          >
-            {buttonLabel}
-          </button>
-        )}
-
-        {blocked && <p className="text-sm text-stone-600">{refusalMessage(blocked)}</p>}
-
-        {feedback && (
-          <p
-            role="status"
-            className={`rounded-lg px-3 py-2 text-sm ${
-              feedback.tone === "success" ? "bg-emerald-50 text-emerald-800" : feedback.tone === "warning" ? "bg-amber-50 text-amber-800" : "bg-red-50 text-red-700"
-            }`}
-          >
-            {feedback.text}
+      <div className="grid gap-4 lg:grid-cols-2">
+        <section className="rounded-2.5xl border border-line bg-surface-card p-5 shadow-card" aria-label="Próximo turno">
+          <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-ink-secondary">
+            <AppIcon name="rosters" size={16} />
+            Próximo turno
           </p>
-        )}
+          {nextShift ? (
+            <>
+              <p className="mt-2 text-2xl font-semibold tabular-nums text-navy-900">
+                {dayLabel(nextShift.workDate, today)} · {shiftHours(nextShift)}
+              </p>
+              {nextShift.endsNextDay && <p className="text-xs text-ink-secondary">Termina no dia seguinte</p>}
+              {nextShift.locationName && <p className="mt-1 text-sm text-ink-secondary">{nextShift.locationName}</p>}
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-ink-secondary">Sem turnos publicados nos próximos dias.</p>
+          )}
+          <Link to="/portal/escala" className={`mt-3 inline-flex min-h-11 items-center gap-1 text-sm font-medium text-brand-600 ${FOCUS_RING} rounded-lg`}>
+            Ver a minha escala
+            <AppIcon name="chevronRight" size={16} />
+          </Link>
+        </section>
 
-        {action && punch.geofencePolicy !== "off" && <p className="text-xs text-stone-400">{LOCATION_NOTICE}</p>}
-      </section>
+        <section className="space-y-4 rounded-2.5xl border border-line bg-surface-card p-5 shadow-card" aria-label="Picagem">
+          <p className="flex items-center gap-2 text-sm font-medium text-ink">
+            <span aria-hidden className={`h-2.5 w-2.5 rounded-full ${working ? "bg-emerald-500" : "bg-line"}`} />
+            <span data-testid="punch-state">{punchStateLabel(punch)}</span>
+          </p>
+
+          {action && (
+            <button
+              onClick={() => void handlePunch()}
+              disabled={disabled}
+              className={`h-14 w-full rounded-2xl px-4 text-lg font-semibold text-white transition-colors disabled:opacity-50 ${FOCUS_RING} ${
+                action === "out" ? "bg-navy-900 active:bg-navy-950" : "bg-brand-600 active:bg-brand-500"
+              }`}
+            >
+              {buttonLabel}
+            </button>
+          )}
+
+          {blocked && <p className="text-sm text-ink-secondary">{refusalMessage(blocked)}</p>}
+
+          {feedback && (
+            <p
+              role="status"
+              className={`rounded-xl px-3 py-2 text-sm ${
+                feedback.tone === "success" ? "bg-emerald-50 text-emerald-800" : feedback.tone === "warning" ? "bg-amber-50 text-amber-800" : "bg-red-50 text-red-700"
+              }`}
+            >
+              {feedback.text}
+            </p>
+          )}
+
+          {action && punch.geofencePolicy !== "off" && (
+            <p className="flex items-start gap-1.5 text-xs text-ink-secondary">
+              <AppIcon name="address" size={14} className="mt-0.5 shrink-0" />
+              {LOCATION_NOTICE}
+            </p>
+          )}
+        </section>
+      </div>
     </div>
   );
 }

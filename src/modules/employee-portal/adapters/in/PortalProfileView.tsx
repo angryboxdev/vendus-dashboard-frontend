@@ -12,9 +12,9 @@ export function PortalProfileView() {
 
   return (
     <div className="space-y-4">
-      <section className="rounded-2xl border border-[#F5C992]/50 bg-white p-5 shadow-sm">
-        <p className="text-lg font-semibold text-stone-900">{home?.employee.shortName ?? ""}</p>
-        <p className="text-sm text-stone-600">{user?.email}</p>
+      <section className="rounded-2xl border border-line bg-surface-card p-5 shadow-card">
+        <p className="text-lg font-semibold text-navy-900">{home?.employee.shortName ?? ""}</p>
+        <p className="text-sm text-ink-secondary">{user?.email}</p>
       </section>
 
       {changing ? (
@@ -26,19 +26,19 @@ export function PortalProfileView() {
           }}
         />
       ) : (
-        <button onClick={() => setChanging(true)} className="w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-sm font-medium text-stone-700">
+        <button onClick={() => setChanging(true)} className="w-full rounded-xl border border-line bg-surface-card px-4 py-3 text-sm font-medium text-ink">
           Mudar palavra-passe
         </button>
       )}
       {saved && <p className="text-sm text-emerald-700">Palavra-passe atualizada.</p>}
 
       {user && user.role !== "employee" && (
-        <Link to="/" className="block w-full rounded-xl border border-stone-200 bg-white px-4 py-3 text-center text-sm font-medium text-stone-700">
+        <Link to="/" className="block w-full rounded-xl border border-line bg-surface-card px-4 py-3 text-center text-sm font-medium text-ink">
           Ir para a área de gestão
         </Link>
       )}
 
-      <button onClick={() => void signOut()} className="w-full rounded-xl px-4 py-3 text-sm font-medium text-red-600">
+      <button onClick={() => void signOut()} className="min-h-11 w-full rounded-xl px-4 py-3 text-sm font-medium text-red-700">
         Terminar sessão
       </button>
     </div>

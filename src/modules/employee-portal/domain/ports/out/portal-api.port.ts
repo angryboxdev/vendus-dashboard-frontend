@@ -1,4 +1,4 @@
-import type { ClientLocation, Coworker, MyDocument, MyLeave, MyRequest, MyShift, NewRequest, PortalHome, PunchKind, PunchResult } from "../../entities/portal.ts";
+import type { ClientLocation, Coworker, DocumentChecklist, MyDocument, NewDocumentSubmission, MyLeave, MyRequest, MyShift, NewRequest, PortalHome, PunchKind, PunchResult } from "../../entities/portal.ts";
 
 export interface PortalApiPort {
   getHome(): Promise<PortalHome>;
@@ -13,6 +13,10 @@ export interface PortalApiPort {
   getMyLeave(year: number): Promise<MyLeave>;
   /** Envia PDF/foto para substituir um documento vencido / a vencer. Lança `PortalRequestError` com a recusa. */
   replaceDocument(documentId: string, file: File, expiresAt: string | null): Promise<MyDocument>;
+  /** Para onde posso enviar e o que falta. */
+  getDocumentChecklist(): Promise<DocumentChecklist>;
+  /** Envia um documento novo (fica «Em validação»). Lança `PortalRequestError` com a recusa. */
+  submitDocument(submission: NewDocumentSubmission): Promise<MyDocument>;
   listMyRequests(): Promise<MyRequest[]>;
   createRequest(request: NewRequest): Promise<MyRequest>;
   cancelRequest(requestId: string): Promise<MyRequest>;

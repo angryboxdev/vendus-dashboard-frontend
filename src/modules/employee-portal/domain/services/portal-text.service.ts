@@ -16,6 +16,15 @@ export function dayLabel(workDate: string, today: string): string {
   return `${weekday} ${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}`;
 }
 
+const LONG_WEEKDAYS = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
+const LONG_MONTHS = ["janeiro", "fevereiro", "março", "abril", "maio", "junho", "julho", "agosto", "setembro", "outubro", "novembro", "dezembro"];
+
+/** `2026-10-23` → "Sexta-feira, 23 de outubro". */
+export function longDateLabel(ymd: string): string {
+  const [y, m, d] = ymd.split("-").map(Number) as [number, number, number];
+  return `${LONG_WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()]}, ${d} de ${LONG_MONTHS[m - 1]}`;
+}
+
 /** "09:00–17:00" ou "11:00–15:00 · 19:00–23:00". */
 export function shiftHours(shift: Pick<PortalShift, "startTime" | "endTime" | "secondStartTime" | "secondEndTime" | "segments">): string {
   if (shift.segments && shift.segments.length > 2) return shift.segments.map((s) => `${s.start}–${s.end}`).join(" · ");

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayLabel, punchStateLabel, punchSuccessMessage, refusalMessage, shiftHours } from "./portal-text.service.ts";
+import { dayLabel, longDateLabel, punchStateLabel, punchSuccessMessage, refusalMessage, shiftHours } from "./portal-text.service.ts";
 
 describe("textos do Portal", () => {
   it("dia relativo e horário (incl. repartido)", () => {
@@ -7,6 +7,7 @@ describe("textos do Portal", () => {
     expect(dayLabel("2026-10-08", "2026-10-07")).toBe("Amanhã");
     expect(dayLabel("2026-10-09", "2026-10-07")).toBe("Sex 09/10");
     expect(shiftHours({ startTime: "09:00", endTime: "17:00", secondStartTime: null, secondEndTime: null })).toBe("09:00–17:00");
+    expect(longDateLabel("2026-10-23")).toBe("Sexta-feira, 23 de outubro");
     const three = [{ start: "08:00", end: "10:00" }, { start: "12:00", end: "14:00" }, { start: "18:00", end: "20:00" }];
     expect(shiftHours({ startTime: "08:00", endTime: "10:00", secondStartTime: "12:00", secondEndTime: "14:00", segments: three })).toBe("08:00–10:00 · 12:00–14:00 · 18:00–20:00");
     expect(shiftHours({ startTime: "11:00", endTime: "15:00", secondStartTime: "19:00", secondEndTime: "23:00" })).toBe("11:00–15:00 · 19:00–23:00");

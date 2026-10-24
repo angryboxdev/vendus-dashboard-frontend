@@ -120,6 +120,19 @@ export const DOCUMENT_STATUS_LABELS: Record<DocumentDisplayStatus, { label: stri
   removed: { label: "Removido", cls: "bg-stone-100 text-stone-500", dot: "bg-stone-400" },
 };
 
+/** Envio do colaborador (Portal) por validar (`GET /api/novo-rh/documents/pending`). */
+export interface PendingDocument {
+  id: string;
+  employeeId: string;
+  employeeName: string;
+  categoryLabel: string;
+  fileName: string;
+  expiresAt: string | null;
+  submittedAt: string;
+}
+
+export type DocumentReviewDecision = "approve" | "reject";
+
 /** Arquivo por pastas (`GET /api/novo-rh/documents/archive`): colaborador ativo × categoria com documentos. */
 export interface DocumentArchiveRow {
   employeeId: string;

@@ -9,6 +9,8 @@ import {
   PunchRefusedError,
   type ClientLocation,
   type Coworker,
+  type DocumentChecklist,
+  type NewDocumentSubmission,
   type MyDocument,
   type MyLeave,
   type MyShift,
@@ -83,6 +85,23 @@ export class HttpPortalApiAdapter implements PortalApiPort {
     if (expiresAt) form.append("expiresAt", expiresAt);
     try {
       return await apiPostFormData<MyDocument>(`/api/me/documents/${encodeURIComponent(documentId)}/replace`, form);
+    } catch (e) {
+      throw translate(e);
+    }
+  }
+
+  getDocumentChecklist(): Promise<DocumentChecklist> {
+    return get<DocumentChecklist>("/api/me/documents/checklist");
+  }
+
+  async submitDocument(s: NewDocumentSubmission): Promise<MyDocument> {
+    const form = new FormData();
+    form.append("file", s.file);
+    form.append("category", s.category);
+    if (s.period) form.append("period", s.period);
+    if (s.expiresAt) form.append("expiresAt", s.expiresAt);
+    try {
+      return await apiPostFormData<MyDocument>("/api/me/documents", form);
     } catch (e) {
       throw translate(e);
     }

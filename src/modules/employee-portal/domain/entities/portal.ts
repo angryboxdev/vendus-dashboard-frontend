@@ -102,7 +102,11 @@ export interface Coworker {
 export interface MyDocument {
   id: string;
   categoryLabel: string;
+  /** Categoria (slug) — as pastas do Portal. Pode faltar num backend antigo. */
+  category?: string;
   fileName: string;
+  /** Tipo do ficheiro (pré-visualização). Pode faltar ou ser `null`. */
+  mimeType?: string | null;
   /** "valid" ou "pending_validation" (enviado no Portal, aguarda o RH). */
   status: string;
   /** Vencido / a vencer em 30 dias e sem envio pendente. */
@@ -118,6 +122,33 @@ export interface MyDocument {
 }
 
 export type LeaveType = "vacation" | "sick_leave" | "justified" | "unjustified" | "compensatory" | "authorized_absence" | "license" | "other";
+
+/** Para onde o colaborador pode enviar (`GET /api/me/documents/checklist`). */
+export interface SubmittableCategory {
+  slug: string;
+  label: string;
+  mandatory: boolean;
+  /** Periódica (ex.: recibo verde): cada envio é de um mês. */
+  requiresPeriod: boolean;
+  accepts: string[];
+  /** Estado do documento atual (`null` nas periódicas). */
+  status: "missing" | "ok" | "expiring" | "expired" | "pending" | null;
+  canSubmit: boolean;
+  lastRejection: { note: string; at: string } | null;
+}
+
+export interface DocumentChecklist {
+  categories: SubmittableCategory[];
+  /** Obrigatórios em falta ou vencidos (em validação não conta). */
+  missingMandatory: { id: string; label: string; categories: string[]; status: "missing" | "expired" }[];
+}
+
+export interface NewDocumentSubmission {
+  category: string;
+  file: File;
+  period: string | null;
+  expiresAt: string | null;
+}
 
 export interface MyLeaveEntry {
   id: string;

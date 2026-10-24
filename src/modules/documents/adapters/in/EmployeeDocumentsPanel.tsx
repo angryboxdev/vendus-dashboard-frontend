@@ -18,6 +18,7 @@ import {
   type EmployeeDocument,
 } from "../../domain/entities/employee-document.ts";
 import { MOTION_ROW_HOVER, MotionLayer, MotionSuccess, useSuccessFlash } from "../../../../components/motion/index.ts";
+import { ReviewActions } from "./DocumentReview.tsx";
 
 const ACCEPTED_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const ACCEPTED_EXT = ".pdf,.jpg,.jpeg,.png";
@@ -544,6 +545,15 @@ export function EmployeeDocumentsPanel({
                     <td className="px-3 py-2.5 text-stone-500">{DOCUMENT_ORIGIN_LABELS[doc.origin]}</td>
                     <td className="px-3 py-2.5 text-stone-500">{formatDate(doc.uploadedAt)}</td>
                     <td className="px-3 py-2.5 text-right">
+                      {doc.displayStatus === "pending_validation" && (
+                        <div className="mb-2">
+                          <ReviewActions
+                            employeeId={employeeId}
+                            documentId={doc.id}
+                            label={categoryOptionBySlug.get(doc.category)?.label ?? DOCUMENT_CATEGORY_LABELS[doc.category] ?? doc.category}
+                          />
+                        </div>
+                      )}
                       <div className="flex justify-end gap-3 text-xs font-medium">
                         <button type="button" onClick={() => handleDownload(doc.id)} className="text-stone-500 hover:text-stone-800">
                           Ver
