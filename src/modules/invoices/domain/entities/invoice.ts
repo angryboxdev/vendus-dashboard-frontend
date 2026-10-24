@@ -280,6 +280,8 @@ export interface InvoiceImportResultDTO {
   fiscal?: ImportFiscalInfo;
   /** Leitor usado (QR + texto do PDF, ou IA) e problemas encontrados (E3). */
   reading?: ImportReadingDTO;
+  /** Logótipo encontrado na fatura (fornecedor ainda sem logótipo) — só usado se a pessoa confirmar. */
+  logoSuggestion?: { url: string; width: number; height: number };
 }
 
 /** Valores gravados do documento (espelho de `StoredAmountsView` no backend). Desconto: % (10 = 10%) ou cêntimos. */
