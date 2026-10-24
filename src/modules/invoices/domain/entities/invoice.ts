@@ -206,7 +206,51 @@ export interface AiExtractedLineDTO {
   /** Desconto comercial da linha: % (10 = 10%) ou valor em cêntimos. */
   discountPct?: number | null;
   discountAmount?: number | null;
+  /** Leitor determinístico (E3): código do artigo, página, tipo, IVA do fornecedor, promoção, depósito→artigo. */
+  meta?: LineReadingMeta;
+  /** Subcategoria sugerida (catálogo da organização) — sugestão, revista antes de guardar. */
+  suggestedCostCenterCategoryId?: string | null;
+  classificationSource?: ClassificationSource;
+  classificationEvidence?: string;
+  classificationConflict?: boolean;
 }
+
+export type ClassificationSource = "line_kind" | "history_code" | "history_description" | "keyword" | "ai" | "none" | "manual";
+
+/** Metadados de uma linha lida pelo leitor determinístico (guardados com a linha). */
+export interface LineReadingMeta {
+  supplierCode: string | null;
+  page: number;
+  order: number;
+  kind: "product" | "deposit";
+  vatCode: string | null;
+  promoCode: string | null;
+  relatedOrder: number | null;
+  notes: string[];
+  classificationSource?: ClassificationSource | null;
+  classificationEvidence?: string | null;
+}
+
+/** Como foi lido o documento importado (E3). */
+export interface ImportReadingDTO {
+  source: "deterministic" | "ai";
+  layout: string | null;
+  qrRead: boolean;
+  status: "ready" | "needs_attention" | "unsupported";
+  issues: { code: string; blocking: boolean; detail: string }[];
+  aiCalls: number;
+  ms: number;
+}
+
+export const CLASSIFICATION_SOURCE_LABELS: Record<ClassificationSource, string> = {
+  line_kind: "depósito do documento",
+  history_code: "referência já classificada",
+  history_description: "descrição já classificada",
+  keyword: "regra",
+  ai: "IA",
+  none: "sem sugestão",
+  manual: "escolha manual",
+};
 
 export interface VatSummaryEntry {
   rate: number;
@@ -234,6 +278,8 @@ export interface InvoiceImportResultDTO {
   /** O documento já existia (mesmo ficheiro ou mesma identidade fiscal): é devolvido o existente. */
   reused?: "same_file" | "same_fiscal_identity";
   fiscal?: ImportFiscalInfo;
+  /** Leitor usado (QR + texto do PDF, ou IA) e problemas encontrados (E3). */
+  reading?: ImportReadingDTO;
 }
 
 /** Valores gravados do documento (espelho de `StoredAmountsView` no backend). Desconto: % (10 = 10%) ou cêntimos. */
@@ -349,6 +395,8 @@ export interface CreateInvoiceLinePayload {
   unitPriceText?: string | null;
   grossCentsPrinted?: number | null;
   discount?: AmountDiscountPayload | null;
+  /** Metadados do leitor determinístico (E3), guardados com a linha. */
+  reading?: LineReadingMeta | null;
 }
 
 export interface CreateInvoicePayload {

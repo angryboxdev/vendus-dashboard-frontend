@@ -233,7 +233,8 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
   - Chama `POST /api/invoices/import` (multipart). Em caso de sucesso, fecha e abre o `ReviewImportedInvoiceDrawer`.
   - Documento de cobrança (Finanças — retenções; Segurança Social — referência MB): a resposta vem com `kind: "payment_document"` e a própria modal mostra o **`PaymentDocumentReview`** (campos lidos e origem, IVA não aplicável, estado do código de barras, avisos, obrigações já registadas com «Abrir»). Nada é gravado; «Lançar pelo fluxo atual» volta a enviar com `treatAsInvoice=true` (confirmação se já houver registo parecido). `onOpenInvoice(id)` abre o registo existente no `InvoicesView`.
 
-- **`ReviewImportedInvoiceDrawer`** — drawer de revisão de fatura importada por IA:
+- **`ReviewImportedInvoiceDrawer`** — drawer de revisão de fatura importada (leitor determinístico ou IA):
+  - Leitor inteligente (E3): selo «Lido sem IA» e aviso com os problemas da leitura (`importResult.reading`); cada linha vem com a subcategoria sugerida (`suggestedCostCenterCategoryId`) e a origem por baixo do seletor; sugestões diferentes abrem em «Por artigo», todas iguais preenchem a categoria única (`domain/services/import-suggestions.ts`). Ao guardar, `reading` segue com a linha; mudar a sugestão grava a origem como «manual».
   - Exibe `aiConfidence` como barra de progresso colorida.
   - Lista `validationIssues` com labels PT; cada issue desaparece dinamicamente conforme o utilizador corrige os campos.
   - Permite editar todos os campos do cabeçalho (fornecedor via dropdown ou texto livre, NIF, nº fatura, datas, valores).

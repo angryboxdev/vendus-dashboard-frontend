@@ -17,7 +17,10 @@ import type {
   InvoiceLineType,
   InvoiceDocumentType,
   SaveDraftResultDTO,
+  LineReadingMeta,
 } from "../../domain/entities/invoice.ts";
+import { CLASSIFICATION_SOURCE_LABELS } from "../../domain/entities/invoice.ts";
+import { readingForPayload, singleSuggestedCategory, suggestedDetailMode } from "../../domain/services/import-suggestions.ts";
 import { VALIDATION_ISSUE_LABELS, DOCUMENT_TYPE_LABELS } from "../../domain/entities/invoice.ts";
 import type { CostCenterGroup, CostCenterCategory } from "../../../financial-base/domain/entities/cost-center.ts";
 import { FINANCIAL_MODE_LABELS } from "../../../financial-base/domain/entities/supplier.ts";
@@ -439,6 +442,10 @@ interface DraftLine {
   discountValue: string;
   catId: string;
   locationId: string | null;
+  /** Leitor inteligente (E3): metadados da linha lida e subcategoria sugerida. */
+  reading?: LineReadingMeta;
+  suggestedCatId?: string | null;
+  conflict?: boolean;
 }
 
 function newDraftLine(): DraftLine {
@@ -467,6 +474,7 @@ function draftLineToPayload(l: DraftLine, preview: InvoiceAmounts | null): Creat
     costCenterCategoryId: l.catId || null,
     // Optional (D4): omitted means "organization-wide, no store". Never defaulted.
     locationId: l.locationId,
+    ...(l.reading && { reading: readingForPayload(l.reading, l.suggestedCatId ?? null, l.catId) }),
   };
 }
 
@@ -684,6 +692,15 @@ function EditableLinesSection({ lines, categories, preview, onChange }: Editable
                         <option key={c.id} value={c.id}>{c.code} — {c.name}</option>
                       ))}
                     </select>
+                    {l.conflict && !l.catId && (
+                      <p className="mt-1 text-[11px] text-amber-700">Este artigo já foi classificado de formas diferentes — escolha a subcategoria.</p>
+                    )}
+                    {l.reading?.classificationSource && l.reading.classificationSource !== "none" && l.catId && l.catId === (l.suggestedCatId ?? "") && (
+                      <p className="mt-1 text-[11px] text-stone-500" title={l.reading.classificationEvidence ?? undefined}>
+                        Sugerida: {CLASSIFICATION_SOURCE_LABELS[l.reading.classificationSource]}
+                        {l.reading.classificationEvidence ? ` — ${l.reading.classificationEvidence}` : ""}
+                      </p>
+                    )}
                   </div>
                 )}
                 {/* Loja (D4): opcional — um custo pode ser da organização e de nenhuma loja */}
@@ -937,7 +954,8 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   const [stockChoice, setStockChoice] = useState<boolean | null>(() => initialStockChoice(inv.stockReviewOverride));
   const [stockReason, setStockReason] = useState(inv.stockReviewOverride === "force_skip" ? inv.stockReviewOverrideReason ?? "" : "");
   const [costCenterGroupId, setCostCenterGroupId] = useState<string | null>(inv.costCenterGroupId ?? null);
-  const [costCenterCategoryId, setCostCenterCategoryId] = useState<string | null>(inv.costCenterCategoryId ?? null);
+  // Sem categoria do fornecedor: todas as linhas com a mesma sugestão → categoria única.
+  const [costCenterCategoryId, setCostCenterCategoryId] = useState<string | null>(inv.costCenterCategoryId ?? (isEdit ? null : singleSuggestedCategory(importResult.extractedLines)));
   const [alreadyPaid, setAlreadyPaid] = useState(false);
   const [paidAt, setPaidAt] = useState(inv.invoiceDate ?? todayStr());
   const [isDirectDebit, setIsDirectDebit] = useState(false);
@@ -950,7 +968,9 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   // (sem linhas classificadas o Stock não resolve a revisão); senão «Única».
   const [manualDetailMode, setManualDetailMode] = useState<LineDetailMode | null>(() => {
     if (isEdit) return inv.lineDetailMode ?? (importResult.extractedLines.length > 0 ? "detailed" : "simple");
-    return inv.lineDetailMode && inv.lineDetailMode !== "simple" ? inv.lineDetailMode : null;
+    if (inv.lineDetailMode && inv.lineDetailMode !== "simple") return inv.lineDetailMode;
+    // Leitor inteligente: linhas de subcategorias diferentes abrem em «Por artigo».
+    return reopenDraft ? null : suggestedDetailMode(importResult.extractedLines);
   });
   const linkedSupplier = suppliers.find((s) => s.id === supplierId);
   // NIF escrito vs. NIF da ficha do fornecedor ligado (a IA pode trocar dígitos).
@@ -997,8 +1017,11 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
         vatRate: normalizeVatRate(l.vatRate),
         discountKind: (l.discountPct ?? 0) > 0 ? "pct" : (l.discountAmount ?? 0) > 0 ? "amount" : "pct",
         discountValue: (l.discountPct ?? 0) > 0 ? String(l.discountPct) : (l.discountAmount ?? 0) > 0 ? (l.discountAmount! / 100).toFixed(2) : "",
-        catId: "",
+        catId: l.suggestedCostCenterCategoryId ?? "",
         locationId: null,
+        ...(l.meta && { reading: { ...l.meta, classificationSource: l.classificationSource ?? null, classificationEvidence: l.classificationEvidence ?? null } }),
+        suggestedCatId: l.suggestedCostCenterCategoryId ?? null,
+        ...(l.classificationConflict && { conflict: true }),
       };
     })
   );
@@ -1321,7 +1344,9 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
                   : "Verifique os dados e corrija se necessário antes de guardar."}
               </p>
             </div>
-            {!isEdit && inv.aiConfidence != null && (
+            {!isEdit && importResult.reading?.source === "deterministic" ? (
+              <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">Lido sem IA</span>
+            ) : !isEdit && inv.aiConfidence != null && (
               <ConfidenceBadge value={inv.aiConfidence} />
             )}
           </div>
@@ -1348,6 +1373,21 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
 
         {/* body */}
         <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6">
+          {/* Leitor inteligente (E3): de onde vieram os dados e o que ficou por rever */}
+          {!isEdit && importResult.reading?.source === "deterministic" && (
+            <div className={`rounded-lg px-3 py-2 text-xs ${importResult.reading.status === "ready" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
+              <p className="font-medium">
+                {importResult.reading.status === "ready"
+                  ? `Lido a partir do ${importResult.reading.qrRead ? "QR fiscal e do " : ""}texto do PDF, sem IA — ${importResult.extractedLines.length} linhas, valores conferidos ao cêntimo.`
+                  : "Lido sem IA, mas há pontos por rever antes de guardar:"}
+              </p>
+              {importResult.reading.issues.length > 0 && (
+                <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                  {importResult.reading.issues.map((i) => <li key={i.code + i.detail}>{i.detail}</li>)}
+                </ul>
+              )}
+            </div>
+          )}
           {/* Validation issues — import-only, not relevant when editing a live invoice */}
           {!isEdit && (
             <ValidationIssues issues={importResult.validationIssues.filter((issue) => {
