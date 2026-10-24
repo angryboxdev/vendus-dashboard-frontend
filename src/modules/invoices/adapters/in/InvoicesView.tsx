@@ -4629,6 +4629,10 @@ export function InvoicesView() {
         {showImport && (
           <ImportInvoiceModal
             onClose={() => setShowImport(false)}
+            onOpenInvoice={(id) => {
+              setShowImport(false);
+              void api.getInvoice(id).then(setDetail).catch(() => setImportNotice("Não foi possível abrir o registo existente."));
+            }}
             onImported={(result) => {
               setShowImport(false);
               // Documento já existente (mesmo ficheiro ou mesma identidade fiscal, F1 v1.2): abre-se o

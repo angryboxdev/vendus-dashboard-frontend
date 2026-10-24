@@ -231,6 +231,7 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
 - **`ImportInvoiceModal`** — modal de drag-and-drop para envio de PDF/imagem:
   - Aceita `application/pdf`, `image/jpeg`, `image/png`, `image/webp`.
   - Chama `POST /api/invoices/import` (multipart). Em caso de sucesso, fecha e abre o `ReviewImportedInvoiceDrawer`.
+  - Documento de cobrança (Finanças — retenções; Segurança Social — referência MB): a resposta vem com `kind: "payment_document"` e a própria modal mostra o **`PaymentDocumentReview`** (campos lidos e origem, IVA não aplicável, estado do código de barras, avisos, obrigações já registadas com «Abrir»). Nada é gravado; «Lançar pelo fluxo atual» volta a enviar com `treatAsInvoice=true` (confirmação se já houver registo parecido). `onOpenInvoice(id)` abre o registo existente no `InvoicesView`.
 
 - **`ReviewImportedInvoiceDrawer`** — drawer de revisão de fatura importada por IA:
   - Exibe `aiConfidence` como barra de progresso colorida.
