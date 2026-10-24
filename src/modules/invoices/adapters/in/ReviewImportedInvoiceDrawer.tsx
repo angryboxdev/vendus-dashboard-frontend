@@ -960,12 +960,13 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   const [paidAt, setPaidAt] = useState(inv.invoiceDate ?? todayStr());
   const [isDirectDebit, setIsDirectDebit] = useState(false);
   const [directDebitDate, setDirectDebitDate] = useState(inv.dueDate ?? "");
-  // Modo financeiro (F2 §2.2): «Única» | «Por artigo» | «Por valores».
+  // Modo financeiro (F2 §2.2): «Por artigo» | «Única» | «Por valores».
   // Em edição vale o modo gravado. Num rascunho reaberto vale o modo gravado
   // quando não é o «Única» por defeito. Numa importação nova, enquanto o
-  // utilizador não escolher (`manualDetailMode`), vem da ficha do fornecedor:
-  // modo preferido; senão "normalmente gera revisão de stock" → «Por artigo»
-  // (sem linhas classificadas o Stock não resolve a revisão); senão «Única».
+  // utilizador não escolher (`manualDetailMode`): com linhas lidas → «Por artigo»
+  // (decisão do utilizador, 2026-10-24: classificação por linha é mais precisa),
+  // salvo preferência explícita «Por valores» do fornecedor; sem linhas → modo
+  // preferido do fornecedor ou «Única».
   const [manualDetailMode, setManualDetailMode] = useState<LineDetailMode | null>(() => {
     if (isEdit) return inv.lineDetailMode ?? (importResult.extractedLines.length > 0 ? "detailed" : "simple");
     if (inv.lineDetailMode && inv.lineDetailMode !== "simple") return inv.lineDetailMode;
@@ -978,7 +979,8 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   const fileNif = linkedSupplier?.nif ?? (importResult.supplierMatch?.id === supplierId ? importResult.supplierMatch?.nif ?? null : null);
   const supplierPreferredMode = linkedSupplier?.defaultFinancialMode ? LINE_DETAIL_MODE_OF[linkedSupplier.defaultFinancialMode] : null;
   const detailMode: LineDetailMode =
-    manualDetailMode ?? supplierPreferredMode ?? (linkedSupplier?.defaultStockPolicy === "usually_creates_review" ? "detailed" : "simple");
+    manualDetailMode ??
+    (supplierPreferredMode === "by_values" ? "by_values" : importResult.extractedLines.length > 0 ? "detailed" : supplierPreferredMode ?? "simple");
   // Repartições «Por valores» (mantidas em memória ao trocar de modo — nada se perde).
   const [allocRows, setAllocRows] = useState<DraftAllocation[]>(() => allocationsFromDTO(inv.allocations ?? []));
   // Versão atual: «Guardar rascunho» incrementa-a; confirmar a seguir tem de enviar a nova.
@@ -1028,6 +1030,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
 
   // Valores do documento (F1 §1.3) — descontos globais/rodapé, ajustes e quadro de IVA extraídos.
   const extracted = importResult.extractedAmounts;
+  const perLineVatRounding = !isEdit && !reopenDraft && !!importResult.reading?.issues.some((i) => i.code === "vat_rounded_per_line");
   const restoredHeader = restoring ? restoreDraftHeader(inv.storedAmounts) : null;
   const [amountsHeader, setAmountsHeader] = useState<Omit<DraftAmountHeader, "totalStr" | "subtotalStr" | "vatStr" | "roundingCents">>(() => restoredHeader ? {
     globalDiscountKind: restoredHeader.globalDiscountKind,
@@ -1041,10 +1044,11 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
     globalDiscountValue: (extracted?.globalDiscountPct ?? 0) > 0 ? String(extracted!.globalDiscountPct) : (extracted?.globalDiscountAmount ?? 0) > 0 ? (extracted!.globalDiscountAmount! / 100).toFixed(2) : "",
     footerDiscount: (extracted?.footerDiscountAmount ?? 0) > 0 ? (extracted!.footerDiscountAmount! / 100).toFixed(2) : "",
     adjustments: "",
-    roundingReason: "",
+    // Leitor: emitente que arredonda o IVA linha a linha → ajuste de arredondamento já proposto.
+    roundingReason: perLineVatRounding ? "IVA arredondado linha a linha pelo emitente (conforme o QR fiscal)" : "",
     vatSummary: extracted?.vatSummary ?? null,
   }));
-  const [roundingOn, setRoundingOn] = useState(restoredHeader?.roundingOn ?? false);
+  const [roundingOn, setRoundingOn] = useState(restoredHeader?.roundingOn ?? perLineVatRounding);
   // Conflitos devolvidos ao confirmar e as decisões explícitas da pessoa.
   const [conflict, setConflict] = useState<ConfirmConflict | null>(null);
   const [notADuplicate, setNotADuplicate] = useState(false);
@@ -1619,7 +1623,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Modo de classificação</p>
             <div role="radiogroup" aria-label="Modo de classificação" className="flex rounded-lg border border-stone-200 p-0.5 bg-stone-50">
-              {(["simple", "detailed", "by_values"] as const).map((m) => (
+              {(["detailed", "simple", "by_values"] as const).map((m) => (
                 <button
                   key={m}
                   type="button"
