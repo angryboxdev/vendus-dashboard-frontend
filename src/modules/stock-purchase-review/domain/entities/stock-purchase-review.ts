@@ -148,6 +148,10 @@ export interface StockReviewLineDTO {
   flagReason: string | null;
   resolvedBy: string | null;
   resolvedAt: string | null;
+  /** Resolvida sozinha por uma decisão já confirmada (associação/embalagem) — pode ser corrigida. */
+  autoResolved?: boolean;
+  /** «EST.01 Ingredientes» — categoria financeira da linha, quando conhecida. */
+  costCenterCategoryLabel?: string | null;
 }
 
 export interface StockPurchaseReviewDTO {

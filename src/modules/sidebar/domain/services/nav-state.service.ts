@@ -9,18 +9,27 @@ const DRE_ITEMS: NavItem[] = [
   { kind: "item", path: "/dre/custos-variaveis", label: "Custos Variáveis" },
 ];
 
+// Mesmas rotas e ecrãs; só os nomes e o agrupamento (task «Stock inteligente» V4 §1).
 const STOCK_ITEMS: NavItem[] = [
-  { kind: "item", path: "/stock/movimentacoes", label: "Balanço de stock" },
-  {
-    kind: "item",
-    path: "/stock/historico-movimentos",
-    label: "Histórico de movimentos",
-  },
-  { kind: "item", path: "/stock/stock", label: "Itens de stock" },
-  { kind: "item", path: "/stock/pizzas", label: "Fichas Técnicas" },
-  { kind: "item", path: "/stock/contagens", label: "Contagens de stock" },
-  { kind: "item", path: "/stock/planeamento", label: "Planeamento" },
+  { kind: "item", path: "/stock/stock", label: "Artigos e ingredientes" },
+  { kind: "item", path: "/stock/pizzas", label: "Fichas técnicas" },
+  { kind: "item", path: "/stock/movimentacoes", label: "Stock atual", subgroup: "Inventário" },
+  { kind: "item", path: "/stock/historico-movimentos", label: "Movimentos", subgroup: "Inventário" },
+  { kind: "item", path: "/stock/contagens", label: "Contagens", subgroup: "Inventário" },
+  { kind: "item", path: "/stock/planeamento", label: "Reposição e planeamento" },
 ];
+
+/** Itens do grupo em blocos: soltos, ou um subgrupo com os seus itens seguidos. */
+export function chunkBySubgroup(items: NavItem[]): ({ kind: "item"; item: NavItem } | { kind: "subgroup"; label: string; items: NavItem[] })[] {
+  const out: ({ kind: "item"; item: NavItem } | { kind: "subgroup"; label: string; items: NavItem[] })[] = [];
+  for (const item of items) {
+    const last = out[out.length - 1];
+    if (item.subgroup && last?.kind === "subgroup" && last.label === item.subgroup) last.items.push(item);
+    else if (item.subgroup) out.push({ kind: "subgroup", label: item.subgroup, items: [item] });
+    else out.push({ kind: "item", item });
+  }
+  return out;
+}
 
 /** Caminhos do RH antigo (hoje redirecionam para o Novo RH). */
 export const LEGACY_HR_PATHS = ["/hr/overview", "/hr/people", "/hr/schedules", "/hr/calendar", "/hr/ferias", "/hr/assiduidade", "/hr/pedidos", "/hr/historico", "/hr/employees"] as const;

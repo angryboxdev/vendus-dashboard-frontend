@@ -13,6 +13,8 @@ export interface NavItem {
   readonly badgeKey?: "hr-requests";
   /** Outros caminhos que também marcam este item como ativo (ex.: "RH antigo" cobre os ecrãs antigos). */
   readonly match?: readonly string[];
+  /** Subgrupo expansível dentro do grupo (ex.: «Inventário» no Stock); itens seguidos com o mesmo nome ficam juntos. */
+  readonly subgroup?: string;
 }
 
 export interface NavGroup {

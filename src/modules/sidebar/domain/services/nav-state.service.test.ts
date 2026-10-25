@@ -4,6 +4,7 @@ import {
   isItemActive,
   resolveActiveGroup,
 } from "./nav-state.service.ts";
+import { chunkBySubgroup } from "./nav-state.service.ts";
 
 describe("buildTree", () => {
   it("returns 9 entries for a non-admin user (includes Empresa & Estrutura)", () => {
@@ -101,5 +102,18 @@ describe("buildTree com acesso efetivo (Utilizadores & Perfis 2.0)", () => {
     expect(hr && hr.kind === "group" ? hr.items.map((i) => i.label) : []).toEqual(["Visão geral", "Colaboradores", "Escalas", "Assiduidade", "Ausências", "Mais"]);
     const noHr = buildTree({ email: "x@example.com", role: "manager", access: { isAdmin: false, portalOnly: false, permissions: { "crm.customers": "READ" } } });
     expect(noHr.some((e) => e.kind === "group" && e.id === "hr")).toBe(false);
+  });
+});
+
+describe("menu do Stock (task Stock inteligente V4 §1)", () => {
+  it("Artigos e ingredientes, Fichas técnicas, Inventário (Stock atual, Movimentos, Contagens), Reposição e planeamento — mesmas rotas", () => {
+    const stock = buildTree({ role: "admin", email: "a@teste.pt" } as never).find((e) => e.kind === "group" && e.id === "stock");
+    if (!stock || stock.kind !== "group") throw new Error("sem grupo Stock");
+    expect(chunkBySubgroup(stock.items).map((c) => (c.kind === "item" ? [c.item.label, c.item.path] : [c.label, c.items.map((i) => `${i.label} ${i.path}`)]))).toEqual([
+      ["Artigos e ingredientes", "/stock/stock"],
+      ["Fichas técnicas", "/stock/pizzas"],
+      ["Inventário", ["Stock atual /stock/movimentacoes", "Movimentos /stock/historico-movimentos", "Contagens /stock/contagens"]],
+      ["Reposição e planeamento", "/stock/planeamento"],
+    ]);
   });
 });
