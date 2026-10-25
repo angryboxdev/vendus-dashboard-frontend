@@ -169,6 +169,9 @@ export interface StockPurchaseReviewDTO {
   invoiceTotalCents: number | null;
   /** Registadas ao confirmar — pendência para o Financeiro. */
   categoryDivergences: CategoryDivergenceDTO[] | null;
+  /** F3c: importada diretamente no Stock (`stock`) e ainda por lançar no Financeiro. */
+  origin?: "finance" | "stock";
+  financePending?: boolean;
   conference?: ReviewConferenceDTO;
   lines: StockReviewLineDTO[];
   createdAt: string;
@@ -187,6 +190,16 @@ export interface StockPurchaseReviewRowDTO {
   totalCents: number | null;
   locationId: string | null;
   decisionSource: DecisionSource;
+  origin?: "finance" | "stock";
+  financePending?: boolean;
+}
+
+/** Resposta de «Importar fatura» no Stock (F3c). */
+export interface StockInvoiceImportResultDTO {
+  kind: "created" | "routed";
+  invoiceId: string;
+  reviewId: string | null;
+  validationIssues: string[];
 }
 
 export interface ListStockPurchaseReviewsParams {

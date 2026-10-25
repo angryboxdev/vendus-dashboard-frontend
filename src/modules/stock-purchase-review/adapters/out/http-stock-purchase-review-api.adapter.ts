@@ -1,4 +1,4 @@
-import { apiGet, apiPost } from "../../../../lib/api.ts";
+import { apiGet, apiPost, apiPostFormData } from "../../../../lib/api.ts";
 import type { StockPurchaseReviewApiPort } from "../../domain/ports/out/stock-purchase-review-api.port.ts";
 import type {
   StockPurchaseReviewDTO,
@@ -10,6 +10,7 @@ import type {
   CancelStockPurchaseReviewPayload,
   StockItemOptionDTO,
   StockCategoryOptionDTO,
+  StockInvoiceImportResultDTO,
 } from "../../domain/entities/stock-purchase-review.ts";
 
 const BASE = "/api/stock-purchase-reviews";
@@ -64,6 +65,13 @@ export class HttpStockPurchaseReviewApiAdapter implements StockPurchaseReviewApi
 
   async cancelReview(reviewId: string, payload: CancelStockPurchaseReviewPayload): Promise<StockPurchaseReviewDTO> {
     return apiPost(`${BASE}/${encodeURIComponent(reviewId)}/cancel`, payload);
+  }
+
+  async importInvoiceForStock(file: File, options?: { routeExisting?: boolean }): Promise<StockInvoiceImportResultDTO> {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (options?.routeExisting) formData.append("routeExisting", "true");
+    return apiPostFormData("/api/invoices/import-for-stock", formData);
   }
 
   async restoreReview(reviewId: string, payload: { expectedVersion: number }): Promise<StockPurchaseReviewDTO> {

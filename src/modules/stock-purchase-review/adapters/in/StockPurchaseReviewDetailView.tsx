@@ -688,6 +688,15 @@ export function StockPurchaseReviewDetailView() {
           </div>
         )}
 
+        {review.financePending && (
+          <div className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-xs text-sky-900">
+            <p className="font-semibold">Importada no Stock — aguarda lançamento no Financeiro.</p>
+            <p className="mt-0.5">
+              Pode conciliar já. Para dar entrada antes do Financeiro, a fatura tem de ter fornecedor e número e as linhas têm de bater com a base e o IVA. Não é aprovação contabilística nem cria conta a pagar.
+            </p>
+          </div>
+        )}
+
         {review.conference && !isTerminal && <ConferencePanel conference={review.conference} />}
 
         {isTerminal && review.categoryDivergences && review.categoryDivergences.length > 0 && (

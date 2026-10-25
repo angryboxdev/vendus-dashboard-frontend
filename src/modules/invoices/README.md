@@ -432,3 +432,7 @@ puramente redundante.
   automaticamente ao abrir o `ClassifyPanel` — candidato a auto-preencher o formulário.
 - A regra de classificação guarda apenas uma entrada por fornecedor. Para fornecedores
   mistos (ex: Makro), o último "guardar como regra" sobrescreve o anterior.
+
+## F3c — faturas importadas no Stock
+- `InvoiceDTO.importOrigin === "stock"`: rascunho criado pelo Stock — etiqueta «Do Stock» na lista e aviso no `ReviewImportedInvoiceDrawer` (as linhas já estão em Compras por rever).
+- Confirmar/guardar com linhas diferentes → 409 `requiresConfirmation` → o mesmo diálogo de «Revisão de stock associada» repete o pedido com `confirmRemoveStockReview: true` (agora também em «Confirmar» e «Guardar rascunho», não só na edição).

@@ -479,6 +479,11 @@ function draftLineToPayload(l: DraftLine, preview: InvoiceAmounts | null): Creat
 }
 
 // Normaliza uma taxa de IVA extraída pela IA para uma das opções standard do select
+/** 409 `requiresConfirmation`: há uma revisão de Stock por aplicar que a alteração descartaria. */
+function isStockRemovalConfirmation(err: unknown): err is ApiError {
+  return err instanceof ApiError && err.status === 409 && !!(err.data as { requiresConfirmation?: boolean } | null)?.requiresConfirmation;
+}
+
 function normalizeVatRate(rate: number | null): string {
   if (rate == null) return "";
   const std = [0, 6, 13, 23];
@@ -997,6 +1002,8 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   // no backend); mostramos um diálogo de confirmação e, se aceite,
   // reenviamos o mesmo pedido com `confirmRemoveStockReview: true`.
   const [stockReviewConfirmMessage, setStockReviewConfirmMessage] = useState<string | null>(null);
+  // F3c: qual pedido repetir depois de aceitar descartar a revisão de Stock.
+  const [stockRemovalRetry, setStockRemovalRetry] = useState<"edit" | "confirm" | "draft">("edit");
 
   const restoring = reopenDraft && !isEdit;
   const [lines, setLines] = useState<DraftLine[]>(() =>
@@ -1141,6 +1148,11 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
       onConfirmed(confirmed);
     },
     onError: (err) => {
+      if (isStockRemovalConfirmation(err)) {
+        setStockRemovalRetry("confirm");
+        setStockReviewConfirmMessage(err.message);
+        return;
+      }
       const data = err instanceof ApiError ? (err.data as Partial<ConfirmConflict> | null) : null;
       setConflict(data?.code ? { ...data, code: data.code, message: err.message } : null);
     },
@@ -1164,6 +1176,11 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
     },
     onError: (err) => {
       setDraftResult(null);
+      if (isStockRemovalConfirmation(err)) {
+        setStockRemovalRetry("draft");
+        setStockReviewConfirmMessage(err.message);
+        return;
+      }
       const data = err instanceof ApiError ? (err.data as Partial<ConfirmConflict> | null) : null;
       setConflict(data?.code ? { ...data, code: data.code, message: err.message } : null);
     },
@@ -1249,7 +1266,8 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
       onConfirmed(updated);
     },
     onError: (err) => {
-      if (err instanceof ApiError && err.status === 409 && (err.data as { requiresConfirmation?: boolean } | null)?.requiresConfirmation) {
+      if (isStockRemovalConfirmation(err)) {
+        setStockRemovalRetry("edit");
         setStockReviewConfirmMessage(err.message);
       }
     },
@@ -1257,6 +1275,14 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
 
   function confirmStockReviewRemovalAndRetry() {
     setStockReviewConfirmMessage(null);
+    if (stockRemovalRetry === "confirm") {
+      confirm(lastSaveAsPayable, { confirmRemoveStockReview: true });
+      return;
+    }
+    if (stockRemovalRetry === "draft") {
+      draftMutation.mutate({ ...buildPayload(false), confirmRemoveStockReview: true });
+      return;
+    }
     editMutation.mutate(true);
   }
 
@@ -1384,6 +1410,16 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
 
         {/* body */}
         <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6">
+          {/* F3c: importada no Stock — as linhas já estão em Compras por rever */}
+          {!isEdit && inv.importOrigin === "stock" && (
+            <div className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">
+              <p className="font-medium">Importada no Stock — falta lançar no Financeiro.</p>
+              <p className="mt-0.5">
+                As linhas já estão em Compras por rever: pode classificar e lançar; mudar quantidades ou preços descarta essa revisão (se ainda não deu entrada no Stock).
+              </p>
+            </div>
+          )}
+
           {/* E3b-2: obrigação (Finanças / Segurança Social) — sem IVA, linhas nem Stock */}
           {inv.obligation && (
             <div className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">

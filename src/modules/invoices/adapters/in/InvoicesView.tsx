@@ -4318,6 +4318,14 @@ export function InvoicesView() {
                               <p className="font-semibold text-stone-900">
                                 {inv.invoiceNumber}
                               </p>
+                              {inv.importOrigin === "stock" && (inv.status === "draft_ai" || inv.status === "pending_review") && (
+                                <span
+                                  title="Importada no Stock — falta lançar no Financeiro (sem conta a pagar até lá)"
+                                  className="rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-sky-100 text-sky-700"
+                                >
+                                  Do Stock
+                                </span>
+                              )}
                               {inv.isDuplicate && (
                                 <span
                                   title="Existe outra fatura activa do mesmo fornecedor com este número"

@@ -181,6 +181,8 @@ export interface InvoiceDTO {
   };
   /** E3b-2: obrigação (Finanças / Segurança Social) — sem IVA, linhas nem Stock. Ausente = fatura de compra. */
   obligation?: InvoiceObligationDTO | null;
+  /** F3c: `stock` = importada no Stock; enquanto rascunho, aguarda lançamento no Financeiro. */
+  importOrigin?: "stock" | null;
 }
 
 export interface InvoiceObligationDTO {
@@ -473,6 +475,8 @@ export interface NewSupplierPayload {
 }
 
 export interface ConfirmImportedInvoicePayload {
+  /** F3c: aceita descartar a revisão de Stock por aplicar ao mudar as linhas (409 `requiresConfirmation`). */
+  confirmRemoveStockReview?: boolean;
   supplierId?: string | null;
   newSupplier?: NewSupplierPayload;
   supplierName?: string;
