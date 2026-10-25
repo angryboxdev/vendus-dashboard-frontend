@@ -22,6 +22,7 @@ const STATUS_OPTIONS: (StockPurchaseReviewStatus | "all")[] = [
   "ready",
   "applied",
   "cancelled",
+  "excluded",
 ];
 
 const inputCls =

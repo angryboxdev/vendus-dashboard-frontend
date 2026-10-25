@@ -15,7 +15,8 @@ export type StockPurchaseReviewStatus =
   | "partial"
   | "ready"
   | "applied"
-  | "cancelled";
+  | "cancelled"
+  | "excluded";
 
 export const STOCK_PURCHASE_REVIEW_STATUS_LABELS: Record<StockPurchaseReviewStatus, string> = {
   pending: "Pendente",
@@ -24,9 +25,10 @@ export const STOCK_PURCHASE_REVIEW_STATUS_LABELS: Record<StockPurchaseReviewStat
   ready: "Pronta",
   applied: "Aplicada",
   cancelled: "Cancelada",
+  excluded: "Excluída — não afeta Stock",
 };
 
-/** Estados que ainda contam para o badge "Compras por rever (N)" — exclui `applied`/`cancelled`. */
+/** Estados que ainda contam para o badge "Compras por rever (N)" — exclui `applied`/`cancelled`/`excluded`. */
 export const OPEN_STOCK_PURCHASE_REVIEW_STATUSES: StockPurchaseReviewStatus[] = [
   "pending",
   "in_review",
@@ -47,10 +49,51 @@ export type ResolutionType = "unresolved" | "existing_item" | "new_item" | "no_s
 
 export const RESOLUTION_TYPE_LABELS: Record<ResolutionType, string> = {
   unresolved: "Por resolver",
-  existing_item: "Item existente",
-  new_item: "Novo item",
-  no_stock_effect: "Não afeta stock",
+  existing_item: "Artigo associado",
+  new_item: "Artigo criado",
+  no_stock_effect: "Não é item de stock",
 };
+
+/** Divisão de uma linha por lojas (F3a) — quantidades na unidade de compra, cuja soma iguala a da linha. */
+export interface LocationSplitDTO {
+  locationId: string;
+  purchaseQuantity: number;
+}
+
+export interface CategoryDivergenceDTO {
+  lineId: string;
+  description: string;
+  costCenterCategoryId: string;
+  kind: "stock_line_in_non_stock_category" | "non_stock_line_in_stock_category";
+}
+
+export const CATEGORY_DIVERGENCE_LABELS: Record<CategoryDivergenceDTO["kind"], string> = {
+  stock_line_in_non_stock_category: "associada a um artigo, mas a categoria financeira não é de stock",
+  non_stock_line_in_stock_category: "marcada «Não é item de stock», mas a categoria financeira é de stock",
+};
+
+/** Conferências da F3a, calculadas pelo backend (valores em cêntimos). */
+export interface ReviewConferenceDTO {
+  document: {
+    /** `unavailable` = revisão anterior à F3a (sem IVA por linha) — não bloqueia. */
+    status: "ok" | "mismatch" | "unavailable";
+    linesNetCents: number | null;
+    linesVatCents: number | null;
+    invoiceNetCents: number | null;
+    invoiceVatCents: number | null;
+    invoiceTotalCents: number | null;
+    netDifferenceCents: number | null;
+    vatDifferenceCents: number | null;
+  };
+  stock: {
+    inventoriableLines: number;
+    nonStockLines: number;
+    unresolvedLines: number;
+    inventoriableNetCents: number | null;
+    nonStockNetCents: number | null;
+  };
+  categories: { divergences: CategoryDivergenceDTO[] };
+}
 
 export interface StockReviewLineDTO {
   id: string;
@@ -60,6 +103,14 @@ export interface StockReviewLineDTO {
   purchaseUnit: string;
   unitCostWithoutVat: number;
   totalWithVat: number;
+  /** F3a — null em revisões anteriores (sem IVA da linha guardado). */
+  vatAmount: number | null;
+  /** Líquido com descontos (total − IVA). */
+  netAmount: number | null;
+  discountAmount: number | null;
+  supplierItemCode: string | null;
+  costCenterCategoryId: string | null;
+  locationSplits: LocationSplitDTO[] | null;
   resolutionType: ResolutionType;
   stockItemId: string | null;
   conversionFactor: number | null;
@@ -95,6 +146,12 @@ export interface StockPurchaseReviewDTO {
   appliedAt: string | null;
   cancelledAt: string | null;
   cancellationReason: string | null;
+  invoiceNetCents: number | null;
+  invoiceVatCents: number | null;
+  invoiceTotalCents: number | null;
+  /** Registadas ao confirmar — pendência para o Financeiro. */
+  categoryDivergences: CategoryDivergenceDTO[] | null;
+  conference?: ReviewConferenceDTO;
   lines: StockReviewLineDTO[];
   createdAt: string;
   updatedAt: string;
@@ -137,6 +194,8 @@ export interface ResolveStockReviewLinePayload {
   /** Obrigatório para "existing_item"/"new_item" — purchaseQuantity × isto = stockQuantity. */
   conversionFactor?: number;
   locationId?: string | null;
+  /** ≥ 2 lojas, quantidades explícitas que somam a da linha (nunca a quantidade integral em cada loja). */
+  locationSplits?: LocationSplitDTO[] | null;
 }
 
 export interface StockReviewLineSuggestionDTO {
@@ -145,6 +204,8 @@ export interface StockReviewLineSuggestionDTO {
   conversionFactor: number | null;
   purchaseUnit: string | null;
   isItemActive: boolean;
+  /** A unidade/embalagem mudou desde o mapeamento aprendido — conferir o fator de novo. */
+  packagingChanged?: boolean;
 }
 
 export interface DecideUnresolvedPayload {

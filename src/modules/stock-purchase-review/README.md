@@ -95,3 +95,11 @@ mockup, fica para depois.
 - A contagem do badge repete o `GET /stock-purchase-reviews` completo sem
   paginação — aceitável no volume atual; se crescer muito, considerar um
   endpoint de contagem dedicado no backend.
+
+## F3a (task v1.2)
+- Detalhe: cada linha com referência, quantidade × preço, desconto, base, IVA e total; ações **«Associar artigo» / «Criar artigo» / «Não é item de stock»**; linhas resolvidas mostram artigo, fator, quantidade e destino, com «Alterar» enquanto a revisão não termina.
+- **Divisão por lojas** (só com mais de uma loja): quantidades explícitas por loja, soma conferida no ecrã e no servidor (`locationSplits`).
+- Painel com as **três conferências** (`review.conference`): Documento (diferença bloqueia o botão de confirmar), Stock (só inventariáveis), Categorias (pendência para o Financeiro, não bloqueia). Depois de confirmar, as divergências gravadas aparecem como pendência.
+- Sugestões aprendidas marcadas «não confirmada»; com `packagingChanged` o fator antigo não é aplicado.
+- Estado `excluded` («Excluída — não afeta Stock») e botão «Confirmar — não afeta Stock» quando todas as linhas não são item de stock.
+- Teste: `adapters/in/StockPurchaseReviewDetailView.test.tsx`.
