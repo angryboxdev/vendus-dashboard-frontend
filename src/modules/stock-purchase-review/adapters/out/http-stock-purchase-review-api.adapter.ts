@@ -5,11 +5,9 @@ import type {
   StockPurchaseReviewRowDTO,
   ListStockPurchaseReviewsParams,
   ResolveStockReviewLinePayload,
-  StockReviewLineSuggestionDTO,
   DecideUnresolvedPayload,
   ConfirmStockPurchaseReviewPayload,
   CancelStockPurchaseReviewPayload,
-  CancelEmptyStockPurchaseReviewsResultDTO,
   StockItemOptionDTO,
   StockCategoryOptionDTO,
 } from "../../domain/entities/stock-purchase-review.ts";
@@ -34,6 +32,7 @@ interface LegacyStockCategory {
 export class HttpStockPurchaseReviewApiAdapter implements StockPurchaseReviewApiPort {
   async listReviews(params?: ListStockPurchaseReviewsParams): Promise<StockPurchaseReviewRowDTO[]> {
     const q = new URLSearchParams();
+    if (params?.view) q.set("view", params.view);
     if (params?.status) q.set("status", params.status);
     if (params?.supplierId) q.set("supplierId", params.supplierId);
     if (params?.from) q.set("from", params.from);
@@ -51,8 +50,8 @@ export class HttpStockPurchaseReviewApiAdapter implements StockPurchaseReviewApi
     return apiPost(`${BASE}/${encodeURIComponent(reviewId)}/lines/${encodeURIComponent(lineId)}/resolve`, payload);
   }
 
-  async getLineSuggestion(reviewId: string, lineId: string): Promise<StockReviewLineSuggestionDTO | null> {
-    return apiGet(`${BASE}/${encodeURIComponent(reviewId)}/lines/${encodeURIComponent(lineId)}/suggestion`);
+  async suggestMappings(reviewId: string, options?: { refresh?: boolean }): Promise<StockPurchaseReviewDTO> {
+    return apiPost(`${BASE}/${encodeURIComponent(reviewId)}/suggestions`, { refresh: options?.refresh === true });
   }
 
   async decideUnresolved(reviewId: string, payload: DecideUnresolvedPayload): Promise<StockPurchaseReviewDTO> {
@@ -67,8 +66,8 @@ export class HttpStockPurchaseReviewApiAdapter implements StockPurchaseReviewApi
     return apiPost(`${BASE}/${encodeURIComponent(reviewId)}/cancel`, payload);
   }
 
-  async cancelEmptyReviews(): Promise<CancelEmptyStockPurchaseReviewsResultDTO> {
-    return apiPost(`${BASE}/cancel-empty`, {});
+  async restoreReview(reviewId: string, payload: { expectedVersion: number }): Promise<StockPurchaseReviewDTO> {
+    return apiPost(`${BASE}/${encodeURIComponent(reviewId)}/restore`, payload);
   }
 
   async listStockItemOptions(): Promise<StockItemOptionDTO[]> {

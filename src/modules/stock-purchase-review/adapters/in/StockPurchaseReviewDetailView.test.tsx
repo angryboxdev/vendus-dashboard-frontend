@@ -15,7 +15,7 @@ vi.mock("../../../locations/adapters/in/use-locations.ts", () => ({ useLocations
 
 const line = (over: Partial<StockReviewLineDTO>): StockReviewLineDTO => ({
   id: "l1", invoiceLineId: "il1", description: "Farinha T65 25kg", purchaseQuantity: 12, purchaseUnit: "saco", unitCostWithoutVat: 2500, totalWithVat: 31800,
-  vatAmount: 1800, netAmount: 30000, discountAmount: 0, supplierItemCode: "12345", costCenterCategoryId: "cat-ingred", locationSplits: null,
+  vatAmount: 1800, netAmount: 30000, discountAmount: 0, supplierItemCode: "12345", costCenterCategoryId: "cat-ingred", locationSplits: null, suggestion: null,
   resolutionType: "unresolved", stockItemId: null, conversionFactor: null, stockQuantity: null, locationId: null,
   unitCostPerBaseUnitWithVat: null, unitCostPerBaseUnitWithoutVat: null, flaggedSuspiciousConversion: false, flagReason: null, resolvedBy: null, resolvedAt: null,
   ...over,
@@ -40,7 +40,11 @@ function renderView(api: Partial<StockPurchaseReviewApiPort>) {
   const full = {
     listStockItemOptions: async () => [{ id: "item-farinha", name: "Farinha T65", baseUnit: "kg", categoryId: "c", isActive: true }],
     listStockCategoryOptions: async () => [],
-    getLineSuggestion: async () => null,
+    // Por omissão a conciliação não encontra nada (marca as linhas como procuradas).
+    suggestMappings: async () => {
+      const r = await api.getReview!("r1");
+      return { ...r, lines: r.lines.map((l) => ({ ...l, suggestion: l.suggestion ?? { source: "none", resolution: null, stockItemId: null, conversionFactor: null, confidence: null, packagingChanged: false } })) };
+    },
     ...api,
   } as unknown as StockPurchaseReviewApiPort;
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false }, mutations: { retry: false } } });
@@ -108,5 +112,48 @@ describe("StockPurchaseReviewDetailView (F3a)", () => {
   it("todas as linhas «Não é item de stock» → «Confirmar — não afeta Stock»", async () => {
     renderView({ getReview: async () => review({ status: "ready", lines: [line({ resolutionType: "no_stock_effect" })] }) });
     expect(await screen.findByRole("button", { name: "Confirmar — não afeta Stock" })).toBeTruthy();
+  });
+});
+
+describe("StockPurchaseReviewDetailView (F3b — conciliação e fila)", () => {
+  const proposal = (over: Partial<NonNullable<StockReviewLineDTO["suggestion"]>> = {}) => ({
+    source: "ai" as const, resolution: "existing_item" as const, stockItemId: "item-farinha", conversionFactor: 25, confidence: 0.92, packagingChanged: false, ...over,
+  });
+
+  it("ao abrir procura conciliações; a proposta mostra artigo, fator e origem e «Aceitar» resolve a linha", async () => {
+    const suggestMappings = vi.fn(async () => review({ lines: [line({ suggestion: proposal() })] }));
+    const resolveLine = vi.fn(async () => review());
+    renderView({ getReview: async () => review(), suggestMappings, resolveLine });
+    expect(await screen.findByText(/Conciliação proposta/)).toBeTruthy();
+    expect(suggestMappings).toHaveBeenCalledWith("r1", { refresh: false });
+    await waitFor(() => expect(screen.getByText(/Farinha T65 · fator 25/)).toBeTruthy());
+    expect(screen.getByText(/IA 92%/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Aceitar" }));
+    await waitFor(() => expect(resolveLine).toHaveBeenCalledWith("r1", "l1", expect.objectContaining({ resolution: "existing_item", stockItemId: "item-farinha", conversionFactor: 25 })));
+  });
+
+  it("proposta sem fator não pode ser aceite diretamente (só «Ajustar»)", async () => {
+    renderView({ getReview: async () => review({ lines: [line({ suggestion: proposal({ conversionFactor: null, source: "name_match", confidence: 0.8 }) })] }) });
+    expect(await screen.findByText(/fator por preencher/)).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Aceitar" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Ajustar" }));
+    expect((screen.getAllByRole("combobox")[0] as HTMLSelectElement).value).toBe("item-farinha");
+  });
+
+  it("«Aceitar as N propostas» resolve em sequência com a versão atualizada", async () => {
+    const two = review({ lines: [line({ suggestion: proposal() }), line({ id: "l2", invoiceLineId: "il2", description: "Entrega", suggestion: proposal({ resolution: "no_stock_effect", stockItemId: null, conversionFactor: null }) })] });
+    const resolveLine = vi.fn(async (_r: string, _l: string, p: { expectedVersion: number }) => ({ ...two, version: p.expectedVersion + 1 }));
+    renderView({ getReview: async () => two, resolveLine });
+    fireEvent.click(await screen.findByRole("button", { name: "Aceitar as 2 propostas" }));
+    await waitFor(() => expect(resolveLine).toHaveBeenCalledTimes(2));
+    expect(resolveLine.mock.calls.map((c) => [c[1], c[2].expectedVersion])).toEqual([["l1", 3], ["l2", 4]]);
+  });
+
+  it("revisão retirada pode ser reposta", async () => {
+    const restoreReview = vi.fn(async () => review({ status: "in_review" }));
+    renderView({ getReview: async () => review({ status: "cancelled", cancellationReason: "engano" }), restoreReview });
+    fireEvent.click(await screen.findByRole("button", { name: "Repor em Compras por rever" }));
+    await waitFor(() => expect(restoreReview).toHaveBeenCalledWith("r1", { expectedVersion: 3 }));
+    expect(screen.getByText("Motivo da retirada: engano")).toBeTruthy();
   });
 });
