@@ -54,6 +54,8 @@ export interface InvoicesApiPort {
   setLineDeductibilityOverride(invoiceId: string, lineId: string, payload: SetLineDeductibilityOverridePayload): Promise<InvoiceLineDTO>;
   /** Documento de cobrança AT/SS → `PaymentDocumentImportDTO` (não cria fatura); `treatAsInvoice` força o fluxo de faturas. */
   importInvoice(file: File, documentType?: InvoiceDocumentType, options?: { treatAsInvoice?: boolean }): Promise<InvoiceImportResultDTO | PaymentDocumentImportDTO>;
+  /** E3b-2: rascunho de obrigação a partir do documento de cobrança (o servidor volta a ler o ficheiro). 409 `obligation_exists` sem `force`. */
+  createObligationDraft(file: File, options?: { force?: boolean }): Promise<InvoiceImportResultDTO>;
   confirmImportedInvoice(id: string, payload: ConfirmImportedInvoicePayload): Promise<InvoiceDTO>;
   getInvoiceAlerts(): Promise<InvoiceAlertsDTO>;
   suggestLineClassification(supplierId: string, description?: string): Promise<SuggestClassificationResult | null>;

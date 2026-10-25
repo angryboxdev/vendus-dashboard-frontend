@@ -24,7 +24,7 @@ const at = (over: Partial<PaymentDocumentImportDTO> = {}): PaymentDocumentImport
 describe("PaymentDocumentReview", () => {
   it("mostra a obrigação (sem IVA), a referência separada do código de barras e o registo já existente", () => {
     const onOpen = vi.fn();
-    render(<PaymentDocumentReview result={at()} busy={false} onOpenExisting={onOpen} onLaunchAsInvoice={vi.fn()} onClose={vi.fn()} />);
+    render(<PaymentDocumentReview result={at()} busy={false} onOpenExisting={onOpen} onCreateDraft={vi.fn()} onClose={vi.fn()} />);
     expect(screen.getByText("Finanças — Retenções na fonte (IRS prediais)")).toBeTruthy();
     expect(screen.getByText("Não aplicável")).toBeTruthy();
     expect(screen.getByText("123 456 789 012 345")).toBeTruthy();
@@ -35,14 +35,15 @@ describe("PaymentDocumentReview", () => {
     expect(onOpen).toHaveBeenCalledWith("inv-1");
   });
 
-  it("com registo parecido, «Lançar pelo fluxo atual» pede confirmação", () => {
+  it("com registo parecido, «Criar rascunho de obrigação» pede confirmação", () => {
     const onLaunch = vi.fn();
     const confirm = vi.spyOn(window, "confirm").mockReturnValueOnce(false).mockReturnValueOnce(true);
-    render(<PaymentDocumentReview result={at()} busy={false} onOpenExisting={vi.fn()} onLaunchAsInvoice={onLaunch} onClose={vi.fn()} />);
-    fireEvent.click(screen.getByText("Lançar pelo fluxo atual"));
+    render(<PaymentDocumentReview result={at()} busy={false} onOpenExisting={vi.fn()} onCreateDraft={onLaunch} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByText("Criar rascunho de obrigação"));
     expect(onLaunch).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByText("Lançar pelo fluxo atual"));
+    fireEvent.click(screen.getByText("Criar rascunho de obrigação"));
     expect(onLaunch).toHaveBeenCalledTimes(1);
+    expect(onLaunch).toHaveBeenCalledWith(true);
     confirm.mockRestore();
   });
 
@@ -52,7 +53,7 @@ describe("PaymentDocumentReview", () => {
       matches: [],
       payment: { ...base.payment, kind: "ss_payment_reference", obligationType: "obrigacao_contributiva", subtype: "seguranca_social_entidade_empregadora", issuer: "SS", documentNumber: null, mbEntity: "12345", paymentReference: "098765432", barcode: { status: "absent" }, barcodePrintedText: null, issues: [] },
     });
-    render(<PaymentDocumentReview result={ss} busy={false} onOpenExisting={vi.fn()} onLaunchAsInvoice={vi.fn()} onClose={vi.fn()} />);
+    render(<PaymentDocumentReview result={ss} busy={false} onOpenExisting={vi.fn()} onCreateDraft={vi.fn()} onClose={vi.fn()} />);
     expect(screen.getByText("Segurança Social — Contribuições da entidade empregadora")).toBeTruthy();
     expect(screen.getByText("098 765 432")).toBeTruthy();
     expect(screen.getByText("Sem código de barras (não é necessário)")).toBeTruthy();

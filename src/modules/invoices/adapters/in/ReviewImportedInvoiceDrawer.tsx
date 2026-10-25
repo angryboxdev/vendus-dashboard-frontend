@@ -21,7 +21,7 @@ import type {
 } from "../../domain/entities/invoice.ts";
 import { CLASSIFICATION_SOURCE_LABELS } from "../../domain/entities/invoice.ts";
 import { readingForPayload, singleSuggestedCategory, suggestedDetailMode } from "../../domain/services/import-suggestions.ts";
-import { VALIDATION_ISSUE_LABELS, DOCUMENT_TYPE_LABELS } from "../../domain/entities/invoice.ts";
+import { VALIDATION_ISSUE_LABELS, DOCUMENT_TYPE_LABELS, OBLIGATION_KIND_LABELS } from "../../domain/entities/invoice.ts";
 import type { CostCenterGroup, CostCenterCategory } from "../../../financial-base/domain/entities/cost-center.ts";
 import { FINANCIAL_MODE_LABELS } from "../../../financial-base/domain/entities/supplier.ts";
 import {
@@ -1347,7 +1347,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
           <div className="flex items-center gap-3">
             <div>
               <h2 className="text-base font-semibold text-stone-900">
-                {isEdit ? "Editar fatura completa" : "Revisar fatura importada"}
+                {isEdit ? "Editar fatura completa" : inv.obligation ? "Revisar obrigação" : "Revisar fatura importada"}
               </h2>
               <p className="mt-0.5 text-xs text-stone-500">
                 {isEdit
@@ -1384,6 +1384,20 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
 
         {/* body */}
         <div className="flex flex-1 flex-col gap-5 overflow-y-auto p-4 sm:p-6">
+          {/* E3b-2: obrigação (Finanças / Segurança Social) — sem IVA, linhas nem Stock */}
+          {inv.obligation && (
+            <div className="rounded-lg bg-sky-50 px-3 py-2 text-xs text-sky-800">
+              <p className="font-medium">
+                {OBLIGATION_KIND_LABELS[inv.obligation.kind]}
+                {inv.obligation.period ? ` · período ${inv.obligation.period.slice(5, 7)}/${inv.obligation.period.slice(0, 4)}` : ""}
+              </p>
+              <p className="mt-0.5">
+                {inv.obligation.mbEntity ? `Entidade ${inv.obligation.mbEntity} · ` : ""}
+                Referência {inv.obligation.paymentReference?.replace(/(\d{3})(?=\d)/g, "$1 ") ?? "—"}. IVA não aplicável e não vai para o Stock; ao confirmar, fica como conta a pagar com este prazo.
+              </p>
+            </div>
+          )}
+
           {/* Leitor inteligente (E3): de onde vieram os dados e o que ficou por rever */}
           {!isEdit && importResult.reading?.source === "deterministic" && (
             <div className={`rounded-lg px-3 py-2 text-xs ${importResult.reading.status === "ready" ? "bg-emerald-50 text-emerald-800" : "bg-amber-50 text-amber-800"}`}>
@@ -1623,8 +1637,8 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
             />
           </div>
 
-          {/* Enviar para Stock (F2 §2.1) — substitui «Impacto no stock» */}
-          <SendToStockField
+          {/* Enviar para Stock (F2 §2.1) — substitui «Impacto no stock»; obrigações nunca vão para o Stock */}
+          {!inv.obligation && <SendToStockField
             suggestion={stockSuggestion}
             decision={stock}
             choice={stockChoice}
@@ -1632,7 +1646,7 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
             onChoice={setStockChoice}
             onReason={setStockReason}
             inputCls={inputCls}
-          />
+          />}
 
           {/* Modo de classificação (F2 §2.2) — trocar de modo não apaga linhas nem repartições */}
           <div className="space-y-2">

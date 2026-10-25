@@ -179,7 +179,22 @@ export interface InvoiceDTO {
       totalWithVat: number;
     }>;
   };
+  /** E3b-2: obrigação (Finanças / Segurança Social) — sem IVA, linhas nem Stock. Ausente = fatura de compra. */
+  obligation?: InvoiceObligationDTO | null;
 }
+
+export interface InvoiceObligationDTO {
+  kind: "tax_obligation" | "contribution_obligation";
+  paymentReference: string | null;
+  mbEntity: string | null;
+  /** AAAA-MM */
+  period: string | null;
+}
+
+export const OBLIGATION_KIND_LABELS: Record<InvoiceObligationDTO["kind"], string> = {
+  tax_obligation: "Obrigação fiscal",
+  contribution_obligation: "Segurança Social",
+};
 
 export interface SupplierMatchDTO {
   id: string;
