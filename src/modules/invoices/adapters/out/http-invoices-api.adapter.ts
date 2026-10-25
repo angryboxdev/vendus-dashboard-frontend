@@ -127,6 +127,13 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     return apiPostFormData(`${BASE}/import`, formData);
   }
 
+  async createObligationDraft(file: File, options?: { force?: boolean }): Promise<InvoiceImportResultDTO> {
+    const formData = new FormData();
+    formData.append("file", file);
+    if (options?.force) formData.append("force", "true");
+    return apiPostFormData(`${BASE}/obligations`, formData);
+  }
+
   async confirmImportedInvoice(id: string, payload: ConfirmImportedInvoicePayload): Promise<InvoiceDTO> {
     return apiPost(`${BASE}/${encodeURIComponent(id)}/confirm`, payload);
   }

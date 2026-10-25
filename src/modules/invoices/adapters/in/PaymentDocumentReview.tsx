@@ -14,7 +14,8 @@ interface Props {
   result: PaymentDocumentImportDTO;
   busy: boolean;
   onOpenExisting(invoiceId: string): void;
-  onLaunchAsInvoice(): void;
+  /** `force`: a pessoa confirmou que quer criar outro apesar do registo parecido. */
+  onCreateDraft(force: boolean): void;
   onClose(): void;
 }
 
@@ -23,7 +24,7 @@ interface Props {
  * campos lidos e a origem, o estado do código de barras, avisos e as obrigações
  * já registadas que parecem ser a mesma. Nada é gravado aqui.
  */
-export function PaymentDocumentReview({ result, busy, onOpenExisting, onLaunchAsInvoice, onClose }: Props) {
+export function PaymentDocumentReview({ result, busy, onOpenExisting, onCreateDraft, onClose }: Props) {
   const p = result.payment;
   const strong = result.matches.filter((m) => m.strength === "strong");
   const src = (k: keyof typeof p.fieldSources) => (p.fieldSources[k] === "barcode" ? "código de barras" : "texto do documento");
@@ -64,7 +65,7 @@ export function PaymentDocumentReview({ result, busy, onOpenExisting, onLaunchAs
         <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Documento de cobrança</p>
         <h3 className="mt-0.5 text-sm font-semibold text-stone-900">{PAYMENT_DOCUMENT_TITLES[p.subtype]}</h3>
         <p className="mt-1 text-xs text-stone-500">
-          Não é uma fatura de fornecedor: IVA não aplicável, sem linhas nem Stock. A leitura não cria dívida nem marca como pago.
+          Não é uma fatura de fornecedor: IVA não aplicável, sem linhas nem Stock. A leitura não cria dívida nem marca como pago — o rascunho só passa a conta a pagar quando o confirmar.
         </p>
       </div>
 
@@ -147,13 +148,13 @@ export function PaymentDocumentReview({ result, busy, onOpenExisting, onLaunchAs
             type="button"
             disabled={busy}
             onClick={() => {
-              if (strong.length && !window.confirm("Já existe um registo que parece ser esta obrigação. Lançar mesmo assim cria outro. Continuar?")) return;
-              onLaunchAsInvoice();
+              if (strong.length && !window.confirm("Já existe um registo que parece ser esta obrigação. Criar outro mesmo assim?")) return;
+              onCreateDraft(strong.length > 0);
             }}
-            className="rounded-md border border-stone-200 px-3 py-1.5 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
-            title="Usa o fluxo atual de importação (como fatura) até existir o rascunho próprio de obrigações"
+            className="rounded-md bg-[#ED5C32] px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+            title="Cria um rascunho com o valor, o prazo e a referência; a conta a pagar nasce quando confirmar a revisão"
           >
-            {busy ? "A processar…" : "Lançar pelo fluxo atual"}
+            {busy ? "A processar…" : "Criar rascunho de obrigação"}
           </button>
         </div>
       </div>

@@ -2,6 +2,7 @@ import { useRef, useState } from "react";
 import type { InvoiceImportResultDTO, InvoiceDocumentType } from "../../domain/entities/invoice.ts";
 import { DOCUMENT_TYPE_LABELS } from "../../domain/entities/invoice.ts";
 import { useInvoicesModule } from "../../invoices.module.tsx";
+import { ApiError } from "../../../../lib/api.ts";
 import { isPaymentDocument, type PaymentDocumentImportDTO } from "../../domain/entities/payment-document.ts";
 import { PaymentDocumentReview } from "./PaymentDocumentReview.tsx";
 
@@ -64,15 +65,20 @@ export function ImportInvoiceModal({ onClose, onImported, onOpenInvoice }: Props
     }
   }
 
-  async function launchAsInvoice() {
+  /** E3b-2: o servidor volta a ler o ficheiro e cria o rascunho (sem IVA, linhas nem Stock); abre-se a revisão habitual. */
+  async function createObligationDraft(force: boolean) {
     if (!payment) return;
     setError(null);
     setUploading(true);
     try {
-      const result = await api.importInvoice(payment.file, undefined, { treatAsInvoice: true });
-      if (!isPaymentDocument(result)) onImported(result);
+      onImported(await api.createObligationDraft(payment.file, { force }));
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Erro ao processar o documento.");
+      if (!force && err instanceof ApiError && err.status === 409 && (err.data as { code?: string } | null)?.code === "obligation_exists") {
+        setUploading(false);
+        if (window.confirm("Já existe um registo que parece ser esta obrigação. Criar outro mesmo assim?")) await createObligationDraft(true);
+        return;
+      }
+      setError(err instanceof Error ? err.message : "Erro ao criar o rascunho da obrigação.");
     } finally {
       setUploading(false);
     }
@@ -122,7 +128,7 @@ export function ImportInvoiceModal({ onClose, onImported, onOpenInvoice }: Props
               result={payment.result}
               busy={uploading}
               onOpenExisting={(id) => onOpenInvoice?.(id)}
-              onLaunchAsInvoice={() => void launchAsInvoice()}
+              onCreateDraft={(force) => void createObligationDraft(force)}
               onClose={onClose}
             />
             {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{error}</p>}
