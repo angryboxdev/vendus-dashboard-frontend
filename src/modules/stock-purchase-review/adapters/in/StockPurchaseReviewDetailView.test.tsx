@@ -180,3 +180,23 @@ describe("StockPurchaseReviewDetailView (V4 — secções e associação automá
     expect(await screen.findAllByRole("button", { name: "Alterar" })).toHaveLength(2);
   });
 });
+
+describe("conversão errada com a fatura em kg (Cheddar «…Ralado kg», 1 kg = 1 g)", () => {
+  it("mostra o aviso e corrige num clique para 1 kg = 1000 g, mantendo artigo e destino", async () => {
+    const cheddar = line({
+      description: "Q. Cheddar Ralado kg", purchaseQuantity: 6, purchaseUnit: "un", supplierItemCode: "020051000R",
+      resolutionType: "existing_item", stockItemId: "item-cheddar", conversionFactor: 1, stockQuantity: 6, locationId: "loc-1",
+    });
+    const resolveLine = vi.fn(async () => review({ lines: [{ ...cheddar, conversionFactor: 1000, stockQuantity: 6000 }] }));
+    renderView({
+      getReview: async () => review({ lines: [cheddar] }),
+      listStockItemOptions: async () => [{ id: "item-cheddar", name: "Cheddar Ralado", baseUnit: "g", categoryId: "c", isActive: true }],
+      resolveLine,
+    });
+    expect(await screen.findByText(/A fatura conta em/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Corrigir: 1 kg = 1000 g" }));
+    await waitFor(() =>
+      expect(resolveLine).toHaveBeenCalledWith("r1", "l1", expect.objectContaining({ resolution: "existing_item", stockItemId: "item-cheddar", conversionFactor: 1000, locationId: "loc-1" })),
+    );
+  });
+});
