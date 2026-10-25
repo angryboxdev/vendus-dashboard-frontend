@@ -14,6 +14,8 @@ interface Props {
   result: PaymentDocumentImportDTO;
   busy: boolean;
   onOpenExisting(invoiceId: string): void;
+  /** Ligar este documento ao registo existente (em vez de criar outro). */
+  onLinkExisting?(invoiceId: string): void;
   /** `force`: a pessoa confirmou que quer criar outro apesar do registo parecido. */
   onCreateDraft(force: boolean): void;
   onClose(): void;
@@ -24,7 +26,7 @@ interface Props {
  * campos lidos e a origem, o estado do código de barras, avisos e as obrigações
  * já registadas que parecem ser a mesma. Nada é gravado aqui.
  */
-export function PaymentDocumentReview({ result, busy, onOpenExisting, onCreateDraft, onClose }: Props) {
+export function PaymentDocumentReview({ result, busy, onOpenExisting, onLinkExisting, onCreateDraft, onClose }: Props) {
   const p = result.payment;
   const strong = result.matches.filter((m) => m.strength === "strong");
   const src = (k: keyof typeof p.fieldSources) => (p.fieldSources[k] === "barcode" ? "código de barras" : "texto do documento");
@@ -120,14 +122,27 @@ export function PaymentDocumentReview({ result, busy, onOpenExisting, onCreateDr
                   </p>
                 </div>
                 {m.existing.invoiceId && (
-                  <button
-                    type="button"
-                    disabled={busy}
-                    onClick={() => onOpenExisting(m.existing.invoiceId!)}
-                    className="shrink-0 rounded-md border border-stone-200 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
-                  >
-                    Abrir
-                  </button>
+                  <div className="flex shrink-0 gap-1.5">
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={() => onOpenExisting(m.existing.invoiceId!)}
+                      className="rounded-md border border-stone-200 px-2.5 py-1 text-xs font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-50"
+                    >
+                      Abrir
+                    </button>
+                    {onLinkExisting && (
+                      <button
+                        type="button"
+                        disabled={busy}
+                        onClick={() => onLinkExisting(m.existing.invoiceId!)}
+                        title="Este registo passa a obrigação (referência e período) e fica com o PDF; não cria outro nem mexe em valores ou pagamentos"
+                        className="rounded-md border border-indigo-200 bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-800 hover:bg-indigo-100 disabled:opacity-50"
+                      >
+                        Ligar este documento
+                      </button>
+                    )}
+                  </div>
                 )}
               </li>
             ))}
