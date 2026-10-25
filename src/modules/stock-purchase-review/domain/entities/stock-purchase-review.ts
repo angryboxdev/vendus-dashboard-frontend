@@ -129,6 +129,12 @@ export interface StockReviewLineDTO {
   costCenterCategoryId: string | null;
   locationSplits: LocationSplitDTO[] | null;
   suggestion: LineSuggestionDTO | null;
+  /** Embalagem de compra ativa e o que esta linha dá (null = «Embalagem por configurar»). */
+  packaging?: {
+    presentation: PurchasePresentationDTO | null;
+    preview: { conversionFactor: number; stockQuantity: number; packages: number | null; netCostPerBaseUnit: number; netCostPerContentUnit: number; netCostPerPackage: number | null } | null;
+    baseUnit: string | null;
+  };
   resolutionType: ResolutionType;
   stockItemId: string | null;
   conversionFactor: number | null;
@@ -275,4 +281,41 @@ export interface StockItemOptionDTO {
 export interface StockCategoryOptionDTO {
   id: string;
   name: string;
+}
+
+// ── Embalagem de compra (task «embalagens e conversões») ───────────────────
+
+export type ContentUnit = "g" | "kg" | "ml" | "cl" | "l" | "un";
+export const CONTENT_UNIT_OPTIONS: ContentUnit[] = ["kg", "g", "l", "cl", "ml", "un"];
+/** Embalagens habituais (texto livre também é aceite pelo servidor). */
+export const PACKAGE_UNIT_OPTIONS = ["saco", "caixa", "lata", "garrafa", "garrafão", "balde", "embalagem", "pacote"];
+
+/** O que a pessoa confirma: vem em embalagem? quanto tem cada uma? a fatura conta embalagens ou peso? */
+export interface PresentationForm {
+  packageUnit: string | null;
+  contentQuantity: number;
+  contentUnit: ContentUnit;
+  invoicedBy: "package" | "content";
+  minOrderPackages: number;
+  orderIncrementPackages: number;
+}
+
+export interface PurchasePresentationDTO extends PresentationForm {
+  id: string;
+  supplierId: string;
+  supplierReference: string | null;
+  description: string;
+  stockItemId: string;
+  source: "user" | "document" | "catalog";
+  confidence: number | null;
+  createdBy: string | null;
+  createdAt: string;
+  supersededAt: string | null;
+}
+
+export interface SavePurchasePresentationPayload extends PresentationForm {
+  supplierId: string;
+  supplierReference: string | null;
+  description: string;
+  stockItemId: string;
 }

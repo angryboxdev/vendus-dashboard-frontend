@@ -1,4 +1,4 @@
-import { apiGet, apiPost, apiPostFormData } from "../../../../lib/api.ts";
+import { apiGet, apiPost, apiPostFormData, apiPut } from "../../../../lib/api.ts";
 import type { StockPurchaseReviewApiPort } from "../../domain/ports/out/stock-purchase-review-api.port.ts";
 import type {
   StockPurchaseReviewDTO,
@@ -11,6 +11,8 @@ import type {
   StockItemOptionDTO,
   StockCategoryOptionDTO,
   StockInvoiceImportResultDTO,
+  PurchasePresentationDTO,
+  SavePurchasePresentationPayload,
 } from "../../domain/entities/stock-purchase-review.ts";
 
 const BASE = "/api/stock-purchase-reviews";
@@ -72,6 +74,14 @@ export class HttpStockPurchaseReviewApiAdapter implements StockPurchaseReviewApi
     formData.append("file", file);
     if (options?.routeExisting) formData.append("routeExisting", "true");
     return apiPostFormData("/api/invoices/import-for-stock", formData);
+  }
+
+  async listPresentations(supplierId: string): Promise<PurchasePresentationDTO[]> {
+    return apiGet(`${BASE}/presentations?supplierId=${encodeURIComponent(supplierId)}`);
+  }
+
+  async savePresentation(payload: SavePurchasePresentationPayload): Promise<PurchasePresentationDTO> {
+    return apiPut(`${BASE}/presentations`, payload);
   }
 
   async restoreReview(reviewId: string, payload: { expectedVersion: number }): Promise<StockPurchaseReviewDTO> {

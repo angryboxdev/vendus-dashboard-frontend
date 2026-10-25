@@ -9,6 +9,8 @@ import type {
   StockItemOptionDTO,
   StockCategoryOptionDTO,
   StockInvoiceImportResultDTO,
+  PurchasePresentationDTO,
+  SavePurchasePresentationPayload,
 } from "../../entities/stock-purchase-review.ts";
 
 export interface StockPurchaseReviewApiPort {
@@ -27,6 +29,10 @@ export interface StockPurchaseReviewApiPort {
    * `already_in_stock` (bloqueia), `already_in_review`, `draft_in_finance`, `exists_not_routed`; 422 `extraction_failed`.
    */
   importInvoiceForStock(file: File, options?: { routeExisting?: boolean }): Promise<StockInvoiceImportResultDTO>;
+  /** Embalagens de compra ativas de um fornecedor. */
+  listPresentations(supplierId: string): Promise<PurchasePresentationDTO[]>;
+  /** Confirma/altera a embalagem (cria versão nova; 400 se as unidades não se convertem). */
+  savePresentation(payload: SavePurchasePresentationPayload): Promise<PurchasePresentationDTO>;
   /** «Repor em Compras por rever» — só para revisões retiradas. */
   restoreReview(reviewId: string, payload: { expectedVersion: number }): Promise<StockPurchaseReviewDTO>;
 

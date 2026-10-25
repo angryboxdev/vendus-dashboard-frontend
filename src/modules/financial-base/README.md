@@ -342,3 +342,6 @@ oportunidades derivam destas regras (nada é guardado à parte).
   Não é um histórico de "o que já foi comprado a este fornecedor" — é "que itens de
   stock têm este fornecedor configurado como sugestão de compra" no módulo
   `stock-planning`. Requer seleção de loja (o endpoint de itens é sempre por loja).
+
+## Abastecimento — encomenda em embalagens
+- Com embalagem confirmada (Compras por rever), a sugestão mostra embalagens inteiras: «5 sacos — preciso de 12 kg → 12,5 kg» e a coluna da unidade «saco de 2,5 kg»; sem ela, «Embalagem por configurar».

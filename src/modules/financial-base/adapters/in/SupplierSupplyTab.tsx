@@ -510,7 +510,17 @@ function EmptyRow({ text }: { text: string }) {
 }
 
 function ReplenishmentRow({ row: r, onOpenPlanning }: { row: SupplierReplenishmentRowDTO; onOpenPlanning: () => void }) {
-  const suggestion =
+  // Embalagem confirmada: encomenda em embalagens inteiras («Preciso de 12 kg → 5 sacos (12,5 kg)»).
+  const order = r.order && r.order.packages > 0 ? r.order : null;
+  const packLabel = (o: NonNullable<SupplierReplenishmentRowDTO["order"]>, n: number) => (o.packageUnit ? `${n.toLocaleString("pt-PT", { maximumFractionDigits: 2 })} ${n === 1 ? o.packageUnit : o.packageUnit.endsWith("ão") ? o.packageUnit.replace(/ão$/, "ões") : `${o.packageUnit}s`}` : qty(n, o.contentUnit));
+  const suggestion = order ? (
+    <span className="inline-flex flex-col items-center" title={`Preciso de ${qty(r.suggestedBaseQty, r.baseUnit)} → encomendar ${packLabel(order, order.packages)} (${qty(order.quantityBase, r.baseUnit)})${order.surplusBase > 0 ? `, excedente ${qty(order.surplusBase, r.baseUnit)}` : ""}`}>
+      <span className={`inline-flex rounded-md bg-brand-50 px-2 py-0.5 font-medium text-brand-600 ${NUMERIC}`}>{packLabel(order, order.packages)}</span>
+      <span className={`mt-0.5 text-[11px] text-ink-muted ${NUMERIC}`}>
+        preciso de {qty(r.suggestedBaseQty, r.baseUnit)} → {qty(order.quantityBase, r.baseUnit)}
+      </span>
+    </span>
+  ) :
     r.suggestedBaseQty > 0 ? (
       <span
         title={
@@ -542,7 +552,13 @@ function ReplenishmentRow({ row: r, onOpenPlanning }: { row: SupplierReplenishme
       <td className={`px-3 py-2.5 text-center text-ink-secondary ${NUMERIC}`}>{r.minStockQty > 0 ? r.minStockQty.toLocaleString("pt-PT") : "—"}</td>
       <td className={`whitespace-nowrap px-3 py-2.5 text-center text-ink ${NUMERIC}`}>{qty(r.consumption30d, r.baseUnit)}</td>
       <td className="whitespace-nowrap px-3 py-2.5 text-center">{suggestion}</td>
-      <td className="whitespace-nowrap px-3 py-2.5 text-ink-secondary">{r.purchaseUnit ?? <span className="text-ink-muted">—</span>}</td>
+      <td className="whitespace-nowrap px-3 py-2.5 text-ink-secondary">
+        {r.order?.packageUnit
+          ? `${r.order.packageUnit} de ${r.order.contentQuantity.toLocaleString("pt-PT", { maximumFractionDigits: 3 })} ${r.order.contentUnit}`
+          : r.presentationConfigured === false && r.suggestedBaseQty > 0
+            ? <span className="text-amber-700" title="Confirme em Compras por rever se vem em saco e quanto tem cada um">Embalagem por configurar</span>
+            : r.purchaseUnit ?? <span className="text-ink-muted">—</span>}
+      </td>
       <td className={`whitespace-nowrap px-3 py-2.5 text-center text-ink-secondary ${NUMERIC}`}>{r.lastPurchaseDate ? formatIsoDatePt(r.lastPurchaseDate) : "—"}</td>
       <td className={`whitespace-nowrap px-3 py-2.5 text-right font-medium text-navy-900 ${NUMERIC}`}>{r.lastUnitPrice != null ? formatEUR(r.lastUnitPrice) : "—"}</td>
       <td className="px-2 py-2.5 text-right">

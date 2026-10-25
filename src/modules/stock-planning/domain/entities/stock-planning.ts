@@ -255,6 +255,10 @@ export interface SupplierReplenishmentRowDTO {
   /** Preço unitário sem IVA da última compra. */
   lastUnitPrice: number | null;
   needsReplenishment: boolean;
+  /** Encomenda em embalagens inteiras (embalagem confirmada): 12 kg → 5 sacos (12,5 kg). */
+  order?: { packageUnit: string | null; packages: number; contentQuantity: number; contentUnit: string; quantityBase: number; surplusBase: number } | null;
+  /** false = «Embalagem por configurar» (nunca se sugere fracionar uma embalagem). */
+  presentationConfigured?: boolean;
 }
 
 export interface StockCategoryOptionDTO {
