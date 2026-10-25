@@ -442,6 +442,24 @@ export function PizzasPage() {
     }
   }, []);
 
+  const [togglingPrepId, setTogglingPrepId] = useState<string | null>(null);
+  const togglePreparationActive = useCallback(async (prep: Preparation) => {
+    setPrepError(null);
+    setTogglingPrepId(prep.id);
+    try {
+      const updated = await apiPut<Preparation>(`/api/preparations/${prep.id}`, {
+        is_active: prep.is_active === false,
+      });
+      setPreparations((prev) => prev.map((p) => (p.id === prep.id ? updated : p)));
+    } catch (e) {
+      setPrepError(
+        e instanceof Error ? e.message : "Erro ao alterar o estado do preparo",
+      );
+    } finally {
+      setTogglingPrepId(null);
+    }
+  }, []);
+
   const closePrepDetail = useCallback(async () => {
     if (prepDetailPrep && prepDetailItems.length > 0) {
       const total = prepDetailItems.reduce((sum, i) => sum + i.quantity, 0);
@@ -721,6 +739,7 @@ export function PizzasPage() {
                   <th className="px-4 py-3 font-medium">Nome</th>
                   <th className="px-4 py-3 font-medium">Rendimento</th>
                   <th className="px-4 py-3 font-medium">Descrição</th>
+                  <th className="px-4 py-3 font-medium">Estado</th>
                   <th className="px-4 py-3 text-center font-medium">Ações</th>
                 </tr>
               </thead>
@@ -738,6 +757,13 @@ export function PizzasPage() {
                     </td>
                     <td className="px-4 py-2 text-slate-500">
                       {prep.description ?? "—"}
+                    </td>
+                    <td className="px-4 py-2">
+                      <span
+                        className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${prep.is_active !== false ? "bg-green-100 text-green-800" : "bg-slate-100 text-slate-600"}`}
+                      >
+                        {prep.is_active !== false ? "Ativo" : "Inativo"}
+                      </span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-2 text-center">
                       <div className="flex justify-center gap-1">
@@ -757,6 +783,19 @@ export function PizzasPage() {
                         </button>
                         <button
                           type="button"
+                          onClick={() => togglePreparationActive(prep)}
+                          disabled={togglingPrepId === prep.id}
+                          title={
+                            prep.is_active !== false
+                              ? "Inativar: deixa de aparecer para adicionar a receitas (as receitas que já o usam continuam iguais)"
+                              : "Reativar o preparo"
+                          }
+                          className={`rounded px-2 py-1 text-xs font-medium disabled:opacity-50 ${prep.is_active !== false ? "text-amber-700 hover:bg-amber-50" : "text-green-700 hover:bg-green-50"}`}
+                        >
+                          {prep.is_active !== false ? "Inativar" : "Reativar"}
+                        </button>
+                        <button
+                          type="button"
                           onClick={() => deletePreparation(prep.id)}
                           className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
                         >
@@ -769,7 +808,7 @@ export function PizzasPage() {
                 {preparations.length === 0 && (
                   <tr>
                     <td
-                      colSpan={4}
+                      colSpan={5}
                       className="px-4 py-8 text-center text-slate-500"
                     >
                       Nenhum preparo. Crie o primeiro acima.
@@ -1619,9 +1658,9 @@ function RecipeModal({
                         ))}
                       </optgroup>
                     )}
-                    {preparations.length > 0 && (
+                    {preparations.some((p) => p.is_active !== false) && (
                       <optgroup label="Preparos">
-                        {preparations.map((p) => (
+                        {preparations.filter((p) => p.is_active !== false).map((p) => (
                           <option key={p.id} value={`prep:${p.id}`}>
                             {p.name} ({p.yield_unit})
                           </option>
