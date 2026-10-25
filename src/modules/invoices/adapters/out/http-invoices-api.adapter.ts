@@ -97,8 +97,9 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     return apiDeleteNoContent(`${BASE}/${encodeURIComponent(id)}${qs}`);
   }
 
-  async deleteLine(invoiceId: string, lineId: string): Promise<void> {
-    return apiDeleteNoContent(`${BASE}/${encodeURIComponent(invoiceId)}/lines/${encodeURIComponent(lineId)}`);
+  async deleteLine(invoiceId: string, lineId: string, confirmRemoveStockReview?: boolean): Promise<void> {
+    const qs = confirmRemoveStockReview ? "?confirmRemoveStockReview=true" : "";
+    return apiDeleteNoContent(`${BASE}/${encodeURIComponent(invoiceId)}/lines/${encodeURIComponent(lineId)}${qs}`);
   }
 
   async classifyLine(invoiceId: string, lineId: string, payload: ClassifyLinePayload): Promise<InvoiceLineDTO> {

@@ -35,7 +35,7 @@ import {
 import {
   FINANCIAL_MODE_OF, LINE_DETAIL_MODE_OF, initialStockChoice, stockDecision, stockRoutingInput,
 } from "../../domain/services/stock-decision.ts";
-import { restoreDraftHeader, restoreDraftLines } from "../../domain/services/stored-draft.ts";
+import { classificationOnlyChanges, restoreDraftHeader, restoreDraftLines } from "../../domain/services/stored-draft.ts";
 import { checkNif, sameNif } from "../../domain/services/nif.ts";
 import { CostCenterCascadeSelect } from "./CostCenterCascadeSelect.tsx";
 import { AllocationsEditor } from "./AllocationsEditor.tsx";
@@ -918,8 +918,6 @@ interface ConfirmConflict {
 export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", existingLineIds = [], reopenDraft = false, onClose, onConfirmed, onOpenExisting }: Props) {
   const { api } = useInvoicesModule();
   const fbModule = useFinancialBaseModule();
-  // E3b: logótipo encontrado na fatura — só vai para o fornecedor se a pessoa marcar.
-  const [useSuggestedLogo, setUseSuggestedLogo] = useState(false);
   const qc = useQueryClient();
   const isEdit = mode === "edit";
 
@@ -1009,6 +1007,8 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   // gravados (descontos, categoria, textos do documento) — nunca de uma reconstrução só com qtd./preço/IVA,
   // que perdia descontos e categorias (FT 61707: −22,27 € e linhas «Sem classificação»).
   const restoring = reopenDraft || isEdit;
+  // Edição: as linhas tal como estão guardadas, para saber ao gravar se só mudou a classificação.
+  const [storedLines] = useState(() => (isEdit && inv.lines ? restoreDraftLines(inv.lines, inv.storedAmounts) : []));
   const [lines, setLines] = useState<DraftLine[]>(() =>
     restoring && (inv.lines?.length ?? 0) > 0 ? restoreDraftLines(inv.lines!, inv.storedAmounts) :
     importResult.extractedLines.map((l, i) => {
@@ -1143,11 +1143,8 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
     onSuccess: (confirmed) => {
       void qc.invalidateQueries({ queryKey: ["invoices"] });
       void qc.invalidateQueries({ queryKey: ["invoice-alerts"] });
-      const logo = importResult.logoSuggestion?.url;
-      if (useSuggestedLogo && logo && confirmed.supplierId) {
-        // Falhar aqui não desfaz a fatura: o logótipo pode ser definido depois na ficha.
-        void fbModule.api.updateSupplier(confirmed.supplierId, { logoUrl: logo }).then(() => qc.invalidateQueries({ queryKey: ["suppliers"] })).catch(() => undefined);
-      }
+      // O logótipo do fornecedor (se ainda não tiver) é gravado pelo servidor ao confirmar, a partir do PDF.
+      void qc.invalidateQueries({ queryKey: ["suppliers"] });
       onConfirmed(confirmed);
     },
     onError: (err) => {
@@ -1227,7 +1224,10 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
         resolvedSupplierId = created.id;
       }
 
-      const replaceLines = detailMode === "detailed" || (detailMode === "by_values" && linesDirty);
+      // «Por artigo» com as mesmas linhas guardadas (só mudou a classificação) → grava-se a classificação
+      // linha a linha, sem apagar: as linhas podem estar em Compras por rever no Stock (FT 61707).
+      const classificationOnly = detailMode === "detailed" ? classificationOnlyChanges(storedLines, activeLines) : null;
+      const replaceLines = (detailMode === "detailed" && classificationOnly === null) || (detailMode === "by_values" && linesDirty);
       await api.setLineDetailMode(inv.id, detailMode === "by_values" ? "detailed" : detailMode, confirmRemove || undefined);
 
       await api.updateInvoice(inv.id, {
@@ -1248,12 +1248,22 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
         confirmRemoveStockReview: confirmRemove || undefined,
       });
 
+      for (const c of classificationOnly ?? []) {
+        if (c.type !== undefined || c.costCenterCategoryId !== undefined) {
+          await api.classifyLine(inv.id, c.lineId, {
+            classify: { ...(c.type !== undefined && { type: c.type }), ...(c.costCenterCategoryId !== undefined && { costCenterCategoryId: c.costCenterCategoryId }) },
+          });
+        }
+        if (c.locationId !== undefined) await api.updateLine(inv.id, c.lineId, { locationId: c.locationId });
+      }
+      // Linhas mudadas numa fatura em Compras por rever: o servidor bloqueia (já movimentada) ou pede
+      // confirmação para descartar a revisão (409 `requiresConfirmation`, tratado em onError).
       if (replaceLines) {
         for (const lineId of existingLineIds) {
-          await api.deleteLine(inv.id, lineId);
+          await api.deleteLine(inv.id, lineId, confirmRemove || undefined);
         }
         for (const l of activeLines) {
-          await api.addLine(inv.id, draftLineToPayload(l, preview));
+          await api.addLine(inv.id, { ...draftLineToPayload(l, preview), ...(confirmRemove && { confirmRemoveStockReview: true }) });
         }
       }
       if (detailMode === "by_values") {
@@ -1467,12 +1477,12 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
           <div className="space-y-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-stone-400">Fornecedor</p>
             {!isEdit && importResult.logoSuggestion && (
-              <label className="flex items-center gap-3 rounded-lg border border-stone-200 bg-stone-50/60 px-3 py-2 text-sm text-stone-700">
+              <div className="flex items-center gap-3 rounded-lg border border-stone-200 bg-stone-50/60 px-3 py-2 text-sm text-stone-700">
                 <img src={importResult.logoSuggestion.url} alt="Logótipo encontrado na fatura" className="h-10 max-w-[120px] rounded bg-white object-contain p-0.5" />
-                <span className="flex-1 text-xs text-stone-600">Logótipo encontrado na fatura</span>
-                <input type="checkbox" checked={useSuggestedLogo} onChange={(e) => setUseSuggestedLogo(e.target.checked)} />
-                <span className="text-xs font-medium">Usar como logótipo do fornecedor</span>
-              </label>
+                <span className="flex-1 text-xs text-stone-600">
+                  Logótipo encontrado na fatura — fica no fornecedor ao confirmar (pode trocá-lo ou removê-lo na ficha).
+                </span>
+              </div>
             )}
             <div className="grid grid-cols-2 gap-4 items-start">
               <div className="space-y-3">

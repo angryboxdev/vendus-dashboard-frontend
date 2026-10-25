@@ -4,7 +4,6 @@ import { useNavigate } from "react-router-dom";
 import { useStockPurchaseReviewModule } from "../../stock-purchase-review.module.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
 import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
-import { StockImportInvoiceModal } from "./StockImportInvoiceModal.tsx";
 import {
   STOCK_PURCHASE_REVIEW_STATUS_LABELS,
   DECISION_SOURCE_LABELS,
@@ -49,7 +48,6 @@ export function StockPurchaseReviewsListView() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [search, setSearch] = useState("");
-  const [importOpen, setImportOpen] = useState(false);
 
   const { data: suppliers = [] } = useQuery({
     queryKey: ["financial-base-suppliers"],
@@ -76,24 +74,12 @@ export function StockPurchaseReviewsListView() {
 
   return (
     <div className="flex min-h-full flex-col bg-[#FAF6F3]">
-      <div className="flex items-start justify-between gap-4 border-b border-stone-200 bg-white px-6 py-4">
-        <div>
-          <h1 className="text-xl font-bold text-stone-900">Compras por rever</h1>
-          <p className="mt-0.5 text-sm text-stone-500">
-            Faturas encaminhadas ao Stock — concilia cada linha com um artigo (ou marca que não é item de stock) e confirma para movimentar o inventário.
-          </p>
-        </div>
-        <button
-          type="button"
-          onClick={() => setImportOpen(true)}
-          className="shrink-0 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-        >
-          Importar fatura
-        </button>
-      </div>
-      {importOpen && <StockImportInvoiceModal onClose={() => setImportOpen(false)} />}
+      {/* Separador do Inventário: título e «Importar fatura» estão no cabeçalho da página. */}
+      <p className="px-6 pt-5 text-sm text-stone-500">
+        Faturas encaminhadas ao Stock — concilia cada linha com um artigo (ou marca que não é item de stock) e confirma para movimentar o inventário.
+      </p>
 
-      <div className="space-y-4 p-6">
+      <div className="space-y-4 px-6 pb-6 pt-4">
         <div className="flex flex-wrap items-center gap-3">
           <div role="tablist" className="flex rounded-lg border border-stone-200 bg-white p-0.5 text-sm">
             {([

@@ -116,4 +116,10 @@ describe("menu do Stock (task Stock inteligente V4 §1)", () => {
       ["Reposição e planeamento", "/stock/planeamento"],
     ]);
   });
+
+  it("Inventário fica ativo nos seus separadores, incluindo Compras por rever", () => {
+    const stock = buildTree({ role: "admin", email: "a@teste.pt" } as never).find((e) => e.kind === "group" && e.id === "stock");
+    if (!stock || stock.kind !== "group") throw new Error("sem grupo Stock");
+    expect(stock.items.find((i) => i.label === "Inventário")?.match).toEqual(["/stock/movimentacoes", "/stock/historico-movimentos", "/stock/contagens", "/stock/compras-por-rever"]);
+  });
 });
