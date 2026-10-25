@@ -121,6 +121,10 @@ export class HttpFinancialBaseApiAdapter implements FinancialBaseApiPort {
     return apiPatch(`${BASE}/suppliers/${encodeURIComponent(id)}`, payload);
   }
 
+  async fillSupplierLogos(after?: string): Promise<{ processed: number; filled: number; next: string | null }> {
+    return apiPost("/api/invoices/supplier-logos/fill", after ? { after } : {});
+  }
+
   async setSupplierStatus(id: string, status: "active" | "inactive"): Promise<Supplier> {
     return apiPatch(`${BASE}/suppliers/${encodeURIComponent(id)}/status`, { status });
   }
