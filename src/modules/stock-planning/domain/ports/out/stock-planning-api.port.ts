@@ -11,6 +11,7 @@ import type {
   ReviewRecommendationPayload,
   SubmitForecastFeedbackPayload,
   StockCategoryOptionDTO,
+  SupplierReplenishmentRowDTO,
 } from "../../entities/stock-planning.ts";
 
 export interface StockPlanningApiPort {
@@ -23,6 +24,8 @@ export interface StockPlanningApiPort {
   silenceAlert(alertId: string, payload: SilenceAlertPayload): Promise<PlanningAlertRowDTO>;
 
   getPurchaseList(locationId: string): Promise<SuggestedPurchaseListDTO>;
+  /** Necessidades de reposição dos artigos de um fornecedor (separador Abastecimento). */
+  listSupplierReplenishment(supplierId: string, locationId: string): Promise<SupplierReplenishmentRowDTO[]>;
   reviewRecommendation(recommendationId: string, payload: ReviewRecommendationPayload): Promise<void>;
 
   submitForecastFeedback(feedbackId: string, payload: SubmitForecastFeedbackPayload): Promise<void>;

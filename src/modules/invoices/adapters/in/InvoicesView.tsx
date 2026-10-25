@@ -3085,8 +3085,10 @@ export function InvoicesView() {
     right: number;
   } | null>(null);
   // Predefinido: mês atual — "Limpar" no seletor de mês continua disponível
-  // para ver todos os meses.
+  // para ver todos os meses. Com ?pendentes=1 (ex.: card «Com faturas
+  // pendentes» dos Fornecedores) abre sem mês, para mostrar todas as por pagar.
   const [monthFilter, setMonthFilter] = useState<string | null>(() => {
+    if (searchParams.get("pendentes") === "1") return null;
     const now = new Date();
     return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
   });

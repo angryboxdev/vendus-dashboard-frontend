@@ -1,25 +1,40 @@
-import { useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { useFinancialBaseModule } from "../../financial-base.module.tsx";
 import { SupplierDrawer } from "./SupplierDrawer.tsx";
 import { ExportStatementModal } from "./ExportStatementModal.tsx";
-import { SupplierPlanningTab } from "./SupplierPlanningTab.tsx";
+import { SupplierSupplyTab } from "./SupplierSupplyTab.tsx";
 import { SupplierAssociatedItemsTab } from "./SupplierAssociatedItemsTab.tsx";
-import { formatEUR } from "../../../../lib/format.ts";
-import type { UpdateSupplierPayload } from "../../domain/entities/supplier.ts";
-import type { SupplierDetail } from "../../domain/entities/supplier.ts";
+import { formatEUR, formatIsoDatePt } from "../../../../lib/format.ts";
+import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
+import {
+  AppIcon,
+  BRAND,
+  Button,
+  DropdownMenu,
+  FIELD,
+  IconButton,
+  IconChevronRight,
+  IconDownload,
+  IconInfo,
+  NUMERIC,
+  PAGE_BG,
+  StatusBadge,
+  SURFACE,
+  Tabs,
+  type StatusTone,
+} from "../../../../components/ui/index.ts";
+import {
+  DEFAULT_STOCK_POLICY_LABELS,
+  FINANCIAL_MODE_LABELS,
+  type SupplierDetail,
+  type SupplierInvoiceRow,
+  type UpdateSupplierPayload,
+} from "../../domain/entities/supplier.ts";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-
-function formatDate(d: string | null): string {
-  if (!d) return "—";
-  return new Date(d).toLocaleDateString("pt-PT", {
-    day: "2-digit",
-    month: "2-digit",
-    year: "numeric",
-  });
-}
 
 function initials(name: string): string {
   return name
@@ -30,112 +45,329 @@ function initials(name: string): string {
     .join("");
 }
 
-// ── InvoiceStatusBadge ───────────────────────────────────────────────────────
+const AXIS_TICK = { fontSize: 11, fill: BRAND.navy, fillOpacity: 0.55 };
 
-const STATUS_LABELS: Record<string, { label: string; cls: string; dot: string }> = {
-  paid:           { label: "Paga",        cls: "bg-emerald-50 text-emerald-700", dot: "bg-emerald-500" },
-  pending:        { label: "Pendente",    cls: "bg-amber-50 text-amber-700",     dot: "bg-amber-500"   },
-  overdue:        { label: "Vencida",     cls: "bg-red-50 text-red-600",         dot: "bg-red-500"     },
-  partial:        { label: "Parcial",     cls: "bg-amber-50 text-amber-700",     dot: "bg-amber-400"   },
-  cancelled:      { label: "Anulada",     cls: "bg-stone-100 text-stone-500",    dot: "bg-stone-400"   },
-  draft_ai:       { label: "Rascunho IA", cls: "bg-stone-100 text-stone-500",    dot: "bg-stone-400"   },
-  pending_review: { label: "Em revisão",  cls: "bg-violet-50 text-violet-600",   dot: "bg-violet-500"  },
+const MONTHS = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+/** Anuladas não contam como compra (rascunhos e em revisão já não vêm da API). */
+const countsAsPurchase = (inv: SupplierInvoiceRow) => inv.status !== "cancelled";
+
+const isCreditNote = (inv: SupplierInvoiceRow) => inv.documentType === "credit_note";
+
+function pctOf(part: number, total: number): string {
+  if (total <= 0) return "—";
+  return `${Math.round((part / total) * 100)}% do total`;
+}
+
+// ── Estado do documento ──────────────────────────────────────────────────────
+
+const STATUS_LABELS: Record<string, { label: string; tone: StatusTone }> = {
+  paid:           { label: "Paga",        tone: "success" },
+  pending:        { label: "Pendente",    tone: "warning" },
+  overdue:        { label: "Vencida",     tone: "danger"  },
+  partial:        { label: "Parcial",     tone: "warning" },
+  cancelled:      { label: "Anulada",     tone: "neutral" },
+  draft_ai:       { label: "Rascunho IA", tone: "neutral" },
+  pending_review: { label: "Em revisão",  tone: "neutral" },
 };
 
 function InvoiceStatusBadge({ status }: { status: string }) {
-  const info = STATUS_LABELS[status] ?? { label: status, cls: "bg-stone-100 text-stone-500", dot: "bg-stone-400" };
+  const info = STATUS_LABELS[status] ?? { label: status, tone: "neutral" as const };
+  return <StatusBadge tone={info.tone}>{info.label}</StatusBadge>;
+}
+
+function DocTypeChip({ inv }: { inv: SupplierInvoiceRow }) {
   return (
-    <span className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${info.cls}`}>
-      <span className={`h-1.5 w-1.5 rounded-full ${info.dot}`} />
-      {info.label}
+    <span className="rounded-md border border-line bg-surface-soft px-1.5 py-0.5 text-[10px] font-medium text-ink-secondary">
+      {isCreditNote(inv) ? "NC" : "FT"}
     </span>
   );
 }
 
-// ── Secções reaproveitadas entre "Dados gerais" e as tabs dedicadas ─────────
-// Extraídas para evitar duplicar JSX: "Dados gerais" continua a mostrar tudo
-// (nunca uma remoção), e "Histórico de compras"/"Contactos e notas" só
-// tornam essas mesmas secções acessíveis diretamente, sem replicar markup.
+// ── Blocos da visão geral ───────────────────────────────────────────────────
 
-function SupplierInvoicesSection({ supplier, navigate }: { supplier: SupplierDetail; navigate: ReturnType<typeof useNavigate> }) {
+function Card({ title, action, children, className = "" }: { title: string; action?: ReactNode; children: ReactNode; className?: string }) {
+  return (
+    <section className={`${SURFACE} flex flex-col ${className}`}>
+      <header className="flex min-h-[56px] items-center justify-between gap-3 px-5 pt-4">
+        <h2 className="text-[15px] font-semibold text-navy-900">{title}</h2>
+        {action}
+      </header>
+      {children}
+    </section>
+  );
+}
+
+function InfoRows({ rows }: { rows: Array<[string, ReactNode]> }) {
+  return (
+    <dl className="px-5 pb-3 pt-1">
+      {rows.map(([label, value]) => (
+        <div key={label} className="flex items-center justify-between gap-4 border-t border-line-subtle py-2.5 text-[13px]">
+          <dt className="text-ink-secondary">{label}</dt>
+          <dd className="min-w-0 truncate text-left font-normal text-ink sm:w-1/2">{value ?? <Empty />}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+const Empty = () => <span className="text-ink-muted">—</span>;
+
+function KpiCell({ label, hint, value, sub, valueClass = "text-navy-900" }: { label: string; hint: string; value: string; sub: string; valueClass?: string }) {
+  return (
+    <div className="px-6 py-5 sm:px-8">
+      <p className="flex items-center gap-1.5 text-sm text-ink-secondary">
+        {label}
+        <span title={hint} className="text-ink-muted">
+          <IconInfo size={14} />
+        </span>
+      </p>
+      <p className={`mt-2 text-[26px] font-bold leading-none ${NUMERIC} ${valueClass}`}>{value}</p>
+      <p className="mt-3 text-[13px] text-ink-secondary">{sub}</p>
+    </div>
+  );
+}
+
+function PurchasesChart({ supplier }: { supplier: SupplierDetail }) {
+  const years = useMemo(() => {
+    const set = new Set<number>([new Date().getFullYear()]);
+    for (const inv of supplier.invoices) set.add(Number(inv.invoiceDate.slice(0, 4)));
+    return [...set].filter(Number.isFinite).sort((a, b) => b - a);
+  }, [supplier.invoices]);
+  const lastYear = supplier.stats.lastInvoiceDate ? Number(supplier.stats.lastInvoiceDate.slice(0, 4)) : years[0]!;
+  const [year, setYear] = useState(lastYear);
+
+  const data = useMemo(() => {
+    const totals = MONTHS.map((m) => ({ month: m, total: 0 }));
+    for (const inv of supplier.invoices) {
+      if (!countsAsPurchase(inv) || Number(inv.invoiceDate.slice(0, 4)) !== year) continue;
+      totals[Number(inv.invoiceDate.slice(5, 7)) - 1]!.total += inv.totalWithVat;
+    }
+    return totals.map((t) => ({ ...t, total: Math.round(t.total * 100) / 100 }));
+  }, [supplier.invoices, year]);
+
+  return (
+    <Card
+      title="Resumo de atividade"
+      className="h-full"
+      action={
+        <select value={year} onChange={(e) => setYear(Number(e.target.value))} aria-label="Ano" className={`${FIELD} h-9 pr-8`}>
+          {years.map((y) => (
+            <option key={y} value={y}>{y}</option>
+          ))}
+        </select>
+      }
+    >
+      <div className="flex items-center gap-2 px-5 pt-2 text-xs text-ink-secondary">
+        <span className="h-2 w-2 rounded-full bg-brand-600" />
+        Compras
+      </div>
+      <div className="h-[230px] px-2 pb-3 pt-2 xl:h-auto xl:min-h-[230px] xl:flex-1">
+        <ResponsiveContainer width="100%" height="100%">
+          <LineChart data={data} margin={{ top: 8, right: 12, bottom: 0, left: 4 }}>
+            <CartesianGrid vertical={false} stroke={BRAND.border} />
+            <XAxis dataKey="month" tick={AXIS_TICK} axisLine={false} tickLine={false} interval={0} />
+            <YAxis
+              tick={AXIS_TICK}
+              axisLine={false}
+              tickLine={false}
+              width={58}
+              tickFormatter={(v: number) => `${v.toLocaleString("pt-PT", { maximumFractionDigits: 0 })} €`}
+            />
+            <Tooltip
+              formatter={(v) => [formatEUR(Number(v)), "Compras"]}
+              labelFormatter={(m) => `${m} ${year}`}
+              contentStyle={{ borderRadius: 12, borderColor: BRAND.border, fontSize: 12 }}
+            />
+            <Line
+              type="monotone"
+              dataKey="total"
+              name="Compras"
+              stroke={BRAND.primary}
+              strokeWidth={2.25}
+              dot={{ r: 3, fill: BRAND.primary, strokeWidth: 0 }}
+              activeDot={{ r: 5 }}
+              isAnimationActive={false}
+            />
+          </LineChart>
+        </ResponsiveContainer>
+      </div>
+    </Card>
+  );
+}
+
+function LatestDocuments({ supplier, onOpenAll }: { supplier: SupplierDetail; onOpenAll: () => void }) {
+  const navigate = useNavigate();
+  const rows = supplier.invoices.slice(0, 5);
+  return (
+    <Card
+      title="Últimos documentos"
+      action={
+        <IconButton label="Ver todos os documentos" size="sm" onClick={onOpenAll}>
+          <IconChevronRight size={18} />
+        </IconButton>
+      }
+    >
+      {rows.length === 0 ? (
+        <p className="px-5 pb-6 pt-2 text-sm text-ink-secondary">Nenhum documento registado para este fornecedor.</p>
+      ) : (
+        <div className="overflow-x-auto px-5 pb-3">
+          <table className="min-w-full text-[13px]">
+            <thead>
+              <tr className="border-b border-line-subtle text-left text-[11px] font-medium uppercase tracking-wide text-ink-secondary">
+                <th className="py-2.5 pr-3 font-medium">Nº documento</th>
+                <th className="px-3 py-2.5 font-medium">Tipo</th>
+                <th className="px-3 py-2.5 font-medium">Emissão</th>
+                <th className="px-3 py-2.5 font-medium">Vencimento</th>
+                <th className="px-3 py-2.5 text-right font-medium">Valor</th>
+                <th className="py-2.5 pl-3 font-medium">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((inv) => (
+                <tr
+                  key={inv.id}
+                  onClick={() => navigate(`/financial/invoices?open=${inv.id}`)}
+                  className="cursor-pointer border-b border-line-subtle transition-colors last:border-0 hover:bg-surface-soft/60"
+                >
+                  <td className="whitespace-nowrap py-2.5 pr-3 text-ink">
+                    <span className="inline-flex items-center gap-2">
+                      {inv.invoiceNumber}
+                      <DocTypeChip inv={inv} />
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-ink-secondary">{isCreditNote(inv) ? "Nota de crédito" : "Fatura"}</td>
+                  <td className={`whitespace-nowrap px-3 py-2.5 text-ink-secondary ${NUMERIC}`}>{formatIsoDatePt(inv.invoiceDate)}</td>
+                  <td className={`whitespace-nowrap px-3 py-2.5 text-ink-secondary ${NUMERIC}`}>{formatIsoDatePt(inv.dueDate)}</td>
+                  <td className={`whitespace-nowrap px-3 py-2.5 text-right font-medium ${NUMERIC} ${inv.totalWithVat < 0 ? "text-red-600" : "text-navy-900"}`}>
+                    {formatEUR(inv.totalWithVat)}
+                  </td>
+                  <td className="py-2.5 pl-3">
+                    <InvoiceStatusBadge status={inv.status} />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function TopItems({ supplier, onOpenAll }: { supplier: SupplierDetail; onOpenAll: () => void }) {
+  const items = supplier.topItems ?? [];
+  return (
+    <Card
+      title="Artigos principais"
+      action={
+        <IconButton label="Ver artigos associados" size="sm" onClick={onOpenAll}>
+          <IconChevronRight size={18} />
+        </IconButton>
+      }
+    >
+      {items.length === 0 ? (
+        <p className="px-5 pb-6 pt-2 text-sm text-ink-secondary">Ainda não há linhas de artigos nas faturas deste fornecedor.</p>
+      ) : (
+        <div className="overflow-x-auto px-5 pb-3">
+          <table className="min-w-full text-[13px]">
+            <thead>
+              <tr className="border-b border-line-subtle text-left text-[11px] font-medium uppercase tracking-wide text-ink-secondary">
+                <th className="py-2.5 pr-3 font-medium">Artigo</th>
+                <th className="px-3 py-2.5 font-medium">Código</th>
+                <th className="px-3 py-2.5 font-medium">Última compra</th>
+                <th className="py-2.5 pl-3 text-right font-medium" title="Preço unitário sem IVA da última compra">Preço</th>
+              </tr>
+            </thead>
+            <tbody>
+              {items.map((item) => (
+                <tr key={item.key} className="border-b border-line-subtle last:border-0">
+                  <td className="py-2.5 pr-3 text-ink">
+                    <span className="flex min-w-0 items-center gap-2.5">
+                      <span aria-hidden="true" className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-[10px] font-semibold text-brand-600">
+                        {initials(item.name) || "?"}
+                      </span>
+                      <span className="truncate" title={item.name}>{item.name}</span>
+                    </span>
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2.5 text-ink-secondary">{item.code ?? <Empty />}</td>
+                  <td className={`whitespace-nowrap px-3 py-2.5 text-ink-secondary ${NUMERIC}`}>{formatIsoDatePt(item.lastPurchaseDate)}</td>
+                  <td className={`whitespace-nowrap py-2.5 pl-3 text-right text-navy-900 ${NUMERIC}`}>{formatEUR(item.lastUnitPrice)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+// ── Separadores «Documentos» e «Contactos e notas» ──────────────────────────
+
+function SupplierInvoicesSection({ supplier }: { supplier: SupplierDetail }) {
+  const navigate = useNavigate();
   if (supplier.invoices.length === 0) {
     return (
-      <div className="rounded-xl border border-[#F5C992]/40 bg-white py-16 text-center shadow-sm">
-        <p className="text-sm text-stone-400">Nenhuma fatura registada para este fornecedor.</p>
+      <div className={`${SURFACE} py-16 text-center`}>
+        <p className="text-sm text-ink-secondary">Nenhum documento registado para este fornecedor.</p>
       </div>
     );
   }
   return (
-    <div className="overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white shadow-sm">
-      <div className="border-b border-[#F5C992]/40 px-4 py-3">
-        <h3 className="text-sm font-semibold text-stone-700">
-          Faturas ({supplier.invoices.length})
-        </h3>
-      </div>
-      <table className="min-w-full text-sm">
-        <thead className="border-b border-[#F5C992]/40 bg-stone-50/60">
-          <tr>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Nº Fatura</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Emissão</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Vencimento</th>
-            <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wide text-stone-500">Valor</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Estado</th>
-            <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500">Ações</th>
-          </tr>
-        </thead>
-        <tbody className="divide-y divide-[#F5C992]/30">
-          {supplier.invoices.map((inv) => (
-            <tr key={inv.id} className="transition-colors hover:bg-[#FDF8F5]">
-              <td className="px-4 py-3 font-mono text-xs font-medium text-stone-700">
-                <div className="flex items-center gap-1.5">
-                  {inv.invoiceNumber}
-                  {inv.documentType === "credit_note" && (
-                    <span className="rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-sky-100 text-sky-700">
-                      NC
-                    </span>
-                  )}
-                </div>
-              </td>
-              <td className="px-4 py-3 text-stone-600">{formatDate(inv.invoiceDate)}</td>
-              <td className="px-4 py-3 text-stone-600">{formatDate(inv.dueDate)}</td>
-              <td className={`px-4 py-3 text-right font-medium ${inv.documentType === "credit_note" ? "text-red-600" : "text-stone-900"}`}>
-                {formatEUR(inv.totalWithVat)}
-              </td>
-              <td className="px-4 py-3">
-                <InvoiceStatusBadge status={inv.status} />
-              </td>
-              <td className="px-4 py-3">
-                <div className="flex items-center gap-3">
-                  <button
-                    type="button"
-                    onClick={() => navigate(`/financial/invoices?open=${inv.id}`)}
-                    className="inline-flex items-center gap-1 text-xs text-stone-500 transition-colors hover:text-[#ED5C32]"
-                  >
-                    <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                      <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
-                      <path fillRule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
-                    </svg>
-                    Ver fatura
-                  </button>
-                  {inv.attachmentUrl && (
-                    <a
-                      href={inv.attachmentUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-xs text-stone-500 transition-colors hover:text-[#ED5C32]"
-                    >
-                      <svg className="h-3.5 w-3.5" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M15.621 4.379a3 3 0 00-4.242 0l-7 7a3 3 0 004.241 4.243h.001l.497-.5a.75.75 0 011.064 1.057l-.498.501-.002.002a4.5 4.5 0 01-6.364-6.364l7-7a4.5 4.5 0 016.368 6.36l-3.455 3.553A2.625 2.625 0 119.52 9.52l3.45-3.451a.75.75 0 111.061 1.06l-3.45 3.451a1.125 1.125 0 001.587 1.595l3.454-3.553a3 3 0 000-4.242z" clipRule="evenodd" />
-                      </svg>
-                      Anexo
-                    </a>
-                  )}
-                </div>
-              </td>
+    <div className={`${SURFACE} overflow-hidden`}>
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead className="border-b border-line-subtle">
+            <tr className="text-left text-xs font-medium text-ink-secondary">
+              <th className="px-4 py-3 font-medium">Nº documento</th>
+              <th className="px-4 py-3 font-medium">Tipo</th>
+              <th className="px-4 py-3 font-medium">Emissão</th>
+              <th className="px-4 py-3 font-medium">Vencimento</th>
+              <th className="px-4 py-3 text-right font-medium">Valor</th>
+              <th className="px-4 py-3 font-medium">Estado</th>
+              <th className="px-4 py-3 font-medium">Ações</th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {supplier.invoices.map((inv) => (
+              <tr key={inv.id} className="border-b border-line-subtle transition-colors last:border-0 hover:bg-surface-soft/60">
+                <td className="whitespace-nowrap px-4 py-3 text-ink">
+                  <span className="inline-flex items-center gap-2">
+                    {inv.invoiceNumber}
+                    <DocTypeChip inv={inv} />
+                  </span>
+                </td>
+                <td className="whitespace-nowrap px-4 py-3 text-ink-secondary">{isCreditNote(inv) ? "Nota de crédito" : "Fatura"}</td>
+                <td className={`whitespace-nowrap px-4 py-3 text-ink-secondary ${NUMERIC}`}>{formatIsoDatePt(inv.invoiceDate)}</td>
+                <td className={`whitespace-nowrap px-4 py-3 text-ink-secondary ${NUMERIC}`}>{formatIsoDatePt(inv.dueDate)}</td>
+                <td className={`whitespace-nowrap px-4 py-3 text-right font-medium ${NUMERIC} ${inv.totalWithVat < 0 ? "text-red-600" : "text-navy-900"}`}>
+                  {formatEUR(inv.totalWithVat)}
+                </td>
+                <td className="px-4 py-3">
+                  <InvoiceStatusBadge status={inv.status} />
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center gap-3 text-xs">
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/financial/invoices?open=${inv.id}`)}
+                      className="font-medium text-brand-600 transition-colors hover:text-brand-500"
+                    >
+                      Ver documento
+                    </button>
+                    {inv.attachmentUrl && (
+                      <a href={inv.attachmentUrl} target="_blank" rel="noopener noreferrer" className="text-ink-secondary transition-colors hover:text-brand-600">
+                        Anexo
+                      </a>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }
@@ -143,68 +375,35 @@ function SupplierInvoicesSection({ supplier, navigate }: { supplier: SupplierDet
 function SupplierContactAndNotes({ supplier }: { supplier: SupplierDetail }) {
   return (
     <>
-      <div className="rounded-xl border border-stone-100 bg-white p-4 shadow-sm">
-        <h3 className="mb-3 text-sm font-semibold text-stone-700">Contacto</h3>
-        <dl className="space-y-3 text-sm">
-          <div>
-            <dt className="text-xs text-stone-400">Email</dt>
-            <dd className="mt-0.5 font-medium text-stone-700">
-              {supplier.email
-                ? <a href={`mailto:${supplier.email}`} className="text-[#ED5C32] hover:underline">{supplier.email}</a>
-                : <span className="text-stone-400">—</span>}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-stone-400">Telefone</dt>
-            <dd className="mt-0.5 font-medium text-stone-700">
-              {supplier.phone
-                ? <a href={`tel:${supplier.phone}`} className="hover:text-[#ED5C32]">{supplier.phone}</a>
-                : <span className="text-stone-400">—</span>}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-stone-400">Morada</dt>
-            <dd className="mt-0.5 font-medium text-stone-700">
-              {supplier.address ?? <span className="text-stone-400">—</span>}
-            </dd>
-          </div>
-          <div>
-            <dt className="text-xs text-stone-400">IBAN</dt>
-            <dd className="mt-0.5 font-mono text-xs text-stone-700">
-              {supplier.iban ?? <span className="font-sans font-medium text-stone-400">—</span>}
-            </dd>
-          </div>
-        </dl>
-      </div>
-
-      <div className="rounded-xl border border-stone-100 bg-white p-4 shadow-sm">
-        <h3 className="mb-2 text-sm font-semibold text-stone-700">Observações</h3>
-        {supplier.notes
-          ? <p className="whitespace-pre-wrap text-sm text-stone-600">{supplier.notes}</p>
-          : <p className="text-sm text-stone-400">Sem observações.</p>}
-      </div>
+      <Card title="Contacto">
+        <InfoRows
+          rows={[
+            ["Email", supplier.email ? <a href={`mailto:${supplier.email}`} className="text-brand-600 hover:underline">{supplier.email}</a> : null],
+            ["Telefone", supplier.phone ? <a href={`tel:${supplier.phone}`} className="hover:text-brand-600">{supplier.phone}</a> : null],
+            ["Morada", supplier.address],
+            ["IBAN", supplier.iban],
+          ]}
+        />
+      </Card>
+      <Card title="Observações">
+        <div className="px-5 pb-5 pt-1">
+          {supplier.notes ? <p className="whitespace-pre-wrap text-sm text-ink">{supplier.notes}</p> : <p className="text-sm text-ink-secondary">Sem observações.</p>}
+        </div>
+      </Card>
     </>
   );
 }
 
 // ── Tabs ─────────────────────────────────────────────────────────────────────
 
-type SupplierTab = "general" | "planning" | "history" | "items" | "contacts";
-
-const TABS: { key: SupplierTab; label: string }[] = [
-  { key: "general", label: "Dados gerais" },
-  { key: "planning", label: "Planeamento de stock" },
-  { key: "history", label: "Histórico de compras" },
-  { key: "items", label: "Itens associados" },
-  { key: "contacts", label: "Contactos e notas" },
-];
+type SupplierTab = "general" | "documents" | "supply" | "items" | "contacts";
 
 // ── Main view ────────────────────────────────────────────────────────────────
 
 export function SupplierDetailView() {
   const { id } = useParams<{ id: string }>();
   const { api } = useFinancialBaseModule();
-  const navigate = useNavigate();
+  const { locations } = useLocations();
   const qc = useQueryClient();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [exportOpen, setExportOpen] = useState(false);
@@ -245,227 +444,192 @@ export function SupplierDetailView() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-full items-center justify-center bg-[#FAF6F3]">
-        <p className="text-sm text-stone-400">A carregar…</p>
+      <div className={`flex min-h-full items-center justify-center ${PAGE_BG}`}>
+        <p className="text-sm text-ink-secondary">A carregar…</p>
       </div>
     );
   }
 
   if (isError || !supplier) {
     return (
-      <div className="flex min-h-full flex-col items-center justify-center gap-3 bg-[#FAF6F3]">
-        <p className="text-sm text-stone-500">Fornecedor não encontrado.</p>
-        <Link to="/financial/suppliers" className="text-sm text-[#ED5C32] hover:underline">
+      <div className={`flex min-h-full flex-col items-center justify-center gap-3 ${PAGE_BG}`}>
+        <p className="text-sm text-ink-secondary">Fornecedor não encontrado.</p>
+        <Link to="/financial/suppliers" className="text-sm text-brand-600 hover:underline">
           ← Voltar à lista
         </Link>
       </div>
     );
   }
 
-  const groupMap    = new Map(groups.map((g) => [g.id, g]));
-  const categoryMap = new Map(categories.map((c) => [c.id, c]));
-
-  const group    = supplier.defaultCostCenterGroupId    ? groupMap.get(supplier.defaultCostCenterGroupId)       : undefined;
-  const category = supplier.defaultCostCenterCategoryId ? categoryMap.get(supplier.defaultCostCenterCategoryId) : undefined;
+  const group = supplier.defaultCostCenterGroupId ? groups.find((g) => g.id === supplier.defaultCostCenterGroupId) : undefined;
+  const category = supplier.defaultCostCenterCategoryId ? categories.find((c) => c.id === supplier.defaultCostCenterCategoryId) : undefined;
+  const location = supplier.defaultLocationId ? locations.find((l) => l.id === supplier.defaultLocationId) : undefined;
 
   const isActive = supplier.status === "active";
+  // «Cliente desde»: o mais antigo entre a criação da ficha e o primeiro documento (pode ter sido importado depois).
+  const clientSince = supplier.invoices
+    .reduce((min, inv) => (inv.invoiceDate < min ? inv.invoiceDate : min), supplier.createdAt)
+    .slice(0, 4);
+  const { totalBilled, totalPaid, totalPending, invoiceCount } = supplier.stats;
+  const statusBadge = <StatusBadge tone={isActive ? "success" : "neutral"}>{isActive ? "Ativo" : "Inativo"}</StatusBadge>;
+  const editAction = (
+    <IconButton label="Editar fornecedor" size="sm" onClick={() => setDrawerOpen(true)}>
+      <AppIcon name="edit" size={16} />
+    </IconButton>
+  );
 
   return (
-    <div className="flex min-h-full flex-col bg-[#FAF6F3]">
-      {/* Header bar */}
-      <div className="border-b border-[#F5C992]/40 bg-white px-6 py-4">
+    <div className={`flex min-h-full flex-col ${PAGE_BG}`}>
+      <div className="px-6 pt-5">
         {/* Breadcrumb */}
-        <nav className="mb-3 flex items-center gap-1.5 text-sm text-stone-400">
-          <Link
-            to="/financial/suppliers"
-            className="flex items-center gap-1 transition-colors hover:text-stone-700"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M11.78 5.22a.75.75 0 010 1.06L8.06 10l3.72 3.72a.75.75 0 11-1.06 1.06l-4.25-4.25a.75.75 0 010-1.06l4.25-4.25a.75.75 0 011.06 0z" clipRule="evenodd" />
-            </svg>
+        <nav aria-label="Caminho" className="flex items-center gap-2 text-[13px] text-ink-secondary">
+          <span>Financeiro</span>
+          <IconChevronRight size={14} />
+          <Link to="/financial/suppliers" className="transition-colors hover:text-navy-900">
             Fornecedores
           </Link>
-          <span>/</span>
-          <span className="truncate font-medium text-stone-700">{supplier.name}</span>
+          <IconChevronRight size={14} />
+          <span className="truncate text-navy-900">{supplier.name}</span>
         </nav>
 
-        {/* Title row */}
-        <div className="flex items-start justify-between gap-4">
-          {/* Avatar + identity */}
-          <div className="flex items-center gap-4">
+        {/* Identidade + ações */}
+        <div className="mt-5 flex flex-wrap items-start justify-between gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             {supplier.logoUrl ? (
-              <img src={supplier.logoUrl} alt="" className="h-12 w-12 shrink-0 rounded-full border border-stone-200 bg-white object-contain p-1 shadow-sm" />
+              <img src={supplier.logoUrl} alt="" className="h-16 w-16 shrink-0 rounded-full border border-line bg-surface-card object-contain p-1.5" />
             ) : (
-              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#ED5C32] to-[#EF8935] text-base font-bold text-white shadow-sm">
+              <div aria-hidden="true" className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-brand-600 text-xl font-semibold text-white">
                 {initials(supplier.name)}
               </div>
             )}
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-stone-900">{supplier.name}</h1>
-                <span
-                  className={`inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-xs font-medium ${
-                    isActive
-                      ? "bg-emerald-50 text-emerald-700"
-                      : "bg-stone-100 text-stone-500"
-                  }`}
-                >
-                  <span className={`h-1.5 w-1.5 rounded-full ${isActive ? "bg-emerald-500" : "bg-stone-400"}`} />
-                  {isActive ? "Ativo" : "Inativo"}
-                </span>
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-3">
+                <h1 className="truncate text-[28px] font-bold leading-tight tracking-tight text-navy-900">{supplier.name}</h1>
+                {statusBadge}
               </div>
+              <p className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-ink-secondary">
+                <span>Fornecedor</span>
+                <span aria-hidden="true" className="text-line">|</span>
+                <span>NIF: {supplier.nif ?? "—"}</span>
+                <span aria-hidden="true" className="text-line">|</span>
+                <span>Cliente desde {clientSince}</span>
+              </p>
             </div>
           </div>
 
-          {/* Actions */}
           <div className="flex shrink-0 items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setExportOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-700 shadow-sm transition-colors hover:bg-stone-50"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M10 3a.75.75 0 01.75.75v7.19l2.47-2.47a.75.75 0 111.06 1.06l-3.75 3.75a.75.75 0 01-1.06 0L5.72 9.53a.75.75 0 011.06-1.06L9.25 10.94V3.75A.75.75 0 0110 3zM3.5 15.75a.75.75 0 01.75-.75h11.5a.75.75 0 010 1.5H4.25a.75.75 0 01-.75-.75z" clipRule="evenodd" />
-              </svg>
-              Exportar
-            </button>
-            <button
-              type="button"
-              onClick={() => setDrawerOpen(true)}
-              className="flex items-center gap-1.5 rounded-lg border border-stone-200 bg-white px-3 py-2 text-sm font-medium text-stone-700 shadow-sm transition-colors hover:bg-stone-50"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M5.433 13.917l1.262-3.155A4 4 0 017.58 9.42l6.92-6.918a2.121 2.121 0 013 3l-6.92 6.918c-.383.383-.84.685-1.343.886l-3.154 1.262a.5.5 0 01-.65-.65z" />
-                <path d="M3.5 5.75c0-.69.56-1.25 1.25-1.25H10A.75.75 0 0010 3H4.75A2.75 2.75 0 002 5.75v9.5A2.75 2.75 0 004.75 18h9.5A2.75 2.75 0 0017 15.25V10a.75.75 0 00-1.5 0v5.25c0 .69-.56 1.25-1.25 1.25h-9.5c-.69 0-1.25-.56-1.25-1.25v-9.5z" />
-              </svg>
+            <Button icon={<AppIcon name="edit" size={16} />} onClick={() => setDrawerOpen(true)}>
               Editar fornecedor
-            </button>
-            <button
-              type="button"
-              disabled={toggleStatusMutation.isPending}
+            </Button>
+            <DropdownMenu
+              label="Mais ações"
+              items={[{ label: "Exportar extrato", icon: <IconDownload />, onSelect: () => setExportOpen(true) }]}
+              trigger={({ toggle }) => (
+                <IconButton label="Mais ações" onClick={toggle} className="border border-navy-900/20 bg-surface-card">
+                  <AppIcon name="moreVertical" size={18} />
+                </IconButton>
+              )}
+            />
+            <Button
+              variant={isActive ? "danger" : "secondary"}
+              loading={toggleStatusMutation.isPending}
               onClick={() => toggleStatusMutation.mutate(isActive ? "inactive" : "active")}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium shadow-sm transition-colors disabled:opacity-60 ${
-                isActive
-                  ? "border border-red-200 bg-red-50 text-red-600 hover:bg-red-100"
-                  : "border border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
-              }`}
+              className={isActive ? "bg-red-50 hover:bg-red-100" : ""}
             >
               {isActive ? "Inativar" : "Reativar"}
-            </button>
+            </Button>
           </div>
         </div>
 
-        {/* Tab switcher — sem componente de Tabs partilhado no repo (confirmado), botão + render condicional local */}
-        <div className="mt-4 flex gap-1 overflow-x-auto">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              onClick={() => setTab(t.key)}
-              className={`whitespace-nowrap rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                tab === t.key ? "bg-[#ED5C32] text-white" : "text-stone-600 hover:bg-stone-100"
-              }`}
-            >
-              {t.label}
-            </button>
-          ))}
+        {/* Separadores */}
+        <div className="mt-6 border-b border-line">
+          <Tabs
+            label="Secções do fornecedor"
+            value={tab}
+            onChange={setTab}
+            items={[
+              { key: "general", label: "Visão geral" },
+              { key: "documents", label: `Documentos (${supplier.invoices.length})` },
+              { key: "supply", label: "Abastecimento" },
+              { key: "items", label: "Artigos associados" },
+              { key: "contacts", label: "Contactos e notas" },
+            ]}
+          />
         </div>
       </div>
 
-      <div className="space-y-6 p-6">
+      <div className="space-y-5 px-6 py-6">
         {tab === "general" && (
           <>
-            {/* KPI Cards */}
-            <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-              <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-                <p className="text-xs font-medium text-stone-500">Total faturado</p>
-                <p className="mt-1 text-xl font-bold text-[#ED5C32]">{formatEUR(supplier.stats.totalBilled)}</p>
-                <p className="mt-0.5 text-xs text-stone-400">
-                  {supplier.stats.invoiceCount > 0
-                    ? `${supplier.stats.invoiceCount} fatura${supplier.stats.invoiceCount !== 1 ? "s" : ""}`
-                    : "Sem faturas"}
-                </p>
-              </div>
-              <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-                <p className="text-xs font-medium text-stone-500">Total pago</p>
-                <p className="mt-1 text-xl font-bold text-emerald-600">{formatEUR(supplier.stats.totalPaid)}</p>
-                <p className="mt-0.5 text-xs text-stone-400">
-                  {supplier.stats.lastPaymentDate
-                    ? `Último: ${formatDate(supplier.stats.lastPaymentDate)}`
-                    : "Sem pagamentos"}
-                </p>
-              </div>
-              <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-                <p className="text-xs font-medium text-stone-500">Total pendente</p>
-                <p className={`mt-1 text-xl font-bold ${supplier.stats.totalPending > 0 ? "text-amber-600" : "text-stone-400"}`}>
-                  {formatEUR(supplier.stats.totalPending)}
-                </p>
-                <p className="mt-0.5 text-xs text-stone-400">
-                  {supplier.stats.totalPending > 0 ? "Em aberto" : "Sem pendências"}
-                </p>
-              </div>
-              <div className="rounded-xl border border-[#F5C992]/40 bg-white px-5 py-4 shadow-sm">
-                <p className="text-xs font-medium text-stone-500">Faturas</p>
-                <p className="mt-1 text-xl font-bold text-stone-700">{supplier.stats.invoiceCount}</p>
-                <p className="mt-0.5 text-xs text-stone-400">
-                  {supplier.stats.lastInvoiceDate
-                    ? `Última: ${formatDate(supplier.stats.lastInvoiceDate)}`
-                    : "Nenhuma fatura"}
-                </p>
+            {/* KPIs */}
+            <div className={`${SURFACE} grid divide-y divide-line-subtle sm:grid-cols-3 sm:divide-x sm:divide-y-0`}>
+              <KpiCell
+                label="Compras líquidas"
+                hint="Faturas menos notas de crédito (sem anuladas)"
+                value={formatEUR(totalBilled)}
+                sub={`${invoiceCount} documento${invoiceCount !== 1 ? "s" : ""}`}
+              />
+              <KpiCell label="Liquidado" hint="Documentos pagos" value={formatEUR(totalPaid)} sub={pctOf(totalPaid, totalBilled)} />
+              <KpiCell
+                label="Saldo em aberto"
+                hint="Documentos pendentes, vencidos ou parcialmente pagos"
+                value={formatEUR(totalPending)}
+                sub={pctOf(totalPending, totalBilled)}
+                valueClass={totalPending > 0 ? "text-brand-600" : "text-navy-900"}
+              />
+            </div>
+
+            {/* Identificação · Condições · Atividade */}
+            <div className="grid gap-5 lg:grid-cols-2 xl:grid-cols-[1fr_1fr_1.15fr]">
+              <Card title="Identificação" action={editAction}>
+                <InfoRows
+                  rows={[
+                    ["Razão social", supplier.name],
+                    ["NIF", supplier.nif],
+                    ["Tipo", "Fornecedor"],
+                    ["Estado", statusBadge],
+                    ["Cliente desde", clientSince],
+                    ["Categoria padrão", group ? group.name : null],
+                    ["Subcategoria padrão", category ? category.name : null],
+                  ]}
+                />
+              </Card>
+
+              <Card title="Condições comerciais" action={editAction}>
+                <InfoRows
+                  rows={[
+                    ["Prazo de pagamento", supplier.paymentTermsDays != null ? `${supplier.paymentTermsDays} dias` : null],
+                    ["IBAN", supplier.iban],
+                    ["Moeda", "EUR (€)"],
+                    ["Enviar para stock", DEFAULT_STOCK_POLICY_LABELS[supplier.defaultStockPolicy]],
+                    ["Modo financeiro", supplier.defaultFinancialMode ? FINANCIAL_MODE_LABELS[supplier.defaultFinancialMode] : null],
+                    ["Loja habitual", location?.name ?? null],
+                    ["Último pagamento", supplier.stats.lastPaymentDate ? formatIsoDatePt(supplier.stats.lastPaymentDate) : null],
+                  ]}
+                />
+              </Card>
+
+              <div className="lg:col-span-2 xl:col-span-1">
+                <PurchasesChart supplier={supplier} />
               </div>
             </div>
 
-            {/* Main content: invoices + sidebar */}
-            <div className="flex gap-6">
-              <div className="min-w-0 flex-1">
-                <SupplierInvoicesSection supplier={supplier} navigate={navigate} />
-              </div>
-
-              <div className="w-72 shrink-0 space-y-4">
-                <SupplierContactAndNotes supplier={supplier} />
-
-                <div className="rounded-xl border border-stone-100 bg-white p-4 shadow-sm">
-                  <h3 className="mb-3 text-sm font-semibold text-stone-700">Classificação e definições</h3>
-                  <dl className="space-y-3 text-sm">
-                    <div>
-                      <dt className="text-xs text-stone-400">NIF</dt>
-                      <dd className="mt-0.5 font-mono text-xs text-stone-700">
-                        {supplier.nif ?? <span className="font-sans font-medium text-stone-400">—</span>}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-stone-400">Prazo de pagamento</dt>
-                      <dd className="mt-0.5 font-medium text-stone-700">
-                        {supplier.paymentTermsDays != null ? `${supplier.paymentTermsDays} dias` : <span className="text-stone-400">—</span>}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-stone-400">Categoria padrão</dt>
-                      <dd className="mt-0.5 font-medium text-stone-700">
-                        {group ? `${group.code} — ${group.name}` : <span className="text-stone-400">—</span>}
-                      </dd>
-                    </div>
-                    <div>
-                      <dt className="text-xs text-stone-400">Subcategoria padrão</dt>
-                      <dd className="mt-0.5 font-medium text-stone-700">
-                        {category ? `${category.code} — ${category.name}` : <span className="text-stone-400">—</span>}
-                      </dd>
-                    </div>
-                  </dl>
-                </div>
-              </div>
+            {/* Últimos documentos · Artigos principais */}
+            <div className="grid gap-5 xl:grid-cols-[1.3fr_1fr]">
+              <LatestDocuments supplier={supplier} onOpenAll={() => setTab("documents")} />
+              <TopItems supplier={supplier} onOpenAll={() => setTab("items")} />
             </div>
           </>
         )}
 
-        {tab === "planning" && <SupplierPlanningTab supplier={supplier} />}
+        {tab === "documents" && <SupplierInvoicesSection supplier={supplier} />}
 
-        {tab === "history" && <SupplierInvoicesSection supplier={supplier} navigate={navigate} />}
+        {tab === "supply" && <SupplierSupplyTab supplier={supplier} onOpenItems={() => setTab("items")} />}
 
         {tab === "items" && <SupplierAssociatedItemsTab supplierId={supplier.id} />}
 
         {tab === "contacts" && (
-          <div className="grid max-w-xl gap-4">
+          <div className="grid max-w-xl gap-5">
             <SupplierContactAndNotes supplier={supplier} />
           </div>
         )}

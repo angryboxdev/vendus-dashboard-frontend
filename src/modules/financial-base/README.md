@@ -136,7 +136,8 @@ do fornecedor mostra as suas faturas, mas só lê — não gere o ciclo de vida 
 - `listSuppliersWithStats(params?)` — lista com agregados financeiros por fornecedor;
   chama `GET /api/financial-base/suppliers?includeStats=true`
 - `getSupplier(id)` — detalhe básico
-- `getSupplierDetail(id)` — detalhe completo: dados base + stats + lista de faturas;
+- `getSupplierDetail(id)` — detalhe completo: dados base + stats + lista de faturas +
+  `topItems` (artigos principais; opcional no tipo para tolerar um backend anterior);
   chama `GET /api/financial-base/suppliers/:id/detail`
 - `downloadSupplierStatement(id, params?)` — gera e descarrega um PDF do extrato do fornecedor;
   chama `GET /api/financial-base/suppliers/:id/statement-pdf?startDate=&endDate=`
@@ -176,11 +177,22 @@ do fornecedor mostra as suas faturas, mas só lê — não gere o ciclo de vida 
 - **`SuppliersView`** — página `/financial/suppliers`:
   - 4 KPI cards globais (Fornecedores ativos, Inativos, Com faturas pendentes,
     Total faturado) computados client-side a partir de `listSuppliersWithStats()`.
-  - Tabs Todos / Ativos / Inativos com contador.
-  - Filtros adicionais: pesquisa por nome/NIF/email, CC padrão (por grupo),
-    Prazo de pagamento (com / sem).
+  - Seletor de estado (lista no início dos filtros): **Ativos por omissão**, Inativos, Todos
+    (sem contadores — o card «Fornecedores ativos» já os mostra). O «Limpar filtros» não mexe
+    no estado.
+  - O card «Com faturas pendentes» é clicável: abre `/financial/invoices?pendentes=1`
+    (separador «Por pagar», sem filtro de mês — ver `InvoicesView`).
+  - Filtro adicional: pesquisa por nome/NIF/email (os filtros de CC padrão e Prazo
+    foram retirados — essa informação vê-se nas colunas).
   - Tabela com colunas financeiras: Total faturado, Total pendente (laranja se > 0),
     Faturas. Paginação client-side (10 por página).
+  - Botão «Colunas»: caixas de seleção para mostrar/esconder cada coluna (razão social,
+    NIF, contacto, CC padrão, faturas, totais, última fatura, prazo, estado); fica sempre
+    pelo menos uma. Preferência guardada por browser em `localStorage` (`suppliers.hiddenColumns`).
+    Clicar em qualquer ponto da linha abre a ficha (o nome pode estar escondido).
+  - Ordenação client-side ao clicar no cabeçalho de qualquer coluna (sobre a lista filtrada,
+    antes da paginação): texto A→Z, valores e datas do maior/mais recente no 1.º clique;
+    2.º inverte; 3.º volta à ordem original. Vazios ficam sempre no fim.
   - Ações por linha: olho (navega para detalhe), editar (abre drawer), toggle de estado.
   - Drawer lateral para criar/editar fornecedor (inclui seleção de grupo e subcategoria
     por defeito, IBAN, prazo de pagamento, notas). F2: política «Enviar para Stock»
@@ -192,33 +204,42 @@ do fornecedor mostra as suas faturas, mas só lê — não gere o ciclo de vida 
 - **`ExportStatementModal`** — modal de exportação de extrato PDF. Campos opcionais de
   `startDate`/`endDate`; ao confirmar chama `downloadSupplierStatement` e força download do PDF.
 
-- **`SupplierDetailView`** — página `/financial/suppliers/:id`:
-  - Breadcrumb "← Fornecedores" com link para a listagem.
-  - Header (fora das tabs, sempre visível) com avatar de iniciais, nome, badge de
-    estado. Botões Exportar (abre `ExportStatementModal`), Editar e Inativar/Reativar.
-  - Tab switcher local (botão + render condicional — não existe um componente de
-    Tabs partilhado no repo, ver Decisões de design) com 5 tabs:
-    - **Dados gerais** — conteúdo histórico da página, inalterado: 4 KPI cards
-      (Total faturado, Total pago, Total pendente, Faturas) + tabela de faturas à
-      esquerda + sidebar à direita (Contacto, Classificação e definições, Observações).
-    - **Planeamento de stock** (NOVO, módulo Stock — Planeamento D10) —
-      `SupplierPlanningTab`: calendário de entrega por loja (checkboxes de dia da
-      semana + hora limite + "próximas oportunidades de fornecimento" calculadas
-      client-side) com botão próprio "Guardar alterações"; sidebar com resumo dos
-      stats já carregados, evolução do valor faturado por mês (gráfico `recharts`)
-      e faturas recentes. Ver gaps documentados abaixo.
-    - **Histórico de compras** (NOVO) — reaproveita o mesmo componente de tabela de
-      faturas da tab "Dados gerais" (`SupplierInvoicesSection`, extraído para não
-      duplicar markup).
-    - **Itens associados** (NOVO) — `SupplierAssociatedItemsTab`: cruza com o
+- **`SupplierDetailView`** — página `/financial/suppliers/:id`, no Design System Mezza
+  (kit `components/ui`), segundo o mockup do utilizador (2026-10-25):
+  - Breadcrumb «Financeiro › Fornecedores › nome».
+  - Header com logótipo ou iniciais, nome, estado e linha «Fornecedor | NIF | Cliente
+    desde AAAA» (ano mais antigo entre a criação da ficha e o primeiro documento).
+    Ações: Editar fornecedor, menu ⋮ (Exportar extrato → `ExportStatementModal`) e
+    Inativar/Reativar.
+  - `Tabs` do kit com 5 separadores:
+    - **Visão geral** — faixa de KPIs (Compras líquidas = `totalBilled`, já líquido de
+      notas de crédito; Liquidado; Saldo em aberto, com % do total); cartões
+      Identificação e Condições comerciais (lápis abre o drawer; só campos que existem
+      na ficha — prazo, IBAN, moeda, envio para stock, modo financeiro, loja habitual,
+      último pagamento); «Resumo de atividade» — gráfico de linha (`recharts`, sem
+      animação) só com as compras por mês do ano escolhido, calculado das faturas
+      não anuladas; «Últimos documentos» (5 mais recentes, clique abre a fatura) e
+      «Artigos principais» (`topItems` do detalhe; preço = unitário sem IVA da última compra).
+    - **Documentos (N)** — tabela completa de documentos (`SupplierInvoicesSection`).
+    - **Abastecimento** (antes «Planeamento de stock»; mockup do utilizador, 2026-10-25) —
+      `SupplierSupplyTab`: KPIs (próxima entrega, prazo de pagamento, lead time,
+      encomenda mínima); «Calendário de fornecimento» por loja (loja habitual por
+      omissão) com dias de entrega, hora limite geral, ativo e regras por dia
+      («Pedido até» + observação), só editável depois de «Editar calendário»;
+      «Próximas oportunidades» (4 mais próximas no período escolhido, prazo de
+      encomenda ainda por passar; lógica pura em `domain/services/supply-calendar.ts`);
+      «Necessidades de reposição» (`stock-planning` → `listSupplierReplenishment`;
+      filtro «só com necessidade»; ⋯ → Ver no planeamento). Sem encomendas: o
+      sistema ainda não as tem (decisão do utilizador). Layout compacto (2026-10-25):
+      calendário e oportunidades lado a lado a partir de 1024 px (1,2 : 1), cada um
+      só com a altura que precisa; oportunidades em lista de ~57 px por linha; a
+      reposição começa a ~720 px do topo do conteúdo em 1366/1440/1920 (verificado
+      no harness, sem scroll horizontal nem cortes, incluindo o modo de edição).
+    - **Artigos associados** — `SupplierAssociatedItemsTab`: cruza com o
       módulo `stock-planning` (`listItems({ supplierId })`) para mostrar os itens de
       stock cujo fornecedor de referência é este. Instancia o seu próprio
       `StockPlanningProvider` local (ver Decisões de design).
-    - **Contactos e notas** (NOVO) — reaproveita os blocos "Contacto" e
-      "Observações" da tab "Dados gerais" (`SupplierContactAndNotes`).
-  - *Nota*: os blocos "Faturas"/"Contacto"/"Observações" aparecem tanto em "Dados
-    gerais" (como sempre estiveram) como nas suas tabs dedicadas — nunca foram
-    removidos de "Dados gerais", só ficaram também acessíveis diretamente.
+    - **Contactos e notas** — blocos «Contacto» e «Observações» (`SupplierContactAndNotes`).
 
 ### Saída
 
@@ -289,20 +310,16 @@ para uma tab, a tab instancia localmente `<StockPlanningProvider>` em volta do s
 próprio conteúdo — acoplamento explícito e contido a um único ficheiro
 (`SupplierAssociatedItemsTab.tsx`), sem alterar a composição global de rotas.
 
-**"Evolução do valor faturado" em vez de "Evolução de preços"/"Categorias mais
-compradas" (tab Planeamento de stock).** O mockup de referência mostra um
-gráfico de evolução de preço unitário e uma repartição por categoria mais
-comprada. `SupplierInvoiceRow` (retornado por `getSupplierDetail`) só tem
-totais ao nível do documento — sem preço por linha/produto nem categoria por
-linha de fatura. Inventar essas séries seria fabricar dados. A tab mostra por
-isso a evolução real e honesta que os dados suportam — valor total faturado por
-mês, agregando `supplier.invoices` já carregado — e omite "Categorias mais
-compradas" com uma nota explícita em vez de um gráfico vazio ou inventado.
+**Abastecimento: regras por dia em vez de uma hora limite única.** Cada dia de
+entrega pode ter o seu dia/hora de pedido e uma observação (`dayRules`); sem regra,
+encomenda-se na véspera à hora limite geral. O lead time e as próximas
+oportunidades derivam destas regras (nada é guardado à parte).
 
 ## Como testar
 
 - Domínio: `npx vitest run src/modules/financial-base` — `cost-center-application.test.ts`
-  (líquido com descontos, linhas + repartições, nota de crédito).
+  (líquido com descontos, linhas + repartições, nota de crédito) e
+  `supply-calendar.test.ts` (regras por dia, lead time, próximas oportunidades).
 - Testes de UI: a implementar com Vitest + Testing Library.
 
 ## Pontos de atenção / dívidas conhecidas
@@ -319,8 +336,8 @@ compradas" com uma nota explícita em vez de um gráfico vazio ou inventado.
   filtros de data se o volume crescer.
 - **Testes de UI não implementados** — `SuppliersView` e `SupplierDetailView` sem cobertura
   de testes.
-- **Tab "Planeamento de stock" — "Categorias mais compradas" não implementada.**
-  Sem dado de categoria por linha de fatura nesta API; ver Decisões de design.
+- **Abastecimento — stock atual e consumo são da organização**, não da loja
+  escolhida (como no ecrã de Planeamento); só a sugestão depende da loja.
 - **Tab "Itens associados" só lista pelo `supplierId` de referência do item.**
   Não é um histórico de "o que já foi comprado a este fornecedor" — é "que itens de
   stock têm este fornecedor configurado como sugestão de compra" no módulo

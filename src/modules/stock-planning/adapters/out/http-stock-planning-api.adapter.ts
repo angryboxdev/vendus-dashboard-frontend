@@ -13,6 +13,7 @@ import type {
   ReviewRecommendationPayload,
   SubmitForecastFeedbackPayload,
   StockCategoryOptionDTO,
+  SupplierReplenishmentRowDTO,
 } from "../../domain/entities/stock-planning.ts";
 
 const BASE = "/api/stock-planning";
@@ -76,6 +77,11 @@ export class HttpStockPlanningApiAdapter implements StockPlanningApiPort {
     const q = new URLSearchParams({ locationId });
     if (limit != null) q.set("limit", String(limit));
     return apiGet(`${BASE}/history?${q.toString()}`);
+  }
+
+  async listSupplierReplenishment(supplierId: string, locationId: string): Promise<SupplierReplenishmentRowDTO[]> {
+    const q = new URLSearchParams({ locationId });
+    return apiGet(`${BASE}/suppliers/${encodeURIComponent(supplierId)}/replenishment?${q.toString()}`);
   }
 
   async listStockCategoryOptions(): Promise<StockCategoryOptionDTO[]> {
