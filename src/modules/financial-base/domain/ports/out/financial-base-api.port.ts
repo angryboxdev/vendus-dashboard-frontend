@@ -59,6 +59,8 @@ export interface FinancialBaseApiPort {
   getSupplierDetail(id: string): Promise<SupplierDetail>;
   createSupplier(payload: CreateSupplierPayload): Promise<Supplier>;
   updateSupplier(id: string, payload: UpdateSupplierPayload): Promise<Supplier>;
+  /** Um lote de fornecedores sem logótipo: tira-o das faturas (PDF) e grava; repetir com `next` até `null`. */
+  fillSupplierLogos(after?: string): Promise<{ processed: number; filled: number; next: string | null }>;
   setSupplierStatus(id: string, status: "active" | "inactive"): Promise<Supplier>;
   downloadSupplierStatement(
     id: string,

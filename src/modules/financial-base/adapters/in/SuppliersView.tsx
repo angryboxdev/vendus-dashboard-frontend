@@ -12,6 +12,9 @@ import { SupplierDrawer } from "./SupplierDrawer.tsx";
 import { formatEUR, formatIsoDatePt } from "../../../../lib/format.ts";
 import { useFinancialBaseModule } from "../../financial-base.module.tsx";
 import { useNavigate } from "react-router-dom";
+import { useAuth } from "../../../../contexts/AuthContext";
+import { hasLevel } from "../../../access/domain/services/access-ui.service.ts";
+import { SupplierAvatar } from "./SupplierAvatar.tsx";
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
@@ -364,6 +367,41 @@ export function SuppliersView() {
     queryFn: () => api.listSuppliersWithStats(),
   });
 
+  // Logótipos a partir das faturas: o servidor trata um lote de cada vez (pedidos curtos); repete-se até ao fim.
+  const { user } = useAuth();
+  const access = user?.access;
+  const canManageSuppliers = !!access && !access.portalOnly && (access.isAdmin || hasLevel(access.permissions, "finance.suppliers", "MANAGE"));
+  const [logoProgress, setLogoProgress] = useState(0);
+  const [logoResult, setLogoResult] = useState<string | null>(null);
+  const fillLogos = useMutation({
+    mutationFn: async () => {
+      setLogoResult(null);
+      setLogoProgress(0);
+      let after: string | undefined;
+      let processed = 0;
+      let filled = 0;
+      for (;;) {
+        const r = await api.fillSupplierLogos(after);
+        processed += r.processed;
+        filled += r.filled;
+        setLogoProgress(processed);
+        if (!r.next) break;
+        after = r.next;
+      }
+      return { processed, filled };
+    },
+    onSuccess: ({ processed, filled }) => {
+      setLogoResult(
+        processed === 0
+          ? "Todos os fornecedores já têm logótipo."
+          : `${filled} de ${processed} fornecedores sem logótipo ficaram com o da fatura.${filled < processed ? " Os restantes não têm fatura em PDF com logótipo." : ""}`,
+      );
+      void qc.invalidateQueries({ queryKey: ["suppliers-with-stats"] });
+      void qc.invalidateQueries({ queryKey: ["suppliers"] });
+    },
+    onError: (e) => setLogoResult(e instanceof Error ? e.message : "Não foi possível procurar os logótipos."),
+  });
+
   const { data: groups = [] } = useQuery({
     queryKey: ["cost-center-groups"],
     queryFn: () => api.listCostCenterGroups(),
@@ -484,6 +522,20 @@ export function SuppliersView() {
               Gerencie fornecedores, status e histórico financeiro
             </p>
           </div>
+          <div className="flex items-center gap-3">
+          {canManageSuppliers && (
+            <div className="flex flex-col items-end">
+              <button
+                type="button"
+                onClick={() => fillLogos.mutate()}
+                disabled={fillLogos.isPending}
+                className="rounded-lg border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50 disabled:opacity-60"
+              >
+                {fillLogos.isPending ? `A procurar logótipos… (${logoProgress})` : "Procurar logótipos nas faturas"}
+              </button>
+              {logoResult && <p className="mt-1 text-xs text-stone-500">{logoResult}</p>}
+            </div>
+          )}
           <button
             type="button"
             onClick={() => {
@@ -497,6 +549,7 @@ export function SuppliersView() {
             </svg>
             Novo fornecedor
           </button>
+          </div>
         </div>
       </div>
 
@@ -697,7 +750,7 @@ export function SuppliersView() {
                                 // Sem onClick próprio: o clique sobe para a linha, que abre a ficha.
                                 className="flex items-center gap-2 text-left font-medium text-stone-800 transition-colors hover:text-[#ED5C32]"
                               >
-                                {s.logoUrl && <img src={s.logoUrl} alt="" className="h-6 w-6 shrink-0 rounded border border-stone-100 bg-white object-contain" />}
+                                <SupplierAvatar name={s.name} logoUrl={s.logoUrl} />
                                 {s.name}
                               </button>
                             </td>

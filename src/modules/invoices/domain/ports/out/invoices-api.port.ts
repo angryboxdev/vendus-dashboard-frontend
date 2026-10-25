@@ -35,6 +35,8 @@ export interface AddInvoiceLinePayload {
   totalWithVat: number;
   /** Optional (D4): omitted means "organization-wide, no store". Never defaulted. */
   locationId?: string | null;
+  /** Fatura em Compras por rever por aplicar: confirma descartar essa revisão (409 `requiresConfirmation`). */
+  confirmRemoveStockReview?: boolean;
 }
 
 export interface InvoicesApiPort {
@@ -49,7 +51,7 @@ export interface InvoicesApiPort {
   setInvoiceStatus(id: string, status: InvoiceStatus): Promise<InvoiceDTO>;
   setLineDetailMode(id: string, mode: LineDetailMode, confirmRemoveStockReview?: boolean): Promise<InvoiceDTO>;
   deleteInvoice(id: string, confirmRemoveStockReview?: boolean): Promise<void>;
-  deleteLine(invoiceId: string, lineId: string): Promise<void>;
+  deleteLine(invoiceId: string, lineId: string, confirmRemoveStockReview?: boolean): Promise<void>;
   classifyLine(invoiceId: string, lineId: string, payload: ClassifyLinePayload): Promise<InvoiceLineDTO>;
   setLineDeductibilityOverride(invoiceId: string, lineId: string, payload: SetLineDeductibilityOverridePayload): Promise<InvoiceLineDTO>;
   /** Documento de cobrança AT/SS → `PaymentDocumentImportDTO` (não cria fatura); `treatAsInvoice` força o fluxo de faturas. */

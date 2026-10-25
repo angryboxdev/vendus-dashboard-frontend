@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { InvoiceLineDTO, StoredAmountsDTO } from "../entities/invoice.ts";
-import { restoreDraftHeader, restoreDraftLines } from "./stored-draft.ts";
+import { classificationOnlyChanges, restoreDraftHeader, restoreDraftLines } from "./stored-draft.ts";
 import { payablesSummaryParams } from "./payables-summary.ts";
 import { previewDetailed } from "./draft-amounts.ts";
 
@@ -68,5 +68,41 @@ describe("editar fatura lançada (FT 61707 Dream Plus, 4 linhas com desconto)", 
       restored.map((l) => ({ key: l.key, quantity: l.quantity, unitCost: l.unitCost, vatRate: l.vatRate, discountKind: l.discountKind, discountValue: l.discountValue })),
     );
     expect(preview.differenceCents).toBe(0);
+  });
+});
+
+describe("classificationOnlyChanges (editar fatura lançada sem apagar linhas)", () => {
+  const base = () => restoreDraftLines([line(), line({ id: "l2", description: "Farinha", costCenterCategoryId: "c1" })], stored());
+
+  it("linhas iguais → só as mudanças de classificação (subcategoria, tipo, loja)", () => {
+    const current = base().map((l, i) => (i === 1 ? { ...l, catId: "c2", type: "other" as const, locationId: null } : l));
+    expect(classificationOnlyChanges(base(), current)).toEqual([{ lineId: "l2", costCenterCategoryId: "c2", type: "other", locationId: null }]);
+  });
+
+  it("nada mudou → lista vazia (nada a gravar nas linhas)", () => {
+    expect(classificationOnlyChanges(base(), base())).toEqual([]);
+  });
+
+  it("quantidade escrita de outra forma («20» vs «20.0») não conta como mudança", () => {
+    const current = base().map((l, i) => (i === 0 ? { ...l, quantity: "20.0" } : l));
+    expect(classificationOnlyChanges(base(), current)).toEqual([]);
+  });
+
+  it.each([
+    ["quantidade", { quantity: "21" }],
+    ["preço", { unitCost: "6.3" }],
+    ["descrição", { description: "Mozzarella fior di latte" }],
+    ["IVA", { vatRate: "23" }],
+    ["desconto", { discountValue: "5" }],
+  ])("mudou %s → null (substituir as linhas)", (_label, over) => {
+    const current = base().map((l, i) => (i === 0 ? { ...l, ...over } : l));
+    expect(classificationOnlyChanges(base(), current)).toBeNull();
+  });
+
+  it("linha removida, acrescentada ou trocada de ordem → null", () => {
+    const b = base();
+    expect(classificationOnlyChanges(b, b.slice(0, 1))).toBeNull();
+    expect(classificationOnlyChanges(b, [...b, { ...b[0]!, key: "nova" }])).toBeNull();
+    expect(classificationOnlyChanges(b, [b[1]!, b[0]!])).toBeNull();
   });
 });
