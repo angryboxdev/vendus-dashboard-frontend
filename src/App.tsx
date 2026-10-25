@@ -209,7 +209,13 @@ export default function App() {
                 />
                 <Route element={<StockLayout />}>
                   <Route path="/stock/inventario" element={<InventoryIndexRedirect />} />
-                  <Route element={<InventoryLayout />}>
+                  <Route
+                    element={
+                      <StockPurchaseReviewProvider>
+                        <InventoryLayout />
+                      </StockPurchaseReviewProvider>
+                    }
+                  >
                   <Route path="/stock/movimentacoes" element={<MovimentacoesPage />} />
                   <Route
                     path="/stock/historico-movimentos"
@@ -231,9 +237,6 @@ export default function App() {
                       </StockCountProvider>
                     }
                   />
-                  </Route>
-                  <Route path="/stock/stock" element={<StockPage />} />
-                  <Route path="/stock/pizzas" element={<PizzasPage />} />
                   <Route
                     path="/stock/compras-por-rever"
                     element={
@@ -244,6 +247,10 @@ export default function App() {
                       </FinancialBaseProvider>
                     }
                   />
+                  </Route>
+                  <Route path="/stock/stock" element={<StockPage />} />
+                  <Route path="/stock/pizzas" element={<PizzasPage />} />
+                  {/* Detalhe de uma compra: fora dos separadores do Inventário, em largura total. */}
                   <Route
                     path="/stock/compras-por-rever/:id"
                     element={

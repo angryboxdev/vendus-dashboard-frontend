@@ -34,7 +34,7 @@ export function Tabs<K extends string>({
 }
 
 /** Tabs por rota (cada aba é um endereço). */
-export function TabNav({ items, label }: { items: Array<{ to: string; label: string; end?: boolean; icon?: ReactNode }>; label?: string }) {
+export function TabNav({ items, label }: { items: Array<{ to: string; label: string; end?: boolean; icon?: ReactNode; count?: number }>; label?: string }) {
   return (
     <nav aria-label={label} className="flex gap-1 overflow-x-auto overflow-y-hidden">
       {items.map((t) => (
@@ -47,6 +47,7 @@ export function TabNav({ items, label }: { items: Array<{ to: string; label: str
           ) : (
             t.label
           )}
+          {t.count !== undefined && <Count n={t.count} />}
         </NavLink>
       ))}
     </nav>

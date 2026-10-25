@@ -79,6 +79,16 @@ mockup, fica para depois.
 - **Botão "Importar fatura" da vista legada `StockPage`** foi substituído por
   um link "Compras por rever (N)" que navega para
   `/stock/compras-por-rever` — troca mínima, sem reescrever a página legada.
+  Fica como atalho.
+- **«Compras por rever» é um separador do Inventário** (2026-10-25), ao lado de
+  Stock atual, Movimentos e Contagens: é a entrada do stock (faturas →
+  movimentos). O separador mostra o nº por tratar (`useOpenReviewsCount`, por
+  isso o `InventoryLayout` vai montado dentro de `StockPurchaseReviewProvider`).
+  «Importar fatura» está no cabeçalho do Inventário (canto superior direito, em
+  todos os separadores), só para quem tem Gerir em `stock.purchase_reviews` — a
+  mesma exigência do `POST /api/invoices/import-for-stock`. O detalhe `/stock/compras-por-rever/:id` abre fora
+  dos separadores, em largura total. Mesmas rotas; quem só tem
+  `stock.purchase_reviews` vê «Inventário» no menu e cai neste separador.
 
 ## Como testar
 
@@ -92,7 +102,7 @@ mockup, fica para depois.
 
 - O filtro "fornecedor" na lista depende de `FinancialBaseProvider` estar
   montado na mesma árvore de rotas (está, em `/stock/compras-por-rever`).
-- A contagem do badge repete o `GET /stock-purchase-reviews` completo sem
+- A contagem do badge (link em `StockPage` e separador do Inventário) repete o `GET /stock-purchase-reviews` completo sem
   paginação — aceitável no volume atual; se crescer muito, considerar um
   endpoint de contagem dedicado no backend.
 
