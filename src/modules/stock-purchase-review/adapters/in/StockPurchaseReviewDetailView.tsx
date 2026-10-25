@@ -6,6 +6,7 @@ import { LocationSelect } from "../../../../components/LocationSelect.tsx";
 import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
 import { ApiError } from "../../../../lib/api.ts";
 import { PackagingPanel } from "./PackagingPanel.tsx";
+import { invoiceQuantityUnit, unitFactor } from "../../domain/services/presentation.ts";
 import {
   STOCK_PURCHASE_REVIEW_STATUS_LABELS,
   DECISION_SOURCE_LABELS,
@@ -124,6 +125,28 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
       setError(e instanceof Error ? e.message : "Erro ao guardar");
     },
   });
+
+  // A fatura conta em kg/l e a conversão da linha dá menos de 1 kg/l no artigo (ex.: 1 kg = 1 g) — o
+  // servidor recusa confirmar; aqui oferece-se a correção num clique.
+  const resolvedItem = line.stockItemId ? stockItems.find((i) => i.id === line.stockItemId) : undefined;
+  const lineInvoiceUnit = invoiceQuantityUnit(line.purchaseUnit, line.description);
+  const expectedFactor = resolvedItem && lineInvoiceUnit ? unitFactor(lineInvoiceUnit, resolvedItem.baseUnit) : null;
+  const suspicious =
+    (line.resolutionType === "existing_item" || line.resolutionType === "new_item") &&
+    expectedFactor !== null && line.conversionFactor != null && line.conversionFactor < expectedFactor;
+
+  /** Volta a gravar a linha com outro fator, mantendo o artigo e o destino. */
+  function reResolveWithFactor(factor: number) {
+    if (!line.stockItemId) return;
+    setError(null);
+    resolveMutation.mutate({
+      expectedVersion: review.version,
+      resolution: "existing_item",
+      stockItemId: line.stockItemId,
+      conversionFactor: factor,
+      ...(line.locationSplits?.length ? { locationSplits: line.locationSplits, locationId: null } : { locationId: line.locationId }),
+    });
+  }
 
   const locationName = (id: string | null) => activeLocations.find((l) => l.id === id)?.name ?? "—";
   const splitSum = splits.reduce((acc, sp) => acc + (Number.isFinite(parseQty(sp.quantity)) ? parseQty(sp.quantity) : 0), 0);
@@ -267,9 +290,27 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
         onSaved={(factor) => {
           // O fator vem da embalagem confirmada (nunca um número opaco escrito à mão).
           if (factor && editing) setConversionFactor(String(factor));
+          // Linha já associada: a embalagem nova passa logo para a linha (antes ficava o fator antigo).
+          else if (factor && !editing && !isTerminal && line.stockItemId && factor !== line.conversionFactor) reResolveWithFactor(factor);
           onPackagingSaved();
         }}
       />
+
+      {suspicious && !isTerminal && (
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-800">
+          <span>
+            A fatura conta em <span className="font-semibold">{lineInvoiceUnit}</span>, mas a conversão está 1 {lineInvoiceUnit} = {qtyFmt(line.conversionFactor ?? 0)} {resolvedItem!.baseUnit}.
+          </span>
+          <button
+            type="button"
+            disabled={resolveMutation.isPending}
+            onClick={() => reResolveWithFactor(expectedFactor!)}
+            className="rounded bg-red-700 px-2 py-0.5 font-medium text-white hover:opacity-90 disabled:opacity-50"
+          >
+            Corrigir: 1 {lineInvoiceUnit} = {qtyFmt(expectedFactor!)} {resolvedItem!.baseUnit}
+          </button>
+        </div>
+      )}
 
       {line.flaggedSuspiciousConversion && (
         <p className="mt-1 text-xs text-amber-600">Aviso: conversão pouco habitual{line.flagReason ? ` — ${line.flagReason}` : ""}. Confirma antes de avançar.</p>
@@ -366,7 +407,9 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
                 </select>
               </div>
               <div>
-                <label className={labelCls}>Fator de conversão ({line.purchaseUnit} → un. base)</label>
+                <label className={labelCls}>
+                  Conversão: 1 {lineInvoiceUnit ?? line.purchaseUnit} = ? {stockItems.find((i) => i.id === stockItemId)?.baseUnit ?? "un. base"}
+                </label>
                 <input type="text" value={conversionFactor} onChange={(e) => setConversionFactor(e.target.value)} className={inputCls} />
               </div>
               {destinationFields}

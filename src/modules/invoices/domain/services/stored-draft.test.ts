@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import type { InvoiceLineDTO, StoredAmountsDTO } from "../entities/invoice.ts";
 import { restoreDraftHeader, restoreDraftLines } from "./stored-draft.ts";
 import { payablesSummaryParams } from "./payables-summary.ts";
+import { previewDetailed } from "./draft-amounts.ts";
 
 const line = (over: Partial<InvoiceLineDTO> = {}): InvoiceLineDTO => ({
   id: "l1", invoiceId: "i1", description: "Mozzarella", type: "ingredient" as InvoiceLineDTO["type"],
@@ -51,5 +52,21 @@ describe("payablesSummaryParams («Total a pagar | Em atraso»)", () => {
   });
   it("sem filtros → sem parâmetros (todos os meses)", () => {
     expect(payablesSummaryParams({ search: "", month: null, supplierId: "" })).toEqual({});
+  });
+});
+
+describe("editar fatura lançada (FT 61707 Dream Plus, 4 linhas com desconto)", () => {
+  it("parte das linhas e descontos gravados: categoria mantida e diferença 0,00 € (antes −22,27 €)", () => {
+    const rows: [string, number, number, number, number, number][] = [
+      ["l1", 20, 620, 6, 670, 1240], ["l2", 7, 820, 6, 327, 287], ["l3", 1, 1559, 6, 89, 78], ["l4", 4, 1068, 23, 884, 427],
+    ];
+    const lines = rows.map(([id, q, u, v, va]) => line({ id, quantity: q, unitCostWithoutVat: u, vatRate: v, vatAmount: va, costCenterCategoryId: "cat-ingredientes" }));
+    const restored = restoreDraftLines(lines, stored({ lines: rows.map(([id, , , , , d]) => ({ lineId: id, quantityText: null, unitPriceText: null, discountKind: "amount" as const, discountValue: d })) }));
+    expect(restored.every((l) => l.catId === "cat-ingredientes")).toBe(true);
+    const preview = previewDetailed(
+      { totalStr: "239.09", subtotalStr: "219.39", vatStr: "19.70", globalDiscountKind: "pct", globalDiscountValue: "", footerDiscount: "", adjustments: "", roundingCents: 0, roundingReason: "", vatSummary: null },
+      restored.map((l) => ({ key: l.key, quantity: l.quantity, unitCost: l.unitCost, vatRate: l.vatRate, discountKind: l.discountKind, discountValue: l.discountValue })),
+    );
+    expect(preview.differenceCents).toBe(0);
   });
 });
