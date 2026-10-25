@@ -18,14 +18,31 @@ export type StockPurchaseReviewStatus =
   | "cancelled"
   | "excluded";
 
+/** Estados da fila (F3b): Por mapear → Em revisão → Pronto → Movimentado; Excluída e Retirada à parte. */
 export const STOCK_PURCHASE_REVIEW_STATUS_LABELS: Record<StockPurchaseReviewStatus, string> = {
-  pending: "Pendente",
+  pending: "Por mapear",
   in_review: "Em revisão",
-  partial: "Parcial",
-  ready: "Pronta",
-  applied: "Aplicada",
-  cancelled: "Cancelada",
+  partial: "Em revisão",
+  ready: "Pronto",
+  applied: "Movimentado",
+  cancelled: "Retirada",
   excluded: "Excluída — não afeta Stock",
+};
+
+/** Conciliação proposta para uma linha (F3b) — nunca aplicada sem confirmação. */
+export interface LineSuggestionDTO {
+  source: "learned" | "name_match" | "ai" | "none";
+  resolution: "existing_item" | "no_stock_effect" | null;
+  stockItemId: string | null;
+  conversionFactor: number | null;
+  confidence: number | null;
+  packagingChanged: boolean;
+}
+
+export const SUGGESTION_SOURCE_LABELS: Record<Exclude<LineSuggestionDTO["source"], "none">, string> = {
+  learned: "histórico do fornecedor",
+  name_match: "nome igual no catálogo",
+  ai: "IA",
 };
 
 /** Estados que ainda contam para o badge "Compras por rever (N)" — exclui `applied`/`cancelled`/`excluded`. */
@@ -111,6 +128,7 @@ export interface StockReviewLineDTO {
   supplierItemCode: string | null;
   costCenterCategoryId: string | null;
   locationSplits: LocationSplitDTO[] | null;
+  suggestion: LineSuggestionDTO | null;
   resolutionType: ResolutionType;
   stockItemId: string | null;
   conversionFactor: number | null;
@@ -165,9 +183,15 @@ export interface StockPurchaseReviewRowDTO {
   invoiceDate: string;
   status: StockPurchaseReviewStatus;
   linesCount: number;
+  resolvedLines: number;
+  totalCents: number | null;
+  locationId: string | null;
+  decisionSource: DecisionSource;
 }
 
 export interface ListStockPurchaseReviewsParams {
+  /** `active` = por tratar; `history` = movimentadas, excluídas e retiradas. */
+  view?: "active" | "history";
   status?: StockPurchaseReviewStatus;
   supplierId?: string;
   from?: string;
@@ -198,16 +222,6 @@ export interface ResolveStockReviewLinePayload {
   locationSplits?: LocationSplitDTO[] | null;
 }
 
-export interface StockReviewLineSuggestionDTO {
-  resolutionType: "existing_item" | "no_stock_effect";
-  stockItemId: string | null;
-  conversionFactor: number | null;
-  purchaseUnit: string | null;
-  isItemActive: boolean;
-  /** A unidade/embalagem mudou desde o mapeamento aprendido — conferir o fator de novo. */
-  packagingChanged?: boolean;
-}
-
 export interface DecideUnresolvedPayload {
   expectedVersion: number;
   outcome: "create" | "skip";
@@ -222,18 +236,6 @@ export interface ConfirmStockPurchaseReviewPayload {
 export interface CancelStockPurchaseReviewPayload {
   expectedVersion: number;
   reason: string;
-}
-
-/** Remediação em lote — ver "Cancelar revisões sem linhas" na lista. */
-export interface CancelledEmptyReviewSummaryDTO {
-  id: string;
-  invoiceNumber: string;
-  supplierName: string;
-}
-
-export interface CancelEmptyStockPurchaseReviewsResultDTO {
-  cancelledCount: number;
-  cancelled: CancelledEmptyReviewSummaryDTO[];
 }
 
 /** Corpo `{ error, currentVersion }` do 409 de conflito optimistic-lock. */

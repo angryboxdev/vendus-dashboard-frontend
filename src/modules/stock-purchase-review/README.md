@@ -103,3 +103,8 @@ mockup, fica para depois.
 - Sugestões aprendidas marcadas «não confirmada»; com `packagingChanged` o fator antigo não é aplicado.
 - Estado `excluded` («Excluída — não afeta Stock») e botão «Confirmar — não afeta Stock» quando todas as linhas não são item de stock.
 - Teste: `adapters/in/StockPurchaseReviewDetailView.test.tsx`.
+
+## F3b (task v1.2)
+- Ao abrir uma revisão com linhas por resolver sem proposta, chama `suggestMappings` (histórico do fornecedor → nome no catálogo → IA, no servidor). Cada linha mostra a **conciliação proposta (não confirmada)** com artigo, fator e origem (histórico / nome / IA com %), «Aceitar» (só quando completa: artigo + fator, ou não é item de stock) e «Ajustar» (preenche o formulário). Barra com «Aceitar as N propostas» (resolve em sequência, versão a versão) e «Procurar de novo».
+- Lista = fila: «Por tratar | Histórico», fornecedor, documento, data, destino, origem, valor, progresso de linhas e estado (Por mapear, Em revisão, Pronto, Movimentado, Excluída, Retirada). Saiu «Cancelar revisões sem linhas».
+- «Retirar de Compras por rever» (motivo; não mexe no Financeiro) e «Repor em Compras por rever» nas retiradas.

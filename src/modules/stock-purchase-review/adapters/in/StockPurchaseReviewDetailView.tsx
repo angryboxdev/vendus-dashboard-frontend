@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useStockPurchaseReviewModule } from "../../stock-purchase-review.module.tsx";
@@ -10,11 +10,11 @@ import {
   DECISION_SOURCE_LABELS,
   RESOLUTION_TYPE_LABELS,
   CATEGORY_DIVERGENCE_LABELS,
+  SUGGESTION_SOURCE_LABELS,
   type StockPurchaseReviewDTO,
   type StockReviewLineDTO,
   type StockItemOptionDTO,
   type StockCategoryOptionDTO,
-  type StockReviewLineSuggestionDTO,
   type ResolveStockReviewLinePayload,
   type ReviewConferenceDTO,
   type CategoryDivergenceDTO,
@@ -52,6 +52,18 @@ function isVersionConflict(e: unknown): e is ApiError {
 function isLocationRequired(e: unknown): e is ApiError {
   return e instanceof ApiError && e.status === 400 && typeof (e.data as { error?: unknown })?.error === "string"
     && /loja|location/i.test(String((e.data as { error?: string }).error));
+}
+
+/**
+ * Pedido de resolução a partir da conciliação proposta, quando está completa (artigo + fator,
+ * ou «não é item de stock»). null = precisa de ajuste (sem fator, ou embalagem mudou sem fator).
+ */
+function suggestionPayload(review: StockPurchaseReviewDTO, line: StockReviewLineDTO): ResolveStockReviewLinePayload | null {
+  const sg = line.suggestion;
+  if (!sg || sg.source === "none" || !sg.resolution) return null;
+  if (sg.resolution === "no_stock_effect") return { expectedVersion: review.version, resolution: "no_stock_effect" };
+  if (!sg.stockItemId || sg.conversionFactor == null || sg.conversionFactor <= 0) return null;
+  return { expectedVersion: review.version, resolution: "existing_item", stockItemId: sg.stockItemId, conversionFactor: sg.conversionFactor, locationId: line.locationId };
 }
 
 interface LineRowProps {
@@ -92,11 +104,8 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
   const [suggestionAccepted, setSuggestionAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const { data: suggestion } = useQuery<StockReviewLineSuggestionDTO | null>({
-    queryKey: ["stock-review-line-suggestion", review.id, line.id],
-    queryFn: () => api.getLineSuggestion(review.id, line.id),
-    enabled: editing && !isResolved && !unresolvedGateOpen,
-  });
+  const suggestion = line.suggestion && line.suggestion.source !== "none" && line.suggestion.resolution ? line.suggestion : null;
+  const acceptable = suggestion ? suggestionPayload(review, line) : null;
 
   const resolveMutation = useMutation({
     mutationFn: (payload: ResolveStockReviewLinePayload) => api.resolveLine(review.id, line.id, payload),
@@ -119,14 +128,13 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
   function applySuggestion() {
     if (!suggestion) return;
     setSuggestionAccepted(true);
-    if (suggestion.resolutionType === "no_stock_effect") {
+    if (suggestion.resolution === "no_stock_effect") {
       setMode("no_stock_effect");
       return;
     }
     setMode("existing_item");
     setStockItemId(suggestion.stockItemId ?? "");
-    // Embalagem alterada: o fator antigo não serve — tem de ser conferido de novo.
-    if (suggestion.conversionFactor != null && !suggestion.packagingChanged) setConversionFactor(String(suggestion.conversionFactor));
+    if (suggestion.conversionFactor != null) setConversionFactor(String(suggestion.conversionFactor));
   }
 
   /** null = sem divisão; undefined = divisão inválida (erro já mostrado). */
@@ -274,21 +282,33 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
       ) : (
         <div className="mt-3 space-y-2">
           {suggestion && !suggestionAccepted && (
-            <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-stone-300 bg-stone-50 px-2.5 py-1.5 text-xs text-stone-600">
+            <div className="flex flex-wrap items-center gap-2 rounded-md border border-dashed border-sky-300 bg-sky-50 px-2.5 py-1.5 text-xs text-sky-900">
               <span>
-                Sugestão (não confirmada): {suggestion.resolutionType === "no_stock_effect"
+                <span className="font-semibold">Conciliação proposta</span> (não confirmada):{" "}
+                {suggestion.resolution === "no_stock_effect"
                   ? "não é item de stock"
-                  : `artigo ${stockItems.find((i) => i.id === suggestion.stockItemId)?.name ?? suggestion.stockItemId}${suggestion.conversionFactor != null && !suggestion.packagingChanged ? ` (fator ${suggestion.conversionFactor})` : ""}`}
-                {suggestion.isItemActive === false && " — artigo inativo"}
-              </span>
-              {suggestion.packagingChanged && (
-                <span className="text-amber-700">
-                  A embalagem mudou ({suggestion.purchaseUnit} → {line.purchaseUnit}): confere o fator.
+                  : `${stockItems.find((i) => i.id === suggestion.stockItemId)?.name ?? "artigo"}${suggestion.conversionFactor != null ? ` · fator ${qtyFmt(suggestion.conversionFactor)}` : " · fator por preencher"}`}
+                <span className="text-sky-700">
+                  {" "}— {SUGGESTION_SOURCE_LABELS[suggestion.source as keyof typeof SUGGESTION_SOURCE_LABELS]}
+                  {suggestion.source !== "learned" && suggestion.confidence != null ? ` ${Math.round(suggestion.confidence * 100)}%` : ""}
                 </span>
-              )}
-              <button type="button" onClick={applySuggestion} className="rounded border border-stone-300 px-2 py-0.5 font-medium text-stone-700 hover:bg-white">
-                Aplicar
-              </button>
+              </span>
+              {suggestion.packagingChanged && <span className="text-amber-700">A embalagem mudou desde a última compra: confere o fator.</span>}
+              <span className="ml-auto flex gap-1.5">
+                {acceptable && (
+                  <button
+                    type="button"
+                    disabled={resolveMutation.isPending}
+                    onClick={() => resolveMutation.mutate(acceptable)}
+                    className="rounded bg-sky-700 px-2 py-0.5 font-medium text-white hover:opacity-90 disabled:opacity-50"
+                  >
+                    Aceitar
+                  </button>
+                )}
+                <button type="button" onClick={applySuggestion} className="rounded border border-sky-300 bg-white px-2 py-0.5 font-medium text-sky-800 hover:bg-sky-100">
+                  Ajustar
+                </button>
+              </span>
             </div>
           )}
 
@@ -508,6 +528,50 @@ export function StockPurchaseReviewDetailView() {
     });
   }
 
+  // Conciliação (F3b): ao abrir, procura propostas para as linhas por resolver que ainda não as têm.
+  const suggestMutation = useMutation({
+    mutationFn: (refresh: boolean) => api.suggestMappings(id!, { refresh }),
+    onSuccess: handleUpdated,
+  });
+  const suggestedFor = useRef<string | null>(null);
+  useEffect(() => {
+    if (!review || suggestedFor.current === review.id) return;
+    if (TERMINAL_STATUSES.includes(review.status) || review.decisionSource === "unresolved") return;
+    if (review.lines.some((l) => l.resolutionType === "unresolved" && !l.suggestion)) {
+      suggestedFor.current = review.id;
+      suggestMutation.mutate(false);
+    }
+  }, [review, suggestMutation]);
+
+  const [acceptingAll, setAcceptingAll] = useState(false);
+  async function acceptAllSuggestions() {
+    if (!review) return;
+    let current = review;
+    setAcceptingAll(true);
+    try {
+      for (const line of review.lines) {
+        if (line.resolutionType !== "unresolved") continue;
+        const payload = suggestionPayload(current, line);
+        if (!payload) continue;
+        current = await api.resolveLine(current.id, line.id, { ...payload, expectedVersion: current.version });
+        handleUpdated(current);
+      }
+    } catch (e) {
+      if (isVersionConflict(e)) handleVersionConflict();
+      else setReloadNotice(e instanceof Error ? e.message : "Erro ao aceitar as propostas.");
+    } finally {
+      setAcceptingAll(false);
+    }
+  }
+
+  const restoreMutation = useMutation({
+    mutationFn: () => api.restoreReview(id!, { expectedVersion: review!.version }),
+    onSuccess: handleUpdated,
+    onError: (e: unknown) => {
+      if (isVersionConflict(e)) handleVersionConflict();
+    },
+  });
+
   const decideMutation = useMutation({
     mutationFn: (outcome: "create" | "skip") => api.decideUnresolved(id!, { expectedVersion: review!.version, outcome }),
     onSuccess: handleUpdated,
@@ -559,6 +623,7 @@ export function StockPurchaseReviewDetailView() {
   const unresolvedLinesCount = review.lines.filter((l) => l.resolutionType === "unresolved").length;
   const documentMismatch = review.conference?.document.status === "mismatch";
   const allNonStock = review.lines.length > 0 && review.lines.every((l) => l.resolutionType === "no_stock_effect");
+  const acceptableCount = review.lines.filter((l) => l.resolutionType === "unresolved" && suggestionPayload(review, l)).length;
 
   return (
     <div className="flex min-h-full flex-col bg-[#FAF6F3]">
@@ -578,7 +643,17 @@ export function StockPurchaseReviewDetailView() {
             onClick={() => setShowCancel(true)}
             className="rounded-md border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50"
           >
-            Cancelar revisão
+            Retirar de Compras por rever
+          </button>
+        )}
+        {review.status === "cancelled" && (
+          <button
+            type="button"
+            onClick={() => restoreMutation.mutate()}
+            disabled={restoreMutation.isPending}
+            className="rounded-md border border-stone-300 px-3 py-1.5 text-xs font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50"
+          >
+            {restoreMutation.isPending ? "A repor…" : "Repor em Compras por rever"}
           </button>
         )}
       </div>
@@ -619,6 +694,38 @@ export function StockPurchaseReviewDetailView() {
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
             <p className="font-semibold">Pendência para o Financeiro — categorias</p>
             <DivergenceList divergences={review.categoryDivergences} />
+          </div>
+        )}
+
+        {!isTerminal && !unresolvedGateOpen && unresolvedLinesCount > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-200 bg-white px-4 py-2.5 text-xs text-stone-600">
+            <p>
+              {suggestMutation.isPending
+                ? "A procurar conciliações (histórico do fornecedor, nomes do catálogo e IA)…"
+                : acceptableCount > 0
+                  ? `${acceptableCount} linha(s) com conciliação proposta pronta a aceitar — confirma antes de aceitar.`
+                  : "Sem propostas completas para as linhas por resolver."}
+            </p>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => suggestMutation.mutate(true)}
+                disabled={suggestMutation.isPending || acceptingAll}
+                className="rounded-md border border-stone-300 px-3 py-1.5 font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50"
+              >
+                Procurar de novo
+              </button>
+              {acceptableCount > 0 && (
+                <button
+                  type="button"
+                  onClick={() => void acceptAllSuggestions()}
+                  disabled={acceptingAll || suggestMutation.isPending}
+                  className="rounded-md bg-sky-700 px-3 py-1.5 font-medium text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  {acceptingAll ? "A aceitar…" : `Aceitar as ${acceptableCount} propostas`}
+                </button>
+              )}
+            </div>
           </div>
         )}
 
@@ -675,15 +782,17 @@ export function StockPurchaseReviewDetailView() {
         )}
 
         {review.cancellationReason && (
-          <p className="text-xs text-stone-400">Motivo do cancelamento: {review.cancellationReason}</p>
+          <p className="text-xs text-stone-400">Motivo da retirada: {review.cancellationReason}</p>
         )}
       </div>
 
       {showCancel && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30">
           <div className="w-full max-w-md rounded-xl bg-white p-5 shadow-xl">
-            <h3 className="text-sm font-semibold text-stone-900">Cancelar revisão</h3>
-            <p className="mt-1 text-xs text-stone-500">Indica o motivo do cancelamento.</p>
+            <h3 className="text-sm font-semibold text-stone-900">Retirar de Compras por rever</h3>
+            <p className="mt-1 text-xs text-stone-500">
+              Retira só esta compra da fila do Stock. A fatura, a conta a pagar, os pagamentos e a conciliação bancária não são alterados. Fica no Histórico e pode ser reposta. Indica o motivo.
+            </p>
             <textarea
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
@@ -706,7 +815,7 @@ export function StockPurchaseReviewDetailView() {
                 disabled={!cancelReason.trim() || cancelMutation.isPending}
                 className="rounded-md bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90 disabled:opacity-50"
               >
-                {cancelMutation.isPending ? "A cancelar…" : "Confirmar cancelamento"}
+                {cancelMutation.isPending ? "A retirar…" : "Retirar"}
               </button>
             </div>
           </div>
