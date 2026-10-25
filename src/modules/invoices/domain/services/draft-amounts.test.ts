@@ -65,3 +65,11 @@ describe("draft-amounts (formulário → motor único)", () => {
     expect(amountsPayload(header(), false)).toEqual({ adjustmentsCents: 0 });
   });
 });
+
+describe("docQuantityToField — Dream Plus FT 56892", () => {
+  it("«4,000» sem bruto impresso = 4 (não 4000); «20,000» = 20; validado pelo bruto continua a decidir", () => {
+    expect(docQuantityToField("4,000", 4000, "10,68", null)).toBe("4");
+    expect(docQuantityToField("20,000", 20000, "6,20", undefined)).toBe("20");
+    expect(docQuantityToField("4,000", 4000, "10,68", 4272)).toBe("4");
+  });
+});
