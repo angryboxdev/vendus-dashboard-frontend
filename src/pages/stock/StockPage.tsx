@@ -22,6 +22,8 @@ import { LocationSelect } from "../../components/LocationSelect.tsx";
 import { useLocations } from "../../modules/locations/adapters/in/use-locations.ts";
 import { resolveLocationId } from "../../modules/locations/domain/services/resolve-location-id.ts";
 import { InvoiceImportModal } from "./invoiceImport/InvoiceImportModal";
+import { StockPurchaseReviewProvider } from "../../modules/stock-purchase-review/stock-purchase-review.module.tsx";
+import { EntryRulesModal } from "../../modules/stock-purchase-review/adapters/in/EntryRulesModal.tsx";
 import type { ReviewableInvoiceLine } from "./invoiceImport/invoiceImport.types";
 import { mapInvoiceLineToNewStockItemForm } from "./invoiceImport/mapInvoiceLineToNewStockItem";
 import type { StockPurchaseReviewRowDTO } from "../../modules/stock-purchase-review/domain/entities/stock-purchase-review.ts";
@@ -58,7 +60,7 @@ export function StockPage() {
 
   const [filterCategoryId, setFilterCategoryId] = useState<string>("");
   const [filterType, setFilterType] = useState<string>("");
-  const [filterIsActive, setFilterIsActive] = useState<string>("");
+  const [filterIsActive, setFilterIsActive] = useState<string>("true");
   const [filterStockStatus, setFilterStockStatus] = useState<string>("");
   const [search, setSearch] = useState("");
   const [pageSize, setPageSize] = useState(10);
@@ -95,6 +97,7 @@ export function StockPage() {
   >(null);
 
   const [invoiceImportOpen, setInvoiceImportOpen] = useState(false);
+  const [entryRulesOpen, setEntryRulesOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -359,7 +362,25 @@ export function StockPage() {
   return (
     <div className="mx-auto max-w-6xl p-6">
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-800">Itens de stock</h2>
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-800">
+          Artigos e ingredientes
+          <button
+            type="button"
+            onClick={() => setEntryRulesOpen(true)}
+            aria-label="Regras de entrada no Stock"
+            title="Regras de entrada no Stock (por tipo de artigo)"
+            className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+          >
+            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+              <path fillRule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.331 1.652a6.993 6.993 0 011.929 1.115l1.598-.54a1 1 0 011.186.447l1.18 2.044a1 1 0 01-.205 1.251l-1.267 1.113a7.047 7.047 0 010 2.228l1.267 1.113a1 1 0 01.206 1.25l-1.18 2.045a1 1 0 01-1.187.447l-1.598-.54a6.993 6.993 0 01-1.929 1.115l-.33 1.652a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.331-1.652a6.993 6.993 0 01-1.929-1.115l-1.598.54a1 1 0 01-1.186-.447l-1.18-2.044a1 1 0 01.205-1.251l1.267-1.114a7.05 7.05 0 010-2.227L1.821 7.773a1 1 0 01-.206-1.25l1.18-2.045a1 1 0 011.187-.447l1.598.54A6.993 6.993 0 017.51 3.456l.33-1.652zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+            </svg>
+          </button>
+        </h2>
+        {entryRulesOpen && (
+          <StockPurchaseReviewProvider>
+            <EntryRulesModal onClose={() => setEntryRulesOpen(false)} />
+          </StockPurchaseReviewProvider>
+        )}
         <div className="flex flex-wrap gap-3">
           <button
             type="button"
@@ -367,13 +388,6 @@ export function StockPage() {
             className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
           >
             Compras por rever{openReviewsCount > 0 ? ` (${openReviewsCount})` : ""}
-          </button>
-          <button
-            type="button"
-            onClick={() => navigate("/stock/contagens")}
-            className="rounded-lg bg-slate-700 px-4 py-2 text-sm font-medium text-white hover:bg-slate-800"
-          >
-            Contagens de stock
           </button>
           <button
             type="button"
@@ -912,7 +926,8 @@ function StockEditModal({
               item.last_purchase_unit_cost_without_vat > 0)) && (
             <div>
               <label className="mb-1 block text-xs text-slate-500">
-                Último custo de compra (só leitura)
+                Último custo de compra (só leitura — prevalece sobre o custo de
+                referência; atualiza a cada fatura importada)
               </label>
               <p className="rounded border border-slate-100 bg-slate-50 px-3 py-2 text-sm text-slate-700">
                 {item.last_purchase_unit_cost_with_vat != null &&
