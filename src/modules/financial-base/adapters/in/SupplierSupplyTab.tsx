@@ -21,6 +21,7 @@ import type { SupplierDetail } from "../../domain/entities/supplier.ts";
 import type { DeliveryDayRule, SupplierDeliveryScheduleDTO } from "../../domain/entities/supplier-delivery-schedule.ts";
 import { effectiveRule, leadTimeRange, upcomingOpportunities } from "../../domain/services/supply-calendar.ts";
 import type { SupplierReplenishmentRowDTO } from "../../../stock-planning/domain/entities/stock-planning.ts";
+import { SupplierPlanningSummary } from "./SupplierPlanningSummary.tsx";
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 
@@ -628,6 +629,8 @@ function SupplierSupplyInner({ supplier, onOpenItems }: { supplier: SupplierDeta
       </div>
 
       <ReplenishmentCard supplierId={supplier.id} locationId={effectiveLocationId} onOpenItems={onOpenItems} />
+
+      <SupplierPlanningSummary supplierId={supplier.id} onOpenItems={onOpenItems} />
     </div>
   );
 }

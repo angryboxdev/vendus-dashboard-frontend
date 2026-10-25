@@ -12,6 +12,7 @@ import type {
   Supplier,
   SupplierWithStats,
   SupplierDetail,
+  SupplierPlanningSummary,
   CreateSupplierPayload,
   UpdateSupplierPayload,
   SupplierLocationRule,
@@ -57,6 +58,7 @@ export interface FinancialBaseApiPort {
   listSuppliersWithStats(params?: ListSuppliersParams): Promise<SupplierWithStats[]>;
   getSupplier(id: string): Promise<Supplier>;
   getSupplierDetail(id: string): Promise<SupplierDetail>;
+  getSupplierPlanningSummary(id: string): Promise<SupplierPlanningSummary>;
   createSupplier(payload: CreateSupplierPayload): Promise<Supplier>;
   updateSupplier(id: string, payload: UpdateSupplierPayload): Promise<Supplier>;
   /** Um lote de fornecedores sem logótipo: tira-o das faturas (PDF) e grava; repetir com `next` até `null`. */
