@@ -53,6 +53,8 @@ export function docQuantityToField(quantityText: string | null | undefined, quan
     const q = resolveQuantity(quantityText, priceDec, grossCentsPrinted);
     if (q) return decToString(q);
   }
+  // Sem bruto impresso para validar: «4,000» (só vírgula) lê-se à portuguesa = 4, nunca 4000.
+  if (quantityText && /^\d+,\d+$/.test(quantityText.trim())) return String(Number(quantityText.trim().replace(",", ".")));
   return String(quantity ?? 1);
 }
 
