@@ -229,7 +229,12 @@ do fornecedor mostra as suas faturas, mas só lê — não gere o ciclo de vida 
       «Próximas oportunidades» (4 mais próximas no período escolhido, prazo de
       encomenda ainda por passar; lógica pura em `domain/services/supply-calendar.ts`);
       «Necessidades de reposição» (`stock-planning` → `listSupplierReplenishment`;
-      filtro «só com necessidade»; ⋯ → Ver no planeamento). Sem encomendas: o
+      filtro «só com necessidade»; ⋯ → Ver no planeamento); por baixo, «Resumo no
+      planeamento» (`SupplierPlanningSummary`, `getSupplierPlanningSummary`; mockup do
+      utilizador): itens com histórico de compra, compras dos últimos 3 meses, frequência
+      de compra, categorias mais compradas (subcategorias financeiras), evolução de preços
+      **por artigo** (seletor de artigo + 3/6/12 meses; série em `domain/services/supplier-planning.ts`)
+      e itens recentes (iniciais em vez de fotografia — os artigos não têm imagem). Sem encomendas: o
       sistema ainda não as tem (decisão do utilizador). Layout compacto (2026-10-25):
       calendário e oportunidades lado a lado a partir de 1024 px (1,2 : 1), cada um
       só com a altura que precisa; oportunidades em lista de ~57 px por linha; a

@@ -19,6 +19,7 @@ import type {
   Supplier,
   SupplierWithStats,
   SupplierDetail,
+  SupplierPlanningSummary,
   CreateSupplierPayload,
   UpdateSupplierPayload,
   SupplierLocationRule,
@@ -111,6 +112,10 @@ export class HttpFinancialBaseApiAdapter implements FinancialBaseApiPort {
 
   async getSupplierDetail(id: string): Promise<SupplierDetail> {
     return apiGet(`${BASE}/suppliers/${encodeURIComponent(id)}/detail`);
+  }
+
+  async getSupplierPlanningSummary(id: string): Promise<SupplierPlanningSummary> {
+    return apiGet(`${BASE}/suppliers/${encodeURIComponent(id)}/planning-summary`);
   }
 
   async createSupplier(payload: CreateSupplierPayload): Promise<Supplier> {
