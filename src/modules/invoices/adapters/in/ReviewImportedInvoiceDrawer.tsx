@@ -1005,7 +1005,10 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
   // F3c: qual pedido repetir depois de aceitar descartar a revisão de Stock.
   const [stockRemovalRetry, setStockRemovalRetry] = useState<"edit" | "confirm" | "draft">("edit");
 
-  const restoring = reopenDraft && !isEdit;
+  // Rascunho reaberto ou edição de uma fatura lançada: o formulário parte das linhas reais e dos valores
+  // gravados (descontos, categoria, textos do documento) — nunca de uma reconstrução só com qtd./preço/IVA,
+  // que perdia descontos e categorias (FT 61707: −22,27 € e linhas «Sem classificação»).
+  const restoring = reopenDraft || isEdit;
   const [lines, setLines] = useState<DraftLine[]>(() =>
     restoring && (inv.lines?.length ?? 0) > 0 ? restoreDraftLines(inv.lines!, inv.storedAmounts) :
     importResult.extractedLines.map((l, i) => {
