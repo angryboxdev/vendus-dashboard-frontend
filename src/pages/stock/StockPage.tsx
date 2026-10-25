@@ -22,6 +22,7 @@ import { LocationSelect } from "../../components/LocationSelect.tsx";
 import { useLocations } from "../../modules/locations/adapters/in/use-locations.ts";
 import { resolveLocationId } from "../../modules/locations/domain/services/resolve-location-id.ts";
 import { InvoiceImportModal } from "./invoiceImport/InvoiceImportModal";
+import { ReferenceCostField, formatPerPricingUnit } from "./ReferenceCostField.tsx";
 import { StockPurchaseReviewProvider } from "../../modules/stock-purchase-review/stock-purchase-review.module.tsx";
 import { EntryRulesModal } from "../../modules/stock-purchase-review/adapters/in/EntryRulesModal.tsx";
 import type { ReviewableInvoiceLine } from "./invoiceImport/invoiceImport.types";
@@ -868,58 +869,18 @@ function StockEditModal({
               ))}
             </select>
           </div>
-          <div>
-            <label className="mb-1 block text-xs text-slate-500">
-              Custo de referência c/ IVA por{" "}
-              {STOCK_BASE_UNIT_LABELS[form.base_unit ?? item.base_unit] ?? "un"}{" "}
-              (€)
-            </label>
-            <NumericInput
-              value={
-                form.purchase_reference_unit_cost_with_vat == null ||
-                form.purchase_reference_unit_cost_with_vat === 0
-                  ? ""
-                  : form.purchase_reference_unit_cost_with_vat
-              }
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  purchase_reference_unit_cost_with_vat:
-                    e.target.value !== ""
-                      ? Number(e.target.value) || null
-                      : null,
-                }))
-              }
-              className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
-              placeholder="Opcional"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-slate-500">
-              Custo de referência s/ IVA por{" "}
-              {STOCK_BASE_UNIT_LABELS[form.base_unit ?? item.base_unit] ?? "un"}{" "}
-              (€)
-            </label>
-            <NumericInput
-              value={
-                form.purchase_reference_unit_cost_without_vat == null ||
-                form.purchase_reference_unit_cost_without_vat === 0
-                  ? ""
-                  : form.purchase_reference_unit_cost_without_vat
-              }
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  purchase_reference_unit_cost_without_vat:
-                    e.target.value !== ""
-                      ? Number(e.target.value) || null
-                      : null,
-                }))
-              }
-              className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
-              placeholder="Opcional"
-            />
-          </div>
+          <ReferenceCostField
+            label="Custo de referência c/ IVA"
+            baseUnit={form.base_unit ?? item.base_unit}
+            value={form.purchase_reference_unit_cost_with_vat ?? null}
+            onChange={(v) => setForm((f) => ({ ...f, purchase_reference_unit_cost_with_vat: v }))}
+          />
+          <ReferenceCostField
+            label="Custo de referência s/ IVA"
+            baseUnit={form.base_unit ?? item.base_unit}
+            value={form.purchase_reference_unit_cost_without_vat ?? null}
+            onChange={(v) => setForm((f) => ({ ...f, purchase_reference_unit_cost_without_vat: v }))}
+          />
           {((item.last_purchase_unit_cost_with_vat != null &&
             item.last_purchase_unit_cost_with_vat > 0) ||
             (item.last_purchase_unit_cost_without_vat != null &&
@@ -933,7 +894,7 @@ function StockEditModal({
                 {item.last_purchase_unit_cost_with_vat != null &&
                   item.last_purchase_unit_cost_with_vat > 0 && (
                     <>
-                      c/ IVA: {formatEUR(item.last_purchase_unit_cost_with_vat)}
+                      c/ IVA: {formatPerPricingUnit(item.last_purchase_unit_cost_with_vat, item.base_unit)}
                     </>
                   )}
                 {item.last_purchase_unit_cost_with_vat != null &&
@@ -945,10 +906,9 @@ function StockEditModal({
                   item.last_purchase_unit_cost_without_vat > 0 && (
                     <>
                       s/ IVA:{" "}
-                      {formatEUR(item.last_purchase_unit_cost_without_vat)}
+                      {formatPerPricingUnit(item.last_purchase_unit_cost_without_vat, item.base_unit)}
                     </>
-                  )}{" "}
-                / {STOCK_BASE_UNIT_LABELS[item.base_unit]}
+                  )}
               </p>
             </div>
           )}
@@ -1183,56 +1143,18 @@ function NewItemModal({
               className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
             />
           </div>
-          <div>
-            <label className="mb-1 block text-xs text-slate-500">
-              Custo de referência c/ IVA por{" "}
-              {STOCK_BASE_UNIT_LABELS[form.base_unit] ?? "un"} (€)
-            </label>
-            <NumericInput
-              value={
-                form.purchase_reference_unit_cost_with_vat == null ||
-                form.purchase_reference_unit_cost_with_vat === 0
-                  ? ""
-                  : form.purchase_reference_unit_cost_with_vat
-              }
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  purchase_reference_unit_cost_with_vat:
-                    e.target.value !== ""
-                      ? Number(e.target.value) || null
-                      : null,
-                }))
-              }
-              className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
-              placeholder="Opcional"
-            />
-          </div>
-          <div>
-            <label className="mb-1 block text-xs text-slate-500">
-              Custo de referência s/ IVA por{" "}
-              {STOCK_BASE_UNIT_LABELS[form.base_unit] ?? "un"} (€)
-            </label>
-            <NumericInput
-              value={
-                form.purchase_reference_unit_cost_without_vat == null ||
-                form.purchase_reference_unit_cost_without_vat === 0
-                  ? ""
-                  : form.purchase_reference_unit_cost_without_vat
-              }
-              onChange={(e) =>
-                setForm((f) => ({
-                  ...f,
-                  purchase_reference_unit_cost_without_vat:
-                    e.target.value !== ""
-                      ? Number(e.target.value) || null
-                      : null,
-                }))
-              }
-              className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
-              placeholder="Opcional"
-            />
-          </div>
+          <ReferenceCostField
+            label="Custo de referência c/ IVA"
+            baseUnit={form.base_unit}
+            value={form.purchase_reference_unit_cost_with_vat ?? null}
+            onChange={(v) => setForm((f) => ({ ...f, purchase_reference_unit_cost_with_vat: v }))}
+          />
+          <ReferenceCostField
+            label="Custo de referência s/ IVA"
+            baseUnit={form.base_unit}
+            value={form.purchase_reference_unit_cost_without_vat ?? null}
+            onChange={(v) => setForm((f) => ({ ...f, purchase_reference_unit_cost_without_vat: v }))}
+          />
           <div className="flex items-center gap-2">
             <input
               type="checkbox"

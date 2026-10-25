@@ -10,6 +10,7 @@ import { ReceitaBrutaPage } from "./pages/dre/ReceitaBrutaPage";
 import { MovimentacoesPage } from "./pages/stock/MovimentacoesPage";
 import { PizzasPage } from "./pages/stock/PizzasPage";
 import { StockLayout } from "./pages/stock/StockLayout";
+import { InventoryIndexRedirect, InventoryLayout } from "./pages/stock/InventoryLayout";
 import { StockMovementHistoryPage } from "./pages/stock/StockMovementHistoryPage";
 import { StockPage } from "./pages/stock/StockPage";
 import { Sidebar } from "./modules/sidebar/adapters/in/SidebarView.tsx";
@@ -207,11 +208,30 @@ export default function App() {
                   element={<Navigate to="/stock/movimentacoes" replace />}
                 />
                 <Route element={<StockLayout />}>
+                  <Route path="/stock/inventario" element={<InventoryIndexRedirect />} />
+                  <Route element={<InventoryLayout />}>
                   <Route path="/stock/movimentacoes" element={<MovimentacoesPage />} />
                   <Route
                     path="/stock/historico-movimentos"
                     element={<StockMovementHistoryPage />}
                   />
+                  <Route
+                    path="/stock/contagens"
+                    element={
+                      <StockCountProvider>
+                        <StockCountSessionsListView />
+                      </StockCountProvider>
+                    }
+                  />
+                  <Route
+                    path="/stock/contagens/:id"
+                    element={
+                      <StockCountProvider>
+                        <StockCountSessionDetailView />
+                      </StockCountProvider>
+                    }
+                  />
+                  </Route>
                   <Route path="/stock/stock" element={<StockPage />} />
                   <Route path="/stock/pizzas" element={<PizzasPage />} />
                   <Route
@@ -232,22 +252,6 @@ export default function App() {
                           <StockPurchaseReviewDetailView />
                         </StockPurchaseReviewProvider>
                       </FinancialBaseProvider>
-                    }
-                  />
-                  <Route
-                    path="/stock/contagens"
-                    element={
-                      <StockCountProvider>
-                        <StockCountSessionsListView />
-                      </StockCountProvider>
-                    }
-                  />
-                  <Route
-                    path="/stock/contagens/:id"
-                    element={
-                      <StockCountProvider>
-                        <StockCountSessionDetailView />
-                      </StockCountProvider>
                     }
                   />
                   <Route

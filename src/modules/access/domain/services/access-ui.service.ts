@@ -123,6 +123,7 @@ const PATH_PERMISSIONS: Array<[RegExp, PathPermission]> = [
   [/^\/stock\/stock/, "stock.items"],
   [/^\/stock\/pizzas/, "stock.recipes"],
   [/^\/stock\/contagens/, "stock.counts"],
+  [/^\/stock\/inventario/, ["stock.movements", "stock.counts"]],
   [/^\/stock\/planeamento/, "stock.planning"],
   [/^\/stock\/compras-por-rever/, "stock.purchase_reviews"],
   // Novo RH (2026-10-20 — antes só Admin): cada área pela sua permissão; a administração continua só Admin.
