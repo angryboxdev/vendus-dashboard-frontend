@@ -323,3 +323,22 @@ export interface SavePurchasePresentationPayload extends PresentationForm {
   description: string;
   stockItemId: string;
 }
+
+// ── Regras de entrada no Stock por tipo de artigo (V4 §2) ──────────────────
+
+export type EntryMode = "stock" | "no_stock" | "review";
+export type EntryRuleType = "ingredient" | "beverage" | "packaging" | "cleaning" | "consumable" | "other" | "unknown";
+export type EntryRules = Record<EntryRuleType, EntryMode>;
+
+export const ENTRY_MODE_LABELS: Record<EntryMode, string> = { stock: "Entra no Stock", no_stock: "Fora do Stock", review: "Por rever" };
+
+/** Tipos de artigo existentes (stock_items.type) + linhas ainda sem artigo. */
+export const ENTRY_RULE_TYPES: { type: EntryRuleType; label: string }[] = [
+  { type: "ingredient", label: "Ingredientes" },
+  { type: "beverage", label: "Bebidas" },
+  { type: "packaging", label: "Embalagens" },
+  { type: "cleaning", label: "Higiene e limpeza" },
+  { type: "consumable", label: "Consumíveis" },
+  { type: "other", label: "Outros" },
+  { type: "unknown", label: "Desconhecidos (sem artigo)" },
+];
