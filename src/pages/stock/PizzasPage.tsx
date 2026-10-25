@@ -15,6 +15,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { PIZZA_CATEGORY_LABELS } from "./pizzas.types";
 import { STOCK_BASE_UNIT_LABELS } from "./stock.types";
 import { formatNumber } from "../../lib/format";
+import { RecipeCostingProvider } from "../../modules/recipe-costing/recipe-costing.module.tsx";
+import { RecipeCostingSection } from "../../modules/recipe-costing/adapters/in/RecipeCostingSection.tsx";
 
 const PIZZA_CATEGORY_ORDER: Record<PizzaCategory, number> = {
   classics: 0,
@@ -62,6 +64,7 @@ export function PizzasPage() {
   const [stockItems, setStockItems] = useState<StockItem[]>([]);
   const [recipeModalLoading, setRecipeModalLoading] = useState(false);
   const [recipeModalError, setRecipeModalError] = useState<string | null>(null);
+  const [costingRefreshKey, setCostingRefreshKey] = useState(0);
 
   // --- Preparations list ---
   const [preparations, setPreparations] = useState<Preparation[]>([]);
@@ -178,6 +181,7 @@ export function PizzasPage() {
     setRecipeModalPizza(null);
     setRecipeModalRecipe(null);
     setRecipeModalItems([]);
+    setCostingRefreshKey((k) => k + 1);
   }, []);
 
   const createRecipeAndOpen = useCallback(async () => {
@@ -434,6 +438,7 @@ export function PizzasPage() {
     setPrepDetailPrep(null);
     setPrepDetailItems([]);
     setPrepDetailError(null);
+    setCostingRefreshKey((k) => k + 1);
   }, [prepDetailPrep, prepDetailItems]);
 
   const addPrepItem = useCallback(
@@ -629,6 +634,10 @@ export function PizzasPage() {
           )}
         </div>
       </section>
+
+      <RecipeCostingProvider>
+        <RecipeCostingSection refreshKey={costingRefreshKey} />
+      </RecipeCostingProvider>
 
       {/* ------------------------------------------------------------------ */}
       {/* Preparos section                                                     */}
