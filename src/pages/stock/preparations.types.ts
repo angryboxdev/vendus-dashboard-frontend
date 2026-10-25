@@ -5,6 +5,8 @@ export type Preparation = {
   yield_qty: number;
   yield_unit: string;
   use_as_unit: boolean;
+  /** Inativo: fora da lista para adicionar a receitas; as receitas que já o usam continuam iguais. */
+  is_active: boolean;
   created_at?: string;
   updated_at?: string;
 };
