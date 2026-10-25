@@ -31,14 +31,33 @@ export interface LinePreview {
   netCostPerPackage: number | null;
 }
 
-/** 20 kg (fatura em kg), saco de 2,5 kg, artigo em g → fator 1000, +20 000 g, 8 sacos, 5,58 €/kg. */
-export function previewLine(p: PresentationForm, invoicedQuantity: number, lineNetCents: number, baseUnit: string): LinePreview | null {
+const MEASURE_ALIASES: Record<string, string> = { g: "g", gr: "g", grs: "g", kg: "kg", kgs: "kg", ml: "ml", cl: "cl", l: "l", lt: "l", lts: "l" };
+
+/** Unidade em que a fatura conta (unidade da linha, ou unidade solta no fim da descrição — «…Eurial kg»); igual ao servidor. */
+export function invoiceQuantityUnit(purchaseUnit: string | null, description: string): string | null {
+  const own = MEASURE_ALIASES[(purchaseUnit ?? "").trim().toLowerCase().replace(/\.$/, "")];
+  if (own) return own;
+  const tokens = description.trim().toLowerCase().split(/\s+/);
+  const last = MEASURE_ALIASES[(tokens[tokens.length - 1] ?? "").replace(/\.$/, "")];
+  const before = tokens[tokens.length - 2] ?? "";
+  if (!last || tokens.length < 2 || /^[\d.,x×]+$/.test(before)) return null;
+  return last;
+}
+
+/** Unidade em que a quantidade faturada está quando a fatura conta o conteúdo. */
+export function countedUnit(p: PresentationForm, invoiceUnit: string | null): string {
+  return invoiceUnit && unitFactor(invoiceUnit, p.contentUnit) !== null ? invoiceUnit : p.contentUnit;
+}
+
+/** 20 kg (fatura em kg), saco de 2,5 kg (ou 2500 g), artigo em g → fator 1000, +20 000 g, 8 sacos, 5,58 €/kg. */
+export function previewLine(p: PresentationForm, invoicedQuantity: number, lineNetCents: number, baseUnit: string, invoiceUnit: string | null = null): LinePreview | null {
   const contentToBase = unitFactor(p.contentUnit, baseUnit);
   if (contentToBase === null || !(invoicedQuantity > 0) || !(p.contentQuantity > 0)) return null;
-  const conversionFactor = p.invoicedBy === "package" ? round6(p.contentQuantity * contentToBase) : contentToBase;
+  const counted = countedUnit(p, invoiceUnit);
+  const conversionFactor = p.invoicedBy === "package" ? round6(p.contentQuantity * contentToBase) : unitFactor(counted, baseUnit)!;
   const stockQuantity = round6(invoicedQuantity * conversionFactor);
-  const contentQuantity = p.invoicedBy === "package" ? invoicedQuantity * p.contentQuantity : invoicedQuantity;
-  const packages = p.packageUnit ? round6(p.invoicedBy === "package" ? invoicedQuantity : invoicedQuantity / p.contentQuantity) : null;
+  const contentQuantity = p.invoicedBy === "package" ? invoicedQuantity * p.contentQuantity : invoicedQuantity * unitFactor(counted, p.contentUnit)!;
+  const packages = p.packageUnit ? round6(p.invoicedBy === "package" ? invoicedQuantity : contentQuantity / p.contentQuantity) : null;
   return {
     conversionFactor,
     stockQuantity,
@@ -70,13 +89,16 @@ export function plural(unit: string, n: number): string {
 /** Linhas legíveis da associação: embalagem, Stock e custos (para o utilizador confirmar). */
 export function previewSentences(p: PresentationForm, preview: LinePreview, baseUnit: string): { packaging: string; stock: string; cost: string } {
   const pk = p.packageUnit;
+  // Preço como as pessoas o pensam: saco em g/ml/cl → €/kg ou €/l.
+  const priceUnit = p.contentUnit === "g" ? "kg" : p.contentUnit === "ml" || p.contentUnit === "cl" ? "l" : p.contentUnit;
+  const perPriceUnit = preview.netCostPerContentUnit * (unitFactor(priceUnit, p.contentUnit) ?? 1);
   return {
     packaging: pk && preview.packages != null ? `${presentationLabel(p)} → ${qty(preview.packages)} ${plural(pk, preview.packages)}` : presentationLabel(p),
     stock: `+${qty(preview.stockQuantity)} ${baseUnit}`,
     cost: [
-      `${eur(preview.netCostPerContentUnit)}/${p.contentUnit}`,
+      `${eur(perPriceUnit)}/${priceUnit}`,
       pk && preview.netCostPerPackage != null ? `${eur(preview.netCostPerPackage)}/${pk}` : null,
-      baseUnit !== p.contentUnit ? `${eur(preview.netCostPerBaseUnit, 5)}/${baseUnit}` : null,
+      baseUnit !== priceUnit ? `${eur(preview.netCostPerBaseUnit, 5)}/${baseUnit}` : null,
     ].filter(Boolean).join(" · "),
   };
 }

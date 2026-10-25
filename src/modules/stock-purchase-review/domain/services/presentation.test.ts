@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { plural, previewLine, previewSentences, unitFactor } from "./presentation.ts";
+import { invoiceQuantityUnit, plural, previewLine, previewSentences, unitFactor } from "./presentation.ts";
 
 const mozzarella = { packageUnit: "saco", contentQuantity: 2.5, contentUnit: "kg" as const, invoicedBy: "content" as const, minOrderPackages: 1, orderIncrementPackages: 1 };
 
@@ -21,5 +21,19 @@ describe("embalagem de compra — pré-visualização (Dream Plus FT 56892)", ()
 
   it("plural das embalagens", () => {
     expect([plural("saco", 8), plural("saco", 1), plural("garrafão", 2), plural("caixa", 3)]).toEqual(["sacos", "saco", "garrafões", "caixas"]);
+  });
+});
+
+describe("saco configurado em g e fatura em kg (Dream Plus FT 64311)", () => {
+  const saco2500g = { ...mozzarella, contentQuantity: 2500, contentUnit: "g" as const };
+  it("«…Eurial kg» conta em kg: 20 kg = 20 000 g, 8 sacos, 5,58 €/kg", () => {
+    const unit = invoiceQuantityUnit("un", "Q. Mozzarella ralado 100% Eurial kg");
+    expect(unit).toBe("kg");
+    const p = previewLine(saco2500g, 20, 11160, "g", unit)!;
+    expect(p).toMatchObject({ conversionFactor: 1000, stockQuantity: 20000, packages: 8 });
+    expect(previewSentences(saco2500g, p, "g").cost).toMatch(/5,58\s€\/kg/);
+  });
+  it("tamanho no fim da descrição não é a unidade faturada", () => {
+    expect(invoiceQuantityUnit("un", "Farinha tipo 00 25 kg")).toBeNull();
   });
 });

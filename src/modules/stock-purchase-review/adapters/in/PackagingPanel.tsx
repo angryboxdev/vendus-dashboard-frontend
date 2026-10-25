@@ -9,7 +9,7 @@ import {
   type StockPurchaseReviewDTO,
   type StockReviewLineDTO,
 } from "../../domain/entities/stock-purchase-review.ts";
-import { plural, previewLine, previewSentences, unitFactor } from "../../domain/services/presentation.ts";
+import { countedUnit, invoiceQuantityUnit, plural, previewLine, previewSentences, unitFactor } from "../../domain/services/presentation.ts";
 
 const eur = (cents: number) => (cents / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
 const qty = (n: number) => n.toLocaleString("pt-PT", { maximumFractionDigits: 3 });
@@ -69,7 +69,8 @@ export function PackagingPanel({ review, line, stockItemId, stockItems, readOnly
     orderIncrementPackages: num(incText),
   };
   const shown = editing ? effective : presentation;
-  const preview = shown && baseUnit ? previewLine(shown, line.purchaseQuantity, net, baseUnit) : null;
+  const lineInvoiceUnit = invoiceQuantityUnit(line.purchaseUnit, line.description);
+  const preview = shown && baseUnit ? previewLine(shown, line.purchaseQuantity, net, baseUnit, lineInvoiceUnit) : null;
   const incompatible = shown && baseUnit ? unitFactor(shown.contentUnit, baseUnit) === null : false;
 
   if (line.resolutionType === "no_stock_effect") return null;
@@ -93,7 +94,7 @@ export function PackagingPanel({ review, line, stockItemId, stockItems, readOnly
     }
   }
 
-  const invoiceUnit = (p: PresentationForm) => (p.invoicedBy === "package" && p.packageUnit ? plural(p.packageUnit, line.purchaseQuantity) : p.contentUnit);
+  const invoiceUnit = (p: PresentationForm) => (p.invoicedBy === "package" && p.packageUnit ? plural(p.packageUnit, line.purchaseQuantity) : countedUnit(p, lineInvoiceUnit));
   const sentences = shown && preview && baseUnit ? previewSentences(shown, preview, baseUnit) : null;
 
   return (
@@ -114,7 +115,7 @@ export function PackagingPanel({ review, line, stockItemId, stockItems, readOnly
       {shown && (
         <div className="space-y-0.5 tabular-nums">
           <p>
-            <span className="font-medium">Fatura:</span> {qty(line.purchaseQuantity)} {invoiceUnit(shown)} × {eur(line.unitCostWithoutVat)}/{shown.invoicedBy === "package" && shown.packageUnit ? shown.packageUnit : shown.contentUnit}
+            <span className="font-medium">Fatura:</span> {qty(line.purchaseQuantity)} {invoiceUnit(shown)} × {eur(line.unitCostWithoutVat)}/{shown.invoicedBy === "package" && shown.packageUnit ? shown.packageUnit : countedUnit(shown, lineInvoiceUnit)}
             {line.discountAmount ? ` − ${eur(line.discountAmount)} desconto` : ""} = <span className="font-semibold">{eur(net)}</span> (sem IVA)
           </p>
           {sentences ? (
