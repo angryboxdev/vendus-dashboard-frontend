@@ -104,6 +104,27 @@ export interface SupplierTopItem {
   purchaseCount: number;
 }
 
+/** «Resumo no planeamento» (separador Abastecimento) — últimos 12 meses; euros s/ IVA. */
+export interface SupplierPlanningSummary {
+  associatedItems: number;
+  purchasesLast3Months: number;
+  /** Dias, em média, entre faturas (`null` com menos de duas datas). */
+  purchaseFrequencyDays: number | null;
+  invoicesLast12Months: number;
+  categories: { name: string; amount: number; pct: number }[];
+  /** Do mais recente para o mais antigo; preço por `priceUnit` (kg, l, un…). */
+  items: {
+    stockItemId: string;
+    name: string;
+    priceUnit: string;
+    lastPurchaseDate: string;
+    lastUnitPrice: number;
+    purchaseCount: number;
+    monthly: { month: string; avgUnitPrice: number }[];
+  }[];
+  defaultItemId: string | null;
+}
+
 export interface SupplierDetail extends Supplier {
   stats: SupplierStats;
   invoices: SupplierInvoiceRow[];
