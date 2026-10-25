@@ -8,6 +8,7 @@ import type {
   CancelStockPurchaseReviewPayload,
   StockItemOptionDTO,
   StockCategoryOptionDTO,
+  StockInvoiceImportResultDTO,
 } from "../../entities/stock-purchase-review.ts";
 
 export interface StockPurchaseReviewApiPort {
@@ -21,6 +22,11 @@ export interface StockPurchaseReviewApiPort {
   /** Só válido com `status === "ready"`. Pode rejeitar com 400 pedindo `locationId` — repetir a chamada com o campo preenchido. */
   confirmReview(reviewId: string, payload: ConfirmStockPurchaseReviewPayload): Promise<StockPurchaseReviewDTO>;
   cancelReview(reviewId: string, payload: CancelStockPurchaseReviewPayload): Promise<StockPurchaseReviewDTO>;
+  /**
+   * F3c: importar a fatura diretamente no Stock (mesmo leitor do Financeiro). 409 com `code`:
+   * `already_in_stock` (bloqueia), `already_in_review`, `draft_in_finance`, `exists_not_routed`; 422 `extraction_failed`.
+   */
+  importInvoiceForStock(file: File, options?: { routeExisting?: boolean }): Promise<StockInvoiceImportResultDTO>;
   /** «Repor em Compras por rever» — só para revisões retiradas. */
   restoreReview(reviewId: string, payload: { expectedVersion: number }): Promise<StockPurchaseReviewDTO>;
 

@@ -5,6 +5,7 @@ import { useInvoicesModule } from "../../invoices.module.tsx";
 import { ApiError } from "../../../../lib/api.ts";
 import { isPaymentDocument, type PaymentDocumentImportDTO } from "../../domain/entities/payment-document.ts";
 import { PaymentDocumentReview } from "./PaymentDocumentReview.tsx";
+import { importQueue, MAX_BATCH_FILES } from "./import-queue.ts";
 
 const ACCEPTED_TYPES = ["application/pdf", "image/jpeg", "image/png"];
 const ACCEPTED_EXT = ".pdf,.jpg,.jpeg,.png";
@@ -84,16 +85,46 @@ export function ImportInvoiceModal({ onClose, onImported, onOpenInvoice }: Props
     }
   }
 
+  /** Vários ficheiros (E4): vão para a fila em segundo plano e o modal fecha. */
+  function handleFiles(list: FileList | null) {
+    const all = Array.from(list ?? []);
+    if (all.length === 0) return;
+    if (all.length === 1) {
+      void handleFile(all[0]!);
+      return;
+    }
+    const valid = all.filter((f) => ACCEPTED_TYPES.includes(f.type) && f.size <= 20 * 1024 * 1024);
+    if (valid.length === 0) {
+      setError("Nenhum ficheiro suportado (PDF, JPG ou PNG até 20 MB).");
+      return;
+    }
+    importQueue.enqueue(valid, api);
+    onClose();
+  }
+
+  /** Liga o documento ao registo já existente (em vez de criar outro) e abre-o. */
+  async function linkToExisting(invoiceId: string) {
+    if (!payment) return;
+    setError(null);
+    setUploading(true);
+    try {
+      await api.linkObligation(invoiceId, payment.file);
+      onOpenInvoice?.(invoiceId);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Não foi possível ligar o documento.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   function onInputChange(e: React.ChangeEvent<HTMLInputElement>) {
-    const file = e.target.files?.[0];
-    if (file) void handleFile(file);
+    handleFiles(e.target.files);
   }
 
   function onDrop(e: React.DragEvent) {
     e.preventDefault();
     setDragging(false);
-    const file = e.dataTransfer.files[0];
-    if (file) void handleFile(file);
+    handleFiles(e.dataTransfer.files);
   }
 
   return (
@@ -128,6 +159,7 @@ export function ImportInvoiceModal({ onClose, onImported, onOpenInvoice }: Props
               result={payment.result}
               busy={uploading}
               onOpenExisting={(id) => onOpenInvoice?.(id)}
+              onLinkExisting={(id) => void linkToExisting(id)}
               onCreateDraft={(force) => void createObligationDraft(force)}
               onClose={onClose}
             />
@@ -175,6 +207,8 @@ export function ImportInvoiceModal({ onClose, onImported, onOpenInvoice }: Props
                 ref={inputRef}
                 type="file"
                 accept={ACCEPTED_EXT}
+                multiple
+                aria-label="Ficheiros das faturas"
                 className="hidden"
                 onChange={onInputChange}
               />
@@ -202,7 +236,7 @@ export function ImportInvoiceModal({ onClose, onImported, onOpenInvoice }: Props
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                   </svg>
                   <div className="text-center">
-                    <p className="text-sm font-medium text-stone-700">Arraste o ficheiro aqui</p>
+                    <p className="text-sm font-medium text-stone-700">Arraste os ficheiros aqui</p>
                     <p className="mt-0.5 text-xs text-stone-400">
                       ou clique para selecionar
                     </p>
@@ -210,6 +244,7 @@ export function ImportInvoiceModal({ onClose, onImported, onOpenInvoice }: Props
                   <span className="rounded-full bg-stone-100 px-3 py-1 text-xs font-medium text-stone-500">
                     PDF · JPG · PNG — até 20 MB
                   </span>
+                  <span className="text-[11px] text-stone-400">Vários de uma vez (até {MAX_BATCH_FILES}): são lidos em segundo plano.</span>
                 </>
               )}
             </div>

@@ -65,3 +65,12 @@ describe("PaymentDocumentReview", () => {
     expect(isPaymentDocument({ invoice: {} })).toBe(false);
   });
 });
+
+describe("PaymentDocumentReview — ligar a um registo existente", () => {
+  it("«Ligar este documento» chama a ligação com o registo escolhido", () => {
+    const onLink = vi.fn();
+    render(<PaymentDocumentReview result={at()} busy={false} onOpenExisting={vi.fn()} onLinkExisting={onLink} onCreateDraft={vi.fn()} onClose={vi.fn()} />);
+    fireEvent.click(screen.getByText("Ligar este documento"));
+    expect(onLink).toHaveBeenCalledWith("inv-1");
+  });
+});

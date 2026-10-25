@@ -432,3 +432,13 @@ puramente redundante.
   automaticamente ao abrir o `ClassifyPanel` — candidato a auto-preencher o formulário.
 - A regra de classificação guarda apenas uma entrada por fornecedor. Para fornecedores
   mistos (ex: Makro), o último "guardar como regra" sobrescreve o anterior.
+
+## F3c — faturas importadas no Stock
+- `InvoiceDTO.importOrigin === "stock"`: rascunho criado pelo Stock — etiqueta «Do Stock» na lista e aviso no `ReviewImportedInvoiceDrawer` (as linhas já estão em Compras por rever).
+- Confirmar/guardar com linhas diferentes → 409 `requiresConfirmation` → o mesmo diálogo de «Revisão de stock associada» repete o pedido com `confirmRemoveStockReview: true` (agora também em «Confirmar» e «Guardar rascunho», não só na edição).
+
+## Lote, orçamento de IA e ligar obrigação
+- **Importação em lote (E4)**: o `ImportInvoiceModal` aceita vários ficheiros (até 10) — vão para `import-queue.ts` (fila do browser, 2 de cada vez, `keepDraftLines`) e o modal fecha; o `ImportQueuePanel` (canto inferior direito do `InvoicesView`) mostra o progresso e «Rever» abre a revisão de cada fatura lida. A fila não sobrevive a recarregar a página, mas os rascunhos ficam com as linhas gravadas e aparecem na lista.
+- Orçamento de IA esgotado: a importação responde 429 com a mensagem (mostrada como erro / no painel).
+- `PaymentDocumentReview`: «Ligar este documento» em cada registo parecido → `linkObligation` e abre o registo.
+- Lista: etiqueta «Obrigação» / «Seg. Social» nas obrigações.

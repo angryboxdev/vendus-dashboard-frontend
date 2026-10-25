@@ -53,9 +53,12 @@ export interface InvoicesApiPort {
   classifyLine(invoiceId: string, lineId: string, payload: ClassifyLinePayload): Promise<InvoiceLineDTO>;
   setLineDeductibilityOverride(invoiceId: string, lineId: string, payload: SetLineDeductibilityOverridePayload): Promise<InvoiceLineDTO>;
   /** Documento de cobrança AT/SS → `PaymentDocumentImportDTO` (não cria fatura); `treatAsInvoice` força o fluxo de faturas. */
-  importInvoice(file: File, documentType?: InvoiceDocumentType, options?: { treatAsInvoice?: boolean }): Promise<InvoiceImportResultDTO | PaymentDocumentImportDTO>;
+  /** `keepDraftLines` (lote, E4): as linhas lidas ficam gravadas no rascunho. */
+  importInvoice(file: File, documentType?: InvoiceDocumentType, options?: { treatAsInvoice?: boolean; keepDraftLines?: boolean }): Promise<InvoiceImportResultDTO | PaymentDocumentImportDTO>;
   /** E3b-2: rascunho de obrigação a partir do documento de cobrança (o servidor volta a ler o ficheiro). 409 `obligation_exists` sem `force`. */
   createObligationDraft(file: File, options?: { force?: boolean }): Promise<InvoiceImportResultDTO>;
+  /** Liga o documento de cobrança a um registo existente (passa a obrigação; 422 `obligation_link_mismatch`). */
+  linkObligation(invoiceId: string, file: File): Promise<InvoiceDTO>;
   confirmImportedInvoice(id: string, payload: ConfirmImportedInvoicePayload): Promise<InvoiceDTO>;
   getInvoiceAlerts(): Promise<InvoiceAlertsDTO>;
   suggestLineClassification(supplierId: string, description?: string): Promise<SuggestClassificationResult | null>;

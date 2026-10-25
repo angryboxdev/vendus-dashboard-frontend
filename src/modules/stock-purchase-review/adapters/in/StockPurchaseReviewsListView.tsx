@@ -4,6 +4,7 @@ import { useNavigate } from "react-router-dom";
 import { useStockPurchaseReviewModule } from "../../stock-purchase-review.module.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
 import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
+import { StockImportInvoiceModal } from "./StockImportInvoiceModal.tsx";
 import {
   STOCK_PURCHASE_REVIEW_STATUS_LABELS,
   DECISION_SOURCE_LABELS,
@@ -48,6 +49,7 @@ export function StockPurchaseReviewsListView() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [search, setSearch] = useState("");
+  const [importOpen, setImportOpen] = useState(false);
 
   const { data: suppliers = [] } = useQuery({
     queryKey: ["financial-base-suppliers"],
@@ -74,12 +76,22 @@ export function StockPurchaseReviewsListView() {
 
   return (
     <div className="flex min-h-full flex-col bg-[#FAF6F3]">
-      <div className="border-b border-stone-200 bg-white px-6 py-4">
-        <h1 className="text-xl font-bold text-stone-900">Compras por rever</h1>
-        <p className="mt-0.5 text-sm text-stone-500">
-          Faturas encaminhadas ao Stock — concilia cada linha com um artigo (ou marca que não é item de stock) e confirma para movimentar o inventário.
-        </p>
+      <div className="flex items-start justify-between gap-4 border-b border-stone-200 bg-white px-6 py-4">
+        <div>
+          <h1 className="text-xl font-bold text-stone-900">Compras por rever</h1>
+          <p className="mt-0.5 text-sm text-stone-500">
+            Faturas encaminhadas ao Stock — concilia cada linha com um artigo (ou marca que não é item de stock) e confirma para movimentar o inventário.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setImportOpen(true)}
+          className="shrink-0 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+        >
+          Importar fatura
+        </button>
       </div>
+      {importOpen && <StockImportInvoiceModal onClose={() => setImportOpen(false)} />}
 
       <div className="space-y-4 p-6">
         <div className="flex flex-wrap items-center gap-3">
@@ -154,7 +166,10 @@ export function StockPurchaseReviewsListView() {
                       <td className="px-4 py-2.5 text-stone-600">{row.invoiceNumber}</td>
                       <td className="px-4 py-2.5 text-stone-600">{formatDate(row.invoiceDate)}</td>
                       <td className="px-4 py-2.5 text-stone-600">{locationName(row.locationId)}</td>
-                      <td className="px-4 py-2.5 text-xs text-stone-500">Financeiro · {DECISION_SOURCE_LABELS[row.decisionSource]}</td>
+                      <td className="px-4 py-2.5 text-xs text-stone-500">
+                        {row.origin === "stock" ? "Stock" : `Financeiro · ${DECISION_SOURCE_LABELS[row.decisionSource]}`}
+                        {row.financePending && <span className="ml-1.5 rounded bg-sky-100 px-1.5 py-0.5 font-medium text-sky-700">Aguarda Financeiro</span>}
+                      </td>
                       <td className="px-4 py-2.5 text-right tabular-nums text-stone-700">{eur(row.totalCents)}</td>
                       <td className="px-4 py-2.5">
                         <div className="flex items-center gap-2" title={`${row.resolvedLines} de ${row.linesCount} linhas tratadas`}>

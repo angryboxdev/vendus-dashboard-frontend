@@ -108,3 +108,7 @@ mockup, fica para depois.
 - Ao abrir uma revisão com linhas por resolver sem proposta, chama `suggestMappings` (histórico do fornecedor → nome no catálogo → IA, no servidor). Cada linha mostra a **conciliação proposta (não confirmada)** com artigo, fator e origem (histórico / nome / IA com %), «Aceitar» (só quando completa: artigo + fator, ou não é item de stock) e «Ajustar» (preenche o formulário). Barra com «Aceitar as N propostas» (resolve em sequência, versão a versão) e «Procurar de novo».
 - Lista = fila: «Por tratar | Histórico», fornecedor, documento, data, destino, origem, valor, progresso de linhas e estado (Por mapear, Em revisão, Pronto, Movimentado, Excluída, Retirada). Saiu «Cancelar revisões sem linhas».
 - «Retirar de Compras por rever» (motivo; não mexe no Financeiro) e «Repor em Compras por rever» nas retiradas.
+
+## F3c (task v1.2)
+- «Importar fatura» na lista (`StockImportInvoiceModal`): `importInvoiceForStock` (`POST /api/invoices/import-for-stock`). Nova → abre a revisão; `already_in_stock` → aviso vermelho e bloqueio (só «Abrir a revisão»); `already_in_review` → abrir; `exists_not_routed` → «Enviar para Compras por rever» (`routeExisting`); `extraction_failed` → «Tentar de novo» (máx. 2).
+- Lista: origem «Stock» e etiqueta «Aguarda Financeiro»; detalhe: aviso de pendência e das condições para dar entrada antes do Financeiro.

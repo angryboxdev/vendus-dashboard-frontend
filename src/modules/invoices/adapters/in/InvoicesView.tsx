@@ -26,6 +26,7 @@ import type {
   AccountPreviewDTO,
 } from "../../../bank-accounts/domain/entities/bank-account.ts";
 import { ImportInvoiceModal } from "./ImportInvoiceModal.tsx";
+import { ImportQueuePanel } from "./ImportQueuePanel.tsx";
 import { ReviewImportedInvoiceDrawer } from "./ReviewImportedInvoiceDrawer.tsx";
 import { PayablesSummaryBar } from "./PayablesSummaryBar.tsx";
 import { payablesSummaryParams } from "../../domain/services/payables-summary.ts";
@@ -4318,6 +4319,22 @@ export function InvoicesView() {
                               <p className="font-semibold text-stone-900">
                                 {inv.invoiceNumber}
                               </p>
+                              {inv.obligation && (
+                                <span
+                                  title={inv.obligation.kind === "tax_obligation" ? "Obrigação fiscal (Finanças) — sem IVA nem Stock" : "Segurança Social — sem IVA nem Stock"}
+                                  className="rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-indigo-100 text-indigo-700"
+                                >
+                                  {inv.obligation.kind === "tax_obligation" ? "Obrigação" : "Seg. Social"}
+                                </span>
+                              )}
+                              {inv.importOrigin === "stock" && (inv.status === "draft_ai" || inv.status === "pending_review") && (
+                                <span
+                                  title="Importada no Stock — falta lançar no Financeiro (sem conta a pagar até lá)"
+                                  className="rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-sky-100 text-sky-700"
+                                >
+                                  Do Stock
+                                </span>
+                              )}
                               {inv.isDuplicate && (
                                 <span
                                   title="Existe outra fatura activa do mesmo fornecedor com este número"
@@ -4626,6 +4643,19 @@ export function InvoicesView() {
             )}
           </div>
         )}
+
+        {/* Importação em lote (E4): continua em segundo plano; «Rever» abre a revisão de cada fatura lida. */}
+        <ImportQueuePanel
+          onReview={(result) => {
+            const isDraft = result.invoice.status === "draft_ai" || result.invoice.status === "pending_review";
+            if (result.reused && !isDraft) {
+              setDetail(result.invoice);
+              return;
+            }
+            setReopenDraft(false);
+            setImportResult(result);
+          }}
+        />
 
         {/* Drawers */}
         {showImport && (

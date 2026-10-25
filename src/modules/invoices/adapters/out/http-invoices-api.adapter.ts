@@ -119,11 +119,12 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     );
   }
 
-  async importInvoice(file: File, documentType?: InvoiceDocumentType, options?: { treatAsInvoice?: boolean }): Promise<InvoiceImportResultDTO | PaymentDocumentImportDTO> {
+  async importInvoice(file: File, documentType?: InvoiceDocumentType, options?: { treatAsInvoice?: boolean; keepDraftLines?: boolean }): Promise<InvoiceImportResultDTO | PaymentDocumentImportDTO> {
     const formData = new FormData();
     formData.append("file", file);
     if (documentType) formData.append("documentType", documentType);
     if (options?.treatAsInvoice) formData.append("treatAsInvoice", "true");
+    if (options?.keepDraftLines) formData.append("keepDraftLines", "true");
     return apiPostFormData(`${BASE}/import`, formData);
   }
 
@@ -132,6 +133,12 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
     formData.append("file", file);
     if (options?.force) formData.append("force", "true");
     return apiPostFormData(`${BASE}/obligations`, formData);
+  }
+
+  async linkObligation(invoiceId: string, file: File): Promise<InvoiceDTO> {
+    const formData = new FormData();
+    formData.append("file", file);
+    return apiPostFormData(`${BASE}/${encodeURIComponent(invoiceId)}/link-obligation`, formData);
   }
 
   async confirmImportedInvoice(id: string, payload: ConfirmImportedInvoicePayload): Promise<InvoiceDTO> {
