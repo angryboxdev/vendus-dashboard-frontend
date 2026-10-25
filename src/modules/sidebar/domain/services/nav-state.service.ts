@@ -13,8 +13,8 @@ const DRE_ITEMS: NavItem[] = [
 const STOCK_ITEMS: NavItem[] = [
   { kind: "item", path: "/stock/stock", label: "Artigos e ingredientes" },
   { kind: "item", path: "/stock/pizzas", label: "Fichas técnicas" },
-  // Inventário: um só item; Stock atual, Movimentos e Contagens são separadores dentro da página.
-  { kind: "item", path: "/stock/inventario", label: "Inventário", match: ["/stock/movimentacoes", "/stock/historico-movimentos", "/stock/contagens"] },
+  // Inventário: um só item; Stock atual, Movimentos, Contagens e Compras por rever são separadores dentro da página.
+  { kind: "item", path: "/stock/inventario", label: "Inventário", match: ["/stock/movimentacoes", "/stock/historico-movimentos", "/stock/contagens", "/stock/compras-por-rever"] },
   { kind: "item", path: "/stock/planeamento", label: "Reposição e planeamento" },
 ];
 
