@@ -157,3 +157,26 @@ describe("StockPurchaseReviewDetailView (F3b — conciliação e fila)", () => {
     expect(screen.getByText("Motivo da retirada: engano")).toBeTruthy();
   });
 });
+
+describe("StockPurchaseReviewDetailView (V4 — secções e associação automática)", () => {
+  it("Artigos para Stock → Por rever → Artigos fora do Stock (compacta, com categoria, valor c/ IVA e subtotal); automático assinalado", async () => {
+    const r = review({
+      lines: [
+        line({ id: "a", description: "Mozzarella", resolutionType: "existing_item", stockItemId: "item-farinha", conversionFactor: 1000, stockQuantity: 20000, autoResolved: true }),
+        line({ id: "b", description: "Cheddar" }),
+        line({ id: "c", description: "Caixa térmica", resolutionType: "no_stock_effect", totalWithVat: 1107, costCenterCategoryLabel: "EQP.02 Utensílios", autoResolved: true }),
+        line({ id: "d", description: "Portes", resolutionType: "no_stock_effect", totalWithVat: 615, costCenterCategoryLabel: "SRV.01 Transportes" }),
+      ],
+    });
+    renderView({ getReview: async () => r });
+    const sections = await screen.findAllByRole("region");
+    expect(sections.map((s) => s.getAttribute("aria-label"))).toEqual(["Artigos para Stock", "Por rever", "Artigos fora do Stock"]);
+    expect(screen.getByText("Associado automaticamente")).toBeTruthy();
+    expect(screen.getByText("EQP.02 Utensílios")).toBeTruthy();
+    expect(screen.getByText(/17,22\s€/)).toBeTruthy();
+    // Linha fora do Stock abre para editar (passa a ter também «Alterar», além da linha do Stock).
+    expect(screen.getAllByRole("button", { name: "Alterar" })).toHaveLength(1);
+    fireEvent.click(screen.getByText("Portes"));
+    expect(await screen.findAllByRole("button", { name: "Alterar" })).toHaveLength(2);
+  });
+});

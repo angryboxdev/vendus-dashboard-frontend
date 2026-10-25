@@ -90,17 +90,20 @@ function GroupIcon({ group, active, badges }: { group: NavGroup; active: boolean
       {open && (
         <div ref={panel} role="menu" aria-label={group.label} className="fixed left-[76px] z-50 w-56 rounded-xl border border-white/10 bg-[#1B2438] p-2 shadow-2xl" style={{ top }}>
           <p className="px-3 pb-1.5 pt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{group.label}</p>
-          {group.items.map((i) => {
+          {group.items.map((i, idx) => {
             const b = i.badgeKey ? (badges[i.badgeKey] ?? 0) : 0;
+            // Subgrupo (ex.: «Inventário»): título antes do primeiro item e itens indentados.
+            const subTitle = i.subgroup && group.items[idx - 1]?.subgroup !== i.subgroup ? i.subgroup : null;
             return (
+              <div key={i.path}>
+              {subTitle && <p className="px-3 pb-0.5 pt-1.5 text-[11px] font-semibold uppercase tracking-wide text-slate-500">{subTitle}</p>}
               <NavLink
-                key={i.path}
                 role="menuitem"
                 to={i.path}
                 end={i.end}
                 onClick={() => setOpen(false)}
                 className={({ isActive }) =>
-                  `flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ED5C32] ${
+                  `flex items-center justify-between gap-2 rounded-lg ${i.subgroup ? "pl-6 pr-3" : "px-3"} py-2 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ED5C32] ${
                     isActive || i.match?.some((p) => isItemActive(p, pathname)) ? "bg-[#24324F] font-semibold text-white" : "text-slate-300 hover:bg-white/5 hover:text-white"
                   }`
                 }
@@ -111,6 +114,7 @@ function GroupIcon({ group, active, badges }: { group: NavGroup; active: boolean
                 </span>
                 {b > 0 && <span className="rounded-full bg-[#ED5C32] px-1.5 text-[10px] font-semibold leading-4 text-white">{b}</span>}
               </NavLink>
+              </div>
             );
           })}
         </div>

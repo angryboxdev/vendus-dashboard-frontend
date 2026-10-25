@@ -1,5 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
-import { isItemActive } from "../../domain/services/nav-state.service.ts";
+import { useState } from "react";
+import { chunkBySubgroup, isItemActive } from "../../domain/services/nav-state.service.ts";
 import { useSidebar } from "./use-sidebar.ts";
 import type { NavGroup, NavItem, SidebarNavEntry } from "../../domain/entities/nav-item.ts";
 import type { UseSidebarResult } from "./use-sidebar.ts";
@@ -119,7 +120,39 @@ function NavGroupSection({
       </button>
       {expanded && (
         <div className="mb-1 ml-4 mt-0.5 flex flex-col gap-0.5 border-l border-white/10 pl-2">
-          {group.items.map((item) => (
+          {chunkBySubgroup(group.items).map((chunk) =>
+            chunk.kind === "item" ? (
+              <NavItemLink key={chunk.item.path} item={chunk.item} onClick={onNavClick} badge={chunk.item.badgeKey ? badges[chunk.item.badgeKey] : 0} />
+            ) : (
+              <NavSubgroup key={chunk.label} label={chunk.label} items={chunk.items} onNavClick={onNavClick} badges={badges} />
+            ),
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** Subgrupo expansível (ex.: «Inventário»): aberto quando um dos seus ecrãs está ativo. */
+function NavSubgroup({ label, items, onNavClick, badges }: { label: string; items: NavItem[]; onNavClick: () => void; badges: UseSidebarResult["badges"] }) {
+  const { pathname } = useLocation();
+  const active = items.some((i) => isItemActive(i.path, pathname));
+  const [open, setOpen] = useState(active);
+  const shown = open || active;
+  return (
+    <div>
+      <button
+        type="button"
+        aria-expanded={shown}
+        onClick={() => setOpen(!shown)}
+        className={`flex w-full items-center justify-between rounded-lg px-3 py-2 text-left text-sm transition-colors ${active ? "font-semibold text-white" : "font-medium text-slate-300 hover:bg-white/5 hover:text-white"}`}
+      >
+        <span>{label}</span>
+        <ChevronIcon open={shown} active={active} />
+      </button>
+      {shown && (
+        <div className="ml-3 flex flex-col gap-0.5 border-l border-white/10 pl-2">
+          {items.map((item) => (
             <NavItemLink key={item.path} item={item} onClick={onNavClick} badge={item.badgeKey ? badges[item.badgeKey] : 0} />
           ))}
         </div>

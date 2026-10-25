@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Fragment, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useStockPurchaseReviewModule } from "../../stock-purchase-review.module.tsx";
@@ -286,6 +286,11 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
                     : `destino ${line.locationId ? locationName(line.locationId) : "loja da confirmação"}`}
                 </>
               : "Fica no documento e na classificação financeira; não entra no inventário."}
+            {line.autoResolved && (
+              <span className="ml-2 rounded bg-sky-50 px-1.5 py-0.5 text-[11px] font-medium text-sky-700" title="Decisão já confirmada antes para esta linha deste fornecedor — aplicada sem perguntar. Pode alterar.">
+                Associado automaticamente
+              </span>
+            )}
           </p>
           {!isTerminal && (
             <button type="button" onClick={() => setEditing(true)} className="rounded border border-stone-300 px-2 py-0.5 font-medium text-stone-600 hover:bg-stone-50">
@@ -429,6 +434,82 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
             )}
           </div>
         </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Conciliação em três secções (task Stock inteligente V4 §5): Artigos para Stock → Por rever →
+ * Artigos fora do Stock. A última é compacta (Artigo | Categoria financeira | Valor c/ IVA, com
+ * subtotal) e cada linha abre para editar; continua incluída na fatura, sem associação nem conversão.
+ */
+function ReviewSections({ review, renderRow }: { review: StockPurchaseReviewDTO; renderRow: (line: StockReviewLineDTO) => React.ReactNode }) {
+  const [openNonStock, setOpenNonStock] = useState<string | null>(null);
+  const stock = review.lines.filter((l) => l.resolutionType === "existing_item" || l.resolutionType === "new_item");
+  const pending = review.lines.filter((l) => l.resolutionType === "unresolved");
+  const nonStock = review.lines.filter((l) => l.resolutionType === "no_stock_effect");
+  const sum = (ls: StockReviewLineDTO[]) => ls.reduce((acc, l) => acc + l.totalWithVat, 0);
+  const header = (title: string, count: number, extra?: string) => (
+    <div className="flex items-center justify-between border-b border-stone-100 bg-stone-50 px-4 py-2">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-600">
+        {title} <span className="ml-1 rounded-full bg-white px-1.5 text-stone-500">{count}</span>
+      </h3>
+      {extra && <span className="text-xs tabular-nums text-stone-500">{extra}</span>}
+    </div>
+  );
+  return (
+    <div className="space-y-3">
+      {stock.length > 0 && (
+        <section aria-label="Artigos para Stock" className="overflow-hidden rounded-xl border border-stone-200 bg-white">
+          {header("Artigos para Stock", stock.length, `${fromCents(sum(stock))} c/ IVA`)}
+          {stock.map(renderRow)}
+        </section>
+      )}
+      {pending.length > 0 && (
+        <section aria-label="Por rever" className="overflow-hidden rounded-xl border border-amber-200 bg-white">
+          {header("Por rever", pending.length)}
+          {pending.map(renderRow)}
+        </section>
+      )}
+      {nonStock.length > 0 && (
+        <section aria-label="Artigos fora do Stock" className="overflow-hidden rounded-xl border border-stone-200 bg-white">
+          {header("Artigos fora do Stock", nonStock.length)}
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="text-left text-[11px] uppercase tracking-wide text-stone-400">
+                <th className="px-4 py-1.5 font-medium">Artigo</th>
+                <th className="px-4 py-1.5 font-medium">Categoria financeira</th>
+                <th className="px-4 py-1.5 text-right font-medium">Valor c/ IVA</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-stone-100">
+              {nonStock.map((l) => (
+                <Fragment key={l.id}>
+                  <tr className="cursor-pointer hover:bg-stone-50" onClick={() => setOpenNonStock(openNonStock === l.id ? null : l.id)} aria-expanded={openNonStock === l.id}>
+                    <td className="px-4 py-1.5 text-stone-800">
+                      {l.description}
+                      {l.autoResolved && <span className="ml-2 text-[11px] text-sky-700">automático</span>}
+                    </td>
+                    <td className="px-4 py-1.5 text-stone-500">{l.costCenterCategoryLabel ?? "—"}</td>
+                    <td className="px-4 py-1.5 text-right tabular-nums text-stone-700">{fromCents(l.totalWithVat)}</td>
+                  </tr>
+                  {openNonStock === l.id && (
+                    <tr>
+                      <td colSpan={3} className="bg-stone-50/60 p-0">{renderRow(l)}</td>
+                    </tr>
+                  )}
+                </Fragment>
+              ))}
+            </tbody>
+            <tfoot>
+              <tr className="border-t border-stone-200">
+                <td colSpan={2} className="px-4 py-1.5 text-xs font-medium text-stone-500">Subtotal fora do Stock (continua na fatura)</td>
+                <td className="px-4 py-1.5 text-right text-sm font-semibold tabular-nums text-stone-800">{fromCents(sum(nonStock))}</td>
+              </tr>
+            </tfoot>
+          </table>
+        </section>
       )}
     </div>
   );
@@ -754,8 +835,9 @@ export function StockPurchaseReviewDetailView() {
           </div>
         )}
 
-        <div className="overflow-hidden rounded-xl border border-stone-200 bg-white">
-          {review.lines.map((line) => (
+        <ReviewSections
+          review={review}
+          renderRow={(line) => (
             <ReviewLineRow
               key={line.id}
               review={review}
@@ -767,8 +849,8 @@ export function StockPurchaseReviewDetailView() {
               unresolvedGateOpen={unresolvedGateOpen}
               onPackagingSaved={() => void qc.invalidateQueries({ queryKey: ["stock-purchase-review", id] })}
             />
-          ))}
-        </div>
+          )}
+        />
 
         {!isTerminal && (
           <div className="rounded-xl border border-stone-200 bg-white p-4">
