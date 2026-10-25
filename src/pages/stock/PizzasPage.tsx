@@ -14,9 +14,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { PIZZA_CATEGORY_LABELS } from "./pizzas.types";
 import { STOCK_BASE_UNIT_LABELS } from "./stock.types";
-import { formatNumber } from "../../lib/format";
+import { formatEUR, formatNumber } from "../../lib/format";
 import { RecipeCostingProvider } from "../../modules/recipe-costing/recipe-costing.module.tsx";
 import { RecipeCostingSection } from "../../modules/recipe-costing/adapters/in/RecipeCostingSection.tsx";
+import { useDishCosting } from "../../modules/recipe-costing/adapters/in/useDishCosting.ts";
+import {
+  lineCostFor,
+  sizeTotalFor,
+  type LineCost,
+} from "../../modules/recipe-costing/domain/services/dish-line-cost.ts";
 
 const PIZZA_CATEGORY_ORDER: Record<PizzaCategory, number> = {
   classics: 0,
@@ -143,6 +149,28 @@ export function PizzasPage() {
       setCreateError(e instanceof Error ? e.message : "Erro ao criar pizza");
     }
   }, [createForm, loadPizzas]);
+
+  const [togglingPizzaId, setTogglingPizzaId] = useState<string | null>(null);
+  const togglePizzaActive = useCallback(
+    async (pizza: Pizza) => {
+      setError(null);
+      setTogglingPizzaId(pizza.id);
+      try {
+        await apiPut<Pizza>(`/api/pizzas/${pizza.id}`, {
+          is_active: !pizza.is_active,
+        });
+        await loadPizzas();
+        setCostingRefreshKey((k) => k + 1);
+      } catch (e) {
+        setError(
+          e instanceof Error ? e.message : "Erro ao alterar o estado da pizza",
+        );
+      } finally {
+        setTogglingPizzaId(null);
+      }
+    },
+    [loadPizzas],
+  );
 
   const openRecipeModal = useCallback(async (pizza: Pizza) => {
     setRecipeModalPizza(pizza);
@@ -584,7 +612,7 @@ export function PizzasPage() {
                   <th className="px-4 py-3 font-medium">Nome</th>
                   <th className="px-4 py-3 font-medium">Categoria</th>
                   <th className="px-4 py-3 font-medium">Estado</th>
-                  <th className="w-28 px-4 py-3 text-center font-medium">
+                  <th className="w-44 px-4 py-3 text-center font-medium">
                     Ações
                   </th>
                 </tr>
@@ -609,13 +637,28 @@ export function PizzasPage() {
                       </span>
                     </td>
                     <td className="whitespace-nowrap px-4 py-2 text-center">
-                      <button
-                        type="button"
-                        onClick={() => openRecipeModal(pizza)}
-                        className="rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200"
-                      >
-                        Ver receita
-                      </button>
+                      <div className="flex justify-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => openRecipeModal(pizza)}
+                          className="rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200"
+                        >
+                          Ver receita
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => togglePizzaActive(pizza)}
+                          disabled={togglingPizzaId === pizza.id}
+                          title={
+                            pizza.is_active
+                              ? "Inativar: sai do custo das fichas técnicas (a receita fica guardada)"
+                              : "Reativar a pizza"
+                          }
+                          className={`rounded px-2 py-1 text-xs font-medium disabled:opacity-50 ${pizza.is_active ? "text-amber-700 hover:bg-amber-50" : "text-green-700 hover:bg-green-50"}`}
+                        >
+                          {pizza.is_active ? "Inativar" : "Reativar"}
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -753,22 +796,24 @@ export function PizzasPage() {
       )}
 
       {recipeModalPizza && (
-        <RecipeModal
-          pizza={recipeModalPizza}
-          recipe={recipeModalRecipe}
-          items={recipeModalItems}
-          stockItems={stockItems}
-          preparations={preparations}
-          loading={recipeModalLoading}
-          error={recipeModalError}
-          stockItemName={stockItemName}
-          stockItemUnit={stockItemUnit}
-          onClose={closeRecipeModal}
-          onCreateRecipe={createRecipeAndOpen}
-          onAddItem={addRecipeItem}
-          onUpdateItem={updateRecipeItem}
-          onDeleteItem={deleteRecipeItem}
-        />
+        <RecipeCostingProvider>
+          <RecipeModal
+            pizza={recipeModalPizza}
+            recipe={recipeModalRecipe}
+            items={recipeModalItems}
+            stockItems={stockItems}
+            preparations={preparations}
+            loading={recipeModalLoading}
+            error={recipeModalError}
+            stockItemName={stockItemName}
+            stockItemUnit={stockItemUnit}
+            onClose={closeRecipeModal}
+            onCreateRecipe={createRecipeAndOpen}
+            onAddItem={addRecipeItem}
+            onUpdateItem={updateRecipeItem}
+            onDeleteItem={deleteRecipeItem}
+          />
+        </RecipeCostingProvider>
       )}
 
       {prepFormOpen && (
@@ -1324,6 +1369,50 @@ type RecipeModalProps = {
   onDeleteItem: (itemId: string) => void;
 };
 
+/** Custo s/ IVA de uma linha da ficha, por baixo da quantidade. */
+function LineCostHint({ cost }: { cost: LineCost | null }) {
+  if (!cost) return null;
+  if (!cost.complete && cost.costWithoutVat === 0)
+    return <span className="block text-[11px] text-amber-700">sem preço</span>;
+  return (
+    <span
+      className={`block text-[11px] tabular-nums ${cost.complete ? "text-slate-500" : "text-amber-700"}`}
+      title={
+        cost.complete
+          ? undefined
+          : "Falta o preço de algum ingrediente: custo parcial"
+      }
+    >
+      {formatEUR(cost.costWithoutVat)}
+      {!cost.complete && " *"}
+    </span>
+  );
+}
+
+function SizeTotalCell({ total }: { total: ReturnType<typeof sizeTotalFor> }) {
+  if (!total) return <span className="text-slate-400">—</span>;
+  return (
+    <>
+      <span
+        className={`tabular-nums ${total.complete ? "" : "text-amber-700"}`}
+        title={
+          total.complete
+            ? undefined
+            : "Falta o preço de algum ingrediente: custo parcial"
+        }
+      >
+        {formatEUR(total.costWithoutVat)}
+        {!total.complete && " *"}
+      </span>
+      {total.salePrice != null && (
+        <span className="block text-[11px] font-normal tabular-nums text-slate-500">
+          PVP {formatEUR(total.salePrice)}
+        </span>
+      )}
+    </>
+  );
+}
+
 function RecipeModal({
   pizza,
   recipe,
@@ -1346,6 +1435,29 @@ function RecipeModal({
   const [editingKey, setEditingKey] = useState<string | null>(null);
   const [editSmallQty, setEditSmallQty] = useState("");
   const [editLargeQty, setEditLargeQty] = useState("");
+
+  // Recalcula o custo a cada alteração gravada nas linhas da ficha.
+  const costingKey = useMemo(
+    () =>
+      items
+        .map((i) => `${i.id}:${i.size}:${i.quantity}:${i.waste_factor ?? ""}`)
+        .join("|"),
+    [items],
+  );
+  const { dish: costing, error: costingError } = useDishCosting(
+    pizza.id,
+    costingKey,
+  );
+  const rowCost = (row: GroupedRow, size: PizzaSize): LineCost | null =>
+    lineCostFor(
+      costing,
+      size,
+      row.type === "stock"
+        ? { stockItemId: row.entity_id }
+        : { preparationId: row.entity_id },
+    );
+  const smallTotal = sizeTotalFor(costing, "small");
+  const largeTotal = sizeTotalFor(costing, "large");
 
   const groupedRows = useMemo<GroupedRow[]>(() => {
     const map = new Map<
@@ -1595,9 +1707,12 @@ function RecipeModal({
                                 className="w-20 rounded border px-2 py-1 text-right text-sm"
                               />
                             ) : row.small ? (
-                              <span className="tabular-nums">
-                                {formatNumber(row.small.quantity)} {unit}
-                              </span>
+                              <>
+                                <span className="tabular-nums">
+                                  {formatNumber(row.small.quantity)} {unit}
+                                </span>
+                                <LineCostHint cost={rowCost(row, "small")} />
+                              </>
                             ) : (
                               "—"
                             )}
@@ -1614,9 +1729,12 @@ function RecipeModal({
                                 className="w-20 rounded border px-2 py-1 text-right text-sm"
                               />
                             ) : row.large ? (
-                              <span className="tabular-nums">
-                                {formatNumber(row.large.quantity)} {unit}
-                              </span>
+                              <>
+                                <span className="tabular-nums">
+                                  {formatNumber(row.large.quantity)} {unit}
+                                </span>
+                                <LineCostHint cost={rowCost(row, "large")} />
+                              </>
                             ) : (
                               "—"
                             )}
@@ -1672,8 +1790,32 @@ function RecipeModal({
                       </tr>
                     )}
                   </tbody>
+                  {groupedRows.length > 0 && (
+                    <tfoot>
+                      <tr className="border-t-2 border-slate-200 bg-slate-50 font-medium text-slate-800">
+                        <td className="px-4 py-2">
+                          Custo total do prato
+                          <span className="block text-[11px] font-normal text-slate-500">
+                            s/ IVA · ingredientes ao último preço de compra
+                          </span>
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <SizeTotalCell total={smallTotal} />
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <SizeTotalCell total={largeTotal} />
+                        </td>
+                        <td />
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
+              {costingError && (
+                <p className="mt-2 text-xs text-amber-700">
+                  Custo indisponível: {costingError}
+                </p>
+              )}
             </>
           )}
           {error && <p className="mt-3 text-sm text-red-600">{error}</p>}

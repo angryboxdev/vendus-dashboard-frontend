@@ -9,6 +9,21 @@ export interface IngredientCostDTO {
   source: CostSource | null;
 }
 
+/** Custo de uma linha da ficha técnica (artigo direto ou preparo), com a perda aplicada. */
+export interface DishLineCostDTO {
+  stockItemId: string | null;
+  preparationId: string | null;
+  name: string;
+  quantity: number;
+  /** Unidade base do artigo; `null` num preparo. */
+  baseUnit: string | null;
+  wasteFactor: number | null;
+  unitCostWithoutVat: number | null;
+  /** Parcial quando `complete = false` (falta o preço de algum ingrediente). */
+  costWithoutVat: number;
+  complete: boolean;
+}
+
 export interface DishSizeCostDTO {
   size: string;
   costWithoutVat: number;
@@ -16,6 +31,8 @@ export interface DishSizeCostDTO {
   /** `false` = falta o preço de algum ingrediente; o custo está subavaliado. */
   complete: boolean;
   missingStockItemIds: string[];
+  /** Custo de cada linha da ficha, pela ordem da receita. */
+  lines: DishLineCostDTO[];
 }
 
 export interface DishCostingDTO {
