@@ -13,9 +13,8 @@ const DRE_ITEMS: NavItem[] = [
 const STOCK_ITEMS: NavItem[] = [
   { kind: "item", path: "/stock/stock", label: "Artigos e ingredientes" },
   { kind: "item", path: "/stock/pizzas", label: "Fichas técnicas" },
-  { kind: "item", path: "/stock/movimentacoes", label: "Stock atual", subgroup: "Inventário" },
-  { kind: "item", path: "/stock/historico-movimentos", label: "Movimentos", subgroup: "Inventário" },
-  { kind: "item", path: "/stock/contagens", label: "Contagens", subgroup: "Inventário" },
+  // Inventário: um só item; Stock atual, Movimentos e Contagens são separadores dentro da página.
+  { kind: "item", path: "/stock/inventario", label: "Inventário", match: ["/stock/movimentacoes", "/stock/historico-movimentos", "/stock/contagens"] },
   { kind: "item", path: "/stock/planeamento", label: "Reposição e planeamento" },
 ];
 
