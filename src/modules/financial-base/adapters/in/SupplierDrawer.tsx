@@ -33,6 +33,9 @@ export function SupplierDrawer({ open, editing, groups, categories, onClose, onS
   const [paymentTermsDays,  setPaymentTermsDays]  = useState(
     editing?.paymentTermsDays != null ? String(editing.paymentTermsDays) : "",
   );
+  const [minOrderValue, setMinOrderValue] = useState(
+    editing?.minOrderValue != null ? String(editing.minOrderValue) : "",
+  );
   const [notes, setNotes] = useState(editing?.notes ?? "");
   const [defaultStockPolicy, setDefaultStockPolicy] = useState<DefaultStockPolicy>(editing?.defaultStockPolicy ?? "inherit");
   const [defaultFinancialMode, setDefaultFinancialMode] = useState<FinancialMode | "">(editing?.defaultFinancialMode ?? "");
@@ -60,6 +63,7 @@ export function SupplierDrawer({ open, editing, groups, categories, onClose, onS
       defaultCostCenterGroupId: defaultGroupId || null,
       defaultCostCenterCategoryId: defaultCategoryId || null,
       paymentTermsDays: paymentTermsDays ? Number(paymentTermsDays) : null,
+      minOrderValue: minOrderValue ? parseFloat(minOrderValue) : null,
       notes: notes || null,
       defaultStockPolicy,
       defaultFinancialMode: defaultFinancialMode || null,
@@ -159,6 +163,16 @@ export function SupplierDrawer({ open, editing, groups, categories, onClose, onS
               value={paymentTermsDays}
               onChange={(e) => setPaymentTermsDays(e.target.value)}
               placeholder="30"
+              className={inputCls}
+            />
+          </div>
+
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-stone-700">Encomenda mínima (€)</label>
+            <NumericInput
+              value={minOrderValue}
+              onChange={(e) => setMinOrderValue(e.target.value)}
+              placeholder="Sem mínimo"
               className={inputCls}
             />
           </div>

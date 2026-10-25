@@ -58,6 +58,8 @@ export interface Supplier {
   defaultLocationId?: string | null;
   /** Logótipo (proposto a partir de uma fatura e confirmado pela pessoa). */
   logoUrl?: string | null;
+  /** Encomenda mínima configurada (euros); `null` = sem mínimo. */
+  minOrderValue?: number | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -89,9 +91,24 @@ export interface SupplierInvoiceRow {
   attachmentUrl: string | null;
 }
 
+/** «Artigos principais» do fornecedor (onde mais se gastou). */
+export interface SupplierTopItem {
+  key: string;
+  name: string;
+  code: string | null;
+  stockItemId: string | null;
+  lastPurchaseDate: string;
+  /** Preço unitário sem IVA da compra mais recente. */
+  lastUnitPrice: number;
+  totalSpent: number;
+  purchaseCount: number;
+}
+
 export interface SupplierDetail extends Supplier {
   stats: SupplierStats;
   invoices: SupplierInvoiceRow[];
+  /** Opcional: um backend anterior a esta versão não o envia. */
+  topItems?: SupplierTopItem[];
 }
 
 export interface SuppliersKpis {
@@ -117,6 +134,7 @@ export interface CreateSupplierPayload {
   defaultFinancialMode?: FinancialMode | null;
   defaultLocationId?: string | null;
   logoUrl?: string | null;
+  minOrderValue?: number | null;
 }
 
 export interface UpdateSupplierPayload {
@@ -135,4 +153,5 @@ export interface UpdateSupplierPayload {
   defaultFinancialMode?: FinancialMode | null;
   defaultLocationId?: string | null;
   logoUrl?: string | null;
+  minOrderValue?: number | null;
 }

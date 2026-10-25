@@ -43,6 +43,9 @@ import {
   MessageSquareText,
   UserRound,
   ChevronRight,
+  Pencil,
+  EllipsisVertical,
+  Truck,
 } from "lucide-react";
 
 /**
@@ -105,6 +108,10 @@ export const APP_ICONS = {
   customRequests: wrap(MessageSquareText),
   profile: wrap(UserRound),
   chevronRight: wrap(ChevronRight),
+  // Fichas (ex.: fornecedor): editar um bloco e menu de mais ações.
+  edit: wrap(Pencil),
+  moreVertical: wrap(EllipsisVertical),
+  delivery: wrap(Truck),
 } as const;
 
 export type AppIconKey = keyof typeof APP_ICONS;

@@ -234,6 +234,29 @@ export interface SubmitForecastFeedbackPayload {
 
 // ── Pickers (reaproveita os endpoints legados já usados por `stock-purchase-review`) ──
 
+/** «Necessidades de reposição» do separador Abastecimento da ficha do fornecedor. */
+export interface SupplierReplenishmentRowDTO {
+  stockItemId: string;
+  name: string;
+  /** Código do artigo no fornecedor (da última fatura). */
+  code: string | null;
+  categoryName: string | null;
+  baseUnit: string;
+  currentQuantity: number;
+  minStockQty: number;
+  /** Saídas (consumo, venda, quebra) dos últimos 30 dias, em unidade base. */
+  consumption30d: number;
+  suggestedBaseQty: number;
+  suggestedPurchaseQty: number | null;
+  purchaseUnit: string | null;
+  /** «forecast» = recomendação do Planeamento; «min_stock» = repor até ao mínimo. */
+  suggestionSource: "forecast" | "min_stock" | null;
+  lastPurchaseDate: string | null;
+  /** Preço unitário sem IVA da última compra. */
+  lastUnitPrice: number | null;
+  needsReplenishment: boolean;
+}
+
 export interface StockCategoryOptionDTO {
   id: string;
   name: string;
