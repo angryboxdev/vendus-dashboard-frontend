@@ -5,6 +5,7 @@ import { useStockPurchaseReviewModule } from "../../stock-purchase-review.module
 import { LocationSelect } from "../../../../components/LocationSelect.tsx";
 import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
 import { ApiError } from "../../../../lib/api.ts";
+import { PackagingPanel } from "./PackagingPanel.tsx";
 import {
   STOCK_PURCHASE_REVIEW_STATUS_LABELS,
   DECISION_SOURCE_LABELS,
@@ -74,11 +75,13 @@ interface LineRowProps {
   onResolved: (updated: StockPurchaseReviewDTO) => void;
   onVersionConflict: () => void;
   unresolvedGateOpen: boolean;
+  /** Embalagem de compra gravada: recarregar a revisão (pré-visualização e propostas). */
+  onPackagingSaved: () => void;
 }
 
 type SplitRow = { locationId: string | null; quantity: string };
 
-function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, onVersionConflict, unresolvedGateOpen }: LineRowProps) {
+function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, onVersionConflict, unresolvedGateOpen, onPackagingSaved }: LineRowProps) {
   const { api } = useStockPurchaseReviewModule();
   const { activeLocations, hasMultipleLocations } = useLocations();
   const isResolved = line.resolutionType !== "unresolved";
@@ -254,6 +257,19 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
           {RESOLUTION_TYPE_LABELS[line.resolutionType]}
         </p>
       </div>
+
+      <PackagingPanel
+        review={review}
+        line={line}
+        stockItemId={editing && mode === "existing_item" && stockItemId ? stockItemId : line.stockItemId}
+        stockItems={stockItems}
+        readOnly={isTerminal || unresolvedGateOpen}
+        onSaved={(factor) => {
+          // O fator vem da embalagem confirmada (nunca um número opaco escrito à mão).
+          if (factor && editing) setConversionFactor(String(factor));
+          onPackagingSaved();
+        }}
+      />
 
       {line.flaggedSuspiciousConversion && (
         <p className="mt-1 text-xs text-amber-600">Aviso: conversão pouco habitual{line.flagReason ? ` — ${line.flagReason}` : ""}. Confirma antes de avançar.</p>
@@ -749,6 +765,7 @@ export function StockPurchaseReviewDetailView() {
               onResolved={handleUpdated}
               onVersionConflict={handleVersionConflict}
               unresolvedGateOpen={unresolvedGateOpen}
+              onPackagingSaved={() => void qc.invalidateQueries({ queryKey: ["stock-purchase-review", id] })}
             />
           ))}
         </div>

@@ -112,3 +112,7 @@ mockup, fica para depois.
 ## F3c (task v1.2)
 - «Importar fatura» na lista (`StockImportInvoiceModal`): `importInvoiceForStock` (`POST /api/invoices/import-for-stock`). Nova → abre a revisão; `already_in_stock` → aviso vermelho e bloqueio (só «Abrir a revisão»); `already_in_review` → abrir; `exists_not_routed` → «Enviar para Compras por rever» (`routeExisting`); `extraction_failed` → «Tentar de novo» (máx. 2).
 - Lista: origem «Stock» e etiqueta «Aguarda Financeiro»; detalhe: aviso de pendência e das condições para dar entrada antes do Financeiro.
+
+## Embalagem de compra
+- `PackagingPanel` em cada linha da revisão: «Fatura: 20 kg × 6,20 €/kg − 12,40 € desconto = 111,60 € (sem IVA)», «Embalagem confirmada: 1 saco = 2,5 kg → 8 sacos», «Stock após confirmar: +20 000 g · custo líquido: 5,58 €/kg · 13,95 €/saco · 0,00558 €/g»; ou «Embalagem por configurar». O editor (vem em…, cada saco tem…, a fatura conta sacos/kg, mínimo e incremento) mostra as equivalências antes de gravar (`domain/services/presentation.ts`, mesmas regras do servidor) e preenche o fator da linha — nunca se escreve um fator opaco.
+- API: `listPresentations(supplierId)`, `savePresentation(payload)`.
