@@ -11,7 +11,7 @@ import {
   compactKpis,
   reviewProgress,
   compactRows,
-  invoiceBreakdown,
+  rowBreakdown,
   matchesFilter,
   sortRows,
   type CompactFilter,
@@ -559,9 +559,7 @@ function CompactReviewList({
                     )}
                   </td>
                   <td className="px-3 py-2 text-xs tabular-nums text-stone-500">
-                    {r.lines.map((l) => (
-                      <p key={l.id} className="whitespace-nowrap">{invoiceBreakdown(l)}</p>
-                    ))}
+                    <p className="whitespace-nowrap">{rowBreakdown(r)}</p>
                   </td>
                   <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-stone-700">{r.invoiced}</td>
                   <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-stone-700">{r.expected ? `${qtyFmt(r.expected.quantity)} ${r.expected.unit}` : "—"}</td>

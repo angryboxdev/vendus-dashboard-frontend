@@ -90,7 +90,7 @@ mockup, fica para depois.
   dos separadores, em largura total. Mesmas rotas; quem só tem
   `stock.purchase_reviews` vê «Inventário» no menu e cai neste separador.
 
-- **Progresso da conciliação** (`ReviewProgressCard`, `reviewProgress` em `compact-review.ts`): no topo do detalhe, «40 / 44 linhas resolvidas» + barra segmentada (resolvidas · por resolver · fora do Stock), contando **linhas da fatura** (o Cheddar de dois lotes conta 2). Barra em vez de gráfico circular: com uma categoria dominante, as fatias pequenas ficam ilegíveis numa pizza. A legenda filtra a lista (estado do filtro no detalhe; outro clique = todas). Substitui o indicador «Linhas do documento».
+- **Progresso da conciliação** (`ReviewProgressCard`, `reviewProgress` em `compact-review.ts`): no topo do detalhe, «40 / 44 linhas resolvidas» + barra segmentada (resolvidas · por resolver · fora do Stock), contando **linhas da fatura** (o Cheddar de dois lotes conta 2). Barra em vez de gráfico circular: com uma categoria dominante, as fatias pequenas ficam ilegíveis numa pizza. A legenda filtra a lista (estado do filtro no detalhe; outro clique = todas). Substitui o indicador «Linhas do documento». Linha agrupada (vários lotes do mesmo artigo) mostra só o **total** em «Faturado» («7 kg», não «6 + 1 kg») e em «Na fatura» «37 × 1 un × 5,00 €» ou «2 lotes»; o detalhe de cada lote fica no painel ao expandir (decisão do utilizador, 2026-10-26).
 
 ## Como testar
 
