@@ -21,10 +21,12 @@ import { MOVEMENT_KIND_LABELS } from "../../domain/services/movement-kind.ts";
 import { rowStatus, visibleMonthDays, type MonthChip, type MonthSort, type MonthTab, type RowStatus } from "../../domain/services/month-movements.ts";
 import { maskIban } from "../../domain/services/statement-account.ts";
 import { buildRecurringRulePayload, type RecurringRuleDraft } from "../../domain/services/recurring-rule.ts";
+import { bulkReconcileItems, type BulkReconcileItem } from "../../domain/services/suggestions.ts";
 import { KpiCard } from "./BankUi.tsx";
 import {
   AppIcon,
   Button,
+  Dialog,
   EmptyState,
   FIELD,
   IconArrowDown,
@@ -330,6 +332,34 @@ export function MonthDetailView() {
     onError: (e: Error) => showToast(e.message, "error"),
   });
 
+  // «Conciliar todas» (sugestões de faturas/contas a pagar): a mesma conciliação do painel, uma a uma; se
+  // alguma falhar (ex.: a fatura entretanto foi paga), as outras seguem e o aviso diz quantas ficaram.
+  const [confirmBulk, setConfirmBulk] = useState<BulkReconcileItem[] | null>(null);
+  const bulkMut = useMutation({
+    mutationFn: async (items: BulkReconcileItem[]) => {
+      let ok = 0;
+      const failed: string[] = [];
+      for (const item of items) {
+        try {
+          await api.reconcileMovement(item.movementId, item.entityLinks);
+          ok += 1;
+        } catch (e) {
+          failed.push(e instanceof Error ? e.message : "erro");
+        }
+      }
+      return { ok, failed };
+    },
+    onSuccess: ({ ok, failed }) => {
+      void qc.invalidateQueries({ queryKey: ["bank-month", accountId, year, month] });
+      void qc.invalidateQueries({ queryKey: ["bank-calendar", accountId, year] });
+      void qc.invalidateQueries({ queryKey: ["bank-month-suggestions", accountId, year, month] });
+      setConfirmBulk(null);
+      if (failed.length === 0) showToast(`${ok} movimento${ok === 1 ? "" : "s"} conciliado${ok === 1 ? "" : "s"} com a fatura sugerida`);
+      else showToast(`${ok} conciliado${ok === 1 ? "" : "s"}, ${failed.length} não: ${failed[0]}`, "error");
+    },
+    onError: (e: Error) => showToast(e.message, "error"),
+  });
+
   // "Liquidação agrupada" — settles one or more invoices/credit notes at
   // once. `ClassifyDrawer` calls this via `mutateAsync` and catches the 409
   // itself (to show its own stale-document modal), so this mutation's
@@ -529,9 +559,27 @@ export function MonthDetailView() {
         <div className="space-y-6">
           {suggestions!.entityMatches.length > 0 && (
             <div>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-stone-400">
-                Faturas / contas a pagar ({suggestions!.entityMatches.length})
-              </h3>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                  Faturas / contas a pagar ({suggestions!.entityMatches.length})
+                </h3>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  icon={<IconCheck size={14} />}
+                  disabled={bulkMut.isPending}
+                  onClick={() =>
+                    setConfirmBulk(
+                      bulkReconcileItems(
+                        suggestions!.entityMatches,
+                        new Map([...movementsById.values()].map((m) => [m.id, m.amount])),
+                      ),
+                    )
+                  }
+                >
+                  Conciliar todas ({suggestions!.entityMatches.length})
+                </Button>
+              </div>
               <div className="space-y-2">
                 {suggestions!.entityMatches.map((s) => {
                   const movement = movementsById.get(s.movementId);
@@ -756,6 +804,27 @@ export function MonthDetailView() {
         bankAccountId={accountId}
       />
 
+      <Dialog
+        open={!!confirmBulk}
+        title={`Conciliar ${confirmBulk?.length ?? 0} movimento${confirmBulk?.length === 1 ? "" : "s"}?`}
+        description={
+          confirmBulk && (
+            <>
+              Cada movimento fica conciliado com a fatura / conta a pagar sugerida (total{" "}
+              {fromCents(confirmBulk.reduce((s, i) => s + i.amountCents, 0))}). Podes anular qualquer uma depois, no movimento.
+            </>
+          )
+        }
+        onClose={() => !bulkMut.isPending && setConfirmBulk(null)}
+        actions={
+          <>
+            <Button onClick={() => setConfirmBulk(null)} disabled={bulkMut.isPending}>Cancelar</Button>
+            <Button variant="primary" loading={bulkMut.isPending} onClick={() => confirmBulk && bulkMut.mutate(confirmBulk)}>
+              Conciliar todas
+            </Button>
+          </>
+        }
+      />
       <ToastContainer toasts={toasts} />
     </div>
   );
