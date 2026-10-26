@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { StockPurchaseReviewDTO, StockReviewLineDTO } from "../entities/stock-purchase-review.ts";
-import { compactKpis, compactRows, matchesFilter, sortRows } from "./compact-review.ts";
+import { compactKpis, compactRows, matchesFilter, reviewProgress, sortRows } from "./compact-review.ts";
 
 const line = (over: Partial<StockReviewLineDTO>): StockReviewLineDTO => ({
   id: "x", invoiceLineId: "x", description: "", purchaseQuantity: 1, purchaseUnit: "un", unitCostWithoutVat: 0, totalWithVat: 0, vatAmount: 0,
@@ -24,13 +24,13 @@ const items: Record<string, { name: string; baseUnit: string }> = {
 };
 
 describe("lista compacta da conciliação (V5 §2)", () => {
-  it("T01/T02: 5 linhas do documento, 4 artigos; Cheddar 6 + 1 kg → 7 000 g e 54,53 € numa linha, com as 2 linhas por baixo", () => {
+  it("T01/T02: 5 linhas do documento, 4 artigos; Cheddar 6 + 1 kg mostra só o total (7 kg) → 7 000 g e 54,53 € numa linha, com as 2 linhas por baixo", () => {
     expect(compactKpis(review)).toMatchObject({ documentLines: 5, stockItems: 4, netCents: 33099, totalCents: 35738, pending: 0 });
     const rows = compactRows(review, (id) => items[id]);
     expect(rows.map((r) => [r.label, r.invoiced, r.expected?.quantity, r.netCents, r.lines.length])).toEqual([
       ["Mozzarela Ralado", "40 kg", 40000, 22320, 1],
       ["Grana Padano", "1 un", 1000, 1481, 1],
-      ["Cheddar Ralado", "6 + 1 kg", 7000, 5453, 2],
+      ["Cheddar Ralado", "7 kg", 7000, 5453, 2],
       ["Tomate Mutti", "4 un", 20000, 3845, 1],
     ]);
   });
@@ -68,5 +68,22 @@ describe("coluna «Na fatura» para conferir (V5)", () => {
     expect(invoiceBreakdown(line({ description: "Tomate Mutti p/ Pizza Classico 5 kg bolsa", purchaseQuantity: 4 }))).toBe("4 bolsas × 5 kg = 20 kg");
     expect(invoiceBreakdown(line({ description: "Q. Grana Padano Ralado Maser 1 kg", purchaseQuantity: 1 }))).toBe("1 × 1 kg = 1 kg");
     expect(invoiceBreakdown(line({ description: "Q. Cheddar Ralado kg", purchaseQuantity: 6, unitCostWithoutVat: 820 }))).toBe("6 kg × 8,20 €");
+  });
+});
+
+describe("progresso da conciliação (resumo do topo)", () => {
+  it("conta linhas da fatura: resolvidas, por resolver (com proposta) e fora do Stock", () => {
+    const proposal = { source: "learned", resolution: "existing_item", stockItemId: "cheddar", conversionFactor: 1000, confidence: 1, packagingChanged: false } as StockReviewLineDTO["suggestion"];
+    const mixed = {
+      lines: [
+        ...lines,
+        line({ id: "p1", resolutionType: "unresolved", suggestion: proposal }),
+        line({ id: "p2", resolutionType: "unresolved" }),
+        line({ id: "dep", resolutionType: "no_stock_effect" }),
+      ],
+    } as unknown as StockPurchaseReviewDTO;
+    // O Cheddar em dois lotes conta duas vezes: são duas linhas da fatura.
+    expect(reviewProgress(mixed)).toEqual({ total: 8, resolved: 5, pending: 2, withProposal: 1, out: 1 });
+    expect(reviewProgress(review)).toEqual({ total: 5, resolved: 5, pending: 0, withProposal: 0, out: 0 });
   });
 });

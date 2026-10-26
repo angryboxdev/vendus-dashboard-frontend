@@ -24,7 +24,7 @@ export interface CompactRow {
   label: string;
   reference: string | null;
   state: CompactState;
-  /** «40 kg», «6 + 1 kg», «4 un». */
+  /** Total faturado: «40 kg», «7 kg» (6 + 1 kg em dois lotes), «4 un». O detalhe por lote fica no painel. */
   invoiced: string;
   /** Entrada prevista na unidade do artigo (não é movimento realizado); null sem conversão. */
   expected: { quantity: number; unit: string } | null;
@@ -77,7 +77,7 @@ export function compactRows(review: StockPurchaseReviewDTO, itemName: (id: strin
   }
   for (const row of rows) {
     const unit = invoicedUnit(row.lines[0]!);
-    row.invoiced = `${row.lines.map((l) => qty(l.purchaseQuantity)).join(" + ")} ${unit}`;
+    row.invoiced = `${qty(row.lines.reduce((s, l) => s + l.purchaseQuantity, 0))} ${unit}`;
     row.netCents = row.lines.reduce((s, l) => s + netOf(l), 0);
     const first = row.lines[0]!;
     const baseUnit = (first.stockItemId ? itemName(first.stockItemId)?.baseUnit : undefined) ?? first.packaging?.baseUnit ?? null;
@@ -141,6 +141,16 @@ const eurDoc = (cents: number) => (cents / 100).toLocaleString("pt-PT", { minimu
  * Como a linha aparece na fatura, para conferir (V5): «16 sacos × 2,5 kg = 40 kg» quando a embalagem é
  * conhecida (confirmada ou escrita na descrição); senão «40 kg × 6,20 €». Só informação — não decide nada.
  */
+/**
+ * «Na fatura» de uma linha da lista: uma linha da fatura → o detalhe dela; várias iguais → «37 × 1 un × 5,00 €»;
+ * lotes diferentes → «2 lotes» (o detalhe de cada lote abre no painel, para a lista não crescer).
+ */
+export function rowBreakdown(row: Pick<CompactRow, "lines">): string {
+  const parts = row.lines.map(invoiceBreakdown);
+  if (parts.length === 1) return parts[0]!;
+  return parts.every((p) => p === parts[0]) ? `${parts.length} × ${parts[0]}` : `${parts.length} lotes`;
+}
+
 export function invoiceBreakdown(l: StockReviewLineDTO): string {
   const unit = invoicedUnit(l);
   const q = l.purchaseQuantity;
@@ -159,4 +169,31 @@ export function invoiceBreakdown(l: StockReviewLineDTO): string {
     return `${qty(q)}${label} × ${qty(pack.quantity)} ${pack.unit} = ${qty(q * pack.quantity)} ${pack.unit}`;
   }
   return `${qty(q)} ${unit} × ${eurDoc(l.unitCostWithoutVat)} €`;
+}
+
+export interface ReviewProgress {
+  /** Linhas da fatura (não as linhas agrupadas da lista). */
+  total: number;
+  /** Associadas a um artigo do Stock. */
+  resolved: number;
+  /** Ainda sem decisão; `withProposal` delas têm proposta completa pronta a aceitar. */
+  pending: number;
+  withProposal: number;
+  /** Decididas como fora do Stock (depósitos, serviços…). */
+  out: number;
+}
+
+/** Progresso da conciliação para o resumo do topo: resolvidas, por resolver e fora do Stock. */
+export function reviewProgress(review: StockPurchaseReviewDTO): ReviewProgress {
+  const p: ReviewProgress = { total: review.lines.length, resolved: 0, pending: 0, withProposal: 0, out: 0 };
+  for (const l of review.lines) {
+    const s = compactState(l);
+    if (s === "resolved") p.resolved++;
+    else if (s === "out") p.out++;
+    else {
+      p.pending++;
+      if (s === "confirm") p.withProposal++;
+    }
+  }
+  return p;
 }

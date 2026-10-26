@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { StockPurchaseReviewProvider } from "../../stock-purchase-review.module.tsx";
@@ -64,9 +64,10 @@ function renderView(api: Partial<StockPurchaseReviewApiPort>) {
 }
 
 describe("StockPurchaseReviewDetailView (V5 — conciliação compacta)", () => {
-  it("cabeçalho, quatro indicadores, linha compacta com referência; ao rever: base/IVA e as três ações, sem loja nem divisão", async () => {
+  it("cabeçalho, progresso da conciliação e três indicadores, linha compacta com referência; ao rever: base/IVA e as três ações, sem loja nem divisão", async () => {
     renderView({ getReview: async () => review() });
-    expect(await screen.findByText("Linhas do documento")).toBeTruthy();
+    expect(await screen.findByRole("region", { name: "Progresso da conciliação" })).toBeTruthy();
+    expect(screen.queryByText("Linhas do documento")).toBeNull();
     for (const k of ["Artigos distintos para Stock", "Base sem IVA", "Total da fatura"]) expect(screen.getByText(k)).toBeTruthy();
     // Pendência de categorias aparece só porque existe; não impede a entrada.
     expect(screen.getByText(/Batedeira industrial/)).toBeTruthy();
@@ -132,6 +133,35 @@ describe("StockPurchaseReviewDetailView (V5 — conciliação compacta)", () => 
   });
 });
 
+describe("StockPurchaseReviewDetailView — progresso da conciliação", () => {
+  const lines = [
+    line({ id: "a", resolutionType: "existing_item", stockItemId: "item-farinha", conversionFactor: 25, stockQuantity: 300 }),
+    line({ id: "b", resolutionType: "existing_item", stockItemId: "item-farinha", conversionFactor: 25, stockQuantity: 300 }),
+    line({ id: "c", description: "Por associar" }),
+    line({ id: "d", description: "DEPOSITO 28 X 0.10 EUR", resolutionType: "no_stock_effect" }),
+  ];
+
+  it("2/4 resolvidas, 1 por resolver, 1 fora do Stock; a legenda filtra a lista e volta a mostrar tudo", async () => {
+    renderView({ getReview: async () => review({ lines }) });
+    const card = await screen.findByRole("region", { name: "Progresso da conciliação" });
+    expect(card.textContent).toMatch(/2\s*\/\s*4\s*linhas resolvidas/);
+    expect(card.textContent).toMatch(/Falta 1 linha/);
+    expect(screen.getByRole("img", { name: /2 resolvidas, 1 por resolver e 1 fora do Stock/ })).toBeTruthy();
+    const outButton = within(card).getByRole("button", { name: /1\s*Fora do Stock/ });
+    fireEvent.click(outButton);
+    expect(outButton.getAttribute("aria-pressed")).toBe("true");
+    expect(screen.getByText("DEPOSITO 28 X 0.10 EUR")).toBeTruthy();
+    expect(screen.queryByText("Por associar")).toBeNull();
+    fireEvent.click(outButton);
+    expect(screen.getByText("Por associar")).toBeTruthy();
+  });
+
+  it("sem linhas por resolver: «Tudo conciliado»", async () => {
+    renderView({ getReview: async () => review({ status: "ready", lines: [lines[0]!, lines[3]!] }) });
+    expect(await screen.findByText("Tudo conciliado")).toBeTruthy();
+  });
+});
+
 describe("StockPurchaseReviewDetailView (F3b — conciliação e fila)", () => {
   const proposal = (over: Partial<NonNullable<StockReviewLineDTO["suggestion"]>> = {}) => ({
     source: "ai" as const, resolution: "existing_item" as const, stockItemId: "item-farinha", conversionFactor: 25, confidence: 0.92, packagingChanged: false, ...over,
@@ -188,15 +218,18 @@ describe("StockPurchaseReviewDetailView (V5 — ordem, filtros e agrupamento só
       ],
     });
     renderView({ getReview: async () => r, listStockItemOptions: async () => [{ id: "item-cheddar", name: "Cheddar Ralado", baseUnit: "g", categoryId: "c", isActive: true }] });
-    expect(await screen.findByText("6 + 1 kg")).toBeTruthy();
+    // Total faturado na lista; «6 + 1» e cada lote só no painel.
+    expect(await screen.findByText("7 kg")).toBeTruthy();
+    expect(screen.queryByText(/6 + 1/)).toBeNull();
+    expect(screen.getByText("2 lotes")).toBeTruthy();
     expect(screen.getByText("7000 g")).toBeTruthy();
     expect(screen.getByText(/54,53\s€/)).toBeTruthy();
     expect(screen.getByText(/2 linhas da fatura/)).toBeTruthy();
-    const states = screen.getAllByText(/^(Resolvido|Por rever|Fora do Stock)$/, { selector: "span" }).map((el) => el.textContent);
+    const states = within(screen.getByRole("region", { name: "Linhas da fatura" })).getAllByText(/^(Resolvido|Por rever|Fora do Stock)$/, { selector: "span" }).map((el) => el.textContent);
     expect(states).toEqual(["Resolvido", "Por rever", "Fora do Stock"]);
     fireEvent.click(screen.getByRole("tab", { name: /Fora do Stock/ }));
     expect(screen.getByText("Portes")).toBeTruthy();
-    expect(screen.queryByText("6 + 1 kg")).toBeNull();
+    expect(screen.queryByText("7 kg")).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: /Todos/ }));
     fireEvent.click(screen.getAllByRole("button", { name: "Ver" })[0]!);
     expect(screen.getByText("Associado automaticamente")).toBeTruthy();
