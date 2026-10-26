@@ -43,6 +43,18 @@ export interface StatementPreview {
   periodStart: string | null;     // YYYY-MM-DD
   periodEnd: string | null;       // YYYY-MM-DD
   movementsCount: number;
+  /** V2 — opcionais: um backend anterior não os envia. */
+  inflowCents?: number;
+  outflowCents?: number;
+  /** Modelo de PDF reconhecido (ex.: «millennium_pdf»); `null` para CSV/XLSX. */
+  template?: string | null;
+  iban?: string | null;
+  currency?: string | null;
+  statementNumber?: string | null;
+  accountLabel?: string | null;
+  issues?: { code: string; message: string; blocking: boolean }[];
+  /** `false` quando o extrato não fecha (saldos/movimentos ilegíveis): não se pode importar. */
+  canImport?: boolean;
 }
 
 export interface BankStatementsApiPort {

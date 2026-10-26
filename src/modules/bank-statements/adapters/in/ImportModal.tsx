@@ -3,6 +3,10 @@ import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { createPortal } from "react-dom";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
 import type { StatementPreview } from "../../domain/ports/out/bank-statements-api.port.ts";
+import { isSameAccount, maskIban } from "../../domain/services/statement-account.ts";
+
+const eur = (cents: number) => (cents / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
+const fmtDate = (iso: string) => iso.split("-").reverse().join("/");
 
 export function ImportModal({
   open,
@@ -38,6 +42,8 @@ export function ImportModal({
   const [periodStart, setPeriodStart] = useState("");
   const [periodEnd, setPeriodEnd] = useState("");
   const [movementsCount, setMovementsCount] = useState<number | null>(null);
+  // Extrato em PDF reconhecido: resumo lido e validado pelo servidor (saldos não se editam à mão).
+  const [pdfPreview, setPdfPreview] = useState<StatementPreview | null>(null);
 
   useEffect(() => {
     if (contextBankName) setBankName(contextBankName);
@@ -61,6 +67,7 @@ export function ImportModal({
       setPeriodStart("");
       setPeriodEnd("");
       setMovementsCount(null);
+      setPdfPreview(null);
     }
   }, [open]);
 
@@ -70,7 +77,9 @@ export function ImportModal({
     inAccountContext &&
     detectedAccount != null &&
     detectedAccount !== "" &&
-    detectedAccount !== contextAccountIdentifier;
+    !isSameAccount(contextAccountIdentifier!, detectedAccount, pdfPreview?.iban ?? null);
+  const blockingIssues = (pdfPreview?.issues ?? []).filter((i) => i.blocking);
+  const warnings = (pdfPreview?.issues ?? []).filter((i) => !i.blocking);
 
   async function handleAnalyse() {
     if (!selectedFile) return;
@@ -90,6 +99,7 @@ export function ImportModal({
       if (preview.periodStart) setPeriodStart(preview.periodStart);
       if (preview.periodEnd) setPeriodEnd(preview.periodEnd);
       setMovementsCount(preview.movementsCount);
+      setPdfPreview(preview.template ? preview : null);
       setStep(2);
     } catch (e) {
       setPreviewError(e instanceof Error ? e.message : "Erro ao analisar o ficheiro.");
@@ -152,15 +162,15 @@ export function ImportModal({
               </div>
             )}
             <div>
-              <label className={labelCls}>Ficheiro CSV ou XLSX</label>
+              <label className={labelCls}>Ficheiro do extrato (PDF, CSV ou XLSX)</label>
               <input
                 type="file"
-                accept=".csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                accept=".pdf,application/pdf,.csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                 className="w-full text-sm text-stone-600"
                 onChange={(e) => { setSelectedFile(e.target.files?.[0] ?? null); setPreviewError(null); }}
               />
               <p className="mt-1 text-xs text-stone-400">
-                Suporta CSV (Millennium BCP ou genérico PT) e Excel (.xlsx / .xls).
+                PDF do Millennium BCP («Extrato Combinado»), CSV (Millennium BCP ou genérico PT) e Excel (.xlsx / .xls).
               </p>
             </div>
             {previewError && (
@@ -230,6 +240,39 @@ export function ImportModal({
                 </div>
               </div>
             )}
+            {pdfPreview && (
+              <div className="rounded-lg border border-stone-200 bg-white">
+                <div className="flex items-center justify-between border-b border-stone-100 px-4 py-2.5">
+                  <span className="text-sm font-semibold text-stone-800">{pdfPreview.bankName}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${blockingIssues.length ? "bg-red-50 text-red-700" : "bg-emerald-50 text-emerald-700"}`}>
+                    {blockingIssues.length ? "Com erro de leitura" : "Extrato reconhecido · saldos conferidos"}
+                  </span>
+                </div>
+                <dl className="grid grid-cols-2 gap-x-4 gap-y-1.5 px-4 py-3 text-xs">
+                  <dt className="text-stone-500">Conta</dt>
+                  <dd className="text-right text-stone-800">{[pdfPreview.accountLabel, pdfPreview.accountNumber].filter(Boolean).join(" · ") || "—"}</dd>
+                  {pdfPreview.iban && (<><dt className="text-stone-500">IBAN</dt><dd className="text-right font-mono text-stone-800">{maskIban(pdfPreview.iban)}</dd></>)}
+                  <dt className="text-stone-500">Período</dt>
+                  <dd className="text-right text-stone-800">{periodStart && periodEnd ? `${fmtDate(periodStart)} a ${fmtDate(periodEnd)}` : "—"}</dd>
+                  {pdfPreview.statementNumber && (<><dt className="text-stone-500">Extrato n.º</dt><dd className="text-right text-stone-800">{pdfPreview.statementNumber}</dd></>)}
+                  <dt className="text-stone-500">Movimentos</dt>
+                  <dd className="text-right text-stone-800">{pdfPreview.movementsCount}</dd>
+                  <dt className="text-stone-500">Entradas / saídas</dt>
+                  <dd className="text-right"><span className="text-emerald-700">+{eur(pdfPreview.inflowCents ?? 0)}</span> <span className="text-stone-300">/</span> <span className="text-red-600">−{eur(pdfPreview.outflowCents ?? 0)}</span></dd>
+                  <dt className="text-stone-500">Saldo inicial → final</dt>
+                  <dd className="text-right text-stone-800">{eur(pdfPreview.openingBalance ?? 0)} → {eur(pdfPreview.closingBalance ?? 0)}</dd>
+                </dl>
+                {[...blockingIssues, ...warnings].length > 0 && (
+                  <ul className="space-y-1 border-t border-stone-100 px-4 py-2.5 text-xs">
+                    {[...blockingIssues, ...warnings].map((i, n) => (
+                      <li key={n} className={i.blocking ? "text-red-700" : "text-amber-700"}>{i.message}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+            {!pdfPreview && (
+            <>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={labelCls}>Saldo inicial (€) *</label>
@@ -250,12 +293,14 @@ export function ImportModal({
                 <input type="date" value={periodEnd} onChange={(e) => setPeriodEnd(e.target.value)} className={inputCls} />
               </div>
             </div>
+            </>
+            )}
             <div className="flex gap-3 border-t border-[#F5C992]/40 pt-4">
               <button type="button" onClick={() => setStep(1)}
                 className="flex-1 rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">
                 ← Voltar
               </button>
-              <button type="submit" disabled={saving}
+              <button type="submit" disabled={saving || blockingIssues.length > 0}
                 className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
                 {saving ? "A importar…" : "Importar"}
               </button>
