@@ -29,7 +29,7 @@ const SITUATION_TONE: Partial<Record<StockSituation, string>> = {
   inactive: "bg-surface-soft text-ink-muted",
 };
 
-const EMPTY_FILTERS: CatalogFilters = { search: "", categoryId: "", type: "", status: "active", situation: "" };
+const EMPTY_FILTERS: CatalogFilters = { search: "", categoryId: "", type: "", status: "active", situation: "", cost: "" };
 
 /**
  * «Artigos e ingredientes» (task V6): uma tabela, três vistas (Geral, Reposição, Custos) da mesma
@@ -42,12 +42,19 @@ export function ArticlesView({
   headerActions,
   onEdit,
   renderPriceHistory,
+  initialFilters,
+  initialView,
+  initialOpen,
 }: {
   canManage: boolean;
   reloadKey: number;
   headerActions: ReactNode;
   onEdit: (item: StockItemDTO) => void;
   renderPriceHistory: (stockItemId: string) => ReactNode;
+  /** Vindo das Fichas técnicas: «Sem custo conhecido» já filtrado, ou um artigo aberto em Preços e histórico. */
+  initialFilters?: Partial<CatalogFilters>;
+  initialView?: CatalogView;
+  initialOpen?: { id: string; tab: DrawerTab } | null;
 }) {
   const { api } = useStockCatalogModule();
   const [items, setItems] = useState<StockItemDTO[] | null>(null);
@@ -55,12 +62,12 @@ export function ArticlesView({
   const [overview, setOverview] = useState<CostOverviewResponseDTO | null>(null);
   const [presentations, setPresentations] = useState<PurchasePresentationDTO[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [view, setView] = useState<CatalogView>("general");
-  const [filters, setFilters] = useState<CatalogFilters>(EMPTY_FILTERS);
+  const [view, setView] = useState<CatalogView>(initialView ?? "general");
+  const [filters, setFilters] = useState<CatalogFilters>({ ...EMPTY_FILTERS, ...initialFilters });
   const [sort, setSort] = useState<{ key: SortKey; dir: "asc" | "desc" }>({ key: "name", dir: "asc" });
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(25);
-  const [open, setOpen] = useState<{ id: string; tab: DrawerTab } | null>(null);
+  const [open, setOpen] = useState<{ id: string; tab: DrawerTab } | null>(initialOpen ?? null);
   const [menu, setMenu] = useState<string | null>(null);
 
   useEffect(() => {
@@ -241,6 +248,13 @@ export function ArticlesView({
           </select>
         </label>
         <label className="flex flex-col text-[11px] text-ink-muted">
+          Custo
+          <select value={filters.cost ?? ""} onChange={(e) => setFilter({ cost: e.target.value as CatalogFilters["cost"] })} className="mt-0.5 rounded-md border border-line px-2 py-1.5 text-sm text-ink">
+            <option value="">Todos</option>
+            <option value="unknown">Sem custo conhecido</option>
+          </select>
+        </label>
+        <label className="flex flex-col text-[11px] text-ink-muted">
           Situação
           <select value={filters.situation} onChange={(e) => setFilter({ situation: e.target.value as CatalogFilters["situation"] })} className="mt-0.5 rounded-md border border-line px-2 py-1.5 text-sm text-ink">
             <option value="">{view === "replenishment" ? "Com algo em falta" : "Todas"}</option>
@@ -250,7 +264,7 @@ export function ArticlesView({
             ))}
           </select>
         </label>
-        {(filters.search || filters.categoryId || filters.type || filters.situation || filters.status !== "active") && (
+        {(filters.search || filters.categoryId || filters.type || filters.situation || filters.cost || filters.status !== "active") && (
           <button type="button" onClick={() => setFilter(EMPTY_FILTERS)} className="pb-1.5 text-xs text-ink-secondary underline hover:text-ink">
             Limpar filtros
           </button>
