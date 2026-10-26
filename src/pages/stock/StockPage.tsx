@@ -1,9 +1,8 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { NumericInput } from "../../components/NumericInput.tsx";
 
 import { apiGet, apiPost, apiPut } from "../../lib/api";
-import { formatEUR, formatNumber } from "../../lib/format";
 import type {
   StockBaseUnit,
   StockCategory,
@@ -21,104 +20,70 @@ import {
 import { LocationSelect } from "../../components/LocationSelect.tsx";
 import { useLocations } from "../../modules/locations/adapters/in/use-locations.ts";
 import { resolveLocationId } from "../../modules/locations/domain/services/resolve-location-id.ts";
-import { InvoiceImportModal } from "./invoiceImport/InvoiceImportModal";
 import { ReferenceCostField, formatPerPricingUnit } from "./ReferenceCostField.tsx";
 import { RecipeCostingProvider } from "../../modules/recipe-costing/recipe-costing.module.tsx";
 import { IngredientPriceHistory } from "../../modules/recipe-costing/adapters/in/IngredientPriceHistory.tsx";
 import { StockPurchaseReviewProvider } from "../../modules/stock-purchase-review/stock-purchase-review.module.tsx";
 import { EntryRulesModal } from "../../modules/stock-purchase-review/adapters/in/EntryRulesModal.tsx";
-import type { ReviewableInvoiceLine } from "./invoiceImport/invoiceImport.types";
-import { mapInvoiceLineToNewStockItemForm } from "./invoiceImport/mapInvoiceLineToNewStockItem";
 import type { StockPurchaseReviewRowDTO } from "../../modules/stock-purchase-review/domain/entities/stock-purchase-review.ts";
 import { OPEN_STOCK_PURCHASE_REVIEW_STATUSES } from "../../modules/stock-purchase-review/domain/entities/stock-purchase-review.ts";
+import { StockCatalogProvider } from "../../modules/stock-catalog/stock-catalog.module.tsx";
+import { ArticlesView } from "../../modules/stock-catalog/adapters/in/ArticlesView.tsx";
+import { useAuth } from "../../contexts/AuthContext";
 
 const DEFAULT_CATEGORY_NAME = "Geral";
 
-/** Percentagem do mínimo acima da qual o stock é considerado OK. Ex: 1.2 = 120% → "próximo" entre min e min×1.2 */
-const APPROACHING_THRESHOLD_PCT = 1.2;
+const EMPTY_NEW_ITEM: StockItemCreateBody = {
+  name: "",
+  category_id: "",
+  type: "ingredient",
+  base_unit: "kg",
+  min_stock: 0,
+  is_sellable: false,
+  sale_price: null,
+  is_active: true,
+  purchase_reference_unit_cost_with_vat: null,
+  purchase_reference_unit_cost_without_vat: null,
+};
 
-function buildItemsQuery(params: {
-  category_id?: string;
-  type?: string;
-  is_active?: string;
-}) {
-  const q = new URLSearchParams();
-  if (params.category_id) q.set("category_id", params.category_id);
-  if (params.type) q.set("type", params.type);
-  if (params.is_active !== undefined && params.is_active !== "")
-    q.set("is_active", params.is_active);
-  const s = q.toString();
-  return s ? `?${s}` : "";
-}
-
+/**
+ * «Artigos e ingredientes» (task V6): a lista é a tabela única do módulo `stock-catalog` (Geral,
+ * Reposição, Custos + painel lateral); esta página só junta as ações e os formulários existentes
+ * (Novo artigo, Editar, Regras de entrada). O importador antigo do Stock foi desligado: a entrada de
+ * faturas faz-se pelas Compras por rever.
+ */
 export function StockPage() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  const invoiceImportId = searchParams.get("invoice_import");
   const { locations } = useLocations();
+  const { user } = useAuth();
+  const access = user?.access;
+  // Sem perfil carregado mantém o comportamento anterior; com perfil, editar exige MANAGE.
+  const canManage = !access || access.isAdmin || access.permissions["stock.items"] === "MANAGE";
 
   const [categories, setCategories] = useState<StockCategory[]>([]);
-  const [items, setItems] = useState<StockItem[]>([]);
-  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-
-  const [filterCategoryId, setFilterCategoryId] = useState<string>("");
-  const [filterType, setFilterType] = useState<string>("");
-  const [filterIsActive, setFilterIsActive] = useState<string>("true");
-  const [filterStockStatus, setFilterStockStatus] = useState<string>("");
-  const [search, setSearch] = useState("");
-  const [pageSize, setPageSize] = useState(10);
-  const [currentPage, setCurrentPage] = useState(1);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const [editItem, setEditItem] = useState<StockItem | null>(null);
   const [editForm, setEditForm] = useState<StockItemUpdateBody>({});
   const [saveError, setSaveError] = useState<string | null>(null);
 
   const [newItemModalOpen, setNewItemModalOpen] = useState(false);
-  const [newItemMovementDate, setNewItemMovementDate] = useState(() =>
-    new Date().toISOString().slice(0, 10),
-  );
-  const [newItemForm, setNewItemForm] = useState<StockItemCreateBody>({
-    name: "",
-    category_id: "",
-    type: "ingredient",
-    base_unit: "kg",
-    min_stock: 0,
-    is_sellable: false,
-    sale_price: null,
-    is_active: true,
-    purchase_reference_unit_cost_with_vat: null,
-    purchase_reference_unit_cost_without_vat: null,
-  });
+  const [newItemMovementDate, setNewItemMovementDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const [newItemForm, setNewItemForm] = useState<StockItemCreateBody>(EMPTY_NEW_ITEM);
   const [newItemInitialQty, setNewItemInitialQty] = useState<number>(0);
   const [newItemLocationId, setNewItemLocationId] = useState<string | null>(null);
   const [newItemError, setNewItemError] = useState<string | null>(null);
-  const [newItemForImportLineId, setNewItemForImportLineId] = useState<
-    string | null
-  >(null);
-  const linkStockItemToImportLineRef = useRef<
-    ((lineId: string, itemId: string) => void) | null
-  >(null);
 
-  const [invoiceImportOpen, setInvoiceImportOpen] = useState(false);
   const [entryRulesOpen, setEntryRulesOpen] = useState(false);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    if (invoiceImportId) setInvoiceImportOpen(true);
-  }, [invoiceImportId]);
-
-  // Contagem de "Compras por rever" ainda não terminais (pending/in_review/partial/ready),
-  // para o badge do link no lugar do antigo "Importar fatura" — reaproveita a listagem
-  // existente do módulo stock-purchase-review, sem endpoint novo dedicado a contagens.
+  // Contagem de «Compras por rever» ainda não terminais, para o botão do cabeçalho.
   const [openReviewsCount, setOpenReviewsCount] = useState(0);
   useEffect(() => {
     let cancelled = false;
     apiGet<StockPurchaseReviewRowDTO[]>("/api/stock-purchase-reviews")
       .then((rows) => {
-        if (cancelled) return;
-        setOpenReviewsCount(
-          rows.filter((r) => OPEN_STOCK_PURCHASE_REVIEW_STATUSES.includes(r.status)).length,
-        );
+        if (!cancelled) setOpenReviewsCount(rows.filter((r) => OPEN_STOCK_PURCHASE_REVIEW_STATUSES.includes(r.status)).length);
       })
       .catch(() => {
         if (!cancelled) setOpenReviewsCount(0);
@@ -128,116 +93,45 @@ export function StockPage() {
     };
   }, []);
 
-  const loadCategories = useCallback(async () => {
-    try {
-      const list = await apiGet<StockCategory[]>("/api/stock/categories");
-      setCategories(Array.isArray(list) ? list : []);
+  // Categorias para os formulários; sem nenhuma, cria a «Geral» para o primeiro artigo ter onde ficar.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      let list = await apiGet<StockCategory[]>("/api/stock/categories");
       if (!Array.isArray(list) || list.length === 0) {
-        await apiPost<StockCategory>("/api/stock/categories", {
-          name: DEFAULT_CATEGORY_NAME,
-        });
-        const again = await apiGet<StockCategory[]>("/api/stock/categories");
-        setCategories(Array.isArray(again) ? again : []);
+        await apiPost<StockCategory>("/api/stock/categories", { name: DEFAULT_CATEGORY_NAME });
+        list = await apiGet<StockCategory[]>("/api/stock/categories");
       }
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao carregar categorias");
-    }
+      if (!cancelled) setCategories(Array.isArray(list) ? list : []);
+    })().catch((e: unknown) => {
+      if (!cancelled) setError(e instanceof Error ? e.message : "Erro ao carregar categorias");
+    });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const loadItems = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const q = buildItemsQuery({
-        category_id: filterCategoryId || undefined,
-        type: filterType || undefined,
-        is_active: filterIsActive,
-      });
-      const list = await apiGet<StockItem[]>(`/api/stock/items${q}`);
-      setItems(Array.isArray(list) ? list : []);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Erro ao carregar items");
-      setItems([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [filterCategoryId, filterType, filterIsActive]);
-
-  useEffect(() => {
-    loadCategories();
-  }, [loadCategories]);
-
-  useEffect(() => {
-    if (categories.length > 0) {
-      loadItems();
-    }
-  }, [
-    loadItems,
-    categories.length,
-    filterCategoryId,
-    filterType,
-    filterIsActive,
-  ]);
-
-  const filteredItems = useMemo(() => {
-    let list = items;
-    const q = search.trim().toLowerCase();
-    if (q) {
-      list = list.filter(
-        (i) =>
-          i.name.toLowerCase().includes(q) ||
-          (i.sku ?? "").toLowerCase().includes(q),
-      );
-    }
-    if (filterStockStatus) {
-      list = list.filter((i) => {
-        const qty = i.current_quantity ?? 0;
-        const min = i.min_stock ?? 0;
-        const threshold = min * APPROACHING_THRESHOLD_PCT;
-        const below = min > 0 && qty < min;
-        const approaching = min > 0 && qty >= min && qty < threshold;
-        if (filterStockStatus === "below") return below;
-        if (filterStockStatus === "approaching") return approaching;
-        if (filterStockStatus === "below_and_approaching")
-          return below || approaching;
-        return true;
-      });
-    }
-    return list;
-  }, [items, search, filterStockStatus]);
-
-  const totalFiltered = filteredItems.length;
-  const totalPages = Math.max(1, Math.ceil(totalFiltered / pageSize));
-  const safePage = Math.min(currentPage, totalPages);
-  const paginatedItems = useMemo(
-    () => filteredItems.slice((safePage - 1) * pageSize, safePage * pageSize),
-    [filteredItems, safePage, pageSize],
-  );
-
-  useEffect(() => {
-    if (currentPage > totalPages && totalPages > 0) {
-      setCurrentPage(1);
-    }
-  }, [currentPage, totalPages]);
-
-  const openEdit = useCallback((item: StockItem) => {
-    setEditItem(item);
-    setEditForm({
-      name: item.name,
-      sku: item.sku,
-      category_id: item.category_id,
-      type: item.type,
-      is_sellable: item.is_sellable,
-      sale_price: item.sale_price,
-      min_stock: item.min_stock,
-      base_unit: item.base_unit,
-      is_active: item.is_active,
-      purchase_reference_unit_cost_with_vat:
-        item.purchase_reference_unit_cost_with_vat,
-      purchase_reference_unit_cost_without_vat:
-        item.purchase_reference_unit_cost_without_vat,
-    });
+  const openEdit = useCallback(async (id: string) => {
     setSaveError(null);
+    try {
+      const item = await apiGet<StockItem>(`/api/stock/items/${id}`);
+      setEditItem(item);
+      setEditForm({
+        name: item.name,
+        sku: item.sku,
+        category_id: item.category_id,
+        type: item.type,
+        is_sellable: item.is_sellable,
+        sale_price: item.sale_price,
+        min_stock: item.min_stock,
+        base_unit: item.base_unit,
+        is_active: item.is_active,
+        purchase_reference_unit_cost_with_vat: item.purchase_reference_unit_cost_with_vat,
+        purchase_reference_unit_cost_without_vat: item.purchase_reference_unit_cost_without_vat,
+      });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Não foi possível abrir o artigo");
+    }
   }, []);
 
   const closeEdit = useCallback(() => {
@@ -252,11 +146,11 @@ export function StockPage() {
     try {
       await apiPut(`/api/stock/items/${editItem.id}`, editForm);
       closeEdit();
-      await loadItems();
+      setReloadKey((k) => k + 1);
     } catch (e) {
       setSaveError(e instanceof Error ? e.message : "Erro ao guardar");
     }
-  }, [editItem, editForm, closeEdit, loadItems]);
+  }, [editItem, editForm, closeEdit]);
 
   const submitNewItem = useCallback(async () => {
     setNewItemError(null);
@@ -265,13 +159,9 @@ export function StockPage() {
       setNewItemError("Nome e categoria são obrigatórios.");
       return;
     }
-    // Resolve before creating the item: the movement below requires it, and
-    // failing after the item already exists would leave an item with no
-    // initial-quantity movement behind.
-    const locationId =
-      newItemInitialQty !== 0
-        ? resolveLocationId(newItemLocationId, locations)
-        : null;
+    // Resolve antes de criar o artigo: o movimento abaixo precisa dela, e falhar depois de o artigo
+    // existir deixaria um artigo sem o movimento da quantidade inicial.
+    const locationId = newItemInitialQty !== 0 ? resolveLocationId(newItemLocationId, locations) : null;
     if (newItemInitialQty !== 0 && !locationId) {
       setNewItemError("Selecione uma loja.");
       return;
@@ -279,9 +169,7 @@ export function StockPage() {
     try {
       const created = await apiPost<StockItem>("/api/stock/items", newItemForm);
       if (newItemInitialQty !== 0 && locationId) {
-        const movementDateIso = newItemMovementDate
-          ? new Date(newItemMovementDate + "T12:00:00").toISOString()
-          : undefined;
+        const movementDateIso = newItemMovementDate ? new Date(newItemMovementDate + "T12:00:00").toISOString() : undefined;
         await apiPost("/api/stock/movements", {
           item_id: created.id,
           type: "adjustment" as StockMovementType,
@@ -290,155 +178,79 @@ export function StockPage() {
           location_id: locationId,
         } satisfies StockMovementCreateBody);
       }
-      const importLineId = newItemForImportLineId;
       setNewItemModalOpen(false);
-      setNewItemForImportLineId(null);
-      setNewItemForm({
-        name: "",
-        category_id: categories[0]?.id ?? "",
-        type: "ingredient",
-        base_unit: "kg",
-        min_stock: 0,
-        is_sellable: false,
-        sale_price: null,
-        is_active: true,
-        purchase_reference_unit_cost_with_vat: null,
-        purchase_reference_unit_cost_without_vat: null,
-      });
+      setNewItemForm({ ...EMPTY_NEW_ITEM, category_id: categories[0]?.id ?? "" });
       setNewItemInitialQty(0);
       setNewItemLocationId(null);
-      await loadItems();
-      if (importLineId) {
-        linkStockItemToImportLineRef.current?.(importLineId, created.id);
-      }
+      setReloadKey((k) => k + 1);
     } catch (e) {
       setNewItemError(e instanceof Error ? e.message : "Erro ao criar item");
     }
-  }, [
-    newItemForm,
-    newItemInitialQty,
-    newItemLocationId,
-    locations,
-    newItemMovementDate,
-    newItemForImportLineId,
-    categories,
-    loadItems,
-  ]);
+  }, [newItemForm, newItemInitialQty, newItemLocationId, locations, newItemMovementDate, categories]);
 
   const openNewItemModal = useCallback(() => {
-    setNewItemForImportLineId(null);
     setNewItemModalOpen(true);
     setNewItemError(null);
     setNewItemMovementDate(new Date().toISOString().slice(0, 10));
-    if (categories.length > 0) {
-      setNewItemForm((f) => ({
-        ...f,
-        category_id: categories[0].id,
-      }));
-    }
+    if (categories.length > 0) setNewItemForm((f) => ({ ...f, category_id: categories[0]!.id }));
   }, [categories]);
 
-  const handleCreateItemFromImportLine = useCallback(
-    (line: ReviewableInvoiceLine) => {
-      if (categories.length === 0) return;
-      setNewItemForImportLineId(line.line_id);
-      setNewItemError(null);
-      setNewItemMovementDate(new Date().toISOString().slice(0, 10));
-      setNewItemInitialQty(0);
-      setNewItemForm(mapInvoiceLineToNewStockItemForm(line, categories[0].id));
-      setNewItemModalOpen(true);
-    },
-    [categories],
-  );
-
-  const categoryName = (id: string) =>
-    categories.find((c) => c.id === id)?.name ?? id;
-
-  if (categories.length === 0 && !error) {
-    return (
-      <div className="mx-auto max-w-6xl p-6">
-        <p className="text-sm text-slate-500">A carregar categorias…</p>
-      </div>
-    );
-  }
-
   return (
-    <div className="mx-auto max-w-6xl p-6">
-      <div className="flex items-center justify-between">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-slate-800">
-          Artigos e ingredientes
-          <button
-            type="button"
-            onClick={() => setEntryRulesOpen(true)}
-            aria-label="Regras de entrada no Stock"
-            title="Regras de entrada no Stock (por tipo de artigo)"
-            className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
-              <path fillRule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.331 1.652a6.993 6.993 0 011.929 1.115l1.598-.54a1 1 0 011.186.447l1.18 2.044a1 1 0 01-.205 1.251l-1.267 1.113a7.047 7.047 0 010 2.228l1.267 1.113a1 1 0 01.206 1.25l-1.18 2.045a1 1 0 01-1.187.447l-1.598-.54a6.993 6.993 0 01-1.929 1.115l-.33 1.652a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.331-1.652a6.993 6.993 0 01-1.929-1.115l-1.598.54a1 1 0 01-1.186-.447l-1.18-2.044a1 1 0 01.205-1.251l1.267-1.114a7.05 7.05 0 010-2.227L1.821 7.773a1 1 0 01-.206-1.25l1.18-2.045a1 1 0 011.187-.447l1.598.54A6.993 6.993 0 017.51 3.456l.33-1.652zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
-            </svg>
-          </button>
-        </h2>
-        {entryRulesOpen && (
-          <StockPurchaseReviewProvider>
-            <EntryRulesModal onClose={() => setEntryRulesOpen(false)} />
-          </StockPurchaseReviewProvider>
-        )}
-        <div className="flex flex-wrap gap-3">
-          <button
-            type="button"
-            onClick={() => navigate("/stock/compras-por-rever")}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Compras por rever{openReviewsCount > 0 ? ` (${openReviewsCount})` : ""}
-          </button>
-          <button
-            type="button"
-            onClick={openNewItemModal}
-            className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-          >
-            Novo item
-          </button>
-        </div>
-      </div>
+    <>
+      {error && <p className="mx-auto mt-4 max-w-7xl rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
+      <StockCatalogProvider>
+        <ArticlesView
+          canManage={canManage}
+          reloadKey={reloadKey}
+          onEdit={(item) => void openEdit(item.id)}
+          renderPriceHistory={(id) => (
+            <RecipeCostingProvider>
+              <IngredientPriceHistory stockItemId={id} />
+            </RecipeCostingProvider>
+          )}
+          headerActions={
+            <>
+              <button
+                type="button"
+                onClick={() => setEntryRulesOpen(true)}
+                aria-label="Regras de entrada no Stock"
+                title="Regras de entrada no Stock (por tipo de artigo) e localização principal"
+                className="rounded-md p-2 text-ink-muted hover:bg-surface-soft hover:text-ink"
+              >
+                <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+                  <path fillRule="evenodd" d="M7.84 1.804A1 1 0 018.82 1h2.36a1 1 0 01.98.804l.331 1.652a6.993 6.993 0 011.929 1.115l1.598-.54a1 1 0 011.186.447l1.18 2.044a1 1 0 01-.205 1.251l-1.267 1.113a7.047 7.047 0 010 2.228l1.267 1.113a1 1 0 01.206 1.25l-1.18 2.045a1 1 0 01-1.187.447l-1.598-.54a6.993 6.993 0 01-1.929 1.115l-.33 1.652a1 1 0 01-.98.804H8.82a1 1 0 01-.98-.804l-.331-1.652a6.993 6.993 0 01-1.929-1.115l-1.598.54a1 1 0 01-1.186-.447l-1.18-2.044a1 1 0 01.205-1.251l1.267-1.114a7.05 7.05 0 010-2.227L1.821 7.773a1 1 0 01-.206-1.25l1.18-2.045a1 1 0 011.187-.447l1.598.54A6.993 6.993 0 017.51 3.456l.33-1.652zM10 13a3 3 0 100-6 3 3 0 000 6z" clipRule="evenodd" />
+                </svg>
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate("/stock/compras-por-rever")}
+                className="rounded-md border border-line bg-surface-card px-3 py-1.5 text-sm font-medium text-ink hover:bg-surface-soft"
+              >
+                Compras por rever{openReviewsCount > 0 ? ` (${openReviewsCount})` : ""}
+              </button>
+              {canManage && (
+                <button
+                  type="button"
+                  onClick={openNewItemModal}
+                  disabled={categories.length === 0}
+                  className="rounded-md bg-brand-600 px-3 py-1.5 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+                >
+                  Novo artigo
+                </button>
+              )}
+            </>
+          }
+        />
+      </StockCatalogProvider>
 
-      <InvoiceImportModal
-        open={invoiceImportOpen}
-        initialImportId={invoiceImportId}
-        stockItems={items}
-        linkStockItemToImportLineRef={linkStockItemToImportLineRef}
-        onCreateItemFromLine={handleCreateItemFromImportLine}
-        onClose={() => {
-          setInvoiceImportOpen(false);
-          setSearchParams(
-            (prev) => {
-              const next = new URLSearchParams(prev);
-              next.delete("invoice_import");
-              return next;
-            },
-            { replace: true },
-          );
-        }}
-        onImportIdChange={(id) => {
-          setSearchParams(
-            (prev) => {
-              const next = new URLSearchParams(prev);
-              if (id) next.set("invoice_import", id);
-              else next.delete("invoice_import");
-              return next;
-            },
-            { replace: true },
-          );
-        }}
-      />
+      {entryRulesOpen && (
+        <StockPurchaseReviewProvider>
+          <EntryRulesModal onClose={() => setEntryRulesOpen(false)} />
+        </StockPurchaseReviewProvider>
+      )}
 
       {newItemModalOpen && (
         <NewItemModal
-          title={
-            newItemForImportLineId
-              ? "Novo item (pré-preenchido da fatura)"
-              : undefined
-          }
           form={newItemForm}
           setForm={setNewItemForm}
           initialQty={newItemInitialQty}
@@ -450,288 +262,14 @@ export function StockPage() {
           categories={categories}
           error={newItemError}
           onSubmit={submitNewItem}
-          onClose={() => {
-            setNewItemModalOpen(false);
-            setNewItemForImportLineId(null);
-          }}
+          onClose={() => setNewItemModalOpen(false)}
         />
       )}
 
-      {/* Filters + Search */}
-      <div className="mt-4 flex flex-wrap items-end gap-4">
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Pesquisar</label>
-          <input
-            type="search"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Ex: farinha, SKU-001"
-            className="w-48 rounded border border-slate-200 px-3 py-2 text-sm"
-          />
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Categoria</label>
-          <select
-            value={filterCategoryId}
-            onChange={(e) => setFilterCategoryId(e.target.value)}
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          >
-            <option value="">Todas</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Tipo</label>
-          <select
-            value={filterType}
-            onChange={(e) => setFilterType(e.target.value)}
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          >
-            <option value="">Todos</option>
-            {(
-              Object.entries(STOCK_ITEM_TYPE_LABELS) as [
-                StockItemType,
-                string,
-              ][]
-            ).map(([k, v]) => (
-              <option key={k} value={k}>
-                {v}
-              </option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Estado</label>
-          <select
-            value={filterIsActive}
-            onChange={(e) => setFilterIsActive(e.target.value)}
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          >
-            <option value="">Todos</option>
-            <option value="true">Ativos</option>
-            <option value="false">Inativos</option>
-          </select>
-        </div>
-        <div>
-          <label className="mb-1 block text-xs text-slate-500">Stock</label>
-          <select
-            value={filterStockStatus}
-            onChange={(e) => {
-              setFilterStockStatus(e.target.value);
-              setCurrentPage(1);
-            }}
-            className="rounded border border-slate-200 px-3 py-2 text-sm"
-          >
-            <option value="">Todos</option>
-            <option value="below">Abaixo do mínimo</option>
-            <option value="approaching">Próximos do mínimo</option>
-            <option value="below_and_approaching">Próximos e abaixo</option>
-          </select>
-        </div>
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-slate-600">
-        <span className="flex items-center gap-2">
-          <span className="inline-block h-4 w-3 rounded bg-red-50 ring-1 ring-red-200/50" />
-          Abaixo do mínimo (ex: 8 kg de 10 kg mín.)
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="inline-block h-4 w-3 rounded bg-amber-50 ring-1 ring-amber-200/50" />
-          Próximo do mínimo (ex: 11 kg de 10 kg mín.)
-        </span>
-        <span className="flex items-center gap-2">
-          <span className="inline-block h-4 w-3 rounded bg-white border border-slate-200" />
-          Stock OK (ex: 13 kg de 10 kg mín.)
-        </span>
-      </div>
-
-      {error && (
-        <div className="mt-4 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
-          {error}
-        </div>
-      )}
-
-      {/* Table */}
-      <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-        {loading ? (
-          <div className="p-8 text-center text-sm text-slate-500">
-            A carregar…
-          </div>
-        ) : (
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="border-b border-slate-200 bg-white text-slate-600">
-                <th className="px-4 py-3 font-medium">Nome</th>
-                <th className="px-4 py-3 font-medium">Categoria</th>
-                <th className="px-4 py-3 font-medium">Tipo</th>
-                <th className="px-4 py-3 font-medium text-right">Qtd. atual</th>
-                <th className="px-4 py-3 font-medium text-right">Stock mín.</th>
-                <th className="px-4 py-3 font-medium text-right">
-                  Custo c/ IVA
-                </th>
-                <th className="px-4 py-3 font-medium text-right">
-                  Custo s/ IVA
-                </th>
-                <th className="px-4 py-3 font-medium">Estado</th>
-                <th className="px-4 py-3 font-medium w-20 text-center">
-                  Ações
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {paginatedItems.map((item) => {
-                const qty = item.current_quantity ?? 0;
-                const min = item.min_stock ?? 0;
-                const threshold = min * APPROACHING_THRESHOLD_PCT;
-                const below = min > 0 && qty < min;
-                const approaching = min > 0 && qty >= min && qty < threshold;
-                const rowBg = below
-                  ? "bg-red-50/80 hover:bg-red-100/60"
-                  : approaching
-                    ? "bg-amber-50/80 hover:bg-amber-100/60"
-                    : "hover:bg-slate-50/50";
-                return (
-                  <tr
-                    key={item.id}
-                    className={`border-t border-slate-100 ${rowBg}`}
-                  >
-                    <td className="px-4 py-2 font-medium text-slate-800">
-                      {item.name}
-                    </td>
-                    <td className="px-4 py-2 text-slate-600">
-                      {categoryName(item.category_id)}
-                    </td>
-                    <td className="px-4 py-2 text-slate-600">
-                      {STOCK_ITEM_TYPE_LABELS[item.type]}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums">
-                      {formatNumber(qty)}{" "}
-                      {STOCK_BASE_UNIT_LABELS[item.base_unit]}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums text-slate-600">
-                      {formatNumber(min)}{" "}
-                      {STOCK_BASE_UNIT_LABELS[item.base_unit]}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums text-slate-600">
-                      {item.last_purchase_unit_cost_with_vat != null &&
-                      item.last_purchase_unit_cost_with_vat > 0
-                        ? formatEUR(item.last_purchase_unit_cost_with_vat)
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-2 text-right tabular-nums text-slate-600">
-                      {item.last_purchase_unit_cost_without_vat != null &&
-                      item.last_purchase_unit_cost_without_vat > 0
-                        ? formatEUR(item.last_purchase_unit_cost_without_vat)
-                        : "—"}
-                    </td>
-                    <td className="px-4 py-2">
-                      <span
-                        className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${
-                          item.is_active
-                            ? "bg-green-100 text-green-800"
-                            : "bg-slate-100 text-slate-600"
-                        }`}
-                      >
-                        {item.is_active ? "Ativo" : "Inativo"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-2">
-                      <button
-                        type="button"
-                        onClick={() => openEdit(item)}
-                        className="rounded px-2 py-1 text-xs font-medium text-slate-600 hover:bg-slate-200"
-                      >
-                        Editar
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })}
-              {paginatedItems.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={9}
-                    className="px-4 py-8 text-center text-slate-500"
-                  >
-                    Nenhum item encontrado
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        )}
-
-        {/* Pagination */}
-        {!loading && totalFiltered > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-200 bg-white px-4 py-3">
-            <div className="flex items-center gap-3">
-              <span className="text-sm text-slate-600">Mostrar</span>
-              <select
-                value={pageSize}
-                onChange={(e) => {
-                  setPageSize(Number(e.target.value));
-                  setCurrentPage(1);
-                }}
-                className="rounded border border-slate-200 px-2 py-1.5 text-sm"
-              >
-                <option value={10}>10</option>
-                <option value={20}>20</option>
-                <option value={50}>50</option>
-                <option value={100}>100</option>
-              </select>
-              <span className="text-sm text-slate-600">
-                {totalFiltered === 0
-                  ? "registos"
-                  : `${(safePage - 1) * pageSize + 1}–${Math.min(
-                      safePage * pageSize,
-                      totalFiltered,
-                    )} de ${totalFiltered}`}
-              </span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={safePage <= 1}
-                className="rounded border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 disabled:opacity-40 hover:bg-slate-50"
-              >
-                Anterior
-              </button>
-              <span className="text-sm text-slate-600">
-                Página {safePage} de {totalPages}
-              </span>
-              <button
-                type="button"
-                onClick={() =>
-                  setCurrentPage((p) => Math.min(totalPages, p + 1))
-                }
-                disabled={safePage >= totalPages}
-                className="rounded border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 disabled:opacity-40 hover:bg-slate-50"
-              >
-                Seguinte
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Edit modal */}
       {editItem && (
-        <StockEditModal
-          item={editItem}
-          form={editForm}
-          setForm={setEditForm}
-          categories={categories}
-          error={saveError}
-          onSave={saveEdit}
-          onClose={closeEdit}
-        />
+        <StockEditModal item={editItem} form={editForm} setForm={setEditForm} categories={categories} error={saveError} onSave={saveEdit} onClose={closeEdit} />
       )}
-    </div>
+    </>
   );
 }
 

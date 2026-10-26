@@ -1,5 +1,5 @@
 import { apiGet, apiPut } from "../../../../lib/api.ts";
-import type { IngredientPriceHistoryDTO, RecipeCostingReportDTO, WeeklyDishCostDTO } from "../../domain/entities/recipe-costing.ts";
+import type { DishesImpactDTO, IngredientPriceHistoryDTO, RecipeCostingReportDTO, WeeklyDishCostDTO } from "../../domain/entities/recipe-costing.ts";
 import type { RecipeCostingApiPort } from "../../domain/ports/out/recipe-costing-api.port.ts";
 
 export class HttpRecipeCostingApiAdapter implements RecipeCostingApiPort {
@@ -13,6 +13,10 @@ export class HttpRecipeCostingApiAdapter implements RecipeCostingApiPort {
 
   getDishWeeklyCost(pizzaId: string, weeks = 12): Promise<WeeklyDishCostDTO> {
     return apiGet<WeeklyDishCostDTO>(`/api/recipe-costing/dishes/${pizzaId}/weekly?weeks=${weeks}`);
+  }
+
+  getDishesImpact(compareWeeks = 4): Promise<DishesImpactDTO> {
+    return apiGet<DishesImpactDTO>(`/api/recipe-costing/dishes/impact?compareWeeks=${compareWeeks}`);
   }
 
   async setManualUnitCost(stockItemId: string, unitCostWithoutVat: number): Promise<void> {

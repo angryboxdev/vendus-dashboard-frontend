@@ -127,3 +127,39 @@ export interface WeeklyDishCostDTO {
   firstVersionAt: string | null;
   sizes: { size: string; weeks: WeeklyDishCostPointDTO[] }[];
 }
+
+// ── Impacto do preço dos ingredientes nas pizzas (task V6 §8) — `GET /api/recipe-costing/dishes/impact` ──
+
+export interface ImpactLineDTO {
+  name: string;
+  stockItemId: string | null;
+  preparationId: string | null;
+  quantity: number;
+  baseUnit: string | null;
+  nowCost: number;
+  thenCost: number;
+  /** nowCost − thenCost, € s/ IVA (a soma das linhas dá a variação total). */
+  diff: number;
+  nowSource: WeeklyPriceSource;
+  thenSource: WeeklyPriceSource;
+  complete: boolean;
+}
+
+export interface DishSizeImpactDTO {
+  size: string;
+  now: { week: string; costWithoutVat: number; complete: boolean };
+  then: { week: string; costWithoutVat: number; complete: boolean };
+  /** Só com as duas semanas completas (todos os ingredientes com preço). */
+  comparable: boolean;
+  change: number | null;
+  changeRatio: number | null;
+  mainFactor: { name: string; diff: number } | null;
+  lines: ImpactLineDTO[];
+}
+
+export interface DishesImpactDTO {
+  method: string;
+  now: { week: string; weekStart: string };
+  then: { week: string; weekStart: string };
+  dishes: { pizzaId: string; name: string; category: string; isActive: boolean; versionFrom: string; sizes: DishSizeImpactDTO[] }[];
+}
