@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { BankLogo } from "./BankLogo.tsx";
 import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBankAccountsModule } from "../../bank-accounts.module.tsx";
@@ -6,7 +7,6 @@ import type { BankDTO } from "../../domain/entities/bank-account.ts";
 import {
   BANK_LOGO_KEYS,
   BANK_LOGO_LABELS,
-  BANK_LOGO_ABBREVS,
   STATEMENT_FORMAT_LABELS,
   type BankLogoKey,
   type StatementFormat,
@@ -14,36 +14,16 @@ import {
 import { AccountFormDrawer } from "./BankAccountsView.tsx";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 import { useToast, ToastContainer } from "../../../../components/Toast.tsx";
+import { AppIcon, Button, DropdownMenu, EmptyState, IconButton, IconCard, IconCheck, IconChevronRight, IconClock, IconClose, IconCopy, IconFile, IconInfo, IconMore, IconPlus, NUMERIC, PAGE_BG, PAGE_TITLE, StatusBadge, SURFACE, TABLE, TR, IconBuilding } from "../../../../components/ui/index.ts";
+import { formatEUR, formatIsoDatePt } from "../../../../lib/format.ts";
+import { KpiCard } from "../../../bank-statements/adapters/in/BankUi.tsx";
+import { maskIban } from "../../../bank-statements/domain/services/statement-account.ts";
+import { shortMonthLabel } from "../../../bank-statements/domain/services/account-year.ts";
+import { statementsOverview } from "../../../bank-statements/domain/services/statement-overview.ts";
 import { ImportModal } from "../../../bank-statements/adapters/in/ImportModal.tsx";
 import { useBankStatementsModule } from "../../../bank-statements/bank-statements.module.tsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
-
-function BankBadge({
-  logoKey,
-  color,
-  size = "md",
-}: {
-  logoKey: BankLogoKey;
-  color: string;
-  size?: "sm" | "md" | "lg";
-}) {
-  const sizeClass =
-    size === "lg"
-      ? "h-14 w-14 text-base"
-      : size === "sm"
-        ? "h-8 w-8 text-[10px]"
-        : "h-11 w-11 text-xs";
-  return (
-    <div
-      className={`${sizeClass} flex shrink-0 items-center justify-center rounded-xl font-bold text-white`}
-      style={{ backgroundColor: color }}
-    >
-      {BANK_LOGO_ABBREVS[logoKey]}
-    </div>
-  );
-}
-
 
 // ── Bank Form ─────────────────────────────────────────────────────────────────
 
@@ -158,7 +138,7 @@ function BankFormDrawer({
                   onChange={(e) => setColor(e.target.value)}
                   className="h-9 w-12 cursor-pointer rounded-md border border-stone-300 p-0.5"
                 />
-                <BankBadge logoKey={logoKey} color={color} size="sm" />
+                <BankLogo logoKey={logoKey} color={color} size="sm" />
                 <span className="text-xs text-stone-500">{color}</span>
               </div>
             </div>
@@ -303,214 +283,204 @@ export function BanksView() {
     onError: (e: Error) => showToast(e.message, "error"),
   });
 
-  return (
-    <div className="min-h-screen bg-[#FAF6F3]">
-      {/* Header */}
-      <div className="border-b border-[#F5C992]/40 bg-white px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-xl font-bold text-stone-900">
-              Conciliação Bancária
-            </h1>
-            <p className="mt-0.5 text-sm text-stone-500">Bancos configurados</p>
-          </div>
-          <div className="flex items-center gap-3">
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-            </svg>
-            Adicionar banco
-          </button>
-          <button
-            onClick={() => setShowImport(true)}
-            className="flex items-center gap-2 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-          >
-            Importar extrato
-          </button>
-          </div>
-        </div>
-      </div>
-      <ImportModal open={showImport} saving={importMut.isPending} onClose={() => setShowImport(false)} onSubmit={(fd) => importMut.mutate(fd)} />
+  const statementsQuery = useQuery({
+    queryKey: ["bank-statements", "overview"],
+    queryFn: () => statementsApi.listStatements(),
+  });
+  const overview = statementsOverview(statementsQuery.data ?? [], new Date());
+  const accountsCount = banks.reduce((s, b) => s + b.accountPreviews.length, 0);
+  const [bannerOpen, setBannerOpen] = useState(true);
 
-      <div className="p-6">
-        {isLoading ? (
-          <div className="py-16 text-center text-sm text-stone-400">
-            A carregar bancos…
+  const addAccountItems = [
+    ...banks.map((b) => ({ label: `Conta em ${b.name}`, onSelect: () => setCreatingForBankId(b.id) })),
+    { label: "Novo banco…", onSelect: () => setShowCreate(true) },
+  ];
+
+  return (
+    <div className={`flex min-h-full flex-col ${PAGE_BG}`}>
+      <div className="space-y-6 px-4 py-6 sm:px-8">
+        <header className="flex flex-wrap items-start justify-between gap-4 motion-safe:animate-motion-fade-up">
+          <div>
+            <h1 className={PAGE_TITLE}>Bancos</h1>
+            <p className="mt-1.5 text-[15px] text-ink-secondary">Contas configuradas e extratos importados.</p>
           </div>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            {banks.length === 0 ? (
+              <Button icon={<IconPlus size={16} />} onClick={() => setShowCreate(true)}>Adicionar conta manualmente</Button>
+            ) : (
+              <DropdownMenu label="Adicionar conta" items={addAccountItems} trigger={({ toggle }) => <Button icon={<IconPlus size={16} />} onClick={toggle}>Adicionar conta manualmente</Button>} />
+            )}
+            <Button variant="primary" icon={<AppIcon name="upload" size={16} />} onClick={() => setShowImport(true)}>Importar extrato</Button>
+          </div>
+        </header>
+
+        <section aria-label="Resumo" className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+          <KpiCard tone="blue" icon={<IconBuilding size={22} />} label="Bancos" value={String(banks.length)} />
+          <KpiCard tone="green" icon={<IconCard size={22} />} label="Contas" value={String(accountsCount)} />
+          <KpiCard tone="amber" icon={<IconFile size={22} />} label="Extratos importados este mês" value={String(overview.importedThisMonth)} />
+          <KpiCard tone="violet" icon={<IconClock size={22} />} label="Última importação" value={overview.lastImportAt ? formatIsoDatePt(overview.lastImportAt.slice(0, 10)) : "—"} />
+        </section>
+
+        {isLoading ? (
+          <p className="py-16 text-center text-sm text-ink-secondary">A carregar bancos…</p>
         ) : banks.length === 0 ? (
-          <div className="py-16 text-center">
-            <p className="mb-1 text-sm font-medium text-stone-700">
-              Nenhum banco configurado
-            </p>
-            <p className="mb-6 text-sm text-stone-400">
-              Adiciona um banco para começar a importar extratos.
-            </p>
-            <button
-              onClick={() => setShowCreate(true)}
-              className="rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-5 py-2.5 text-sm font-medium text-white hover:opacity-90"
-            >
-              Adicionar primeiro banco
-            </button>
+          <div className={SURFACE}>
+            <EmptyState
+              icon={<IconBuilding size={28} />}
+              title="Ainda não há bancos"
+              description="Importe o primeiro extrato (PDF do Millennium BCP): o banco e a conta são criados automaticamente."
+              action={<Button variant="primary" icon={<AppIcon name="upload" size={16} />} onClick={() => setShowImport(true)}>Importar extrato</Button>}
+            />
           </div>
         ) : (
-          <>
-            <div className="max-w-3xl space-y-4">
-              {banks.map((bank) => (
-                <div
-                  key={bank.id}
-                  className="overflow-hidden rounded-xl border border-[#F5C992]/40 bg-white shadow-sm"
-                >
-                  {/* Bank header */}
-                  <div className="flex items-center justify-between border-b border-stone-100 px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <BankBadge
-                        logoKey={bank.logoKey}
-                        color={bank.color}
-                        size="sm"
-                      />
-                      <span className="font-semibold text-stone-900">
-                        {bank.name}
-                      </span>
-                      <span className="text-xs text-stone-400">
-                        {STATEMENT_FORMAT_LABELS[bank.statementFormat]}
-                      </span>
+          <div className="space-y-5">
+            {banks.map((bank) => {
+              const recognised = bank.statementFormat === "millennium_bcp_pdf";
+              return (
+                <section key={bank.id} className={`${SURFACE} overflow-hidden`}>
+                  <div className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
+                    <div className="flex items-center gap-4">
+                      <BankLogo logoKey={bank.logoKey} color={bank.color} size="lg" name={bank.name} />
+                      <div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h2 className="text-lg font-bold text-navy-900">{bank.name}</h2>
+                          {recognised ? (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-700">
+                              <IconCheck size={12} /> Parser reconhecido
+                            </span>
+                          ) : (
+                            <span className="rounded-full bg-sky-50 px-2.5 py-0.5 text-xs font-medium text-sky-700">{STATEMENT_FORMAT_LABELS[bank.statementFormat]}</span>
+                          )}
+                        </div>
+                        <p className="text-[13px] text-ink-secondary">
+                          {bank.accountPreviews.length} {bank.accountPreviews.length === 1 ? "conta configurada" : "contas configuradas"}
+                        </p>
+                      </div>
                     </div>
-                    <button
-                      onClick={() => setCreatingForBankId(bank.id)}
-                      className="flex items-center gap-1 rounded-md px-2.5 py-1.5 text-xs font-medium text-[#ED5C32] hover:bg-orange-50"
-                    >
-                      <svg
-                        className="h-3.5 w-3.5"
-                        viewBox="0 0 20 20"
-                        fill="currentColor"
-                      >
-                        <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-                      </svg>
-                      Adicionar conta
-                    </button>
+                    <div className="flex items-center gap-1.5">
+                      <Button size="sm" onClick={() => navigate(`/financial/bank-statements/banks/${bank.id}`)}>
+                        Ver contas <IconChevronRight size={14} />
+                      </Button>
+                      <DropdownMenu
+                        label={`Ações de ${bank.name}`}
+                        items={[
+                          { label: "Adicionar conta", icon: <IconPlus size={14} />, onSelect: () => setCreatingForBankId(bank.id) },
+                          { label: "Editar banco", icon: <AppIcon name="edit" size={14} />, onSelect: () => setEditing(bank) },
+                        ]}
+                        trigger={({ toggle }) => (
+                          <IconButton label={`Ações de ${bank.name}`} onClick={toggle}>
+                            <IconMore size={16} />
+                          </IconButton>
+                        )}
+                      />
+                    </div>
                   </div>
 
-                  {/* Account rows */}
                   {bank.accountPreviews.length === 0 ? (
-                    <div className="px-4 py-4 text-sm text-stone-400">
-                      Sem contas configuradas
-                    </div>
+                    <p className="border-t border-line-subtle px-5 py-4 text-sm text-ink-secondary">Sem contas configuradas.</p>
                   ) : (
-                    bank.accountPreviews.map((preview, idx) => {
-                      const isCard = preview.type === "credit_card";
-                      const title =
-                        preview.nickname ??
-                        (isCard
-                          ? preview.lastFourDigits
-                            ? `Cartão ···· ${preview.lastFourDigits}`
-                            : "Cartão sem identificador"
-                          : (preview.iban ??
-                            preview.accountNumber ??
-                            "Conta sem identificador"));
-                      const sub = isCard
-                        ? preview.lastFourDigits
-                          ? `**** **** **** ${preview.lastFourDigits}`
-                          : null
-                        : (preview.iban ?? preview.accountNumber ?? null);
-                      return (
-                        <div
-                          key={preview.id}
-                          className={`flex cursor-pointer items-center gap-3 px-4 py-3 hover:bg-stone-50 ${idx < bank.accountPreviews.length - 1 ? "border-b border-stone-100" : ""} ${!preview.isActive ? "opacity-50" : ""}`}
-                          onClick={() =>
-                            navigate(
-                              `/financial/bank-statements/banks/${bank.id}/accounts/${preview.id}`,
-                            )
-                          }
-                        >
-                          {/* type icon */}
-                          <div
-                            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${isCard ? "bg-violet-50 text-violet-600" : "bg-blue-50 text-blue-600"}`}
-                          >
-                            {isCard ? (
-                              <svg
-                                className="h-4 w-4"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
+                    <div className="overflow-x-auto px-3 pb-3">
+                      <table className={TABLE}>
+                        <thead className="bg-surface-soft/70">
+                          <tr>
+                            {["Conta", "IBAN / Número", "Moeda", "Último extrato", "Saldo mais recente", "Estado"].map((h) => (
+                              <th key={h} className="px-4 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-ink-secondary first:rounded-l-lg">{h}</th>
+                            ))}
+                            <th className="rounded-r-lg" aria-label="Abrir" />
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {bank.accountPreviews.map((preview) => {
+                            const isCard = preview.type === "credit_card";
+                            const last = overview.byAccount.get(preview.id);
+                            const name = preview.nickname ?? (isCard ? (preview.lastFourDigits ? `Cartão •••• ${preview.lastFourDigits}` : "Cartão") : "Conta");
+                            const ident = isCard ? (preview.lastFourDigits ? `•••• •••• •••• ${preview.lastFourDigits}` : "—") : preview.iban ? maskIban(preview.iban) : (preview.accountNumber ?? "—");
+                            const copyValue = isCard ? null : (preview.iban ?? preview.accountNumber);
+                            return (
+                              <tr
+                                key={preview.id}
+                                onClick={() => navigate(`/financial/bank-statements/banks/${bank.id}/accounts/${preview.id}`)}
+                                className={`${TR} cursor-pointer ${preview.isActive ? "" : "opacity-60"}`}
                               >
-                                <path d="M2.5 4A1.5 1.5 0 001 5.5V6h18v-.5A1.5 1.5 0 0017.5 4h-15zM19 8.5H1v6A1.5 1.5 0 002.5 16h15a1.5 1.5 0 001.5-1.5v-6zM3 13.25a.75.75 0 01.75-.75h1.5a.75.75 0 010 1.5h-1.5a.75.75 0 01-.75-.75zm4.75-.75a.75.75 0 000 1.5h3.5a.75.75 0 000-1.5h-3.5z" />
-                              </svg>
-                            ) : (
-                              <svg
-                                className="h-4 w-4"
-                                viewBox="0 0 20 20"
-                                fill="currentColor"
-                              >
-                                <path
-                                  fillRule="evenodd"
-                                  d="M4 4a2 2 0 00-2 2v8a2 2 0 002 2h12a2 2 0 002-2V8a2 2 0 00-2-2h-5L9 4H4zm7 5a1 1 0 10-2 0v1H8a1 1 0 100 2h1v1a1 1 0 102 0v-1h1a1 1 0 100-2h-1V9z"
-                                  clipRule="evenodd"
-                                />
-                              </svg>
-                            )}
-                          </div>
-
-                          {/* info */}
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center gap-2">
-                              <p className="truncate text-sm font-semibold text-stone-900">
-                                {title}
-                              </p>
-                              {!preview.isActive && (
-                                <span className="shrink-0 rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-400">
-                                  Inativa
-                                </span>
-                              )}
-                            </div>
-                            {sub && (
-                              <p className="mt-0.5 font-mono text-xs text-stone-500">
-                                {sub}
-                              </p>
-                            )}
-                          </div>
-
-                          {/* right side: badge + limit + chevron */}
-                          <div className="flex shrink-0 items-center gap-2">
-                            {isCard && preview.creditLimitCents != null && (
-                              <span className="text-xs text-stone-400">
-                                Limite:{" "}
-                                {(
-                                  preview.creditLimitCents / 100
-                                ).toLocaleString("pt-PT", {
-                                  style: "currency",
-                                  currency: "EUR",
-                                })}
-                              </span>
-                            )}
-                            <span
-                              className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${isCard ? "bg-violet-50 text-violet-700" : "bg-blue-50 text-blue-700"}`}
-                            >
-                              {isCard ? "Cartão" : "Conta"}
-                            </span>
-                            <svg
-                              className="h-4 w-4 text-stone-300"
-                              viewBox="0 0 20 20"
-                              fill="currentColor"
-                            >
-                              <path
-                                fillRule="evenodd"
-                                d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-                                clipRule="evenodd"
-                              />
-                            </svg>
-                          </div>
-                        </div>
-                      );
-                    })
+                                <td className="px-4 py-3">
+                                  <div className="flex items-center gap-3">
+                                    <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-lg ${isCard ? "bg-violet-50 text-violet-600" : "bg-sky-50 text-sky-600"}`}>
+                                      {isCard ? <IconCard size={18} /> : <IconBuilding size={18} />}
+                                    </span>
+                                    <div className="min-w-0">
+                                      <p className="truncate font-semibold text-navy-900">{name}</p>
+                                      <p className="text-xs text-ink-secondary">{isCard ? "Cartão de crédito" : "Conta à ordem"}</p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-4 py-3">
+                                  <span className={`inline-flex items-center gap-2 text-ink ${NUMERIC}`}>
+                                    {ident}
+                                    {copyValue && (
+                                      <button
+                                        type="button"
+                                        aria-label="Copiar IBAN / número"
+                                        className="rounded p-1 text-ink-muted hover:bg-surface-soft hover:text-navy-900"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          void navigator.clipboard?.writeText(copyValue).then(() => showToast("Copiado"));
+                                        }}
+                                      >
+                                        <IconCopy size={14} />
+                                      </button>
+                                    )}
+                                  </span>
+                                </td>
+                                <td className="px-4 py-3 text-ink">EUR</td>
+                                <td className="px-4 py-3">
+                                  {last ? (
+                                    <>
+                                      <p className="text-ink">{shortMonthLabel(last.periodEnd)}</p>
+                                      <p className="text-xs text-ink-secondary">{last.movementsCount} movimentos</p>
+                                    </>
+                                  ) : (
+                                    <span className="text-ink-muted">—</span>
+                                  )}
+                                </td>
+                                <td className={`px-4 py-3 font-semibold ${NUMERIC} ${last ? (last.closingBalanceCents < 0 ? "text-red-600" : "text-navy-900") : "text-ink-muted"}`}>
+                                  {last ? formatEUR(last.closingBalanceCents / 100) : "—"}
+                                </td>
+                                <td className="px-4 py-3">
+                                  {!preview.isActive ? (
+                                    <StatusBadge tone="neutral">Inativa</StatusBadge>
+                                  ) : last ? (
+                                    <StatusBadge tone="success">Extrato importado</StatusBadge>
+                                  ) : (
+                                    <StatusBadge tone="neutral">Sem extratos</StatusBadge>
+                                  )}
+                                </td>
+                                <td className="px-2 py-3 text-right text-ink-muted">
+                                  <IconChevronRight size={16} />
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
                   )}
-                </div>
-              ))}
-            </div>
-          </>
+                </section>
+              );
+            })}
+          </div>
+        )}
+
+        {bannerOpen && (
+          <div className="flex items-center gap-3 rounded-xl border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-900">
+            <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-sky-600 text-white"><IconInfo size={14} /></span>
+            <p className="flex-1">O Mezza cria automaticamente o banco e a conta ao importar o primeiro extrato reconhecido.</p>
+            <button type="button" aria-label="Fechar aviso" onClick={() => setBannerOpen(false)} className="rounded p-1 text-sky-700 hover:bg-sky-100">
+              <IconClose size={14} />
+            </button>
+          </div>
         )}
       </div>
+      <ImportModal open={showImport} saving={importMut.isPending} onClose={() => setShowImport(false)} onSubmit={(fd) => importMut.mutate(fd)} />
 
       <PageFooter />
 

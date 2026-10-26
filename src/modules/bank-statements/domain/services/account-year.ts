@@ -30,3 +30,24 @@ export function summarizeYear(months: AccountMonthStatDTO[]): AccountYearSummary
     closingBalanceCents: withBalances[withBalances.length - 1]?.closingBalanceCents ?? null,
   };
 }
+
+export const MONTH_NAMES_PT = ["Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho", "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro"];
+const MONTH_SHORT_PT = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+
+/** «2026-09-30» → «Set 2026». */
+export function shortMonthLabel(isoDate: string): string {
+  const [y, m] = isoDate.split("-").map(Number);
+  return y && m ? `${MONTH_SHORT_PT[m - 1]} ${y}` : "—";
+}
+
+/** O mês importado mais recente do ano (para «Ver movimentos»); `null` sem nenhum. */
+export function latestImportedMonth(months: AccountMonthStatDTO[]): number | null {
+  const imported = months.filter((m) => m.statementImported && m.totalMovements > 0).map((m) => m.month);
+  return imported.length ? Math.max(...imported) : null;
+}
+
+/** Mês anterior/seguinte, a passar de ano quando é preciso (dezembro → janeiro). */
+export function shiftMonth(year: number, month: number, delta: number): { year: number; month: number } {
+  const index = year * 12 + (month - 1) + delta;
+  return { year: Math.floor(index / 12), month: (index % 12) + 1 };
+}

@@ -22,3 +22,12 @@ describe("summarizeYear", () => {
     expect(s).toEqual({ inflowCents: 1_000, outflowCents: 900, netCents: 100, importedMonths: 2, reconciledPercent: 40, openingBalanceCents: 1_000, closingBalanceCents: 1_100 });
   });
 });
+
+describe("shiftMonth", () => {
+  it("anda um mês e passa de ano nos dois sentidos", async () => {
+    const { shiftMonth } = await import("./account-year.ts");
+    expect(shiftMonth(2026, 10, 1)).toEqual({ year: 2026, month: 11 });
+    expect(shiftMonth(2026, 12, 1)).toEqual({ year: 2027, month: 1 });
+    expect(shiftMonth(2026, 1, -1)).toEqual({ year: 2025, month: 12 });
+  });
+});

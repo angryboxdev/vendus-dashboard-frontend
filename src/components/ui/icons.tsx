@@ -310,3 +310,25 @@ export const IconMenu = (p: IconProps) => (
     <path d="M4 6h16M4 12h16M4 18h16" />
   </Svg>
 );
+export const IconArrowDown = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 5v14M6 13l6 6 6-6" />
+  </Svg>
+);
+export const IconArrowUp = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M12 19V5M6 11l6-6 6 6" />
+  </Svg>
+);
+export const IconPie = (p: IconProps) => (
+  <Svg {...p}>
+    <path d="M21 12A9 9 0 1 1 12 3v9z" />
+    <path d="M15 3.5A9 9 0 0 1 20.5 9H15z" />
+  </Svg>
+);
+export const IconCard = (p: IconProps) => (
+  <Svg {...p}>
+    <rect x="2.5" y="5" width="19" height="14" rx="2" />
+    <path d="M2.5 10h19M6 15h4" />
+  </Svg>
+);

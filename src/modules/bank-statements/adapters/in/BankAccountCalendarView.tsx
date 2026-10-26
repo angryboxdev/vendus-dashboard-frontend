@@ -1,116 +1,137 @@
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
 import { useBankAccountsModule } from "../../../bank-accounts/bank-accounts.module.tsx";
-import type { AccountMonthStatDTO, MonthStatus } from "../../domain/entities/bank-statement.ts";
-import { summarizeYear } from "../../domain/services/account-year.ts";
+import type { AccountMonthStatDTO } from "../../domain/entities/bank-statement.ts";
+import { latestImportedMonth, MONTH_NAMES_PT, shiftMonth, summarizeYear } from "../../domain/services/account-year.ts";
+import { maskIban } from "../../domain/services/statement-account.ts";
+import { formatEUR } from "../../../../lib/format.ts";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
+import {
+  Button,
+  IconArrowDown,
+  IconArrowUp,
+  IconCalendar,
+  IconChart,
+  IconChevronLeft,
+  IconChevronRight,
+  IconFile,
+  IconInfo,
+  IconPie,
+  AppIcon,
+  IconWallet,
+  NUMERIC,
+  PAGE_BG,
+  PAGE_TITLE,
+  SegmentedControl,
+  SURFACE,
+} from "../../../../components/ui/index.ts";
 import { ImportModal } from "./ImportModal.tsx";
+import { KpiCard, MonthStatusPill, ReconciliationBar } from "./BankUi.tsx";
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const eur = (cents: number) => formatEUR(cents / 100);
+const signed = (cents: number) => `${cents > 0 ? "+ " : cents < 0 ? "− " : ""}${formatEUR(Math.abs(cents) / 100)}`;
+const netClass = (cents: number) => (cents > 0 ? "text-emerald-600" : cents < 0 ? "text-red-600" : "text-navy-900");
 
-const MONTH_NAMES = [
-  "Janeiro", "Fevereiro", "Março", "Abril", "Maio", "Junho",
-  "Julho", "Agosto", "Setembro", "Outubro", "Novembro", "Dezembro",
-];
-
-function pctColor(pct: number): string {
-  if (pct >= 80) return "text-emerald-600";
-  if (pct >= 50) return "text-amber-600";
-  return "text-red-600";
-}
-
-function pctBarColor(pct: number): string {
-  if (pct >= 80) return "bg-emerald-400";
-  if (pct >= 50) return "bg-amber-400";
-  return "bg-red-400";
-}
-
-const STATUS_BADGE: Record<MonthStatus, { label: string; className: string }> = {
-  no_statement: { label: "Sem extrato", className: "bg-stone-100 text-stone-500" },
-  imported: { label: "Importado", className: "bg-sky-50 text-sky-700" },
-  partial: { label: "Parcial", className: "bg-amber-50 text-amber-700" },
-  reconciled: { label: "Conciliado", className: "bg-emerald-50 text-emerald-700" },
-};
-
-function fromCents(cents: number): string {
-  return (cents / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
-}
-
-// ── MonthCard ─────────────────────────────────────────────────────────────────
-
-function MonthCard({
-  stat,
-  monthIndex,
-  onClick,
-}: {
-  stat: AccountMonthStatDTO | null;
-  monthIndex: number; // 0-based
-  onClick: () => void;
-}) {
-  const name = MONTH_NAMES[monthIndex];
-
-  if (!stat) {
-    return (
-      <div className="rounded-xl border border-dashed border-stone-200 bg-stone-50 p-4 flex flex-col gap-2 opacity-50">
-        <p className="text-sm font-semibold text-stone-400">{name}</p>
-        <p className="text-xs text-stone-300">Sem dados</p>
-      </div>
-    );
-  }
-
-  // Sem extrato: estado neutro, sem percentagem nem valores (nunca um 100% verde num mês vazio).
-  if (!stat.statementImported) {
-    return (
-      <div className="rounded-xl border border-dashed border-stone-200 bg-stone-50 p-4 flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <p className="text-sm font-semibold text-stone-500">{name}</p>
-          <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-500">Sem extrato</span>
-        </div>
-        <p className="text-xs text-stone-400">Nenhum extrato importado para este mês.</p>
-      </div>
-    );
-  }
-
-  const pct = stat.reconciledPercent;
-  const net = stat.netCents;
-  const badge = STATUS_BADGE[stat.status];
-
+function Figure({ label, value, valueClass = "text-navy-900" }: { label: string; value: string; valueClass?: string }) {
   return (
-    <button
-      onClick={onClick}
-      className="rounded-xl border border-[#F5C992]/40 bg-white p-4 flex flex-col gap-3 text-left hover:border-[#ED5C32]/40 hover:shadow-sm transition-all"
-    >
-      <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold text-stone-800">{name}</p>
-        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.className}`}>{badge.label}</span>
-      </div>
+    <div className="flex items-baseline justify-between gap-3 text-[13px]">
+      <dt className="text-ink-secondary">{label}</dt>
+      <dd className={`font-medium ${NUMERIC} ${valueClass}`}>{value}</dd>
+    </div>
+  );
+}
 
-      <dl className="space-y-1 text-xs">
-        <div className="flex justify-between text-stone-500"><dt>Movimentos</dt><dd>{stat.totalMovements}</dd></div>
-        <div className="flex justify-between text-stone-500"><dt>Entradas</dt><dd className="text-stone-700">{fromCents(stat.inflowCents)}</dd></div>
-        <div className="flex justify-between text-stone-500"><dt>Saídas</dt><dd className="text-stone-700">{fromCents(stat.outflowCents)}</dd></div>
-        <div className="flex justify-between text-stone-500">
-          <dt>Resultado</dt>
-          <dd className={`font-semibold ${net < 0 ? "text-red-600" : "text-emerald-600"}`}>{net >= 0 ? "+" : ""}{fromCents(net)}</dd>
-        </div>
-      </dl>
-
-      {pct !== null && (
+/** Um mês da grelha: «Sem extrato» neutro (nunca 100% inventado) ou estado, fluxo e conciliação real. */
+function MonthCard({ stat, month, onOpen }: { stat: AccountMonthStatDTO | undefined; month: number; onOpen: () => void }) {
+  const name = MONTH_NAMES_PT[month - 1]!;
+  const imported = !!stat?.statementImported;
+  const body = (
+    <>
+      <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="h-1.5 w-full rounded-full bg-stone-100">
-            <div className={`h-1.5 rounded-full ${pctBarColor(pct)}`} style={{ width: `${pct}%` }} />
-          </div>
-          <p className={`mt-1 text-right text-[10px] font-semibold ${pctColor(pct)}`}>{pct}% conciliado</p>
+          <p className="text-base font-semibold text-navy-900">{name}</p>
+          {imported && <p className="mt-0.5 text-[13px] text-ink-secondary">{stat!.totalMovements} movimentos</p>}
+        </div>
+        <MonthStatusPill status={stat?.status ?? "no_statement"} />
+      </div>
+      <dl className="mt-3 space-y-1">
+        {!imported && <Figure label="Movimentos" value="—" valueClass="text-ink-muted" />}
+        <Figure label="Entradas" value={imported ? eur(stat!.inflowCents) : "—"} valueClass={imported ? "text-navy-900" : "text-ink-muted"} />
+        <Figure label="Saídas" value={imported ? eur(stat!.outflowCents) : "—"} valueClass={imported ? "text-navy-900" : "text-ink-muted"} />
+        <Figure label="Resultado" value={imported ? signed(stat!.netCents) : "—"} valueClass={imported ? `font-semibold ${netClass(stat!.netCents)}` : "text-ink-muted"} />
+      </dl>
+      {imported && stat!.reconciledPercent !== null && (
+        <div className="mt-3">
+          <ReconciliationBar status={stat!.status} percent={stat!.reconciledPercent} />
         </div>
       )}
+    </>
+  );
+  if (!imported) return <div className="rounded-xl border border-line bg-surface-card px-4 py-3.5">{body}</div>;
+  return (
+    <button type="button" onClick={onOpen} className="rounded-xl border border-line bg-surface-card px-4 py-3.5 text-left transition hover:border-brand-500/40 hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40">
+      {body}
     </button>
   );
 }
 
-// ── Main View ─────────────────────────────────────────────────────────────────
+/** O mês em destaque: estado, fluxo de caixa, saldos e conciliação, com o acesso aos movimentos. */
+function MonthFocus({ stat, label, onOpen, onImport }: { stat: AccountMonthStatDTO | undefined; label: string; onOpen: () => void; onImport: () => void }) {
+  if (!stat?.statementImported) {
+    return (
+      <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-line px-6 py-12 text-center">
+        <MonthStatusPill status="no_statement" />
+        <p className="text-base font-semibold text-navy-900">Ainda não há extrato de {label}</p>
+        <p className="max-w-md text-sm text-ink-secondary">Importe o extrato deste mês para ver as entradas, as saídas e o estado da conciliação.</p>
+        <Button variant="primary" icon={<AppIcon name="upload" size={16} />} onClick={onImport}>Importar extrato</Button>
+      </div>
+    );
+  }
+  const items: { label: string; value: string; cls?: string }[] = [
+    { label: "Entradas", value: eur(stat.inflowCents), cls: "text-emerald-600" },
+    { label: "Saídas", value: eur(stat.outflowCents), cls: "text-red-600" },
+    { label: "Resultado", value: signed(stat.netCents), cls: netClass(stat.netCents) },
+    { label: "Saldo inicial", value: stat.openingBalanceCents === null ? "—" : eur(stat.openingBalanceCents) },
+    { label: "Saldo final", value: stat.closingBalanceCents === null ? "—" : eur(stat.closingBalanceCents) },
+  ];
+  return (
+    <div className="rounded-xl border border-line p-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <p className="text-lg font-bold text-navy-900">{label}</p>
+          <MonthStatusPill status={stat.status} />
+          <span className="text-[13px] text-ink-secondary">{stat.totalMovements} movimentos</span>
+        </div>
+        <Button variant="primary" onClick={onOpen}>
+          Ver movimentos <IconChevronRight size={14} />
+        </Button>
+      </div>
+      <dl className="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {items.map((i) => (
+          <div key={i.label} className="rounded-xl bg-surface-soft/60 px-4 py-3">
+            <dt className="text-xs text-ink-secondary">{i.label}</dt>
+            <dd className={`mt-0.5 text-lg font-bold ${NUMERIC} ${i.cls ?? "text-navy-900"}`}>{i.value}</dd>
+          </div>
+        ))}
+      </dl>
+      {stat.reconciledPercent !== null && (
+        <div className="mt-5">
+          <p className="mb-1.5 text-xs text-ink-secondary">
+            {stat.reconciledMovements} de {stat.reconcilableMovements} movimentos conciliados
+          </p>
+          <ReconciliationBar status={stat.status} percent={stat.reconciledPercent} />
+        </div>
+      )}
+    </div>
+  );
+}
 
+/**
+ * Vista anual da conta (task «Conciliação bancária V2», mockup do utilizador): resumo do ano, grelha dos
+ * 12 meses com o estado do extrato e a conciliação real, e os saldos conhecidos.
+ */
 export function BankAccountCalendarView() {
   const { api } = useBankStatementsModule();
   const bankAccountsApi = useBankAccountsModule().api;
@@ -118,9 +139,30 @@ export function BankAccountCalendarView() {
   const navigate = useNavigate();
   const qc = useQueryClient();
 
-  const currentYear = new Date().getFullYear();
+  const today = new Date();
+  const currentYear = today.getFullYear();
+  const currentMonth = today.getMonth() + 1;
   const [year, setYear] = useState(currentYear);
+  // Abre no mês corrente; «2026» mostra o ano inteiro (as setas passam a mudar de ano).
+  const [month, setMonth] = useState(currentMonth);
+  const [view, setView] = useState<"month" | "year">("month");
   const [showImport, setShowImport] = useState(false);
+
+  const atCurrent = view === "month" ? year * 12 + month >= currentYear * 12 + currentMonth : year >= currentYear;
+  const canNext = !atCurrent;
+  const canPrev = year > 2020 || (view === "month" && month > 1);
+  const goPrev = () => {
+    if (view === "year") return setYear((y) => y - 1);
+    const p = shiftMonth(year, month, -1);
+    setYear(p.year);
+    setMonth(p.month);
+  };
+  const goNext = () => {
+    if (view === "year") return setYear((y) => y + 1);
+    const n = shiftMonth(year, month, 1);
+    setYear(n.year);
+    setMonth(n.month);
+  };
 
   const { data: accountDetail } = useQuery({
     queryKey: ["bank-accounts:account", accountId],
@@ -157,126 +199,140 @@ export function BankAccountCalendarView() {
     onError: (e: Error) => alert(`Erro ao importar: ${e.message}`),
   });
 
-  // Build a map month→stat for quick lookup
-  const statByMonth = new Map<number, AccountMonthStatDTO>();
-  for (const s of calendar ?? []) {
-    statByMonth.set(s.month, s);
-  }
+  const months = calendar ?? [];
+  const statByMonth = new Map(months.map((s) => [s.month, s]));
+  const summary = summarizeYear(months);
+  const lastMonth = latestImportedMonth(months);
+  const lastImported = [...months].filter((m) => m.statementImported).sort((a, b) => b.month - a.month)[0];
 
-  // Os 12 meses (os sem extrato aparecem neutros), com o resumo do ano só dos meses importados.
-  const visibleMonths = Array.from({ length: 12 }, (_, i) => i + 1);
-  const yearSummary = summarizeYear(calendar ?? []);
+  const accountLabel = accountDetail?.nickname ?? accountDetail?.iban ?? accountDetail?.accountNumber ?? "Conta";
+  const contextIdentifier = accountDetail?.iban ?? accountDetail?.accountNumber ?? undefined;
+  const identifier = accountDetail?.iban ? `IBAN ${maskIban(accountDetail.iban)}` : accountDetail?.accountNumber ? `N.º ${accountDetail.accountNumber}` : null;
+  const monthUrl = (m: number) => `/financial/bank-statements/banks/${bankId}/accounts/${accountId}/${year}/${m}`;
 
-  const accountLabel =
-    accountDetail?.nickname ??
-    accountDetail?.iban ??
-    accountDetail?.accountNumber ??
-    "Conta";
-
-  const contextIdentifier =
-    accountDetail?.iban ?? accountDetail?.accountNumber ?? undefined;
+  const crumbs: [string, (() => void) | null][] = [
+    ["Financeiro", null],
+    ["Bancos", () => navigate("/financial/bank-statements")],
+    [bankDetail?.name ?? "…", () => navigate(`/financial/bank-statements/banks/${bankId}`)],
+    [accountLabel, null],
+  ];
 
   return (
-    <div className="min-h-screen bg-[#FAF6F3]">
-      {/* Header */}
-      <div className="border-b border-[#F5C992]/40 bg-white px-6 py-4">
-        <div className="flex items-center justify-between">
-          <div>
-            {/* Breadcrumb */}
-            <nav className="flex items-center gap-1.5 text-xs text-stone-400 mb-1">
-              <button
-                onClick={() => navigate("/financial/bank-statements")}
-                className="hover:text-stone-600"
-              >
-                Bancos
-              </button>
-              <span>/</span>
-              <button
-                onClick={() => navigate(`/financial/bank-statements/banks/${bankId}`)}
-                className="hover:text-stone-600"
-              >
-                {bankDetail?.name ?? "…"}
-              </button>
-              <span>/</span>
-              <span className="text-stone-600 font-medium">{accountLabel}</span>
+    <div className={`flex min-h-full flex-col ${PAGE_BG}`}>
+      <div className="space-y-6 px-4 py-6 sm:px-8">
+        {/* Cabeçalho */}
+        <header className="flex flex-wrap items-start justify-between gap-4 motion-safe:animate-motion-fade-up">
+          <div className="min-w-0">
+            <nav aria-label="Localização" className="mb-3 flex flex-wrap items-center gap-2 text-[13px] text-ink-secondary">
+              {crumbs.map(([label, go], i) => (
+                <Fragment key={i}>
+                  {i > 0 && <IconChevronRight size={12} className="text-ink-muted" />}
+                  {go ? (
+                    <button type="button" onClick={go} className="hover:text-navy-900">{label}</button>
+                  ) : (
+                    <span className={i === crumbs.length - 1 ? "text-navy-900" : ""}>{label}</span>
+                  )}
+                </Fragment>
+              ))}
             </nav>
-            <h1 className="text-xl font-bold text-stone-900">{accountLabel}</h1>
-            {contextIdentifier && (
-              <p className="text-xs text-stone-400 font-mono mt-0.5">{contextIdentifier}</p>
-            )}
+            <h1 className={PAGE_TITLE}>{accountLabel}</h1>
+            <p className="mt-1.5 text-[15px] text-ink-secondary">
+              {[bankDetail?.name, identifier, "EUR"].filter(Boolean).join("  ·  ")}
+            </p>
           </div>
-
-          <div className="flex items-center gap-3">
-            {/* Year picker */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={() => setYear((y) => y - 1)}
-                disabled={year <= 2020}
-                className="rounded-md p-1 text-stone-400 hover:bg-stone-100 disabled:opacity-30"
-              >
-                <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M12.79 5.23a.75.75 0 01-.02 1.06L8.832 10l3.938 3.71a.75.75 0 11-1.04 1.08l-4.5-4.25a.75.75 0 010-1.08l4.5-4.25a.75.75 0 011.06.02z" clipRule="evenodd" />
-                </svg>
-              </button>
-              <span className="text-sm font-semibold text-stone-700 w-12 text-center">{year}</span>
-              <button
-                onClick={() => setYear((y) => y + 1)}
-                disabled={year >= currentYear}
-                className="rounded-md p-1 text-stone-400 hover:bg-stone-100 disabled:opacity-30"
-              >
-                <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                  <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
-                </svg>
-              </button>
-            </div>
-
-            <button
-              onClick={() => setShowImport(true)}
-              className="flex items-center gap-2 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-              </svg>
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Button disabled={lastMonth === null} onClick={() => lastMonth !== null && navigate(monthUrl(lastMonth))}>
+              Ver movimentos
+            </Button>
+            <Button variant="primary" icon={<AppIcon name="upload" size={16} />} onClick={() => setShowImport(true)}>
               Importar extrato
-            </button>
+            </Button>
           </div>
-        </div>
-      </div>
+        </header>
 
-      {/* Month grid */}
-      <div className="p-6">
-        {isLoading ? (
-          <div className="flex items-center justify-center py-20 text-stone-400 text-sm">
-            A carregar calendário…
-          </div>
-        ) : (
-          <>
-          <div className="mb-4 grid grid-cols-2 gap-3 rounded-xl border border-[#F5C992]/40 bg-white p-4 text-sm sm:grid-cols-5">
-            <div><p className="text-xs text-stone-400">Entradas do ano</p><p className="font-semibold text-stone-800">{fromCents(yearSummary.inflowCents)}</p></div>
-            <div><p className="text-xs text-stone-400">Saídas do ano</p><p className="font-semibold text-stone-800">{fromCents(yearSummary.outflowCents)}</p></div>
-            <div>
-              <p className="text-xs text-stone-400">Resultado líquido</p>
-              <p className={`font-semibold ${yearSummary.netCents < 0 ? "text-red-600" : "text-emerald-600"}`}>{yearSummary.netCents >= 0 ? "+" : ""}{fromCents(yearSummary.netCents)}</p>
-            </div>
-            <div><p className="text-xs text-stone-400">Meses importados</p><p className="font-semibold text-stone-800">{yearSummary.importedMonths} / 12</p></div>
-            <div><p className="text-xs text-stone-400">Conciliação do ano</p><p className="font-semibold text-stone-800">{yearSummary.reconciledPercent === null ? "—" : `${yearSummary.reconciledPercent}%`}</p></div>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-            {visibleMonths.map((month) => (
-              <MonthCard
-                key={month}
-                monthIndex={month - 1}
-                stat={statByMonth.get(month) ?? null}
-                onClick={() =>
-                  navigate(
-                    `/financial/bank-statements/banks/${bankId}/accounts/${accountId}/${year}/${month}`,
-                  )
-                }
+        {/* Resumo do ano */}
+        <section aria-label={`Resumo de ${year}`} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
+          <KpiCard tone="green" icon={<IconArrowDown size={22} />} label="Entradas do ano" value={eur(summary.inflowCents)} />
+          <KpiCard tone="red" icon={<IconArrowUp size={22} />} label="Saídas do ano" value={eur(summary.outflowCents)} />
+          <KpiCard tone={summary.netCents < 0 ? "red" : "green"} icon={<IconChart size={22} />} label="Resultado líquido" value={signed(summary.netCents)} valueClass={netClass(summary.netCents)} />
+          <KpiCard tone="violet" icon={<IconFile size={22} />} label="Meses importados" value={`${summary.importedMonths} / 12`} />
+          <KpiCard tone="blue" icon={<IconPie size={22} />} label="Conciliação do ano" value={summary.reconciledPercent === null ? "—" : `${summary.reconciledPercent}%`} />
+        </section>
+
+        {/* Resumo mensal */}
+        <section className={`${SURFACE} p-5 sm:p-6`}>
+          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex flex-wrap items-center gap-3">
+              <h2 className="text-xl font-bold text-navy-900">Resumo mensal</h2>
+              <div className="flex items-center gap-1 rounded-xl border border-line px-1 py-0.5">
+                <button type="button" onClick={goPrev} disabled={!canPrev} aria-label={view === "month" ? "Mês anterior" : "Ano anterior"} className="rounded-lg p-1.5 text-ink-secondary hover:bg-surface-soft disabled:opacity-30">
+                  <IconChevronLeft size={16} />
+                </button>
+                <span className={`min-w-[8.5rem] text-center text-sm font-semibold text-navy-900 ${NUMERIC}`}>
+                  {view === "month" ? `${MONTH_NAMES_PT[month - 1]} ${year}` : year}
+                </span>
+                <button type="button" onClick={goNext} disabled={!canNext} aria-label={view === "month" ? "Mês seguinte" : "Ano seguinte"} className="rounded-lg p-1.5 text-ink-secondary hover:bg-surface-soft disabled:opacity-30">
+                  <IconChevronRight size={16} />
+                </button>
+              </div>
+              <SegmentedControl
+                label="Período"
+                size="sm"
+                value={view}
+                onChange={setView}
+                items={[
+                  { key: "month", label: "Mês" },
+                  { key: "year", label: String(year) },
+                ]}
               />
+            </div>
+            <p className="flex items-center gap-1.5 text-[13px] text-ink-secondary">
+              <IconInfo size={14} /> Meses sem extrato importado não exibem percentagem de conciliação.
+            </p>
+          </div>
+
+          {isLoading ? (
+            <p className="py-16 text-center text-sm text-ink-secondary">A carregar…</p>
+          ) : view === "month" ? (
+            <MonthFocus
+              stat={statByMonth.get(month)}
+              label={`${MONTH_NAMES_PT[month - 1]} ${year}`}
+              onOpen={() => navigate(monthUrl(month))}
+              onImport={() => setShowImport(true)}
+            />
+          ) : (
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
+                <MonthCard
+                  key={m}
+                  month={m}
+                  stat={statByMonth.get(m)}
+                  onOpen={() => {
+                    setMonth(m);
+                    setView("month");
+                  }}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* Saldos conhecidos */}
+          <div className="mt-5 grid gap-3 rounded-xl border border-line bg-surface-card p-4 sm:grid-cols-3 sm:divide-x sm:divide-line-subtle">
+            {[
+              { icon: <IconWallet size={20} />, label: "Saldo inicial conhecido", value: summary.openingBalanceCents === null ? "—" : eur(summary.openingBalanceCents) },
+              { icon: <IconChart size={20} />, label: "Saldo final mais recente", value: summary.closingBalanceCents === null ? "—" : eur(summary.closingBalanceCents) },
+              { icon: <IconCalendar size={20} />, label: "Último extrato", value: lastImported ? `${MONTH_NAMES_PT[lastImported.month - 1]!.slice(0, 3)} ${year}` : "—" },
+            ].map((item) => (
+              <div key={item.label} className="flex items-center gap-3 sm:px-4 first:sm:pl-0">
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-soft text-navy-900">{item.icon}</span>
+                <div>
+                  <p className="text-xs text-ink-secondary">{item.label}</p>
+                  <p className={`text-lg font-bold text-navy-900 ${NUMERIC}`}>{item.value}</p>
+                </div>
+              </div>
             ))}
           </div>
-          </>
-        )}
+        </section>
       </div>
 
       <ImportModal

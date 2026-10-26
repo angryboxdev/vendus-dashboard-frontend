@@ -22,7 +22,7 @@ export type JustificationType =
 export type RiskLevel = "low" | "medium" | "high" | "critical";
 export type MovementType = "debit" | "credit";
 export type StatementStatus = "draft" | "in_review" | "completed" | "closed";
-export type StatementSourceType = "csv" | "xlsx" | "manual";
+export type StatementSourceType = "csv" | "xlsx" | "manual" | "pdf";
 export type MatchedEntityType =
   | "invoice"
   | "payable_entry"
