@@ -3,7 +3,7 @@ import type { WeeklyDishCostDTO, WeeklyPriceSource } from "../../domain/entities
 import { useRecipeCostingModule } from "../../recipe-costing.module.tsx";
 import { WeeklyLineChart } from "./WeeklyLineChart.tsx";
 
-const SIZE_LABELS: Record<string, string> = { small: "Pequena", large: "Grande" };
+const SIZE_LABELS: Record<string, string> = { xs: "XS", small: "Pequena", large: "Grande" };
 const SOURCE_LABELS: Record<WeeklyPriceSource, string> = {
   purchase: "compra da semana",
   carried: "preço transportado",
@@ -16,7 +16,7 @@ const pct = (r: number) => `${r > 0 ? "+" : ""}${(r * 100).toLocaleString("pt-PT
 const dmy = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
 
 /**
- * Evolução semanal do custo da pizza (task V5 §6.3): CMV teórico por pizza e por tamanho — versão da
+ * Evolução semanal do custo do prato (task V5 §6.3): CMV teórico por prato e por tamanho — versão da
  * ficha técnica em vigor em cada semana × preço de cada ingrediente nessa semana. Assinala preço
  * transportado, preço manual, dados incompletos, versão da receita e semana em curso.
  */
@@ -75,7 +75,7 @@ export function DishWeeklyCost({ pizzaId, refreshKey }: { pizzaId: string; refre
         )}
       </div>
       <p className="mt-1 text-xs text-ink-secondary">
-        Custo teórico por pizza (s/ IVA), da ficha em vigor em cada semana.{" "}
+        Custo teórico por prato (s/ IVA), da ficha em vigor em cada semana.{" "}
         {current.costWithoutVat !== null && (
           <>
             Atual: <span className="font-semibold text-ink">{eur(current.costWithoutVat)}</span>
@@ -88,7 +88,7 @@ export function DishWeeklyCost({ pizzaId, refreshKey }: { pizzaId: string; refre
 
       <div className="mt-2">
         <WeeklyLineChart
-          ariaLabel="Custo semanal da pizza em euros"
+          ariaLabel="Custo semanal do prato em euros"
           onSelect={(week) => setOpen(week)}
           points={active.weeks.map((w) => ({
             key: w.week,

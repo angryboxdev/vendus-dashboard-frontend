@@ -1,13 +1,17 @@
 import { createContext, useContext, useMemo, type ReactNode } from "react";
 import { HttpRecipeCostingApiAdapter } from "./adapters/out/http-recipe-costing-api.adapter.ts";
 import type { RecipeCostingApiPort } from "./domain/ports/out/recipe-costing-api.port.ts";
+import { HttpTechnicalSheetsApiAdapter } from "./adapters/out/http-technical-sheets-api.adapter.ts";
+import type { TechnicalSheetsApiPort } from "./domain/ports/out/technical-sheets-api.port.ts";
 
 export interface RecipeCostingModule {
   api: RecipeCostingApiPort;
+  /** Pratos, receitas e preparações (Fichas técnicas V7); opcional nos testes que só leem custos. */
+  sheets?: TechnicalSheetsApiPort;
 }
 
 function buildModule(): RecipeCostingModule {
-  return { api: new HttpRecipeCostingApiAdapter() };
+  return { api: new HttpRecipeCostingApiAdapter(), sheets: new HttpTechnicalSheetsApiAdapter() };
 }
 
 const RecipeCostingContext = createContext<RecipeCostingModule | null>(null);
