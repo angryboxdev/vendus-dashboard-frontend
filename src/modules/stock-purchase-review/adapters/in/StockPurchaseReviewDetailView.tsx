@@ -9,6 +9,7 @@ import { invoiceQuantityUnit, unitFactor } from "../../domain/services/presentat
 import {
   COMPACT_STATE_LABELS,
   compactKpis,
+  reviewProgress,
   compactRows,
   invoiceBreakdown,
   matchesFilter,
@@ -18,6 +19,7 @@ import {
   type CompactState,
 } from "../../domain/services/compact-review.ts";
 import { EntryRulesModal } from "./EntryRulesModal.tsx";
+import { ReviewProgressCard } from "./ReviewProgressCard.tsx";
 import {
   STOCK_PURCHASE_REVIEW_STATUS_LABELS,
   RESOLUTION_TYPE_LABELS,
@@ -493,8 +495,19 @@ const FILTERS: { key: CompactFilter; label: string }[] = [
  * no ecrã — no servidor cada linha da fatura continua individual), estado, e um único painel aberto
  * de cada vez para ver ou rever. Ordem V4: Artigos para Stock → Por rever → Fora do Stock.
  */
-function CompactReviewList({ review, stockItems, renderLine }: { review: StockPurchaseReviewDTO; stockItems: StockItemOptionDTO[]; renderLine: (line: StockReviewLineDTO) => React.ReactNode }) {
-  const [filter, setFilter] = useState<CompactFilter>("all");
+function CompactReviewList({
+  review,
+  stockItems,
+  renderLine,
+  filter,
+  onFilter: setFilter,
+}: {
+  review: StockPurchaseReviewDTO;
+  stockItems: StockItemOptionDTO[];
+  renderLine: (line: StockReviewLineDTO) => React.ReactNode;
+  filter: CompactFilter;
+  onFilter: (f: CompactFilter) => void;
+}) {
   const [open, setOpen] = useState<string | null>(null);
   const rows = sortRows(compactRows(review, (itemId) => stockItems.find((i) => i.id === itemId)));
   const visible = rows.filter((r) => matchesFilter(r, filter));
@@ -614,6 +627,7 @@ export function StockPurchaseReviewDetailView() {
 
   const [reloadNotice, setReloadNotice] = useState<string | null>(null);
   const [showCancel, setShowCancel] = useState(false);
+  const [lineFilter, setLineFilter] = useState<CompactFilter>("all");
   const [cancelReason, setCancelReason] = useState("");
   const [needsDefaultLocation, setNeedsDefaultLocation] = useState(false);
   const [rulesOpen, setRulesOpen] = useState(false);
@@ -742,6 +756,7 @@ export function StockPurchaseReviewDetailView() {
   const allNonStock = review.lines.length > 0 && review.lines.every((l) => l.resolutionType === "no_stock_effect");
   const acceptableCount = review.lines.filter((l) => l.resolutionType === "unresolved" && suggestionPayload(review, l)).length;
   const kpis = compactKpis(review);
+  const progress = reviewProgress(review);
   const divergences = review.conference?.categories.divergences ?? [];
 
   return (
@@ -832,9 +847,10 @@ export function StockPurchaseReviewDetailView() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+        <ReviewProgressCard progress={progress} filter={lineFilter} onFilter={setLineFilter} />
+
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-3">
           {[
-            { label: "Linhas do documento", value: String(kpis.documentLines) },
             { label: "Artigos distintos para Stock", value: String(kpis.stockItems) },
             { label: "Base sem IVA", value: kpis.netCents != null ? fromCents(kpis.netCents) : "—" },
             { label: "Total da fatura", value: kpis.totalCents != null ? fromCents(kpis.totalCents) : "—", detail: kpis.vatCents != null ? `IVA ${fromCents(kpis.vatCents)}` : null },
@@ -901,6 +917,8 @@ export function StockPurchaseReviewDetailView() {
         <CompactReviewList
           review={review}
           stockItems={stockItems}
+          filter={lineFilter}
+          onFilter={setLineFilter}
           renderLine={(line) => (
             <ReviewLineRow
               key={line.id}
