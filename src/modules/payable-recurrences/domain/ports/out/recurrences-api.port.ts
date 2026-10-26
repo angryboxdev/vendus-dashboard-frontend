@@ -12,6 +12,8 @@ import type {
   ListRecurrencesParams,
   ListOccurrencesParams,
   RecurrenceEmployeeDTO,
+  InvoiceRecurrenceStatusDTO,
+  LinkInvoiceToRecurrencePayload,
 } from "../../entities/recurrence.ts";
 
 export interface RecurrencesApiPort {
@@ -45,4 +47,9 @@ export interface RecurrencesApiPort {
   getLinkedInvoiceIds(): Promise<string[]>;
   uploadOccurrenceDocument(occId: string, file: File): Promise<OccurrenceDTO>;
   deleteOccurrenceDocument(occId: string): Promise<void>;
+
+  // Fatura ↔ recorrência
+  getInvoiceRecurrenceStatus(invoiceId: string): Promise<InvoiceRecurrenceStatusDTO>;
+  linkInvoiceToRecurrence(payload: LinkInvoiceToRecurrencePayload): Promise<OccurrenceDTO>;
+  unlinkInvoiceFromOccurrence(occId: string): Promise<OccurrenceDTO>;
 }

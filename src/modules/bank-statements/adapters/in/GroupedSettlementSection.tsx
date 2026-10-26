@@ -130,11 +130,15 @@ export function GroupedSettlementSuggestions({
     const isExpanded = expanded.has(0);
     return (
       <div className="rounded-lg border border-emerald-200 bg-emerald-50/40 px-4 py-3">
-        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 mb-2">Liquidação agrupada encontrada</p>
+        <p className="text-xs font-semibold uppercase tracking-wide text-emerald-700 mb-2">
+          {combo.paymentGroupId ? "Documento de pagamento encontrado" : "Liquidação agrupada encontrada"}
+        </p>
         <p className="text-sm text-stone-600 mb-2">{supplierName ?? "Fornecedor"}</p>
         <CombinationSummary combination={combo} />
         <div className="mt-3 rounded-md border border-sky-100 bg-sky-50/60 px-3 py-2 text-xs text-sky-700">
-          {combo.creditNoteCount > 0
+          {combo.paymentGroupId
+            ? "As faturas deste documento de pagamento (ex.: água e resíduos, de emitentes diferentes) foram pagas num só débito e totalizam o valor do movimento."
+            : combo.creditNoteCount > 0
             ? "Esta sugestão utiliza várias faturas e notas de crédito do mesmo fornecedor que totalizam o valor do movimento."
             : "Esta sugestão utiliza várias faturas do mesmo fornecedor que totalizam o valor do movimento."}
         </div>

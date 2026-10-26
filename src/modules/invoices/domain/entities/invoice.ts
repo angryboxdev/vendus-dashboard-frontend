@@ -183,6 +183,8 @@ export interface InvoiceDTO {
   obligation?: InvoiceObligationDTO | null;
   /** F3c: `stock` = importada no Stock; enquanto rascunho, aguarda lançamento no Financeiro. */
   importOrigin?: "stock" | null;
+  /** Documento de pagamento com várias faturas fiscais (ex.: águas + resíduos) — as do mesmo documento partilham o id. */
+  paymentGroupId?: string | null;
 }
 
 export interface InvoiceObligationDTO {
@@ -299,6 +301,8 @@ export interface InvoiceImportResultDTO {
   reading?: ImportReadingDTO;
   /** Logótipo encontrado na fatura (fornecedor ainda sem logótipo) — só usado se a pessoa confirmar. */
   logoSuggestion?: { url: string; width: number; height: number };
+  /** Documento de pagamento com várias faturas fiscais: os outros rascunhos do mesmo PDF (um por QR), para rever a seguir. */
+  siblings?: InvoiceImportResultDTO[];
 }
 
 /** Valores gravados do documento (espelho de `StoredAmountsView` no backend). Desconto: % (10 = 10%) ou cêntimos. */
@@ -575,4 +579,6 @@ export const VALIDATION_ISSUE_LABELS: Record<string, string> = {
   possible_duplicate: "Possível duplicado: há um documento parecido do mesmo fornecedor — compare antes de confirmar",
   fiscal_identity_incomplete: "Falta o NIF do fornecedor ou o número do documento — complete os dados",
   supplier_nif_invalid: "NIF do fornecedor inválido (dígito de controlo) — confirme os dígitos com o documento",
+  supplier_record_has_own_nif:
+    "Há um fornecedor no cadastro com o NIF da sua empresa (o cliente desta fatura) — não foi usado; corrija essa ficha em Fornecedores",
 };

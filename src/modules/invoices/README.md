@@ -1,7 +1,7 @@
 # Módulo: invoices
 
 > Status: ativo
-> Última atualização: 2026-10-18 (v1.2 · F2: revisão com «Única | Por artigo | Por valores», repartições, «Enviar para Stock», «Guardar rascunho»; F1: motor único de valores, conflitos de identidade fiscal)
+> Última atualização: 2026-10-26 (faturas ↔ recorrências e documento de pagamento — ADR-0041 do backend)
 
 ## O que é e para que serve (perspectiva de negócio)
 
@@ -277,6 +277,10 @@ NÃO é responsável por extratos bancários, reconciliação ou relatórios fin
   `apiPost`, `apiPatch`, `apiDeleteNoContent`, `apiPostFormData` de `src/lib/api.ts`.
 
 ## Decisões de design (ADR resumido)
+
+- **Documento de pagamento com várias faturas (2026-10-26, ADR-0041 do backend):** a importação devolve os outros rascunhos do mesmo PDF em `siblings`; `InvoicesView` abre a revisão da 1.ª e põe as restantes em fila (`openImportReview`/`reviewNextSibling`) — confirmar abre a seguinte, fechar deixa-as em rascunho com aviso; a revisão mostra «Documento de pagamento · fatura N de M». `InvoiceDTO.paymentGroupId`.
+- **Recorrência no detalhe da fatura:** `InvoiceRecurrenceCard` lê `GET /payable-recurrences/invoice-links/:invoiceId` — associada (previsto, real, aviso de desvio ≥ 20 %, «Desassociar», nota de documento de pagamento) ou recorrências sugeridas com «Associar».
+- Aviso `supplier_record_has_own_nif` (ficha de fornecedor com o NIF da própria empresa).
 
 **`InvoicesProvider` envolve toda a rota `/financial/*`.**
 Em vez de duplicar queries, o provider foi movido para o nó pai `/financial/*` no

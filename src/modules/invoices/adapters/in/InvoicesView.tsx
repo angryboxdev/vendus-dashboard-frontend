@@ -42,11 +42,8 @@ import {
 } from "../../../financial-base/domain/entities/cost-center.ts";
 import type { FinancialType } from "../../../financial-base/domain/entities/cost-center.ts";
 import { usePayableRecurrencesModule } from "../../../payable-recurrences/payable-recurrences.module.tsx";
-import type { OccurrenceWithRecurrenceDTO } from "../../../payable-recurrences/domain/entities/recurrence.ts";
-import {
-  OCCURRENCE_STATUS_LABELS,
-  formatPeriod,
-} from "../../../payable-recurrences/domain/entities/recurrence.ts";
+import type { InvoiceRecurrenceStatusDTO } from "../../../payable-recurrences/domain/entities/recurrence.ts";
+import { InvoiceRecurrenceCard } from "./InvoiceRecurrenceCard.tsx";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 import { LocationSelect } from "../../../../components/LocationSelect.tsx";
 
@@ -992,9 +989,10 @@ function InvoiceDetailDrawer({
     queryFn: () => bankApi.getMovementsLinkedToInvoice(invoice!.id),
     enabled: isReconciled && !!invoice,
   });
-  const { data: linkedRecurrenceOcc } = useQuery<OccurrenceWithRecurrenceDTO | null>({
-    queryKey: ["occurrence-by-invoice", invoice?.id],
-    queryFn: () => recurrencesApi.getOccurrenceByInvoiceId(invoice!.id),
+  // Associação à recorrência (automática ao lançar) ou, sem ela, as recorrências sugeridas.
+  const { data: recurrenceStatus } = useQuery<InvoiceRecurrenceStatusDTO>({
+    queryKey: ["invoice-recurrence-status", invoice?.id],
+    queryFn: () => recurrencesApi.getInvoiceRecurrenceStatus(invoice!.id),
     enabled: !!invoice,
   });
 
@@ -1523,53 +1521,19 @@ function InvoiceDetailDrawer({
                   ) : null;
 
 
-                  const cardRecorrencia = linkedRecurrenceOcc ? (
-                    <div
-                      key="recorrencia"
-                      className="rounded-lg border border-stone-200 p-4 space-y-2"
-                    >
-                      <p className="text-xs font-semibold text-stone-500">
-                        Recorrência associada
-                      </p>
-                      <div className="divide-y divide-stone-100">
-                        {[
-                          {
-                            label: "Nome",
-                            value: linkedRecurrenceOcc.recurrenceName,
-                          },
-                          {
-                            label: "Período",
-                            value: formatPeriod(linkedRecurrenceOcc.occurrence.period),
-                          },
-                          {
-                            label: "Estado",
-                            value: OCCURRENCE_STATUS_LABELS[linkedRecurrenceOcc.occurrence.status],
-                          },
-                        ].map(({ label, value }) => (
-                          <div
-                            key={label}
-                            className="flex justify-between py-2 first:pt-0"
-                          >
-                            <dt className="text-xs text-stone-400">{label}</dt>
-                            <dd className="text-xs font-medium text-stone-700">
-                              {value}
-                            </dd>
-                          </div>
-                        ))}
-                      </div>
-                      <button
-                        onClick={() => {
+                  const cardRecorrencia =
+                    recurrenceStatus && (recurrenceStatus.linked || recurrenceStatus.candidates.length > 0) ? (
+                      <InvoiceRecurrenceCard
+                        key="recorrencia"
+                        invoiceId={invoice.id}
+                        inPaymentGroup={!!inv.paymentGroupId}
+                        status={recurrenceStatus}
+                        onOpenRecurrence={(recurrenceId) => {
                           onClose();
-                          navigate(
-                            `/financial/recurrences/${linkedRecurrenceOcc.occurrence.recurrenceId}`,
-                          );
+                          navigate(`/financial/recurrences/${recurrenceId}`);
                         }}
-                        className="text-xs font-medium text-[#ED5C32] hover:underline"
-                      >
-                        Ver recorrência →
-                      </button>
-                    </div>
-                  ) : null;
+                      />
+                    ) : null;
 
                   const cardPayamento =
                     invoice.status === "paid" && invoice.paidAt
@@ -3125,6 +3089,30 @@ export function InvoicesView() {
   const [showImport, setShowImport] = useState(false);
   const [importResult, setImportResult] =
     useState<InvoiceImportResultDTO | null>(null);
+  // Documento de pagamento com várias faturas (ex.: águas + resíduos): as que faltam rever, por ordem.
+  const [pendingSiblings, setPendingSiblings] = useState<InvoiceImportResultDTO[]>([]);
+  const [groupPosition, setGroupPosition] = useState<{ index: number; total: number } | undefined>(undefined);
+
+  /** Abre a revisão de uma importação; com várias faturas no mesmo PDF, as restantes ficam em fila. */
+  function openImportReview(result: InvoiceImportResultDTO) {
+    const { siblings = [], ...first } = result;
+    const toReview = siblings.filter((r) => !r.reused || r.invoice.status === "draft_ai" || r.invoice.status === "pending_review");
+    setPendingSiblings(toReview);
+    setGroupPosition(toReview.length ? { index: 1, total: toReview.length + 1 } : undefined);
+    setReopenDraft(false);
+    setImportResult(first);
+  }
+
+  /** Revisão seguinte do mesmo documento de pagamento (true se houver). */
+  function reviewNextSibling(): boolean {
+    const [next, ...rest] = pendingSiblings;
+    if (!next) return false;
+    setPendingSiblings(rest);
+    setGroupPosition((p) => (p ? { index: p.index + 1, total: p.total } : undefined));
+    setReopenDraft(false);
+    setImportResult(next);
+    return true;
+  }
   // Revisão aberta a partir da lista (rascunho gravado) — parte das linhas/valores gravados.
   const [reopenDraft, setReopenDraft] = useState(false);
   const [importNotice, setImportNotice] = useState<string | null>(null);
@@ -4652,8 +4640,7 @@ export function InvoicesView() {
               setDetail(result.invoice);
               return;
             }
-            setReopenDraft(false);
-            setImportResult(result);
+            openImportReview(result);
           }}
         />
 
@@ -4678,10 +4665,7 @@ export function InvoicesView() {
                 );
               }
               if (result.reused && !isDraft) setDetail(result.invoice);
-              else {
-                setReopenDraft(false);
-                setImportResult(result);
-              }
+              else openImportReview(result);
             }}
           />
         )}
@@ -4691,8 +4675,21 @@ export function InvoicesView() {
             key={importResult.invoice.id}
             importResult={importResult}
             reopenDraft={reopenDraft}
-            onClose={() => setImportResult(null)}
+            paymentGroupPosition={groupPosition}
+            onClose={() => {
+              if (pendingSiblings.length) {
+                setImportNotice(`${pendingSiblings.length === 1 ? "A outra fatura" : `As outras ${pendingSiblings.length} faturas`} do mesmo documento de pagamento ${pendingSiblings.length === 1 ? "ficou" : "ficaram"} em rascunho para rever.`);
+              }
+              setPendingSiblings([]);
+              setGroupPosition(undefined);
+              setImportResult(null);
+            }}
             onConfirmed={(inv) => {
+              if (reviewNextSibling()) {
+                setImportNotice(`Fatura ${inv.invoiceNumber} confirmada — a seguir: a outra fatura do mesmo documento de pagamento.`);
+                return;
+              }
+              setGroupPosition(undefined);
               setImportResult(null);
               setDetail(inv);
             }}

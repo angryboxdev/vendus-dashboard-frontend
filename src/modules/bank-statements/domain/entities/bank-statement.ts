@@ -442,6 +442,8 @@ export interface GroupedSettlementCombinationDTO {
   creditNoteTotalCents: number; // ≤ 0
   netTotalCents: number; // always equals the movement amount here
   isExactMatch: true;
+  /** Documento de pagamento com várias faturas fiscais (ex.: águas + resíduos, emitentes diferentes, um só débito). */
+  paymentGroupId?: string;
 }
 
 export interface GetGroupedSettlementSuggestionsResult {
