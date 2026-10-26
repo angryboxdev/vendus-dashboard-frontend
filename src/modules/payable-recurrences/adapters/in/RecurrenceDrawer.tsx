@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
+import { usePayableRecurrencesModule } from "../../payable-recurrences.module.tsx";
 import type {
   RecurrenceDTO,
   RecurrenceType,
@@ -15,6 +16,7 @@ import {
   RECURRENCE_TYPE_LABELS,
   RECURRENCE_FREQUENCY_LABELS,
   PAYMENT_METHOD_LABELS,
+  isSalaryCategoryName,
 } from "../../domain/entities/recurrence.ts";
 
 const inputCls =
@@ -77,6 +79,7 @@ export function RecurrenceDrawer({
   onUpdate,
 }: RecurrenceDrawerProps) {
   const { api: baseApi } = useFinancialBaseModule();
+  const { api } = usePayableRecurrencesModule();
   const isEdit = editing !== null;
 
   const { data: suppliers = [] } = useQuery({
@@ -101,6 +104,7 @@ export function RecurrenceDrawer({
   const [name, setName] = useState("");
   const [supplierId, setSupplierId] = useState("");
   const [supplierName, setSupplierName] = useState("");
+  const [employeeId, setEmployeeId] = useState("");
   const [type, setType] = useState<RecurrenceType>("fixed_contract");
   const [frequency, setFrequency] = useState<RecurrenceFrequency>("monthly");
   const [costCenterId, setCostCenterId] = useState("");
@@ -122,12 +126,52 @@ export function RecurrenceDrawer({
     ? allCategories.filter((c: CostCenterCategory) => c.groupId === costCenterId)
     : [];
 
+  // Categoria «Salários» (grupo ou sub-categoria) ou tipo Pessoal → o beneficiário é um colaborador do RH.
+  const selectedGroupName = costCenterGroups.find((g) => g.id === costCenterId)?.name;
+  const selectedCategoryName = allCategories.find((c) => c.id === costCenterCategoryId)?.name;
+  const isSalary =
+    isSalaryCategoryName(selectedGroupName) ||
+    isSalaryCategoryName(selectedCategoryName) ||
+    type === "payroll";
+
+  const {
+    data: employees = [],
+    isLoading: loadingEmployees,
+    isError: employeesError,
+  } = useQuery({
+    queryKey: ["payable-recurrences-employees"],
+    queryFn: () => api.listRecurrenceEmployees(),
+    enabled: open && isSalary,
+  });
+  // Ativos + o já associado (mesmo que entretanto inativo).
+  const employeeOptions = employees.filter((e) => e.status === "active" || e.id === employeeId);
+
+  function selectSalaryCategory(groupId: string) {
+    const name = costCenterGroups.find((g) => g.id === groupId)?.name;
+    if (isSalaryCategoryName(name)) {
+      if (!isEdit && type === "fixed_contract") setType("payroll");
+    } else if (type !== "payroll" && employeeId) {
+      // Saiu de Salários: o colaborador deixa de ser o beneficiário.
+      setEmployeeId("");
+      setSupplierName("");
+    }
+  }
+
+  function handleEmployeeChange(id: string) {
+    setEmployeeId(id);
+    const emp = employees.find((e) => e.id === id);
+    setSupplierId("");
+    setSupplierName(emp?.fullName ?? "");
+    if (emp && (!name.trim() || name.startsWith("Salário — "))) setName(`Salário — ${emp.fullName}`);
+  }
+
   useEffect(() => {
     if (!open) return;
     if (editing) {
       setName(editing.name);
       setSupplierId(editing.supplierId ?? "");
       setSupplierName(editing.supplierName);
+      setEmployeeId(editing.employeeId ?? "");
       setType(editing.type);
       setFrequency(editing.frequency);
       setCostCenterId(editing.costCenterId ?? "");
@@ -151,6 +195,7 @@ export function RecurrenceDrawer({
       setName("");
       setSupplierId("");
       setSupplierName("");
+      setEmployeeId("");
       setType("fixed_contract");
       setFrequency("monthly");
       setCostCenterId("");
@@ -181,13 +226,18 @@ export function RecurrenceDrawer({
     const selectedSupplier = supplierId
       ? suppliers.find((s) => s.id === supplierId)
       : null;
-    const resolvedSupplierName = selectedSupplier?.name ?? supplierName;
+    const selectedEmployee = isSalary && employeeId
+      ? employees.find((e) => e.id === employeeId)
+      : null;
+    const resolvedSupplierName = selectedEmployee?.fullName ?? selectedSupplier?.name ?? supplierName;
+    const resolvedEmployeeId = isSalary ? employeeId || null : null;
 
     if (isEdit) {
       const payload: UpdateRecurrencePayload = {
         name,
         supplierId: supplierId || null,
         supplierName: resolvedSupplierName,
+        employeeId: resolvedEmployeeId,
         costCenterId: costCenterId || null,
         costCenterCategoryId: costCenterCategoryId || null,
         category: category || null,
@@ -206,6 +256,7 @@ export function RecurrenceDrawer({
         name,
         supplierId: supplierId || null,
         supplierName: resolvedSupplierName,
+        employeeId: resolvedEmployeeId,
         type,
         frequency,
         costCenterId: costCenterId || null,
@@ -270,20 +321,44 @@ export function RecurrenceDrawer({
                   placeholder="Ex: Renda / Aluguer"
                 />
               </div>
-              <div>
-                <label className={labelCls}>Fornecedor *</label>
-                <select
-                  required={!supplierId && !supplierName}
-                  value={supplierId}
-                  onChange={(e) => handleSupplierChange(e.target.value)}
-                  className={inputCls}
-                >
-                  <option value="">Selecionar fornecedor</option>
-                  {suppliers.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
-              </div>
+              {isSalary ? (
+                <div>
+                  <label className={labelCls}>Colaborador *</label>
+                  <select
+                    required
+                    value={employeeId}
+                    onChange={(e) => handleEmployeeChange(e.target.value)}
+                    className={inputCls}
+                  >
+                    <option value="">
+                      {loadingEmployees ? "A carregar colaboradores…" : "Selecionar colaborador"}
+                    </option>
+                    {employeeOptions.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.fullName}{e.status === "inactive" ? " (inativo)" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {employeesError && (
+                    <p className="mt-1 text-xs text-red-500">Não foi possível carregar os colaboradores do RH.</p>
+                  )}
+                </div>
+              ) : (
+                <div>
+                  <label className={labelCls}>Fornecedor *</label>
+                  <select
+                    required={!supplierId && !supplierName}
+                    value={supplierId}
+                    onChange={(e) => handleSupplierChange(e.target.value)}
+                    className={inputCls}
+                  >
+                    <option value="">Selecionar fornecedor</option>
+                    {suppliers.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
             </div>
 
             {/* Tipo + Centro de custo */}
@@ -315,6 +390,7 @@ export function RecurrenceDrawer({
                   onChange={(e) => {
                     setCostCenterId(e.target.value);
                     setCostCenterCategoryId(""); // reset sub-categoria ao mudar grupo
+                    selectSalaryCategory(e.target.value);
                   }}
                   className={inputCls}
                 >

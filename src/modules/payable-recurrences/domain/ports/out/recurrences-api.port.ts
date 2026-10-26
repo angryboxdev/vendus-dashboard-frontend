@@ -11,6 +11,7 @@ import type {
   MarkOccurrenceAsPaidPayload,
   ListRecurrencesParams,
   ListOccurrencesParams,
+  RecurrenceEmployeeDTO,
 } from "../../entities/recurrence.ts";
 
 export interface RecurrencesApiPort {
@@ -30,6 +31,8 @@ export interface RecurrencesApiPort {
   closeRecurrence(id: string, payload: CloseRecurrencePayload): Promise<RecurrenceDTO>;
   uploadRecurrenceDocument(id: string, file: File): Promise<RecurrenceDTO>;
   deleteRecurrenceDocument(id: string): Promise<void>;
+  /** Colaboradores do RH (ativos e inativos) para recorrências de salários. */
+  listRecurrenceEmployees(): Promise<RecurrenceEmployeeDTO[]>;
 
   // Occurrences
   listOccurrences(recurrenceId: string, params?: ListOccurrencesParams): Promise<OccurrenceDTO[]>;
