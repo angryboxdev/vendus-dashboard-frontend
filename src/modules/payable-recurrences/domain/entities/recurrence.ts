@@ -91,6 +91,8 @@ export interface RecurrenceDTO {
   name: string;
   supplierId: string | null;
   supplierName: string;
+  /** Colaborador do RH a quem se paga (recorrências de salários); o nome fica em supplierName. */
+  employeeId: string | null;
   type: RecurrenceType;
   frequency: RecurrenceFrequency;
   costCenterId: string | null;
@@ -106,6 +108,7 @@ export interface RecurrenceDTO {
   notes: string | null;
   documentUrl: string | null;
   closedAt: string | null; // YYYY-MM-DD — obrigatório ao fechar (ver CloseRecurrencePayload)
+  pausedAt: string | null; // YYYY-MM-DD — data da pausa; limpa ao retomar (vazia nas pausadas antes de existir)
   vatRate: number | null;
   vatIncluded: boolean | null;
   createdAt: string;
@@ -151,6 +154,7 @@ export interface CreateRecurrencePayload {
   name: string;
   supplierId?: string | null;
   supplierName: string;
+  employeeId?: string | null;
   type: RecurrenceType;
   frequency: RecurrenceFrequency;
   costCenterId?: string | null;
@@ -169,6 +173,7 @@ export interface UpdateRecurrencePayload {
   name?: string;
   supplierId?: string | null;
   supplierName?: string;
+  employeeId?: string | null;
   costCenterId?: string | null;
   costCenterCategoryId?: string | null;
   category?: string | null;
@@ -180,6 +185,19 @@ export interface UpdateRecurrencePayload {
   notes?: string | null;
   vatRate?: number | null;
   vatIncluded?: boolean | null;
+}
+
+/** Colaborador do RH para associar a uma recorrência de salários (só id, nome e estado). */
+export interface RecurrenceEmployeeDTO {
+  id: string;
+  fullName: string;
+  status: "active" | "inactive";
+}
+
+/** Categoria (grupo/sub-categoria do centro de custo) de salários — ativa a escolha do colaborador. */
+export function isSalaryCategoryName(name: string | null | undefined): boolean {
+  if (!name) return false;
+  return /sal[aá]ri|vencimento|ordenado/i.test(name);
 }
 
 export interface CloseRecurrencePayload {
