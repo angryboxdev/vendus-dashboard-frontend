@@ -3,12 +3,16 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
 import { useBankAccountsModule } from "../../../bank-accounts/bank-accounts.module.tsx";
-import { latestImportedMonth, MONTH_NAMES_PT, shiftMonth, summarizeYear } from "../../domain/services/account-year.ts";
+import { shiftMonth, summarizeYear } from "../../domain/services/account-year.ts";
+import { lastKnownBalance, monthStatementBalances, statementsOfMonth } from "../../domain/services/statement-overview.ts";
+import type { BankStatementSummaryDTO } from "../../domain/entities/bank-statement.ts";
+import { useToast, ToastContainer } from "../../../../components/Toast.tsx";
 import { maskIban } from "../../domain/services/statement-account.ts";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 import {
   AppIcon,
   Button,
+  Dialog,
   IconChevronLeft,
   IconChevronRight,
   IconLayers,
@@ -69,6 +73,8 @@ export function BankAccountCalendarView() {
   /** `null` = visão anual; um número = resumo desse mês. */
   const [openMonth, setOpenMonth] = useState<number | null>(null);
   const [showImport, setShowImport] = useState(false);
+  const [deleting, setDeleting] = useState<BankStatementSummaryDTO | null>(null);
+  const { toasts, show: showToast } = useToast();
 
   const setLayout = (l: Layout) => {
     setLayoutState(l);
@@ -93,6 +99,26 @@ export function BankAccountCalendarView() {
     enabled: !!accountId,
   });
 
+  // Mesma chave da página Bancos (partilha a cache).
+  const { data: allStatements = [] } = useQuery({
+    queryKey: ["bank-statements", "overview"],
+    queryFn: () => api.listStatements(),
+  });
+
+  // Eliminar um extrato para o voltar a importar: os movimentos dele saem e as faturas ligadas voltam ao estado certo.
+  const deleteMut = useMutation({
+    mutationFn: (s: BankStatementSummaryDTO) => api.deleteStatement(s.id),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: ["bank-calendar", accountId] });
+      void qc.invalidateQueries({ queryKey: ["bank-statements"] });
+      void qc.invalidateQueries({ queryKey: ["bank-month", accountId] });
+      void qc.invalidateQueries({ queryKey: ["bank-month-suggestions", accountId] });
+      showToast("Extrato eliminado — já o podes importar outra vez.");
+      setDeleting(null);
+    },
+    onError: (e: Error) => showToast(`Não foi possível eliminar o extrato: ${e.message}`, "error"),
+  });
+
   const importMut = useMutation({
     mutationFn: (fd: FormData) => api.importStatement(fd),
     onSuccess: async (result) => {
@@ -114,8 +140,8 @@ export function BankAccountCalendarView() {
   const months = calendar ?? [];
   const statByMonth = new Map(months.map((s) => [s.month, s]));
   const summary = summarizeYear(months);
-  const lastMonth = latestImportedMonth(months);
-  const lastWithBalance = [...months].filter((m) => m.statementImported && m.closingBalanceCents !== null).sort((a, b) => b.month - a.month)[0];
+  // Saldos sempre do próprio extrato (e só se bate certo) — nunca reconstruídos pelos movimentos.
+  const lastBalance = accountId ? lastKnownBalance(allStatements, accountId) : null;
 
   const accountLabel = accountDetail?.nickname ?? accountDetail?.iban ?? accountDetail?.accountNumber ?? "Conta";
   const contextIdentifier = accountDetail?.iban ?? accountDetail?.accountNumber ?? undefined;
@@ -162,19 +188,15 @@ export function BankAccountCalendarView() {
             </nav>
             <h1 className={PAGE_TITLE}>{accountLabel}</h1>
             <p className="mt-1.5 text-[15px] text-ink-secondary">{[bankDetail?.name, identifier, "EUR"].filter(Boolean).join("  ·  ")}</p>
-            {lastWithBalance && (
+            {lastBalance && (
               <p className={`mt-1 text-[13px] text-ink-muted ${NUMERIC}`}>
-                Último saldo conhecido: <span className="font-medium text-navy-900">{eur(lastWithBalance.closingBalanceCents!)}</span> · fim do extrato de{" "}
-                {MONTH_NAMES_PT[lastWithBalance.month - 1]!.toLowerCase()} {year}
+                Último saldo conhecido: <span className="font-medium text-navy-900">{eur(lastBalance.cents)}</span> · em {lastBalance.date.split("-").reverse().join("/")}
               </p>
             )}
           </div>
           <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
             <Button icon={<IconRepeat size={16} />} onClick={() => navigate(`/financial/bank-statements/banks/${bankId}/recurring`)}>
               Movimentos recorrentes
-            </Button>
-            <Button disabled={lastMonth === null} onClick={() => lastMonth !== null && navigate(monthUrl(year, lastMonth))}>
-              Ver movimentos
             </Button>
             <Button variant="primary" icon={<AppIcon name="upload" size={16} />} onClick={() => setShowImport(true)}>
               Importar extrato
@@ -236,6 +258,9 @@ export function BankAccountCalendarView() {
               onBack={() => setOpenMonth(null)}
               onOpenMovements={() => navigate(monthUrl(year, openMonth))}
               onImport={() => setShowImport(true)}
+              statements={accountId ? statementsOfMonth(allStatements, accountId, year, openMonth) : []}
+              balances={accountId ? monthStatementBalances(allStatements, accountId, year, openMonth) : { openingCents: null, closingCents: null }}
+              onDeleteStatement={setDeleting}
             />
           ) : layout === "table" ? (
             <MonthsTable months={statByMonth} summary={summary} onOpen={setOpenMonth} onImport={() => setShowImport(true)} />
@@ -254,6 +279,29 @@ export function BankAccountCalendarView() {
         contextAccountIdentifier={contextIdentifier}
         bankAccountId={accountId}
       />
+
+      <Dialog
+        open={!!deleting}
+        title="Eliminar este extrato?"
+        description={
+          deleting && (
+            <>
+              Saem os {deleting.importedMovementsCount} movimentos importados deste extrato, com as classificações e conciliações
+              deles. As faturas que esses movimentos pagavam voltam a ficar por conciliar. Depois podes importar o extrato outra vez.
+            </>
+          )
+        }
+        onClose={() => !deleteMut.isPending && setDeleting(null)}
+        actions={
+          <>
+            <Button onClick={() => setDeleting(null)} disabled={deleteMut.isPending}>Cancelar</Button>
+            <Button variant="danger" loading={deleteMut.isPending} onClick={() => deleting && deleteMut.mutate(deleting)}>
+              Eliminar extrato
+            </Button>
+          </>
+        }
+      />
+      <ToastContainer toasts={toasts} />
 
       <PageFooter />
     </div>
