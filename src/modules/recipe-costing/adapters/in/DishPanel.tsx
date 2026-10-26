@@ -16,7 +16,7 @@ import {
 import { allowsXs, compositionRows, dishVariants, planRowChanges, xsQuantity, type CompositionRow, type ItemChange } from "../../domain/services/variants.ts";
 import { useRecipeCostingModule } from "../../recipe-costing.module.tsx";
 import { DishWeeklyCost } from "./DishWeeklyCost.tsx";
-import { Pill, Section, SheetDrawer } from "./sheet-ui.tsx";
+import { Pill, Section, SheetDrawer, VariantSwitch } from "./sheet-ui.tsx";
 import { btnCls, eur, eurCost, inputCls, parseNum, pct, primaryBtnCls, qty } from "./sheet-format.ts";
 
 type Tab = "composition" | "costs" | "history";
@@ -67,6 +67,8 @@ export function DishPanel({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState(false);
+  /** Variante mostrada nas três abas; abre na Pequena (ou na única que exista). */
+  const [picked, setPicked] = useState<Variant | null>(null);
 
   const load = useCallback(async () => {
     if (!sheets) return;
@@ -87,6 +89,7 @@ export function DishPanel({
   const items = useMemo(() => recipe?.items ?? [], [recipe]);
   const variants = dishVariants(items, prices.map((p) => p.size));
   const xsFollowsSmall = allowsXs(dish.category) && variants.includes("xs");
+  const variant: Variant = picked && variants.includes(picked) ? picked : variants.includes("small") ? "small" : variants[0]!;
   const rows = useMemo(() => compositionRows(items), [items]);
   const costById = useMemo(() => new Map(ingredients.map((i) => [i.stockItemId, i])), [ingredients]);
   const nameOf = (row: { kind: "stock" | "preparation"; entityId: string }) =>
@@ -146,6 +149,11 @@ export function DishPanel({
       tab={tab}
       onTab={setTab}
       onClose={onClose}
+      toolbar={
+        variants.length > 1 ? (
+          <VariantSwitch label="Variante" options={variants.map((v) => ({ key: v, label: VARIANT_LABELS[v] ?? v }))} value={variant} onChange={setPicked} />
+        ) : undefined
+      }
       actions={canManage && !editing ? <button type="button" className={btnCls} onClick={() => setEditing(true)}>Editar</button> : undefined}
     >
       <div className="space-y-5">
@@ -166,7 +174,7 @@ export function DishPanel({
           ) : (
             <Composition
               rows={rows}
-              variants={variants}
+              variants={[variant]}
               xsFollowsSmall={xsFollowsSmall}
               canManage={canManage}
               busy={busy}
@@ -189,7 +197,7 @@ export function DishPanel({
             dish={dish}
             costing={costing}
             prices={prices}
-            variants={variants}
+            variants={[variant]}
             costById={costById}
             salesVatRate={salesVatRate}
             canManage={canManage}
@@ -200,7 +208,7 @@ export function DishPanel({
           />
         )}
 
-        {tab === "history" && <DishWeeklyCost pizzaId={dish.id} />}
+        {tab === "history" && <DishWeeklyCost pizzaId={dish.id} size={variant} />}
       </div>
     </SheetDrawer>
   );
@@ -244,6 +252,11 @@ function Composition({
   const [addKey, setAddKey] = useState("");
   const [addDraft, setAddDraft] = useState<Partial<Record<Variant, string>>>({});
   const editable = (v: Variant) => !(xsFollowsSmall && v === "xs");
+  // Na XS das doces nada se edita aqui: é sempre metade da Pequena.
+  const readOnly = !variants.some(editable);
+  const manage = canManage && !readOnly;
+  // Só os componentes que existem na variante mostrada.
+  const shownRows = rows.filter((r) => variants.some((v) => r.bySize[v]));
   const toQuantities = (d: Partial<Record<Variant, string>>) => {
     const out: Partial<Record<Variant, number>> = {};
     for (const v of variants) if (editable(v)) out[v] = parseNum(d[v] ?? "") ?? 0;
@@ -259,11 +272,14 @@ function Composition({
   return (
     <div className="space-y-4">
       <Section
-        title="Componentes por variante"
+        title={variants.length === 1 ? `Componentes — ${VARIANT_LABELS[variants[0]!] ?? variants[0]}` : "Componentes por variante"}
         aside={<span className="text-[11px] text-ink-muted">Versão {version} da ficha{xsFollowsSmall ? " · XS = metade da Pequena" : ""}</span>}
       >
-        {rows.length === 0 ? (
-          <p className="text-xs text-ink-muted">Ainda sem componentes.</p>
+        {readOnly && (
+          <p className="mb-2 rounded-md bg-surface-soft px-3 py-2 text-xs text-ink-secondary">A XS é sempre metade da Pequena: para alterar, mude para Pequena.</p>
+        )}
+        {shownRows.length === 0 ? (
+          <p className="text-xs text-ink-muted">Ainda sem componentes nesta variante.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -274,11 +290,11 @@ function Composition({
                     <th key={v} className="px-2 py-1.5 text-right font-medium">{VARIANT_LABELS[v]}</th>
                   ))}
                   <th className="px-2 py-1.5 font-medium">Unid.</th>
-                  {canManage && <th className="py-1.5"><span className="sr-only">Ações</span></th>}
+                  {manage && <th className="py-1.5"><span className="sr-only">Ações</span></th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-line">
-                {rows.map((row) => {
+                {shownRows.map((row) => {
                   const isEdit = editKey === row.key;
                   const smallDraft = parseNum(draft.small ?? "");
                   return (
@@ -307,7 +323,7 @@ function Composition({
                         </td>
                       ))}
                       <td className="px-2 py-1.5 text-ink-secondary">{unitOf(row)}</td>
-                      {canManage && (
+                      {manage && (
                         <td className="py-1.5 text-right whitespace-nowrap">
                           {isEdit ? (
                             <>
@@ -343,7 +359,7 @@ function Composition({
         )}
       </Section>
 
-      {canManage && (
+      {manage && (
         <Section title="Adicionar componente">
           <div className="flex flex-wrap items-end gap-2">
             <label className="flex min-w-0 flex-col text-[11px] text-ink-muted">

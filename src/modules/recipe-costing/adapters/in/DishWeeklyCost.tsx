@@ -20,7 +20,7 @@ const dmy = (iso: string) => iso.slice(0, 10).split("-").reverse().join("/");
  * ficha técnica em vigor em cada semana × preço de cada ingrediente nessa semana. Assinala preço
  * transportado, preço manual, dados incompletos, versão da receita e semana em curso.
  */
-export function DishWeeklyCost({ pizzaId, refreshKey }: { pizzaId: string; refreshKey?: string }) {
+export function DishWeeklyCost({ pizzaId, refreshKey, size: sizeProp }: { pizzaId: string; refreshKey?: string; /** Variante escolhida fora (painel do prato): esconde os separadores próprios. */ size?: string }) {
   const { api } = useRecipeCostingModule();
   const [data, setData] = useState<WeeklyDishCostDTO | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -49,7 +49,16 @@ export function DishWeeklyCost({ pizzaId, refreshKey }: { pizzaId: string; refre
     );
   }
 
-  const active = data.sizes.find((s) => s.size === size) ?? data.sizes[0]!;
+  const wanted = sizeProp ?? size;
+  const active = data.sizes.find((s) => s.size === wanted) ?? (sizeProp ? undefined : data.sizes[0]);
+  if (!active) {
+    return (
+      <section aria-label="Evolução semanal do custo" className="mt-4 rounded-lg border border-line p-3">
+        <h4 className="text-sm font-semibold text-ink">Evolução semanal do custo — {SIZE_LABELS[sizeProp!] ?? sizeProp}</h4>
+        <p className="mt-1 text-xs text-ink-muted">Ainda sem histórico para esta variante.</p>
+      </section>
+    );
+  }
   const current = active.weeks[active.weeks.length - 1]!;
   const listed = [...active.weeks].reverse();
 
@@ -57,7 +66,7 @@ export function DishWeeklyCost({ pizzaId, refreshKey }: { pizzaId: string; refre
     <section aria-label="Evolução semanal do custo" className="mt-4 rounded-lg border border-line p-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h4 className="text-sm font-semibold text-ink">Evolução semanal do custo</h4>
-        {data.sizes.length > 1 && (
+        {!sizeProp && data.sizes.length > 1 && (
           <div role="tablist" aria-label="Tamanho" className="flex gap-1">
             {data.sizes.map((s) => (
               <button

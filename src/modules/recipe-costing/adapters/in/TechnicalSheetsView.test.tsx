@@ -76,6 +76,24 @@ describe("Fichas técnicas (V7)", () => {
     await waitFor(() => expect(sheets.addRecipeItem).toHaveBeenCalledWith("doce", "r1", { stock_item_id: "creme" }, "xs", 35));
   });
 
+  it("painel abre na Pequena; o interruptor muda composição e custos para a Grande", async () => {
+    setup();
+    fireEvent.click(await screen.findByText("Doce Teste"));
+    const small = await screen.findByRole("radio", { name: "Pequena" });
+    expect(small.getAttribute("aria-checked")).toBe("true");
+    expect(await screen.findByText("Componentes — Pequena")).toBeTruthy();
+    expect(screen.getByText("70")).toBeTruthy();
+    fireEvent.click(screen.getByRole("radio", { name: "Grande" }));
+    expect(screen.getByText("Componentes — Grande")).toBeTruthy();
+    expect(screen.getByText("140")).toBeTruthy();
+    fireEvent.click(screen.getByRole("tab", { name: "Custos" }));
+    // Custos só da Grande (PVP 14,90 €) e o interruptor continua na Grande.
+    const panel = screen.getByRole("dialog");
+    expect(within(panel).getByText(/14,90\s€/)).toBeTruthy();
+    expect(within(panel).queryByText(/8,90\s€/)).toBeNull();
+    expect(screen.getByRole("radio", { name: "Grande" }).getAttribute("aria-checked")).toBe("true");
+  });
+
   it("separador Preparações mostra rendimento e custo por unidade", async () => {
     setup("preparations");
     const row = (await screen.findByText("Massa")).closest("tr")!;
