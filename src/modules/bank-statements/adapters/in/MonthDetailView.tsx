@@ -37,7 +37,7 @@ import {
   IconClock,
   IconFile,
   IconRepeat,
-  IconSparkle,
+  DropdownMenu,
   NUMERIC,
   PAGE_BG,
   PAGE_TITLE,
@@ -660,14 +660,17 @@ export function MonthDetailView() {
     </div>
   );
 
-  const CHIPS: { key: MonthChip; label: string }[] = [
-    { key: "all", label: "Todos" },
+  // Filtro dos movimentos: «Por conciliar» por defeito; ao clicar abre Todos / Entradas / Saídas / Transferências.
+  const FILTERS: { key: MonthChip; label: string }[] = [
     { key: "pending", label: "Por conciliar" },
+    { key: "all", label: "Todos" },
     { key: "inflows", label: "Entradas" },
     { key: "outflows", label: "Saídas" },
     { key: "transfers", label: "Transferências" },
-    { key: "with_suggestion", label: "Com sugestão" },
   ];
+  const activeChip: MonthChip = viewTab === "reconciled" && chip === "pending" ? "all" : chip;
+  const filterOptions = FILTERS.filter((c) => viewTab === "movements" || c.key !== "pending");
+  const activeFilterLabel = FILTERS.find((c) => c.key === activeChip)?.label ?? "Todos";
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
@@ -693,22 +696,27 @@ export function MonthDetailView() {
               </div>
               {viewTab !== "suggestions" && (
                 <div className="flex flex-wrap items-center gap-2 py-3">
-                  <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrar movimentos">
-                    {CHIPS.filter((c) => viewTab === "movements" || c.key !== "pending").map((c) => (
+                  <DropdownMenu
+                    label="Filtrar movimentos"
+                    align="left"
+                    items={filterOptions.map((c) => ({
+                      label: c.label,
+                      icon: activeChip === c.key ? <IconCheck size={14} /> : <span className="inline-block w-3.5" />,
+                      onSelect: () => setChip(c.key),
+                    }))}
+                    trigger={({ open, toggle }) => (
                       <button
-                        key={c.key}
                         type="button"
-                        aria-pressed={chip === c.key}
-                        onClick={() => setChip(c.key)}
-                        className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
-                          chip === c.key ? "bg-brand-600 text-white" : "bg-surface-soft text-ink-secondary hover:text-navy-900"
-                        }`}
+                        onClick={toggle}
+                        aria-haspopup="menu"
+                        aria-expanded={open}
+                        className="inline-flex items-center gap-2 rounded-full bg-brand-600 px-4 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-brand-700"
                       >
-                        {c.key === "with_suggestion" && <IconSparkle size={14} />}
-                        {c.label}
+                        {activeFilterLabel}
+                        <IconChevronDown size={14} className={`transition-transform ${open ? "rotate-180" : ""}`} />
                       </button>
-                    ))}
-                  </div>
+                    )}
+                  />
                   <div className="ml-auto flex w-full items-center gap-2 sm:w-auto">
                     <SearchInput label="Pesquisar descrição ou valor" placeholder="Pesquisar descrição ou valor…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full sm:w-64" />
                     <select aria-label="Ordenar" value={sort} onChange={(e) => setSort(e.target.value as MonthSort)} className={`${FIELD} h-9 w-auto pr-8`}>
