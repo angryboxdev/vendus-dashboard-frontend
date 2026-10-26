@@ -3,7 +3,6 @@ import { useQuery } from "@tanstack/react-query";
 import { usePayableRecurrencesModule } from "../../payable-recurrences.module.tsx";
 import { formatPeriod } from "../../domain/entities/recurrence.ts";
 import { KpiCard } from "./KpiCard.tsx";
-import { OccurrenceStateBadge } from "./OccurrenceStateBadge.tsx";
 import { NewRecurrenceButton } from "./NewRecurrenceButton.tsx";
 import { CategoryBreakdownCard } from "./CategoryBreakdownCard.tsx";
 import { RecurrencesViewSwitch } from "./RecurrencesViewSwitch.tsx";
@@ -11,11 +10,6 @@ import { PageFooter } from "../../../../components/PageFooter.tsx";
 
 function fromCents(n: number): string {
   return (n / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
-}
-
-function formatDate(s: string): string {
-  const [y, m, d] = s.slice(0, 10).split("-");
-  return `${d}/${m}/${y}`;
 }
 
 /** Vista predefinida da aba Recorrências: sem ano/mês no caminho, mostra o mês atual. */
@@ -52,8 +46,6 @@ export function RecurrencesMonthlyView() {
     queryFn: () => api.listRecurrences(),
   });
   const recurrenceById = new Map(recurrences.map((r) => [r.id, r]));
-
-  const sortedOccurrences = [...occurrences].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
   function goToMonth(offset: number) {
     const d = new Date(year, month - 1 + offset, 1);
@@ -137,79 +129,11 @@ export function RecurrencesMonthlyView() {
         )}
 
         {/* Valor do mês por categoria */}
-        {!loadingOccurrences && (
+        {loadingOccurrences ? (
+          <div className="rounded-xl border border-[#F5C992]/40 bg-white py-12 text-center text-sm text-stone-400">A carregar…</div>
+        ) : (
           <CategoryBreakdownCard occurrences={occurrences} recurrenceById={recurrenceById} />
         )}
-
-        {/* Ocorrências do mês */}
-        <div className="rounded-xl border border-[#F5C992]/40 bg-white">
-          <div className="px-6 py-4 border-b border-[#F5C992]/40">
-            <h2 className="text-sm font-semibold text-stone-800">Ocorrências do mês</h2>
-          </div>
-          {loadingOccurrences ? (
-            <div className="py-12 text-center text-sm text-stone-400">A carregar…</div>
-          ) : sortedOccurrences.length === 0 ? (
-            <div className="py-12 text-center text-sm text-stone-400">Sem ocorrências para este mês.</div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-sm">
-                <thead className="bg-stone-50/60">
-                  <tr>
-                    {["Estado", "Recorrência", "Fornecedor", "Vencimento", "Previsto", "Faturado", "Pago", "Diferença", "Ações"].map((h) => (
-                      <th key={h} className="px-3 py-2.5 text-left text-[11px] font-semibold uppercase tracking-wide text-stone-400 whitespace-nowrap">
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#F5C992]/30">
-                  {sortedOccurrences.map((occ) => {
-                    const rec = recurrenceById.get(occ.recurrenceId);
-                    return (
-                      <tr key={occ.id} className="hover:bg-[#FDF8F5]">
-                        <td className="px-3 py-2.5">
-                          <OccurrenceStateBadge state={occ.displayState} />
-                        </td>
-                        <td className="px-3 py-2.5 font-medium text-stone-700 whitespace-nowrap max-w-[200px]">
-                          <span className="block truncate">{rec?.name ?? "—"}</span>
-                        </td>
-                        <td className="px-3 py-2.5 text-stone-600 whitespace-nowrap max-w-[160px]">
-                          <span className="block truncate">{rec?.supplierName ?? "—"}</span>
-                        </td>
-                        <td className="px-3 py-2.5 text-stone-600 whitespace-nowrap">{formatDate(occ.dueDate)}</td>
-                        <td className="px-3 py-2.5 whitespace-nowrap">{fromCents(occ.estimatedAmountCents)}</td>
-                        <td className="px-3 py-2.5 whitespace-nowrap">
-                          {occ.realAmountCents != null ? fromCents(occ.realAmountCents) : <span className="text-stone-300">—</span>}
-                        </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap">
-                          {occ.paidAmountCents > 0 ? fromCents(occ.paidAmountCents) : <span className="text-stone-300">—</span>}
-                        </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap">
-                          {occ.status === "cancelled" || occ.paidAmountCents === 0 ? (
-                            <span className="text-stone-300">—</span>
-                          ) : (
-                            <span className={occ.differenceCents >= 0 ? "text-emerald-600" : "text-red-600"}>
-                              {occ.differenceCents > 0 ? "+" : ""}
-                              {fromCents(occ.differenceCents)}
-                            </span>
-                          )}
-                        </td>
-                        <td className="px-3 py-2.5 whitespace-nowrap">
-                          <button
-                            onClick={() => navigate(`/financial/recurrences/${occ.recurrenceId}`)}
-                            className="rounded px-2 py-1 text-xs font-medium text-[#ED5C32] hover:bg-orange-50"
-                          >
-                            Ver
-                          </button>
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
       </div>
 
       <PageFooter />

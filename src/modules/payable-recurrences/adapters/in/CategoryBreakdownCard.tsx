@@ -24,12 +24,83 @@ interface Props {
   recurrenceById: Map<string, RecurrenceDTO>;
 }
 
+const ALL = "__all";
+
+/** Ocorrências do mês (as de uma categoria ou todas), com as colunas da antiga tabela «Ocorrências do mês». */
+function OccurrenceList({
+  occurrences,
+  recurrenceById,
+}: {
+  occurrences: OccurrenceDTO[];
+  recurrenceById: Map<string, RecurrenceDTO>;
+}) {
+  const navigate = useNavigate();
+  return (
+    <div className="mx-3 mb-2 overflow-x-auto rounded-lg border border-stone-100 bg-stone-50/60">
+      <table className="min-w-full text-xs">
+        <thead>
+          <tr>
+            {["Estado", "Recorrência", "Fornecedor", "Vencimento", "Previsto", "Faturado", "Pago", "Diferença", ""].map((h) => (
+              <th key={h} className="px-3 py-2 text-left text-[11px] font-semibold uppercase tracking-wide text-stone-400 whitespace-nowrap">
+                {h}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-stone-100">
+          {occurrences.map((o) => {
+            const rec = recurrenceById.get(o.recurrenceId);
+            return (
+              <tr key={o.id}>
+                <td className="px-3 py-2">
+                  <OccurrenceStateBadge state={o.displayState} />
+                </td>
+                <td className="px-3 py-2 font-medium text-stone-700 max-w-[200px]">
+                  <span className="block truncate">{rec?.name ?? "—"}</span>
+                </td>
+                <td className="px-3 py-2 text-stone-500 max-w-[160px]">
+                  <span className="block truncate">{rec?.supplierName ?? "—"}</span>
+                </td>
+                <td className="px-3 py-2 text-stone-500 whitespace-nowrap">{formatDate(o.dueDate)}</td>
+                <td className="px-3 py-2 tabular-nums whitespace-nowrap">{fromCents(o.estimatedAmountCents)}</td>
+                <td className="px-3 py-2 tabular-nums whitespace-nowrap">
+                  {o.realAmountCents != null ? fromCents(o.realAmountCents) : <span className="text-stone-300">—</span>}
+                </td>
+                <td className="px-3 py-2 tabular-nums whitespace-nowrap">
+                  {o.paidAmountCents > 0 ? fromCents(o.paidAmountCents) : <span className="text-stone-300">—</span>}
+                </td>
+                <td className="px-3 py-2 tabular-nums whitespace-nowrap">
+                  {o.status === "cancelled" || o.paidAmountCents === 0 ? (
+                    <span className="text-stone-300">—</span>
+                  ) : (
+                    <span className={o.differenceCents >= 0 ? "text-emerald-600" : "text-red-600"}>
+                      {o.differenceCents > 0 ? "+" : ""}
+                      {fromCents(o.differenceCents)}
+                    </span>
+                  )}
+                </td>
+                <td className="px-3 py-2 text-right">
+                  <button
+                    onClick={() => navigate(`/financial/recurrences/${o.recurrenceId}`)}
+                    className="rounded px-2 py-1 font-medium text-[#ED5C32] hover:bg-orange-50"
+                  >
+                    Ver
+                  </button>
+                </td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
 /**
  * Valor do mês separado por categoria (grupo do centro de custo da recorrência):
  * barra laranja em degradê relativa à maior, % do total e «Detalhes» que abre a lista.
  */
 export function CategoryBreakdownCard({ occurrences, recurrenceById }: Props) {
-  const navigate = useNavigate();
   const { api: baseApi } = useFinancialBaseModule();
   const [openKey, setOpenKey] = useState<string | null>(null);
 
@@ -60,18 +131,41 @@ export function CategoryBreakdownCard({ occurrences, recurrenceById }: Props) {
     [active, recurrenceById, groupName],
   );
 
-  if (breakdown.rows.length === 0) return null;
+  if (breakdown.rows.length === 0) {
+    return (
+      <div className="rounded-xl border border-[#F5C992]/40 bg-white">
+        <div className="px-6 pt-4">
+          <h2 className="text-sm font-semibold text-stone-800">Categorias</h2>
+        </div>
+        <div className="py-12 text-center text-sm text-stone-400">Sem ocorrências para este mês.</div>
+      </div>
+    );
+  }
+
+  const showAll = openKey === ALL;
+  const allSorted = [...occurrences].sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
   return (
     <div className="rounded-xl border border-[#F5C992]/40 bg-white">
-      <div className="px-6 pt-4 pb-2">
-        <h2 className="text-sm font-semibold text-stone-800">Categorias</h2>
-        <p className="mt-0.5 text-xs text-stone-500">
-          {plural(breakdown.recurrenceCount, "recorrência", "recorrências")},{" "}
-          {plural(breakdown.supplierCount, "fornecedor/colaborador", "fornecedores/colaboradores")} · total{" "}
-          {fromCents(breakdown.totalCents)}
-        </p>
+      <div className="flex items-start justify-between gap-4 px-6 pt-4 pb-2">
+        <div>
+          <h2 className="text-sm font-semibold text-stone-800">Categorias</h2>
+          <p className="mt-0.5 text-xs text-stone-500">
+            {plural(breakdown.recurrenceCount, "recorrência", "recorrências")},{" "}
+            {plural(breakdown.supplierCount, "fornecedor/colaborador", "fornecedores/colaboradores")} · total{" "}
+            {fromCents(breakdown.totalCents)}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setOpenKey(showAll ? null : ALL)}
+          aria-expanded={showAll}
+          className="shrink-0 text-xs font-medium text-[#ED5C32] hover:underline"
+        >
+          {showAll ? "Ocultar lista" : "Mostrar todas"}
+        </button>
       </div>
+      {showAll && <OccurrenceList occurrences={allSorted} recurrenceById={recurrenceById} />}
       <div className="px-3 pb-3">
         {breakdown.rows.map((row) => {
           const key = row.categoryId ?? "none";
@@ -112,42 +206,7 @@ export function CategoryBreakdownCard({ occurrences, recurrenceById }: Props) {
                   </svg>
                 </span>
               </button>
-              {isOpen && (
-                <div className="mx-3 mb-2 overflow-x-auto rounded-lg border border-stone-100 bg-stone-50/60">
-                  <table className="min-w-full text-xs">
-                    <tbody className="divide-y divide-stone-100">
-                      {rowOccurrences.map((o) => {
-                        const rec = recurrenceById.get(o.recurrenceId);
-                        return (
-                          <tr key={o.id}>
-                            <td className="px-3 py-2">
-                              <OccurrenceStateBadge state={o.displayState} />
-                            </td>
-                            <td className="px-3 py-2 font-medium text-stone-700 max-w-[200px]">
-                              <span className="block truncate">{rec?.name ?? "—"}</span>
-                            </td>
-                            <td className="px-3 py-2 text-stone-500 max-w-[160px]">
-                              <span className="block truncate">{rec?.supplierName ?? "—"}</span>
-                            </td>
-                            <td className="px-3 py-2 text-stone-500 whitespace-nowrap">{formatDate(o.dueDate)}</td>
-                            <td className="px-3 py-2 text-right font-medium tabular-nums text-stone-800 whitespace-nowrap">
-                              {fromCents(o.effectiveAmountCents)}
-                            </td>
-                            <td className="px-3 py-2 text-right">
-                              <button
-                                onClick={() => navigate(`/financial/recurrences/${o.recurrenceId}`)}
-                                className="rounded px-2 py-1 font-medium text-[#ED5C32] hover:bg-orange-50"
-                              >
-                                Ver
-                              </button>
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
-              )}
+              {isOpen && <OccurrenceList occurrences={rowOccurrences} recurrenceById={recurrenceById} />}
             </Fragment>
           );
         })}
