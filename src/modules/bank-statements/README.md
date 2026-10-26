@@ -1,7 +1,7 @@
 # Módulo: bank-statements (Frontend)
 
 > Status: ativo
-> Última atualização: 2026-10-26 (task «Conciliação bancária V2», F1–F5: ver «Decisões de design»). Antes: 2026-09-30.
+> Última atualização: 2026-10-26 («Movimentos recorrentes» no painel de classificação; task «Conciliação bancária V2», F1–F5: ver «Decisões de design»). Antes: 2026-09-30.
 
 ---
 
@@ -131,6 +131,8 @@ Definidos em `domain/entities/bank-statement.ts`:
 - `HttpBankStatementsApiAdapter` — implementa `BankStatementsApiPort` usando `apiGet`, `apiPost`, `apiPatch`, `apiDeleteNoContent`, `apiPostFormData` de `lib/api.ts`; base URL `/api/bank-statements`
 
 ## Decisões de design (ADR resumido)
+
+**«Movimentos recorrentes» (2026-10-26)** — no separador «Justificar despesa» do `ClassifyDrawer`, «Classificar sempre assim» guarda a classificação como regra do backend (`POST /bank-statements/rules` com `bankAccountId`, `amountCents` só se «Só X € (± 1 €)», `applyToExisting`). Só para justificações sem documento por mês (`canBeRecurring`: recibo, despesa bancária, transferência interna, empréstimo). O `MonthDetailView` grava primeiro a classificação e depois cria a regra (se a regra falhar, a classificação fica e aparece um aviso); com regra, invalida a conta toda (outros meses mudam). `recurringMatchPreview` replica o `recurringMatchText` do backend só para mostrar o texto reconhecido. Movimentos com `classifiedByRuleId` mostram o selo «Auto» e, no painel, «Conciliado automaticamente». O botão «Classificar» diz o que falta; uma categoria sem subcategorias ativas já não exige subcategoria.
 
 - **Conciliação bancária V2 — nova interface (F5, 2026-10-26; mockups do utilizador, Design System Mezza)**:
   - **Bancos** (`bank-accounts/adapters/in/BanksView.tsx`): indicadores (bancos, contas, extratos importados este mês, última importação), cartão por banco com «Parser reconhecido» (formato `millennium_bcp_pdf`) e tabela de contas (IBAN mascarado + copiar, último extrato, saldo mais recente, estado), «Adicionar conta manualmente» (menu por banco ou banco novo) e «Importar extrato» sem escolher conta (F3). Último extrato por conta e indicadores: `statementsOverview` (`domain/services/statement-overview.ts`) sobre `listStatements`.
