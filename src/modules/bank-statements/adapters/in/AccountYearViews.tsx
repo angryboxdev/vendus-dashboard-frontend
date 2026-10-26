@@ -289,7 +289,8 @@ export function MonthSummary({
   statements: BankStatementSummaryDTO[];
   /** Saldos tirados do extrato (só se bate certo); `null` quando não há. */
   balances: { openingCents: number | null; closingCents: number | null };
-  onDeleteStatement: (statement: BankStatementSummaryDTO) => void;
+  /** Um extrato («Eliminar extrato») ou todos os do mês («Eliminar todos»). */
+  onDeleteStatement: (statements: BankStatementSummaryDTO[]) => void;
 }) {
   const name = MONTH_NAMES_PT[month - 1]!;
   const prevName = MONTH_NAMES_PT[(month + 10) % 12]!;
@@ -383,7 +384,20 @@ export function MonthSummary({
 
       {statements.length > 0 && (
         <div className="mt-5 border-t border-line-subtle pt-4">
-          <p className="mb-2 text-xs text-ink-secondary">{statements.length === 1 ? "Extrato deste mês" : "Extratos deste mês"}</p>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <p className="text-xs text-ink-secondary">
+              {statements.length === 1 ? "Extrato deste mês" : `Extratos deste mês (${statements.length})`}
+            </p>
+            {statements.length > 1 && (
+              <button
+                type="button"
+                onClick={() => onDeleteStatement(statements)}
+                className="rounded-lg border border-red-200 px-2.5 py-1 text-[13px] font-medium text-red-600 hover:bg-red-50"
+              >
+                Eliminar todos ({statements.length})
+              </button>
+            )}
+          </div>
           <ul className="divide-y divide-line-subtle">
             {statements.map((s) => (
               <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-2 text-[13px]">
@@ -393,7 +407,7 @@ export function MonthSummary({
                 </span>
                 <button
                   type="button"
-                  onClick={() => onDeleteStatement(s)}
+                  onClick={() => onDeleteStatement([s])}
                   className="rounded-lg px-2 py-1 text-[13px] font-medium text-red-600 hover:bg-red-50"
                 >
                   Eliminar extrato

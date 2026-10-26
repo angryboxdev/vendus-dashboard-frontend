@@ -73,7 +73,7 @@ export function BankAccountCalendarView() {
   /** `null` = visão anual; um número = resumo desse mês. */
   const [openMonth, setOpenMonth] = useState<number | null>(null);
   const [showImport, setShowImport] = useState(false);
-  const [deleting, setDeleting] = useState<BankStatementSummaryDTO | null>(null);
+  const [deleting, setDeleting] = useState<BankStatementSummaryDTO[] | null>(null);
   const { toasts, show: showToast } = useToast();
 
   const setLayout = (l: Layout) => {
@@ -106,17 +106,31 @@ export function BankAccountCalendarView() {
   });
 
   // Eliminar um extrato para o voltar a importar: os movimentos dele saem e as faturas ligadas voltam ao estado certo.
+  // Um ou vários («Eliminar todos»), um a um; se algum falhar, os outros seguem e o aviso diz quantos saíram.
   const deleteMut = useMutation({
-    mutationFn: (s: BankStatementSummaryDTO) => api.deleteStatement(s.id),
-    onSuccess: () => {
+    mutationFn: async (list: BankStatementSummaryDTO[]) => {
+      let ok = 0;
+      const failed: string[] = [];
+      for (const s of list) {
+        try {
+          await api.deleteStatement(s.id);
+          ok += 1;
+        } catch (e) {
+          failed.push(e instanceof Error ? e.message : "erro");
+        }
+      }
+      return { ok, failed };
+    },
+    onSuccess: ({ ok, failed }) => {
       void qc.invalidateQueries({ queryKey: ["bank-calendar", accountId] });
       void qc.invalidateQueries({ queryKey: ["bank-statements"] });
       void qc.invalidateQueries({ queryKey: ["bank-month", accountId] });
       void qc.invalidateQueries({ queryKey: ["bank-month-suggestions", accountId] });
-      showToast("Extrato eliminado — já o podes importar outra vez.");
       setDeleting(null);
+      if (failed.length === 0) showToast(ok === 1 ? "Extrato eliminado — já o podes importar outra vez." : `${ok} extratos eliminados — já podes importar o mês outra vez.`);
+      else showToast(`${ok} eliminado${ok === 1 ? "" : "s"}, ${failed.length} não: ${failed[0]}`, "error");
     },
-    onError: (e: Error) => showToast(`Não foi possível eliminar o extrato: ${e.message}`, "error"),
+    onError: (e: Error) => showToast(`Não foi possível eliminar: ${e.message}`, "error"),
   });
 
   const importMut = useMutation({
@@ -282,12 +296,17 @@ export function BankAccountCalendarView() {
 
       <Dialog
         open={!!deleting}
-        title="Eliminar este extrato?"
+        title={deleting && deleting.length > 1 ? `Eliminar os ${deleting.length} extratos deste mês?` : "Eliminar este extrato?"}
         description={
           deleting && (
             <>
-              Saem os {deleting.importedMovementsCount} movimentos importados deste extrato, com as classificações e conciliações
-              deles. As faturas que esses movimentos pagavam voltam a ficar por conciliar. Depois podes importar o extrato outra vez.
+              Saem {deleting.reduce((s, x) => s + x.importedMovementsCount, 0)} movimentos importados, com as classificações e
+              conciliações deles. As faturas que esses movimentos pagavam voltam a ficar por conciliar. Depois podes importar outra vez.
+              {deleting.some((s) => s.periodStart.slice(0, 7) !== s.periodEnd.slice(0, 7)) && (
+                <span className="mt-2 block font-medium text-amber-700">
+                  Atenção: há extratos que também cobrem outros meses — os movimentos desses meses saem também.
+                </span>
+              )}
             </>
           )
         }
@@ -296,7 +315,7 @@ export function BankAccountCalendarView() {
           <>
             <Button onClick={() => setDeleting(null)} disabled={deleteMut.isPending}>Cancelar</Button>
             <Button variant="danger" loading={deleteMut.isPending} onClick={() => deleting && deleteMut.mutate(deleting)}>
-              Eliminar extrato
+              {deleting && deleting.length > 1 ? `Eliminar ${deleting.length} extratos` : "Eliminar extrato"}
             </Button>
           </>
         }
