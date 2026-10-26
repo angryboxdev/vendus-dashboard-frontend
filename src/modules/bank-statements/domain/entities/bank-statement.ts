@@ -109,11 +109,31 @@ export interface BankStatementSummaryDTO {
   createdAt: string;
 }
 
+/** Tipo do movimento (V2 F4): natureza para ler e filtrar — não confundir com débito/crédito. */
+export type MovementKind =
+  | "sales"
+  | "deposit"
+  | "transfer_in"
+  | "transfer_out"
+  | "supplier"
+  | "payroll"
+  | "tax_state"
+  | "bank_fee"
+  | "insurance"
+  | "utilities"
+  | "card_purchase"
+  | "internal_transfer"
+  | "reversal"
+  | "to_review";
+
 export interface BankMovementDTO {
   id: string;
   bookingDate: string;    // ISO date
   valueDate: string;      // ISO date
   description: string;
+  /** V2 (F4) — opcionais: um backend anterior não os envia. */
+  normalizedDescription?: string;
+  movementKind?: MovementKind;
   amount: number;         // cents, absolute
   balanceAfter: number;   // cents
   currency: string;

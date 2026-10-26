@@ -17,6 +17,7 @@ import { PageFooter } from "../../../../components/PageFooter.tsx";
 import { useToast, ToastContainer } from "../../../../components/Toast.tsx";
 import { ApiError } from "../../../../lib/api.ts";
 import { ImportModal } from "./ImportModal.tsx";
+import { MOVEMENT_KIND_LABELS } from "../../domain/services/movement-kind.ts";
 import { ClassifyDrawer, type ClassifyDrawerSuggestion } from "./ClassifyDrawer.tsx";
 
 function isVersionConflict(e: unknown): e is ApiError {
@@ -133,6 +134,12 @@ function MovementRow({
         <p className="truncate text-sm font-medium text-stone-800">
           {movement.description}
         </p>
+        {movement.movementKind && (
+          <p className="truncate text-xs text-stone-500">
+            {MOVEMENT_KIND_LABELS[movement.movementKind]}
+            {movement.normalizedDescription && movement.normalizedDescription !== movement.description && <> · {movement.normalizedDescription}</>}
+          </p>
+        )}
         <div className="mt-1 flex items-center gap-2">
           <ReconciliationBadge status={displayStatus} />
           {movement.notes && (
