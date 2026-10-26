@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { Fragment, useState, useEffect, useMemo } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
@@ -17,6 +17,32 @@ import { PageFooter } from "../../../../components/PageFooter.tsx";
 import { useToast, ToastContainer } from "../../../../components/Toast.tsx";
 import { ApiError } from "../../../../lib/api.ts";
 import { ImportModal } from "./ImportModal.tsx";
+import { MOVEMENT_KIND_LABELS } from "../../domain/services/movement-kind.ts";
+import { rowStatus, visibleMonthDays, type MonthChip, type MonthSort, type MonthTab, type RowStatus } from "../../domain/services/month-movements.ts";
+import { maskIban } from "../../domain/services/statement-account.ts";
+import { KpiCard } from "./BankUi.tsx";
+import {
+  AppIcon,
+  Button,
+  EmptyState,
+  FIELD,
+  IconArrowDown,
+  IconArrowUp,
+  IconCalendar,
+  IconChart,
+  IconCheck,
+  IconChevronDown,
+  IconChevronRight,
+  IconClock,
+  IconFile,
+  IconSparkle,
+  NUMERIC,
+  PAGE_BG,
+  PAGE_TITLE,
+  SearchInput,
+  SURFACE,
+  Tabs,
+} from "../../../../components/ui/index.ts";
 import { ClassifyDrawer, type ClassifyDrawerSuggestion } from "./ClassifyDrawer.tsx";
 
 function isVersionConflict(e: unknown): e is ApiError {
@@ -52,122 +78,63 @@ function formatDay(dateStr: string): string {
   return `${parts[2]}/${parts[1]}`;
 }
 
-// ── Badges ────────────────────────────────────────────────────────────────────
-
-const STATUS_COLORS: Record<ReconciliationStatus, string> = {
-  conciliado_com_fatura: "bg-emerald-50 text-emerald-700",
-  conciliado_parcial: "bg-yellow-50 text-yellow-700",
-  conciliado_sem_fatura: "bg-teal-50 text-teal-700",
-  justificado: "bg-sky-50 text-sky-700",
-  sugestao: "bg-blue-50 text-blue-700",
-  pendente_de_documento: "bg-amber-50 text-amber-700",
-  saida_nao_justificada: "bg-red-50 text-red-700",
-  transferencia_interna: "bg-violet-50 text-violet-700",
-  divergente: "bg-orange-50 text-orange-700",
-  ignorado_com_motivo: "bg-stone-100 text-stone-500",
-};
-
-function ReconciliationBadge({ status }: { status: ReconciliationStatus }) {
-  return (
-    <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${STATUS_COLORS[status]}`}
-    >
-      {RECONCILIATION_STATUS_LABELS[status]}
-    </span>
-  );
-}
-
 // ── Movement Row ──────────────────────────────────────────────────────────────
 
+const ROW_STATUS: Record<RowStatus, { label: string; chip: string }> = {
+  pending: { label: "Por conciliar", chip: "bg-amber-50 text-amber-700" },
+  partial: { label: "Parcial", chip: "bg-amber-50 text-amber-700" },
+  reconciled: { label: "Conciliado", chip: "bg-emerald-50 text-emerald-700" },
+};
+
+/** Linha do mês (mockup V2): seta de entrada/saída, descritivo, tipo, estado, valor e saldo. */
 function MovementRow({
   movement,
+  selected,
   onClick,
 }: {
   movement: BankMovementDTO;
+  selected: boolean;
   onClick: () => void;
 }) {
   const isDebit = movement.movementType === "debit";
-  const displayStatus =
-    !isDebit && movement.reconciliationStatus === "pendente_de_documento"
-      ? "conciliado_sem_fatura"
-      : movement.reconciliationStatus;
+  const status = rowStatus(movement);
+  const s = ROW_STATUS[status];
 
   return (
     <button
+      type="button"
       onClick={onClick}
-      className={`w-full flex items-center gap-3 rounded-lg border px-4 py-3 text-left transition-colors hover:border-[#ED5C32]/30 hover:bg-[#FDF8F5] ${
-        movement.isResolved
-          ? "border-emerald-100 bg-stone-50"
-          : "border-stone-200 bg-white"
+      aria-current={selected || undefined}
+      title={RECONCILIATION_STATUS_LABELS[movement.reconciliationStatus as ReconciliationStatus]}
+      className={`flex w-full items-center gap-4 rounded-xl border px-4 py-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40 ${
+        selected ? "border-brand-500/60 bg-brand-50/60" : "border-line bg-surface-card hover:border-brand-500/30 hover:bg-surface-soft/50"
       }`}
     >
-      {/* Type indicator */}
-      <div
-        className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
-          isDebit ? "bg-red-50" : "bg-emerald-50"
-        }`}
-      >
-        <svg
-          className={`h-4 w-4 ${isDebit ? "text-red-500" : "text-emerald-500"}`}
-          viewBox="0 0 20 20"
-          fill="currentColor"
-        >
-          {isDebit ? (
-            <path
-              fillRule="evenodd"
-              d="M10 3a.75.75 0 01.75.75v10.638l3.96-4.158a.75.75 0 111.08 1.04l-5.25 5.5a.75.75 0 01-1.08 0l-5.25-5.5a.75.75 0 111.08-1.04l3.96 4.158V3.75A.75.75 0 0110 3z"
-              clipRule="evenodd"
-            />
-          ) : (
-            <path
-              fillRule="evenodd"
-              d="M10 17a.75.75 0 01-.75-.75V5.612L5.29 9.77a.75.75 0 01-1.08-1.04l5.25-5.5a.75.75 0 011.08 0l5.25 5.5a.75.75 0 11-1.08 1.04l-3.96-4.158V16.25A.75.75 0 0110 17z"
-              clipRule="evenodd"
-            />
-          )}
-        </svg>
-      </div>
+      <span className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${isDebit ? "bg-red-50 text-red-600" : "bg-emerald-50 text-emerald-600"}`}>
+        {isDebit ? <IconArrowDown size={16} /> : <IconArrowUp size={16} />}
+      </span>
 
-      {/* Description + status */}
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-sm font-medium text-stone-800">
-          {movement.description}
-        </p>
-        <div className="mt-1 flex items-center gap-2">
-          <ReconciliationBadge status={displayStatus} />
-          {movement.notes && (
-            <span className="truncate text-xs text-stone-400">
-              {movement.notes}
-            </span>
-          )}
-        </div>
-      </div>
+      <span className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold text-navy-900">{movement.description}</span>
+        <span className="mt-0.5 block truncate text-[13px] text-ink-secondary">
+          {movement.movementKind ? MOVEMENT_KIND_LABELS[movement.movementKind] : (movement.notes ?? " ")}
+        </span>
+      </span>
 
-      {/* Amount */}
-      <div className="shrink-0 text-right">
-        <p
-          className={`text-sm font-semibold ${isDebit ? "text-red-700" : "text-emerald-700"}`}
-        >
+      <span className={`hidden shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium sm:inline-flex ${s.chip}`}>
+        {status === "reconciled" ? <IconCheck size={12} /> : <IconClock size={12} />}
+        {s.label}
+      </span>
+
+      <span className="w-32 shrink-0 text-right">
+        <span className={`block text-sm font-bold ${NUMERIC} ${isDebit ? "text-red-600" : "text-emerald-600"}`}>
           {isDebit ? "−" : "+"}
           {fromCents(movement.amount)}
-        </p>
-        <p className="text-xs text-stone-400">
-          {fromCents(movement.balanceAfter)}
-        </p>
-      </div>
+        </span>
+        <span className={`block text-xs text-ink-muted ${NUMERIC}`}>Saldo: {fromCents(movement.balanceAfter)}</span>
+      </span>
 
-      {/* Chevron */}
-      <svg
-        className="h-4 w-4 shrink-0 text-stone-300"
-        viewBox="0 0 20 20"
-        fill="currentColor"
-      >
-        <path
-          fillRule="evenodd"
-          d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z"
-          clipRule="evenodd"
-        />
-      </svg>
+      <IconChevronRight size={16} className="shrink-0 text-ink-muted" />
     </button>
   );
 }
@@ -198,8 +165,18 @@ export function MonthDetailView() {
   const [classifying, setClassifying] = useState<BankMovementDTO | null>(null);
   const [classifyingSuggestion, setClassifyingSuggestion] = useState<ClassifyDrawerSuggestion | null>(null);
   const [showImport, setShowImport] = useState(false);
-  const [viewTab, setViewTab] = useState<"movimentos" | "sugestoes">("movimentos");
-  const [statusFilter, setStatusFilter] = useState<"pendentes" | "todos">("pendentes");
+  const [viewTab, setViewTab] = useState<MonthTab>("movements");
+  const [chip, setChip] = useState<MonthChip>("pending");
+  const [search, setSearch] = useState("");
+  const [sort, setSort] = useState<MonthSort>("priority");
+  const [collapsedDays, setCollapsedDays] = useState<ReadonlySet<string>>(new Set());
+  const toggleDay = (date: string) =>
+    setCollapsedDays((prev) => {
+      const next = new Set(prev);
+      if (next.has(date)) next.delete(date);
+      else next.add(date);
+      return next;
+    });
 
   const { data: accountDetail } = useQuery({
     queryKey: ["bank-accounts:account", accountId],
@@ -233,12 +210,15 @@ export function MonthDetailView() {
     return map;
   }, [days]);
 
-  const visibleDays = useMemo(() => {
-    if (statusFilter === "todos") return days ?? [];
-    return (days ?? [])
-      .map((day) => ({ ...day, movements: day.movements.filter((m) => !m.isResolved) }))
-      .filter((day) => day.movements.length > 0);
-  }, [days, statusFilter]);
+  // Movimentos com sugestão (faturas/contas a pagar que batem, ou classificação repetida).
+  const suggestedIds = useMemo(
+    () => new Set([...(suggestions?.entityMatches ?? []).map((s) => s.movementId), ...(suggestions?.repeatJustifications ?? []).map((s) => s.movementId)]),
+    [suggestions],
+  );
+  const visibleDays = useMemo(
+    () => visibleMonthDays(days ?? [], { tab: viewTab, chip: viewTab === "reconciled" && chip === "pending" ? "all" : chip, search, sort, suggestedIds }),
+    [days, viewTab, chip, search, sort, suggestedIds],
+  );
 
   const suggestionsCount =
     (suggestions?.entityMatches.length ?? 0) + (suggestions?.repeatJustifications.length ?? 0);
@@ -438,101 +418,54 @@ export function MonthDetailView() {
   const timeline = (
     <>
       {isLoading ? (
-        <div className="flex items-center justify-center py-20 text-stone-400 text-sm">
-          A carregar movimentos…
-        </div>
+        <p className="py-20 text-center text-sm text-ink-secondary">A carregar movimentos…</p>
       ) : !days || days.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-4 py-20 text-center">
-          <div className="rounded-full bg-stone-100 p-4">
-            <svg
-              className="h-8 w-8 text-stone-400"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth={1.5}
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5"
-              />
-            </svg>
-          </div>
-          <div>
-            <p className="text-stone-600 font-medium">
-              Sem movimentos para {monthName} {year}
-            </p>
-            <p className="text-stone-400 text-sm mt-1">
-              Importe um extrato para ver os movimentos deste mês.
-            </p>
-          </div>
-          <button
-            onClick={() => setShowImport(true)}
-            className="rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-          >
-            Importar extrato
-          </button>
+        <div className={SURFACE}>
+          <EmptyState
+            icon={<IconCalendar size={28} />}
+            title={`Sem movimentos em ${monthName} ${year}`}
+            description="Importe o extrato deste mês para ver e conciliar os movimentos."
+            action={<Button variant="primary" icon={<AppIcon name="upload" size={16} />} onClick={() => setShowImport(true)}>Importar extrato</Button>}
+          />
         </div>
       ) : visibleDays.length === 0 ? (
-        <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
-          <div className="rounded-full bg-emerald-50 p-4">
-            <svg className="h-8 w-8 text-emerald-500" viewBox="0 0 20 20" fill="currentColor">
-              <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
-            </svg>
-          </div>
-          <p className="text-stone-600 font-medium">Sem movimentos por conciliar</p>
-          <button
-            onClick={() => setStatusFilter("todos")}
-            className="text-sm text-[#ED5C32] hover:underline"
-          >
-            Ver todos os movimentos do mês
-          </button>
+        <div className={SURFACE}>
+          <EmptyState
+            icon={<IconCheck size={28} />}
+            title={chip === "pending" ? "Sem movimentos por conciliar" : "Nenhum movimento com estes filtros"}
+            action={<Button size="sm" onClick={() => { setChip("all"); setSearch(""); }}>Ver todos os movimentos do mês</Button>}
+          />
         </div>
       ) : (
-        <div className="space-y-6">
-          {visibleDays.map((day) => (
-            <div key={day.date}>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-bold text-stone-700">
-                    {formatDay(day.date)}
-                  </span>
-                  <span className="text-xs text-stone-400">
-                    {day.totalMovements} mov.
-                    {day.totalDebitCents > 0 && (
-                      <span className="ml-1 text-red-500">
-                        −{fromCents(day.totalDebitCents)}
-                      </span>
-                    )}
-                    {day.totalCreditCents > 0 && (
-                      <span className="ml-1 text-emerald-600">
-                        +{fromCents(day.totalCreditCents)}
-                      </span>
-                    )}
-                  </span>
-                </div>
-                {statusFilter === "todos" &&
-                  day.reconciledCount === day.totalMovements &&
-                  day.totalMovements > 0 && (
-                    <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-600">
-                      <svg className="h-3 w-3" viewBox="0 0 20 20" fill="currentColor">
-                        <path fillRule="evenodd" d="M16.704 4.153a.75.75 0 01.143 1.052l-8 10.5a.75.75 0 01-1.127.075l-4.5-4.5a.75.75 0 011.06-1.06l3.894 3.893 7.48-9.817a.75.75 0 011.05-.143z" clipRule="evenodd" />
-                      </svg>
-                      Completo
-                    </span>
-                  )}
-              </div>
-              <div className="space-y-2">
-                {day.movements.map((m) => (
-                  <MovementRow
-                    key={m.id}
-                    movement={m}
-                    onClick={() => setClassifying(m)}
-                  />
-                ))}
-              </div>
-            </div>
-          ))}
+        <div className="space-y-4">
+          {visibleDays.map((day) => {
+            const open = !collapsedDays.has(day.date);
+            const inflow = day.movements.filter((m) => m.movementType === "credit").reduce((s, m) => s + m.amount, 0);
+            const outflow = day.movements.filter((m) => m.movementType === "debit").reduce((s, m) => s + m.amount, 0);
+            return (
+              <section key={day.date} className={`${SURFACE} p-3 sm:p-4`}>
+                <button
+                  type="button"
+                  aria-expanded={open}
+                  onClick={() => toggleDay(day.date)}
+                  className="flex w-full flex-wrap items-center gap-x-3 gap-y-1 rounded-lg px-1 py-1 text-left text-[13px] text-ink-secondary hover:bg-surface-soft/60"
+                >
+                  <span className="text-lg font-bold text-navy-900">{formatDay(day.date)}</span>
+                  <span>{day.movements.length} {day.movements.length === 1 ? "movimento" : "movimentos"}</span>
+                  {inflow > 0 && <span>· Entradas <span className={`font-semibold text-emerald-600 ${NUMERIC}`}>+{fromCents(inflow)}</span></span>}
+                  {outflow > 0 && <span>· Saídas <span className={`font-semibold text-red-600 ${NUMERIC}`}>−{fromCents(outflow)}</span></span>}
+                  <IconChevronDown size={16} className={`ml-auto shrink-0 transition-transform ${open ? "" : "-rotate-90"}`} />
+                </button>
+                {open && (
+                  <div className="mt-3 space-y-2">
+                    {day.movements.map((m) => (
+                      <MovementRow key={m.id} movement={m} selected={classifying?.id === m.id} onClick={() => setClassifying(m)} />
+                    ))}
+                  </div>
+                )}
+              </section>
+            );
+          })}
         </div>
       )}
     </>
@@ -638,126 +571,135 @@ export function MonthDetailView() {
 
   // ── Header ─────────────────────────────────────────────────────────────────
 
+  const crumbs: [string, (() => void) | null][] = [
+    ["Bancos", () => navigate("/financial/bank-statements")],
+    [bankDetail?.name ?? "…", () => navigate(`/financial/bank-statements/banks/${bankId}`)],
+    [accountLabel, () => navigate(`/financial/bank-statements/banks/${bankId}/accounts/${accountId}`)],
+    [`${monthName} ${year}`, null],
+  ];
+  const pendingCount = totalMovements - resolvedMovements;
+  const net = totalCredit - totalDebit;
+
   const header = (
-    <div className="shrink-0 border-b border-[#F5C992]/40 bg-white px-6 py-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <nav className="flex items-center gap-1.5 text-xs text-stone-400 mb-1">
-            <button onClick={() => navigate("/financial/bank-statements")} className="hover:text-stone-600">Bancos</button>
-            <span>/</span>
-            <button onClick={() => navigate(`/financial/bank-statements/banks/${bankId}`)} className="hover:text-stone-600">{bankDetail?.name ?? "…"}</button>
-            <span>/</span>
-            <button onClick={() => navigate(`/financial/bank-statements/banks/${bankId}/accounts/${accountId}`)} className="hover:text-stone-600">{accountLabel}</button>
-            <span>/</span>
-            <span className="text-stone-600 font-medium">{monthName} {year}</span>
+    <div className="shrink-0 space-y-5 px-4 pb-2 pt-6 sm:px-8">
+      <header className="flex flex-wrap items-start justify-between gap-4">
+        <div className="min-w-0">
+          <nav aria-label="Localização" className="mb-2 flex flex-wrap items-center gap-2 text-[13px] text-ink-secondary">
+            {crumbs.map(([label, go], i) => (
+              <Fragment key={i}>
+                {i > 0 && <IconChevronRight size={12} className="text-ink-muted" />}
+                {go ? (
+                  <button type="button" onClick={go} className="hover:text-navy-900">{label}</button>
+                ) : (
+                  <span className="text-navy-900">{label}</span>
+                )}
+              </Fragment>
+            ))}
           </nav>
-          <h1 className="text-xl font-bold text-stone-900">{monthName} {year}</h1>
-          {contextIdentifier && (
-            <p className="text-xs text-stone-400 font-mono mt-0.5">{contextIdentifier}</p>
-          )}
+          <h1 className={PAGE_TITLE}>{monthName} {year}</h1>
+          <p className="mt-1 text-[13px] text-ink-secondary">
+            {[accountDetail?.accountNumber ?? (accountDetail?.iban ? maskIban(accountDetail.iban) : null), bankDetail?.name, accountLabel].filter(Boolean).join("  •  ")}
+          </p>
         </div>
-        <div className="flex items-center gap-3">
-          {!isLoading && totalMovements > 0 && (
-            <div className="hidden sm:flex items-center gap-3 text-xs text-stone-500 border-r border-stone-200 pr-3">
-              <span><span className="font-semibold text-stone-700">{totalMovements}</span> mov.</span>
-              <span><span className="font-semibold text-emerald-600">{resolvedMovements}</span> conciliados</span>
-              <span className="text-red-600 font-semibold">−{fromCents(totalDebit)}</span>
-              <span className="text-emerald-600 font-semibold">+{fromCents(totalCredit)}</span>
-            </div>
-          )}
-          <button
-            onClick={() => setShowImport(true)}
-            className="flex items-center gap-2 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-          >
-            <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-              <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-            </svg>
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <Button icon={<IconCalendar size={16} />} onClick={() => navigate(`/financial/bank-statements/banks/${bankId}/accounts/${accountId}`)}>
+            Vista anual
+          </Button>
+          <Button variant="primary" icon={<AppIcon name="upload" size={16} />} onClick={() => setShowImport(true)}>
             Importar extrato
-          </button>
+          </Button>
         </div>
-      </div>
+      </header>
+
+      {/* Com o painel aberto há menos largura: os indicadores passam a 3 por linha (6 só com a largura toda). */}
+      <section
+        aria-label="Resumo do mês"
+        className={`grid grid-cols-2 gap-3 md:grid-cols-3 ${drawerProps && isLargeScreen ? "min-[1900px]:grid-cols-6" : "xl:grid-cols-6"}`}
+      >
+        <KpiCard compact tone="neutral" icon={<IconFile size={18} />} label="Movimentos do mês" value={String(totalMovements)} />
+        <KpiCard compact tone="green" icon={<IconCheck size={18} />} label="Conciliados" value={String(resolvedMovements)} valueClass="text-emerald-600" />
+        <KpiCard compact tone="amber" icon={<IconClock size={18} />} label="Por conciliar" value={String(pendingCount)} valueClass={pendingCount > 0 ? "text-amber-600" : "text-navy-900"} />
+        <KpiCard compact tone="green" icon={<IconArrowUp size={18} />} label="Entradas" value={`+${fromCents(totalCredit)}`} valueClass="text-emerald-600" />
+        <KpiCard compact tone="red" icon={<IconArrowDown size={18} />} label="Saídas" value={`−${fromCents(totalDebit)}`} valueClass="text-red-600" />
+        <KpiCard compact tone={net < 0 ? "red" : "navy"} icon={<IconChart size={18} />} label="Resultado líquido" value={`${net >= 0 ? "+" : "−"}${fromCents(Math.abs(net))}`} valueClass={net < 0 ? "text-red-600" : "text-emerald-600"} />
+      </section>
     </div>
   );
+
+  const CHIPS: { key: MonthChip; label: string }[] = [
+    { key: "all", label: "Todos" },
+    { key: "pending", label: "Por conciliar" },
+    { key: "inflows", label: "Entradas" },
+    { key: "outflows", label: "Saídas" },
+    { key: "transfers", label: "Transferências" },
+    { key: "with_suggestion", label: "Com sugestão" },
+  ];
 
   // ── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <div className="flex h-screen flex-col bg-[#FAF6F3] overflow-hidden">
-      {header}
-
+    <div className={`flex h-screen flex-col overflow-hidden ${PAGE_BG}`}>
       <div className="flex flex-1 overflow-hidden">
-        {/* Left: scrollable timeline */}
-        <div className="flex-1 min-w-0 overflow-y-auto p-6">
-          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex items-center gap-1 rounded-lg bg-stone-100 p-1">
-              <button
-                onClick={() => setViewTab("movimentos")}
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  viewTab === "movimentos" ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"
-                }`}
-              >
-                Movimentos
-              </button>
-              <button
-                onClick={() => setViewTab("sugestoes")}
-                className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                  viewTab === "sugestoes" ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"
-                }`}
-              >
-                Sugestões
-                {viewTab !== "sugestoes" && suggestionsCount > 0 && (
-                  <span className="rounded-full bg-[#ED5C32] px-1.5 py-0.5 text-[10px] font-bold leading-none text-white">
-                    {suggestionsCount}
-                  </span>
-                )}
-              </button>
+        {/* Esquerda: cabeçalho, filtros e movimentos (rola) */}
+        <div className="min-w-0 flex-1 overflow-y-auto">
+          {header}
+          <div className="space-y-4 px-4 pb-6 pt-3 sm:px-8">
+            <div className={`${SURFACE} px-4 pt-2`}>
+              <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line-subtle">
+                <Tabs
+                  label="Vista do mês"
+                  value={viewTab}
+                  onChange={setViewTab}
+                  items={[
+                    { key: "movements", label: "Movimentos" },
+                    { key: "suggestions", label: "Sugestões", ...(suggestionsCount > 0 && { count: suggestionsCount }) },
+                    { key: "reconciled", label: "Conciliados", count: resolvedMovements },
+                  ]}
+                />
+              </div>
+              {viewTab !== "suggestions" && (
+                <div className="flex flex-wrap items-center gap-2 py-3">
+                  <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Filtrar movimentos">
+                    {CHIPS.filter((c) => viewTab === "movements" || c.key !== "pending").map((c) => (
+                      <button
+                        key={c.key}
+                        type="button"
+                        aria-pressed={chip === c.key}
+                        onClick={() => setChip(c.key)}
+                        className={`inline-flex items-center gap-1.5 rounded-full px-3.5 py-1.5 text-[13px] font-medium transition-colors ${
+                          chip === c.key ? "bg-brand-600 text-white" : "bg-surface-soft text-ink-secondary hover:text-navy-900"
+                        }`}
+                      >
+                        {c.key === "with_suggestion" && <IconSparkle size={14} />}
+                        {c.label}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="ml-auto flex w-full items-center gap-2 sm:w-auto">
+                    <SearchInput label="Pesquisar descrição ou valor" placeholder="Pesquisar descrição ou valor…" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full sm:w-64" />
+                    <select aria-label="Ordenar" value={sort} onChange={(e) => setSort(e.target.value as MonthSort)} className={`${FIELD} h-9 w-auto pr-8`}>
+                      <option value="priority">Mais prioritários</option>
+                      <option value="date">Ordem do extrato</option>
+                    </select>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {viewTab === "movimentos" && (
-              <div className="flex items-center gap-1 rounded-lg bg-stone-100 p-1">
-                <button
-                  onClick={() => setStatusFilter("pendentes")}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                    statusFilter === "pendentes" ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"
-                  }`}
-                >
-                  Por conciliar
-                </button>
-                <button
-                  onClick={() => setStatusFilter("todos")}
-                  className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                    statusFilter === "todos" ? "bg-white text-stone-800 shadow-sm" : "text-stone-500 hover:text-stone-700"
-                  }`}
-                >
-                  Todos
-                </button>
-              </div>
-            )}
+            {viewTab === "suggestions" ? suggestionsContent : timeline}
           </div>
-
-          {viewTab === "movimentos" ? timeline : suggestionsContent}
           <PageFooter />
         </div>
 
-        {/* Right: inline classify panel (large screens only) */}
-        {isLargeScreen && (
-          <div className="w-[500px] shrink-0 border-l border-[#F5C992]/40 bg-white overflow-hidden flex flex-col">
-            {drawerProps ? (
-              <ClassifyDrawer key={drawerProps.movement.id} inline {...drawerProps} />
-            ) : (
-              <div className="flex flex-1 flex-col items-center justify-center gap-3 px-8 text-center text-stone-400">
-                <svg className="h-10 w-10 text-stone-300" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
-                </svg>
-                <p className="text-sm font-medium text-stone-500">Seleciona um movimento</p>
-                <p className="text-xs">Clica numa linha para conciliar ou classificar</p>
-              </div>
-            )}
-          </div>
+        {/* Direita: painel de conciliação — só com um movimento selecionado; sem seleção a lista usa a largura toda. */}
+        {isLargeScreen && drawerProps && (
+          <aside className="flex w-[500px] shrink-0 flex-col overflow-hidden border-l border-line bg-surface-card motion-safe:animate-motion-fade">
+            <ClassifyDrawer key={drawerProps.movement.id} inline {...drawerProps} />
+          </aside>
         )}
       </div>
 
-      {/* Small screen: portal drawer */}
+      {/* Ecrãs pequenos: painel em gaveta */}
       {!isLargeScreen && drawerProps && (
         <ClassifyDrawer key={drawerProps.movement.id} {...drawerProps} />
       )}

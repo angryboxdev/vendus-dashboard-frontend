@@ -22,7 +22,7 @@ export type JustificationType =
 export type RiskLevel = "low" | "medium" | "high" | "critical";
 export type MovementType = "debit" | "credit";
 export type StatementStatus = "draft" | "in_review" | "completed" | "closed";
-export type StatementSourceType = "csv" | "xlsx" | "manual";
+export type StatementSourceType = "csv" | "xlsx" | "manual" | "pdf";
 export type MatchedEntityType =
   | "invoice"
   | "payable_entry"
@@ -109,11 +109,31 @@ export interface BankStatementSummaryDTO {
   createdAt: string;
 }
 
+/** Tipo do movimento (V2 F4): natureza para ler e filtrar — não confundir com débito/crédito. */
+export type MovementKind =
+  | "sales"
+  | "deposit"
+  | "transfer_in"
+  | "transfer_out"
+  | "supplier"
+  | "payroll"
+  | "tax_state"
+  | "bank_fee"
+  | "insurance"
+  | "utilities"
+  | "card_purchase"
+  | "internal_transfer"
+  | "reversal"
+  | "to_review";
+
 export interface BankMovementDTO {
   id: string;
   bookingDate: string;    // ISO date
   valueDate: string;      // ISO date
   description: string;
+  /** V2 (F4) — opcionais: um backend anterior não os envia. */
+  normalizedDescription?: string;
+  movementKind?: MovementKind;
   amount: number;         // cents, absolute
   balanceAfter: number;   // cents
   currency: string;
@@ -143,8 +163,19 @@ export interface BankStatementDetailDTO extends BankStatementSummaryDTO {
   statusCounts: Partial<Record<ReconciliationStatus, number>>;
 }
 
+/** V2 (F3): para que conta foi (ou vai) o extrato quando o banco/conta vêm do próprio extrato. */
+export interface StatementAccountResolutionDTO {
+  status: "existing" | "created" | "to_create";
+  bankId: string | null;
+  bankName: string;
+  bankIsNew: boolean;
+  accountId: string | null;
+  accountName: string;
+}
+
 export interface ImportStatementResult {
   id: string;
+  accountResolution?: StatementAccountResolutionDTO | null;
   bankAccountId: string | null;
   accountMatched: boolean;
   parsedAccountNumber: string;
@@ -240,16 +271,35 @@ export interface MovementCandidateDTO {
 
 // ── Account calendar ──────────────────────────────────────────────────────────
 
+/** Estado do mês: extrato e conciliação são independentes; sem extrato nunca há percentagem. */
+export type MonthStatus = "no_statement" | "imported" | "partial" | "reconciled";
+
 export interface AccountMonthStatDTO {
   year: number;
   month: number; // 1–12
+  statementImported: boolean;
+  status: MonthStatus;
   totalMovements: number;
+  /** Movimentos que contam para a conciliação (sem os créditos aceites automaticamente na importação). */
+  reconcilableMovements: number;
   reconciledMovements: number;
-  salesReconciledPercent: number; // 0–100 — créditos resolvidos / total de créditos
-  expensesReconciledPercent: number; // 0–100 — débitos resolvidos / total de débitos
+  /** `null` sem extrato ou sem movimentos. */
+  reconciledPercent: number | null;
+  inflowCents: number;
+  outflowCents: number;
+  netCents: number;
+  openingBalanceCents: number | null;
+  closingBalanceCents: number | null;
+  /** @deprecated use `reconciledPercent`. */
+  salesReconciledPercent: number;
+  /** @deprecated use `reconciledPercent`. */
+  expensesReconciledPercent: number;
+  /** @deprecated = `inflowCents`. */
   totalCreditCents: number;
+  /** @deprecated = `outflowCents`. */
   totalDebitCents: number;
-  balanceCents: number; // totalCreditCents - totalDebitCents
+  /** @deprecated = `netCents`. */
+  balanceCents: number;
 }
 
 export interface DaySlotDTO {

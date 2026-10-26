@@ -57,6 +57,21 @@ export const BANK_LOGO_LABELS: Record<BankLogoKey, string> = {
   other: "Outro",
 };
 
+/**
+ * Marca oficial do banco (branca, para o quadrado com a cor do banco) — ficheiros em `public/banks/`,
+ * do Wikimedia Commons (domínio público). Bancos sem marca mostram as iniciais (`BANK_LOGO_ABBREVS`).
+ */
+export const BANK_LOGO_MARKS: Partial<Record<BankLogoKey, string>> = {
+  millennium_bcp: "/banks/millennium-bcp-mark.svg",
+  cgd: "/banks/cgd-mark.svg",
+};
+
+/** Cor oficial de fundo da marca (sobrepõe-se à cor escolhida no banco, para o logótipo ficar fiel). */
+export const BANK_BRAND_COLORS: Partial<Record<BankLogoKey, string>> = {
+  millennium_bcp: "#D1005D",
+  cgd: "#0057A8",
+};
+
 export const BANK_LOGO_ABBREVS: Record<BankLogoKey, string> = {
   millennium_bcp: "BCP",
   cgd: "CGD",
@@ -79,6 +94,7 @@ export const BANK_LOGO_ABBREVS: Record<BankLogoKey, string> = {
 
 export type StatementFormat =
   | "millennium_bcp_csv"
+  | "millennium_bcp_pdf"
   | "generic_xlsx"
   | "generic_csv"
   | "cgd_csv"
@@ -87,6 +103,7 @@ export type StatementFormat =
 
 export const STATEMENT_FORMAT_LABELS: Record<StatementFormat, string> = {
   millennium_bcp_csv: "Millennium BCP (CSV)",
+  millennium_bcp_pdf: "Millennium BCP (PDF)",
   generic_xlsx: "Genérico (XLSX)",
   generic_csv: "Genérico (CSV)",
   cgd_csv: "CGD (CSV)",
