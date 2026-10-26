@@ -109,8 +109,10 @@ export function InvoiceRecurrenceCard({ invoiceId, inPaymentGroup = false, statu
       </p>
       <p className="text-[11px] text-stone-400">
         {status.candidates.length > 1
-          ? "Há mais de uma recorrência deste fornecedor — escolha a que corresponde a esta fatura."
-          : "Associe para o previsto passar a real."}
+          ? "Há mais de uma recorrência possível — escolha a que corresponde a esta fatura."
+          : status.candidates[0]?.matchedBy === "category_name"
+            ? "Encontrada pela categoria e pelo nome (não pelo fornecedor) — confirme antes de associar."
+            : "Associe para o previsto passar a real."}
       </p>
       <ul className="space-y-1.5">
         {status.candidates.map((c) => {
@@ -127,6 +129,7 @@ export function InvoiceRecurrenceCard({ invoiceId, inPaymentGroup = false, statu
                 <p className="truncate text-xs font-medium text-stone-700">{c.recurrenceName}</p>
                 <p className="text-[11px] text-stone-400">
                   <span className="capitalize">{formatPeriod(c.period)}</span> · previsto {fromCents(c.estimatedAmountCents)}
+                  {c.matchedBy === "category_name" && <> · pela categoria e nome</>}
                   {c.deviationPercent != null && c.deviationPercent !== 0 && <> · {formatDeviation(c.deviationPercent)}</>}
                 </p>
               </div>
