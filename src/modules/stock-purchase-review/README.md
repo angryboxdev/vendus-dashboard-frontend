@@ -90,6 +90,8 @@ mockup, fica para depois.
   dos separadores, em largura total. Mesmas rotas; quem só tem
   `stock.purchase_reviews` vê «Inventário» no menu e cai neste separador.
 
+- **Progresso da conciliação** (`ReviewProgressCard`, `reviewProgress` em `compact-review.ts`): no topo do detalhe, «40 / 44 linhas resolvidas» + barra segmentada (resolvidas · por resolver · fora do Stock), contando **linhas da fatura** (o Cheddar de dois lotes conta 2). Barra em vez de gráfico circular: com uma categoria dominante, as fatias pequenas ficam ilegíveis numa pizza. A legenda filtra a lista (estado do filtro no detalhe; outro clique = todas). Substitui o indicador «Linhas do documento».
+
 ## Como testar
 
 - Não há testes automatizados dedicados nesta Fase 1 (módulo novo, sem lógica

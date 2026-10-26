@@ -160,3 +160,30 @@ export function invoiceBreakdown(l: StockReviewLineDTO): string {
   }
   return `${qty(q)} ${unit} × ${eurDoc(l.unitCostWithoutVat)} €`;
 }
+
+export interface ReviewProgress {
+  /** Linhas da fatura (não as linhas agrupadas da lista). */
+  total: number;
+  /** Associadas a um artigo do Stock. */
+  resolved: number;
+  /** Ainda sem decisão; `withProposal` delas têm proposta completa pronta a aceitar. */
+  pending: number;
+  withProposal: number;
+  /** Decididas como fora do Stock (depósitos, serviços…). */
+  out: number;
+}
+
+/** Progresso da conciliação para o resumo do topo: resolvidas, por resolver e fora do Stock. */
+export function reviewProgress(review: StockPurchaseReviewDTO): ReviewProgress {
+  const p: ReviewProgress = { total: review.lines.length, resolved: 0, pending: 0, withProposal: 0, out: 0 };
+  for (const l of review.lines) {
+    const s = compactState(l);
+    if (s === "resolved") p.resolved++;
+    else if (s === "out") p.out++;
+    else {
+      p.pending++;
+      if (s === "confirm") p.withProposal++;
+    }
+  }
+  return p;
+}

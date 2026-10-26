@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { StockPurchaseReviewDTO, StockReviewLineDTO } from "../entities/stock-purchase-review.ts";
-import { compactKpis, compactRows, matchesFilter, sortRows } from "./compact-review.ts";
+import { compactKpis, compactRows, matchesFilter, reviewProgress, sortRows } from "./compact-review.ts";
 
 const line = (over: Partial<StockReviewLineDTO>): StockReviewLineDTO => ({
   id: "x", invoiceLineId: "x", description: "", purchaseQuantity: 1, purchaseUnit: "un", unitCostWithoutVat: 0, totalWithVat: 0, vatAmount: 0,
@@ -68,5 +68,22 @@ describe("coluna «Na fatura» para conferir (V5)", () => {
     expect(invoiceBreakdown(line({ description: "Tomate Mutti p/ Pizza Classico 5 kg bolsa", purchaseQuantity: 4 }))).toBe("4 bolsas × 5 kg = 20 kg");
     expect(invoiceBreakdown(line({ description: "Q. Grana Padano Ralado Maser 1 kg", purchaseQuantity: 1 }))).toBe("1 × 1 kg = 1 kg");
     expect(invoiceBreakdown(line({ description: "Q. Cheddar Ralado kg", purchaseQuantity: 6, unitCostWithoutVat: 820 }))).toBe("6 kg × 8,20 €");
+  });
+});
+
+describe("progresso da conciliação (resumo do topo)", () => {
+  it("conta linhas da fatura: resolvidas, por resolver (com proposta) e fora do Stock", () => {
+    const proposal = { source: "learned", resolution: "existing_item", stockItemId: "cheddar", conversionFactor: 1000, confidence: 1, packagingChanged: false } as StockReviewLineDTO["suggestion"];
+    const mixed = {
+      lines: [
+        ...lines,
+        line({ id: "p1", resolutionType: "unresolved", suggestion: proposal }),
+        line({ id: "p2", resolutionType: "unresolved" }),
+        line({ id: "dep", resolutionType: "no_stock_effect" }),
+      ],
+    } as unknown as StockPurchaseReviewDTO;
+    // O Cheddar em dois lotes conta duas vezes: são duas linhas da fatura.
+    expect(reviewProgress(mixed)).toEqual({ total: 8, resolved: 5, pending: 2, withProposal: 1, out: 1 });
+    expect(reviewProgress(review)).toEqual({ total: 5, resolved: 5, pending: 0, withProposal: 0, out: 0 });
   });
 });
