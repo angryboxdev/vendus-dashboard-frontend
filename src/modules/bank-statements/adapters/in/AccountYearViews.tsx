@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { AppIcon, Button, IconChevronLeft, IconChevronRight, IconFile, NUMERIC, SURFACE } from "../../../../components/ui/index.ts";
-import type { AccountMonthStatDTO } from "../../domain/entities/bank-statement.ts";
+import type { AccountMonthStatDTO, BankStatementSummaryDTO } from "../../domain/entities/bank-statement.ts";
 import { MONTH_NAMES_PT, monthReconciliation, type AccountYearSummary } from "../../domain/services/account-year.ts";
 import { MonthStatusPill } from "./BankUi.tsx";
 import { eur, signedEur } from "./money.ts";
@@ -13,6 +13,12 @@ import { eur, signedEur } from "./money.ts";
 
 const flowClass = (cents: number) => (cents > 0 ? "text-emerald-600" : cents < 0 ? "text-red-600" : "text-navy-900");
 const DASH = <span className="text-ink-muted">—</span>;
+
+/** «2026-09-01…» → «01/09/2026». */
+const fmtDay = (iso: string) => {
+  const [y, m, d] = iso.slice(0, 10).split("-");
+  return `${d}/${m}/${y}`;
+};
 
 /** Barra fina de progresso (acento da marca); a percentagem vai sempre em texto ao lado. */
 function ThinBar({ percent, label, className = "" }: { percent: number; label: string; className?: string }) {
@@ -265,6 +271,9 @@ export function MonthSummary({
   onBack,
   onOpenMovements,
   onImport,
+  statements,
+  balances,
+  onDeleteStatement,
 }: {
   stat: AccountMonthStatDTO | undefined;
   year: number;
@@ -276,6 +285,11 @@ export function MonthSummary({
   onBack: () => void;
   onOpenMovements: () => void;
   onImport: () => void;
+  /** Extratos que tocam o mês (para eliminar e voltar a importar). */
+  statements: BankStatementSummaryDTO[];
+  /** Saldos tirados do extrato (só se bate certo); `null` quando não há. */
+  balances: { openingCents: number | null; closingCents: number | null };
+  onDeleteStatement: (statement: BankStatementSummaryDTO) => void;
 }) {
   const name = MONTH_NAMES_PT[month - 1]!;
   const prevName = MONTH_NAMES_PT[(month + 10) % 12]!;
@@ -354,15 +368,40 @@ export function MonthSummary({
                   Não aplicável — {r.kind === "not_applicable" && r.outside > 0 ? "só entradas aceites automaticamente, nada para conciliar." : "sem movimentos para conciliar."}
                 </p>
               )}
-              {stat!.openingBalanceCents !== null && stat!.closingBalanceCents !== null && (
+              {(balances.openingCents !== null || balances.closingCents !== null) && (
                 <p className={`mt-2 text-xs text-ink-muted ${NUMERIC}`}>
-                  Saldo no início de {name.toLowerCase()}: {eur(stat!.openingBalanceCents)} · no fim: {eur(stat!.closingBalanceCents)} (pelos saldos do extrato)
+                  {balances.openingCents !== null && <>Saldo inicial do extrato: {eur(balances.openingCents)}</>}
+                  {balances.openingCents !== null && balances.closingCents !== null && " · "}
+                  {balances.closingCents !== null && <>saldo final: {eur(balances.closingCents)}</>}
                 </p>
               )}
             </div>
             <Button variant="primary" onClick={onOpenMovements}>Ver movimentos <IconChevronRight size={14} /></Button>
           </div>
         </>
+      )}
+
+      {statements.length > 0 && (
+        <div className="mt-5 border-t border-line-subtle pt-4">
+          <p className="mb-2 text-xs text-ink-secondary">{statements.length === 1 ? "Extrato deste mês" : "Extratos deste mês"}</p>
+          <ul className="divide-y divide-line-subtle">
+            {statements.map((s) => (
+              <li key={s.id} className="flex flex-wrap items-center justify-between gap-3 py-2 text-[13px]">
+                <span className={`text-navy-900 ${NUMERIC}`}>
+                  {fmtDay(s.periodStart)} – {fmtDay(s.periodEnd)}
+                  <span className="text-ink-secondary"> · {s.sourceType.toUpperCase()} · {s.importedMovementsCount} movimentos · importado em {fmtDay(s.createdAt)}</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => onDeleteStatement(s)}
+                  className="rounded-lg px-2 py-1 text-[13px] font-medium text-red-600 hover:bg-red-50"
+                >
+                  Eliminar extrato
+                </button>
+              </li>
+            ))}
+          </ul>
+        </div>
       )}
     </div>
   );
