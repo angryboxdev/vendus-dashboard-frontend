@@ -1,6 +1,7 @@
 import type { LucideIcon, LucideProps } from "lucide-react";
 import {
   Archive,
+  ChefHat,
   Briefcase,
   CreditCard,
   Folder,
@@ -81,6 +82,7 @@ export const APP_ICONS = {
   absences: wrap(CalendarOff),
   documents: wrap(FileText),
   legacy: wrap(Archive),
+  recipes: wrap(ChefHat),
   transfers: wrap(ArrowLeftRight),
   reports: wrap(ChartColumn),
   personAdd: wrap(UserPlus),

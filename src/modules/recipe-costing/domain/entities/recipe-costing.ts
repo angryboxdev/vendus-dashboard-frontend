@@ -24,6 +24,21 @@ export interface DishLineCostDTO {
   complete: boolean;
 }
 
+/** Margem teórica s/ IVA (V7): PVP sem IVA − custo. Só com custo completo e PVP. */
+export interface MenuCostingSettingsDTO {
+  salesVatRate: number;
+  isDefault: boolean;
+}
+
+export interface DishMarginDTO {
+  netSalePrice: number;
+  marginWithoutVat: number;
+  /** 0,7 = 70% do PVP sem IVA. */
+  marginRatio: number;
+  /** CMV teórico: custo ÷ PVP sem IVA. */
+  foodCostRatio: number;
+}
+
 export interface DishSizeCostDTO {
   size: string;
   costWithoutVat: number;
@@ -33,6 +48,8 @@ export interface DishSizeCostDTO {
   missingStockItemIds: string[];
   /** Custo de cada linha da ficha, pela ordem da receita. */
   lines: DishLineCostDTO[];
+  /** `null` sem PVP ou com custo parcial. Ausente em respostas antigas. */
+  margin?: DishMarginDTO | null;
 }
 
 export interface DishCostingDTO {
@@ -52,9 +69,23 @@ export interface MissingPriceIngredientDTO {
 }
 
 export interface RecipeCostingReportDTO {
+  /** Taxa de IVA das vendas (%) usada na margem. */
+  salesVatRate?: number;
   dishes: DishCostingDTO[];
   ingredients: IngredientCostDTO[];
   missingPrices: MissingPriceIngredientDTO[];
+  /** Custo de um lote de cada preparação (V7). Ausente em respostas antigas. */
+  preparations?: PreparationCostDTO[];
+}
+
+export interface PreparationCostDTO {
+  preparationId: string;
+  name: string;
+  yieldQty: number;
+  useAsUnit: boolean;
+  itemCount: number;
+  batchCostWithoutVat: number;
+  complete: boolean;
 }
 
 // ── Histórico semanal do preço de compra (task V5 §5) — `GET /api/recipe-costing/ingredients/:id/price-history` ──

@@ -12,7 +12,6 @@ const DRE_ITEMS: NavItem[] = [
 // Mesmas rotas e ecrãs; só os nomes e o agrupamento (task «Stock inteligente» V4 §1).
 const STOCK_ITEMS: NavItem[] = [
   { kind: "item", path: "/stock/stock", label: "Artigos e ingredientes" },
-  { kind: "item", path: "/stock/pizzas", label: "Fichas técnicas" },
   // Inventário: um só item; Stock atual, Movimentos, Contagens e Compras por rever são separadores dentro da página.
   { kind: "item", path: "/stock/inventario", label: "Inventário", match: ["/stock/movimentacoes", "/stock/historico-movimentos", "/stock/contagens", "/stock/compras-por-rever"] },
   { kind: "item", path: "/stock/planeamento", label: "Reposição e planeamento" },
@@ -78,6 +77,8 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
       basePath: "/stock",
       items: STOCK_ITEMS,
     },
+    // Fichas técnicas (V7): área própria, página única com Pratos | Preparações | Análise de custos.
+    { kind: "item", path: "/fichas-tecnicas", label: "Fichas técnicas", icon: "recipes" },
     {
       kind: "group",
       id: "hr",

@@ -1,7 +1,7 @@
 /** Chave do ícone (o domínio não conhece React; a vista resolve-a no catálogo de ícones do kit). */
 export type NavIcon =
   | "profitability" | "stock" | "people" | "crm" | "financial" | "cashClosings" | "airMenu" | "vendus" | "company" | "users" | "deviceTokens"
-  | "overview" | "rosters" | "attendance" | "absences" | "documents" | "more" | "legacy";
+  | "overview" | "rosters" | "attendance" | "absences" | "documents" | "more" | "legacy" | "recipes";
 
 export interface NavItem {
   readonly kind: "item";

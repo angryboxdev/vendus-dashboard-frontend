@@ -1,4 +1,4 @@
-import type { DishesImpactDTO, IngredientPriceHistoryDTO, RecipeCostingReportDTO, WeeklyDishCostDTO } from "../../entities/recipe-costing.ts";
+import type { DishesImpactDTO, IngredientPriceHistoryDTO, MenuCostingSettingsDTO, RecipeCostingReportDTO, WeeklyDishCostDTO } from "../../entities/recipe-costing.ts";
 
 export interface RecipeCostingApiPort {
   getReport(): Promise<RecipeCostingReportDTO>;
@@ -8,6 +8,9 @@ export interface RecipeCostingApiPort {
   getDishWeeklyCost(pizzaId: string, weeks?: number): Promise<WeeklyDishCostDTO>;
   /** Custo atual de cada pizza face a há `compareWeeks` semanas, com o ingrediente que mais pesou. */
   getDishesImpact(compareWeeks?: number): Promise<DishesImpactDTO>;
+  /** Taxa de IVA das vendas usada na margem dos pratos (V7). */
+  getSettings(): Promise<MenuCostingSettingsDTO>;
+  saveSettings(salesVatRate: number): Promise<MenuCostingSettingsDTO>;
   /**
    * Custo manual s/ IVA por unidade base no catálogo do artigo. Só vale enquanto
    * não houver compra importada: a fatura seguinte passa à frente.

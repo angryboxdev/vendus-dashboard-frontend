@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { NumericInput } from "../../components/NumericInput.tsx";
 
 import { apiGet, apiPost, apiPut } from "../../lib/api";
@@ -76,6 +76,10 @@ export function StockPage() {
 
   const [entryRulesOpen, setEntryRulesOpen] = useState(false);
   const navigate = useNavigate();
+  // Vindo das Fichas técnicas: ?custo=sem (ingredientes sem custo) ou ?artigo=<id>&painel=precos.
+  const [searchParams] = useSearchParams();
+  const fromNoCost = searchParams.get("custo") === "sem";
+  const openArticle = searchParams.get("artigo");
 
   // Contagem de «Compras por rever» ainda não terminais, para o botão do cabeçalho.
   const [openReviewsCount, setOpenReviewsCount] = useState(0);
@@ -200,6 +204,9 @@ export function StockPage() {
       {error && <p className="mx-auto mt-4 max-w-7xl rounded-md bg-red-50 px-3 py-2 text-sm text-red-700">{error}</p>}
       <StockCatalogProvider>
         <ArticlesView
+          initialFilters={fromNoCost ? { cost: "unknown" } : undefined}
+          initialView={fromNoCost ? "costs" : undefined}
+          initialOpen={openArticle ? { id: openArticle, tab: searchParams.get("painel") === "precos" ? "prices" : "stock" } : null}
           canManage={canManage}
           reloadKey={reloadKey}
           onEdit={(item) => void openEdit(item.id)}

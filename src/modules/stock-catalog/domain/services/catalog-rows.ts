@@ -46,6 +46,8 @@ export interface CatalogFilters {
   /** "active" | "inactive" | "" (todos). */
   status: string;
   situation: "" | StockSituation | "attention";
+  /** "unknown" = sem compra confirmada nem custo manual (o que deixa as fichas técnicas parciais). */
+  cost?: "" | "unknown";
 }
 
 export type SortKey = "name" | "stock" | "missing" | "cost" | "change" | "lastDate";
@@ -62,6 +64,7 @@ export function filterRows(rows: CatalogRow[], f: CatalogFilters, view: CatalogV
     if (f.status === "inactive" && r.item.is_active) return false;
     if (f.situation === "attention" && !(r.situation === "out" || r.situation === "below" || r.situation === "near")) return false;
     if (f.situation && f.situation !== "attention" && r.situation !== f.situation) return false;
+    if (f.cost === "unknown" && (r.cost?.lastPurchase || r.manualCents !== null)) return false;
     // Reposição: só o que tem algo em falta (salvo se o filtro de situação pedir outra coisa).
     if (view === "replenishment" && !f.situation && !(r.missing && r.missing > 0)) return false;
     return true;
