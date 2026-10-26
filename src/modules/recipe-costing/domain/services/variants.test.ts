@@ -44,6 +44,8 @@ describe("variantes das fichas técnicas (V7)", () => {
       { op: "delete", itemId: "s", size: "small" },
     ]);
     expect(planRowChanges(row!, { small: 70 }, { xsFollowsSmall: true })).toEqual([]);
+    // Gravar só a Grande (seletor na Grande) não apaga nem altera a XS.
+    expect(planRowChanges(row!, { large: 150 }, { xsFollowsSmall: true })).toEqual([{ op: "add", size: "large", quantity: 150 }]);
     // Sem a regra (pratos salgados), a XS não é tocada.
     expect(planRowChanges(row!, { small: 90 }, { xsFollowsSmall: false })).toEqual([{ op: "update", itemId: "s", size: "small", quantity: 90 }]);
   });
