@@ -3,17 +3,16 @@ import { useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { usePayableRecurrencesModule } from "../../payable-recurrences.module.tsx";
 import {
+  type RecurrenceDTO,
   type RecurrenceStatus,
   type RecurrenceType,
-  type CreateRecurrencePayload,
   RECURRENCE_TYPE_LABELS,
   RECURRENCE_STATUS_LABELS,
   RECURRENCE_FREQUENCY_LABELS,
-  PAYMENT_METHOD_LABELS,
-  nextDueDate,
 } from "../../domain/entities/recurrence.ts";
-import { RecurrenceDrawer } from "./RecurrenceDrawer.tsx";
 import { KpiCard } from "./KpiCard.tsx";
+import { NewRecurrenceButton } from "./NewRecurrenceButton.tsx";
+import { RecurrencesViewSwitch } from "./RecurrencesViewSwitch.tsx";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 
 // ── helpers ────────────────────────────────────────────────────────────────────
@@ -22,16 +21,21 @@ function fromCents(n: number): string {
   return (n / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
 }
 
-function formatDate(d: Date): string {
-  return d.toLocaleDateString("pt-PT", { day: "2-digit", month: "2-digit", year: "numeric" });
+function formatDate(s: string): string {
+  const [y, m, d] = s.slice(0, 10).split("-");
+  return `${d}/${m}/${y}`;
 }
 
-function daysUntil(d: Date): number {
-  const now = new Date();
-  now.setHours(0, 0, 0, 0);
-  const target = new Date(d);
-  target.setHours(0, 0, 0, 0);
-  return Math.round((target.getTime() - now.getTime()) / 86_400_000);
+/** Como terminou (ou vai terminar) a recorrência — coluna «Fim» do histórico. */
+function endLabel(r: RecurrenceDTO): { main: string; sub: string } {
+  if (r.status === "closed") {
+    return { main: r.closedAt ? formatDate(r.closedAt) : "—", sub: "Encerrada" };
+  }
+  if (r.status === "paused") {
+    return { main: r.pausedAt ? formatDate(r.pausedAt) : "—", sub: "Pausada" };
+  }
+  if (r.endDate) return { main: formatDate(r.endDate), sub: "Fim previsto" };
+  return { main: "—", sub: "Sem fim definido" };
 }
 
 // ── StatusBadge ────────────────────────────────────────────────────────────────
@@ -61,49 +65,35 @@ function StatusBadge({ status }: { status: RecurrenceStatus }) {
 
 // ── Main View ──────────────────────────────────────────────────────────────────
 
+/**
+ * Histórico de recorrências: todas (ativas, pausadas, encerradas) com quando
+ * começaram e quando pararam. A vista predefinida da aba é a mensal
+ * (RecurrencesMonthlyView); chega-se aqui pelo seletor «Do mês | Histórico».
+ */
 export function RecurrencesView() {
   const { api } = usePayableRecurrencesModule();
   const navigate = useNavigate();
   const qc = useQueryClient();
 
   const [search, setSearch] = useState("");
-  // Predefinido: só ativas — pausadas/encerradas ficam disponíveis ao
-  // trocar o filtro, mas não poluem a vista por omissão.
-  const [statusFilter, setStatusFilter] = useState<RecurrenceStatus | "">("active");
+  const [statusFilter, setStatusFilter] = useState<RecurrenceStatus | "">("");
   const [typeFilter, setTypeFilter] = useState<RecurrenceType | "">("");
-  const [showDrawer, setShowDrawer] = useState(false);
-  const [uploading, setUploading] = useState(false);
 
   const { data: recurrences = [], isLoading } = useQuery({
     queryKey: ["payable-recurrences"],
     queryFn: () => api.listRecurrences(),
   });
 
-  const { data: summary } = useQuery({
-    queryKey: ["payable-recurrences-summary"],
-    queryFn: () => api.getSummary(),
-  });
-
-  // ── KPIs (derived client-side + summary from API) ───────────────────────────
+  // ── KPIs ────────────────────────────────────────────────────────────────────
   const kpis = useMemo(() => {
-    const now = new Date();
-    const in7Days = new Date(now);
-    in7Days.setDate(in7Days.getDate() + 7);
-
-    const active = recurrences.filter((r) => r.status === "active");
-    const dueSoon = active.filter((r) => {
-      const nd = nextDueDate(r.dayOfMonth);
-      return nd <= in7Days;
-    });
-    const totalEstimated = active.reduce((s, r) => s + r.estimatedAmountCents, 0);
-
+    const count = (s: RecurrenceStatus) => recurrences.filter((r) => r.status === s).length;
     return {
-      activeCount: active.length,
-      awaitingInvoiceCount: summary?.awaitingInvoiceCount ?? 0,
-      dueSoonCount: dueSoon.length,
-      totalEstimated,
+      total: recurrences.length,
+      active: count("active"),
+      paused: count("paused"),
+      closed: count("closed"),
     };
-  }, [recurrences, summary]);
+  }, [recurrences]);
 
   // ── Filters ─────────────────────────────────────────────────────────────────
   const filtered = useMemo(() => {
@@ -118,34 +108,11 @@ export function RecurrencesView() {
           r.supplierName.toLowerCase().includes(q),
       );
     }
-    return list;
+    // Mais recentes primeiro (data de início).
+    return [...list].sort((a, b) => b.startDate.localeCompare(a.startDate) || a.name.localeCompare(b.name));
   }, [recurrences, statusFilter, typeFilter, search]);
 
   // ── Mutations ────────────────────────────────────────────────────────────────
-  const createMutation = useMutation({
-    mutationFn: (payload: CreateRecurrencePayload) => api.createRecurrence(payload),
-    onSuccess: () => {
-      void qc.invalidateQueries({ queryKey: ["payable-recurrences"] });
-    },
-  });
-
-  async function handleCreate(
-    payload: CreateRecurrencePayload,
-    file: File | null,
-  ) {
-    const created = await createMutation.mutateAsync(payload);
-    if (file) {
-      setUploading(true);
-      try {
-        await api.uploadRecurrenceDocument(created.id, file);
-        void qc.invalidateQueries({ queryKey: ["payable-recurrences"] });
-      } finally {
-        setUploading(false);
-      }
-    }
-    setShowDrawer(false);
-  }
-
   const pauseMutation = useMutation({
     mutationFn: (id: string) => api.pauseRecurrence(id),
     onSuccess: () => void qc.invalidateQueries({ queryKey: ["payable-recurrences"] }),
@@ -160,37 +127,18 @@ export function RecurrencesView() {
     <div className="min-h-screen bg-[#FAF6F3]">
       {/* Header */}
       <div className="border-b border-[#F5C992]/40 bg-white px-6 py-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
             <h1 className="text-xl font-bold text-stone-900">
-              Recorrências &amp; Contratos
+              Recorrências — histórico
             </h1>
             <p className="mt-0.5 text-sm text-stone-500">
-              Gestão de compromissos recorrentes, contratos e faturas associadas
+              Todas as recorrências: quando começaram, foram pausadas ou encerradas
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                const now = new Date();
-                navigate(`/financial/recurrences/monthly/${now.getFullYear()}/${now.getMonth() + 1}`);
-              }}
-              className="flex items-center gap-1.5 rounded-lg border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path fillRule="evenodd" d="M5.75 2a.75.75 0 01.75.75V4h7V2.75a.75.75 0 011.5 0V4h.25A2.75 2.75 0 0118 6.75v8.5A2.75 2.75 0 0115.25 18H4.75A2.75 2.75 0 012 15.25v-8.5A2.75 2.75 0 014.75 4H5V2.75A.75.75 0 015.75 2zm-1 5.5c-.69 0-1.25.56-1.25 1.25v6.5c0 .69.56 1.25 1.25 1.25h10.5c.69 0 1.25-.56 1.25-1.25v-6.5c0-.69-.56-1.25-1.25-1.25H4.75z" clipRule="evenodd" />
-              </svg>
-              Vista mensal
-            </button>
-            <button
-              onClick={() => setShowDrawer(true)}
-              className="flex items-center gap-2 rounded-lg bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-            >
-              <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
-                <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
-              </svg>
-              Nova recorrência
-            </button>
+            <RecurrencesViewSwitch active="history" />
+            <NewRecurrenceButton />
           </div>
         </div>
       </div>
@@ -198,29 +146,15 @@ export function RecurrencesView() {
       <div className="p-6 space-y-6">
         {/* KPIs */}
         <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+          <KpiCard label="Total" value={kpis.total} sub="Recorrências criadas" />
+          <KpiCard label="Ativas" value={kpis.active} sub="Em vigor" accentClass="text-emerald-700" />
           <KpiCard
-            label="Ativas"
-            value={kpis.activeCount}
-            sub="Em vigor"
-            accentClass="text-emerald-700"
+            label="Pausadas"
+            value={kpis.paused}
+            sub="Sem gerar ocorrências"
+            accentClass={kpis.paused > 0 ? "text-amber-600" : "text-stone-800"}
           />
-          <KpiCard
-            label="Aguardando fatura"
-            value={kpis.awaitingInvoiceCount}
-            sub={kpis.awaitingInvoiceCount > 0 ? "Ocorrências por faturar" : "Nenhuma pendente"}
-            accentClass={kpis.awaitingInvoiceCount > 0 ? "text-amber-600" : "text-stone-800"}
-          />
-          <KpiCard
-            label="A vencer nos próximos 7 dias"
-            value={kpis.dueSoonCount}
-            sub="A vencer"
-            accentClass={kpis.dueSoonCount > 0 ? "text-red-600" : "text-stone-800"}
-          />
-          <KpiCard
-            label="Valor previsto do mês"
-            value={fromCents(kpis.totalEstimated)}
-            sub="Total estimado"
-          />
+          <KpiCard label="Encerradas" value={kpis.closed} sub="Finalizadas" />
         </div>
 
         {/* Filters */}
@@ -241,8 +175,8 @@ export function RecurrencesView() {
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Pesquisar por nome ou fornecedor…"
-              className="rounded-lg border border-stone-300 bg-white pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32] w-72"
+              placeholder="Pesquisar por nome, fornecedor ou colaborador…"
+              className="rounded-lg border border-stone-300 bg-white pl-9 pr-3 py-2 text-sm focus:outline-none focus:border-[#ED5C32] w-80"
             />
           </div>
           <select
@@ -278,111 +212,103 @@ export function RecurrencesView() {
               Sem recorrências para mostrar.
             </div>
           ) : (
-            <table className="min-w-full text-sm">
-              <thead className="border-b border-[#F5C992]/40 bg-stone-50/60">
-                <tr>
-                  {[
-                    "Estado",
-                    "Nome",
-                    "Fornecedor",
-                    "Tipo",
-                    "Próximo Venc.",
-                    "Valor Previsto",
-                    "Método pag.",
-                    "",
-                  ].map((h) => (
-                    <th
-                      key={h}
-                      className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500"
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#F5C992]/30">
-                {filtered.map((r) => {
-                  const nd = nextDueDate(r.dayOfMonth);
-                  const days = daysUntil(nd);
-                  const isPending =
-                    pauseMutation.isPending && pauseMutation.variables === r.id;
-                  const isResuming =
-                    resumeMutation.isPending && resumeMutation.variables === r.id;
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead className="border-b border-[#F5C992]/40 bg-stone-50/60">
+                  <tr>
+                    {[
+                      "Estado",
+                      "Nome",
+                      "Fornecedor / colaborador",
+                      "Tipo",
+                      "Início",
+                      "Fim",
+                      "Valor Previsto",
+                      "",
+                    ].map((h) => (
+                      <th
+                        key={h}
+                        className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wide text-stone-500 whitespace-nowrap"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#F5C992]/30">
+                  {filtered.map((r) => {
+                    const end = endLabel(r);
+                    const isPending =
+                      pauseMutation.isPending && pauseMutation.variables === r.id;
+                    const isResuming =
+                      resumeMutation.isPending && resumeMutation.variables === r.id;
 
-                  return (
-                    <tr key={r.id} className="hover:bg-[#FDF8F5]">
-                      <td className="px-4 py-3">
-                        <StatusBadge status={r.status} />
-                      </td>
-                      <td className="px-4 py-3 font-medium text-stone-800 max-w-[160px]">
-                        <span className="block truncate">{r.name}</span>
-                      </td>
-                      <td className="px-4 py-3 text-stone-600 max-w-[140px]">
-                        <span className="block truncate">{r.supplierName}</span>
-                      </td>
-                      <td className="px-4 py-3 text-stone-500 text-xs">
-                        {RECURRENCE_TYPE_LABELS[r.type]}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className="block text-stone-700">{formatDate(nd)}</span>
-                        <span
-                          className={`text-xs ${
-                            days <= 7 && r.status === "active"
-                              ? "text-red-500"
-                              : "text-stone-400"
-                          }`}
-                        >
-                          {days === 0
-                            ? "hoje"
-                            : days === 1
-                            ? "amanhã"
-                            : `em ${days} dias`}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 font-semibold text-stone-800">
-                        {fromCents(r.estimatedAmountCents)}
-                        <span className="block text-xs font-normal text-stone-400">
-                          {RECURRENCE_FREQUENCY_LABELS[r.frequency]}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 text-xs text-stone-500">
-                        {PAYMENT_METHOD_LABELS[r.paymentMethod]}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center justify-end gap-1">
-                          {r.status === "active" && (
-                            <button
-                              onClick={() => pauseMutation.mutate(r.id)}
-                              disabled={isPending}
-                              className="rounded px-2 py-1 text-xs text-amber-600 hover:bg-amber-50 disabled:opacity-50"
-                            >
-                              {isPending ? "…" : "Pausar"}
-                            </button>
+                    return (
+                      <tr key={r.id} className="hover:bg-[#FDF8F5]">
+                        <td className="px-4 py-3">
+                          <StatusBadge status={r.status} />
+                        </td>
+                        <td className="px-4 py-3 font-medium text-stone-800 max-w-[180px]">
+                          <span className="block truncate">{r.name}</span>
+                        </td>
+                        <td className="px-4 py-3 text-stone-600 max-w-[160px]">
+                          <span className="block truncate">{r.supplierName}</span>
+                          {r.employeeId && (
+                            <span className="block text-xs text-stone-400">Colaborador</span>
                           )}
-                          {r.status === "paused" && (
+                        </td>
+                        <td className="px-4 py-3 text-stone-500 text-xs">
+                          {RECURRENCE_TYPE_LABELS[r.type]}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap text-stone-700">
+                          {formatDate(r.startDate)}
+                        </td>
+                        <td className="px-4 py-3 whitespace-nowrap">
+                          <span className="block text-stone-700">{end.main}</span>
+                          <span className="text-xs text-stone-400">{end.sub}</span>
+                        </td>
+                        <td className="px-4 py-3 font-semibold text-stone-800">
+                          {fromCents(r.estimatedAmountCents)}
+                          <span className="block text-xs font-normal text-stone-400">
+                            {RECURRENCE_FREQUENCY_LABELS[r.frequency]}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-1">
+                            {r.status === "active" && (
+                              <button
+                                onClick={() => pauseMutation.mutate(r.id)}
+                                disabled={isPending}
+                                className="rounded px-2 py-1 text-xs text-amber-600 hover:bg-amber-50 disabled:opacity-50"
+                              >
+                                {isPending ? "…" : "Pausar"}
+                              </button>
+                            )}
+                            {r.status === "paused" && (
+                              <button
+                                onClick={() => resumeMutation.mutate(r.id)}
+                                disabled={isResuming}
+                                className="rounded px-2 py-1 text-xs text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+                              >
+                                {isResuming ? "…" : "Retomar"}
+                              </button>
+                            )}
                             <button
-                              onClick={() => resumeMutation.mutate(r.id)}
-                              disabled={isResuming}
-                              className="rounded px-2 py-1 text-xs text-emerald-600 hover:bg-emerald-50 disabled:opacity-50"
+                              onClick={() =>
+                                navigate(`/financial/recurrences/${r.id}`)
+                              }
+                              className="rounded px-2 py-1 text-xs font-medium text-[#ED5C32] hover:bg-orange-50"
                             >
-                              {isResuming ? "…" : "Retomar"}
+                              Ver
                             </button>
-                          )}
-                          <button
-                            onClick={() =>
-                              navigate(`/financial/recurrences/${r.id}`)
-                            }
-                            className="rounded px-2 py-1 text-xs font-medium text-[#ED5C32] hover:bg-orange-50"
-                          >
-                            Ver
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+                          </div>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
 
@@ -392,15 +318,6 @@ export function RecurrencesView() {
           </p>
         )}
       </div>
-
-      <RecurrenceDrawer
-        open={showDrawer}
-        editing={null}
-        saving={createMutation.isPending || uploading}
-        onClose={() => setShowDrawer(false)}
-        onCreate={(payload, file) => { void handleCreate(payload, file); }}
-        onUpdate={() => {}}
-      />
 
       <PageFooter />
     </div>

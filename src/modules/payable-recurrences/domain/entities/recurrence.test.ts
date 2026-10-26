@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { expectedDocumentLabel, nextDueDate, formatPeriod } from "./recurrence.ts";
+import { expectedDocumentLabel, nextDueDate, formatPeriod, isSalaryCategoryName } from "./recurrence.ts";
 
 // ── expectedDocumentLabel ─────────────────────────────────────────────────────
 
@@ -91,5 +91,23 @@ describe("formatPeriod", () => {
   it("respeita o ano no output", () => {
     expect(formatPeriod("2025-06")).toContain("2025");
     expect(formatPeriod("2027-06")).toContain("2027");
+  });
+});
+
+// ── isSalaryCategoryName ──────────────────────────────────────────────────────
+
+describe("isSalaryCategoryName", () => {
+  it("reconhece categorias de salários (com ou sem acento, qualquer caixa)", () => {
+    expect(isSalaryCategoryName("Salários")).toBe(true);
+    expect(isSalaryCategoryName("6.2 — SALARIOS E ENCARGOS")).toBe(true);
+    expect(isSalaryCategoryName("Vencimentos")).toBe(true);
+    expect(isSalaryCategoryName("Ordenados")).toBe(true);
+  });
+
+  it("ignora outras categorias e valores vazios", () => {
+    expect(isSalaryCategoryName("Rendas")).toBe(false);
+    expect(isSalaryCategoryName("")).toBe(false);
+    expect(isSalaryCategoryName(null)).toBe(false);
+    expect(isSalaryCategoryName(undefined)).toBe(false);
   });
 });

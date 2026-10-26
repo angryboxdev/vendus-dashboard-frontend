@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { createPortal } from "react-dom";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import {
   canBeRecurring,
@@ -278,6 +278,7 @@ export function ClassifyDrawer({
   inline?: boolean;
 }) {
   const { api } = useBankStatementsModule();
+  const { bankId } = useParams<{ bankId?: string }>();
   const fbApi = useFinancialBaseModule().api;
   const invApi = useInvoicesModule().api;
   const recurrencesApi = usePayableRecurrencesModule().api;
@@ -836,9 +837,11 @@ export function ClassifyDrawer({
                   <p className="mt-1 text-xs text-violet-700">
                     «Anular justificação» devolve-o a por classificar; «Alterar classificação» passa a ser manual.
                   </p>
-                  <Link to="/financial/bank-statements/recurring" className="mt-2 inline-block text-xs font-semibold text-violet-700 hover:underline">
-                    Ver movimentos recorrentes →
-                  </Link>
+                  {bankId && (
+                    <Link to={`/financial/bank-statements/banks/${bankId}/recurring`} className="mt-2 inline-block text-xs font-semibold text-violet-700 hover:underline">
+                      Ver movimentos recorrentes do banco →
+                    </Link>
+                  )}
                 </div>
               )}
               {/* How it was classified */}

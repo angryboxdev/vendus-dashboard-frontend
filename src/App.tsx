@@ -362,12 +362,13 @@ export default function App() {
                                       }
                                     />
                                     <Route path="payable-entries" element={<PayableEntriesView />} />
-                                    <Route path="recurrences" element={<RecurrencesView />} />
+                                    <Route path="recurrences" element={<RecurrencesMonthlyView />} />
+                                    <Route path="recurrences/history" element={<RecurrencesView />} />
                                     <Route path="recurrences/monthly/:year/:month" element={<RecurrencesMonthlyView />} />
                                     <Route path="recurrences/:id" element={<RecurrenceDetailView />} />
                                     <Route path="bank-statements" element={<BanksView />} />
-                                    <Route path="bank-statements/recurring" element={<RecurringMovementsView />} />
                                     <Route path="bank-statements/banks/:bankId" element={<BankAccountsView />} />
+                                    <Route path="bank-statements/banks/:bankId/recurring" element={<RecurringMovementsView />} />
                                     <Route path="bank-statements/banks/:bankId/accounts/:accountId" element={<BankAccountCalendarView />} />
                                     <Route path="bank-statements/banks/:bankId/accounts/:accountId/:year/:month" element={<MonthDetailView />} />
                                   </Routes>

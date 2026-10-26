@@ -20,11 +20,16 @@ import type {
   MarkOccurrenceAsPaidPayload,
   ListRecurrencesParams,
   ListOccurrencesParams,
+  RecurrenceEmployeeDTO,
 } from "../../domain/entities/recurrence.ts";
 
 const BASE = "/api/payable-recurrences";
 
 export class HttpRecurrencesApiAdapter implements RecurrencesApiPort {
+  async listRecurrenceEmployees(): Promise<RecurrenceEmployeeDTO[]> {
+    return apiGet(`${BASE}/employees`);
+  }
+
   async getSummary(): Promise<RecurrenceSummaryDTO> {
     return apiGet(`${BASE}/summary`);
   }

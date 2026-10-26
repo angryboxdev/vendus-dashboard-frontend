@@ -1021,6 +1021,11 @@ export function RecurrenceDetailView() {
                   Encerrada em {formatDate(recurrence.closedAt)}
                 </p>
               )}
+              {recurrence.status === "paused" && recurrence.pausedAt && (
+                <p className="mt-1.5 text-[11px] text-stone-400">
+                  Pausada em {formatDate(recurrence.pausedAt)}
+                </p>
+              )}
             </div>
           </div>
           <KpiCard
@@ -1040,12 +1045,14 @@ export function RecurrenceDetailView() {
             </h2>
             <dl className="divide-y divide-stone-100">
               {[
-                { label: "Fornecedor", value: recurrence.supplierName },
+                { label: recurrence.employeeId ? "Colaborador" : "Fornecedor", value: recurrence.supplierName },
                 { label: "Tipo", value: RECURRENCE_TYPE_LABELS[recurrence.type] },
                 { label: "Frequência", value: RECURRENCE_FREQUENCY_LABELS[recurrence.frequency] },
                 { label: "Dia de vencimento", value: `Dia ${recurrence.dayOfMonth} do mês` },
                 { label: "Data de início", value: formatDate(recurrence.startDate) },
                 { label: "Data de fim", value: recurrence.endDate ? formatDate(recurrence.endDate) : "Sem fim definido" },
+                ...(recurrence.pausedAt ? [{ label: "Pausada em", value: formatDate(recurrence.pausedAt) }] : []),
+                ...(recurrence.closedAt ? [{ label: "Encerrada em", value: formatDate(recurrence.closedAt) }] : []),
                 { label: "Método de pagamento", value: PAYMENT_METHOD_LABELS[recurrence.paymentMethod] },
                 { label: "Categoria", value: recurrence.category ?? "—" },
                 { label: "Documento esperado", value: expectedDocumentLabel(recurrence) },

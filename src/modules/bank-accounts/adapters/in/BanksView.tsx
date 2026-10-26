@@ -310,7 +310,6 @@ export function BanksView() {
             ) : (
               <DropdownMenu label="Adicionar conta" items={addAccountItems} trigger={({ toggle }) => <Button icon={<IconPlus size={16} />} onClick={toggle}>Adicionar conta manualmente</Button>} />
             )}
-            <Button icon={<IconRepeat size={16} />} onClick={() => navigate("/financial/bank-statements/recurring")}>Movimentos recorrentes</Button>
             <Button variant="primary" icon={<AppIcon name="upload" size={16} />} onClick={() => setShowImport(true)}>Importar extrato</Button>
           </div>
         </header>
@@ -365,6 +364,8 @@ export function BanksView() {
                       <DropdownMenu
                         label={`Ações de ${bank.name}`}
                         items={[
+                          { label: "Movimentos recorrentes", icon: <IconRepeat size={14} />, onSelect: () => navigate(`/financial/bank-statements/banks/${bank.id}/recurring`) },
+                          "separator",
                           { label: "Adicionar conta", icon: <IconPlus size={14} />, onSelect: () => setCreatingForBankId(bank.id) },
                           { label: "Editar banco", icon: <AppIcon name="edit" size={14} />, onSelect: () => setEditing(bank) },
                         ]}
