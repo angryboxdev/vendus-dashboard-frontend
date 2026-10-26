@@ -225,6 +225,8 @@ export interface OccurrenceWithRecurrenceDTO {
 export interface InvoiceRecurrenceCandidateDTO {
   recurrenceId: string;
   recurrenceName: string;
+  /** `supplier` = mesmo fornecedor; `category_name` = mesma categoria e nome parecido (só sugestão). */
+  matchedBy: "supplier" | "category_name";
   supplierName: string;
   period: string; // YYYY-MM
   occurrenceId: string | null;
