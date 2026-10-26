@@ -18,6 +18,7 @@ não criar estilos próprios por módulo. Melhorias aqui valem para todo o ERP.
 
 | Peça | Uso |
 |---|---|
+| `SlideSwitch` | Interruptor deslizante entre opções de igual largura (variante do prato, regras de entrada no Stock); setas ← →; `itemWidthClass` para a largura. |
 | `PageShell` | Faixa branca: título, descrição curta, ação principal, tabs; conteúdo sobre off-white. |
 | `Button` / `buttonClass` | `primary` (gradiente), `secondary` (borda), `tertiary` (texto), `danger`. |
 | `Tabs` / `TabNav` | Sublinhado laranja; por estado ou por rota. Contador opcional. |

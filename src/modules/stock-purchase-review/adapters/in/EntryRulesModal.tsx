@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useStockPurchaseReviewModule } from "../../stock-purchase-review.module.tsx";
 import { ENTRY_MODE_LABELS, ENTRY_RULE_TYPES, type EntryMode, type EntryRules, type StockSettings } from "../../domain/entities/stock-purchase-review.ts";
+import { SlideSwitch } from "../../../../components/ui/SlideSwitch.tsx";
 
 /**
  * Regras de entrada no Stock por tipo de artigo (task «Stock inteligente» V4 §2), abertas pela
@@ -51,48 +52,37 @@ export function EntryRulesModal({ onClose }: { onClose(): void }) {
   return createPortal(
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Regras de entrada no Stock">
       <div className="absolute inset-0 bg-black/40" onClick={() => !saving && onClose()} />
-      <div className="relative w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl">
-        <h2 className="text-base font-semibold text-slate-900">Regras de entrada no Stock</h2>
-        <p className="mt-1 text-xs text-slate-500">
+      <div className="relative w-full max-w-xl rounded-2xl bg-surface-card p-6 shadow-pop">
+        <h2 className="text-base font-semibold text-ink">Regras de entrada no Stock</h2>
+        <p className="mt-1 text-xs text-ink-muted">
           Por tipo de artigo: o que entra no inventário quando chega numa fatura. Vale para as faturas futuras; a decisão manual da linha e uma decisão já confirmada (artigo/embalagem do fornecedor) têm prioridade.
         </p>
-        {!rules && !error && <p className="mt-4 text-sm text-slate-400">A carregar…</p>}
+        {!rules && !error && <p className="mt-4 text-sm text-ink-muted">A carregar…</p>}
         {rules && (
-          <table className="mt-4 w-full text-sm">
-            <tbody className="divide-y divide-slate-100">
-              {ENTRY_RULE_TYPES.map(({ type, label }) => (
-                <tr key={type}>
-                  <td className="py-2 pr-3 text-slate-700">{label}</td>
-                  <td className="py-2">
-                    <div role="radiogroup" aria-label={label} className="flex rounded-lg border border-slate-200 bg-slate-50 p-0.5 text-xs">
-                      {(Object.keys(ENTRY_MODE_LABELS) as EntryMode[]).map((m) => (
-                        <button
-                          key={m}
-                          type="button"
-                          role="radio"
-                          aria-checked={rules[type] === m}
-                          onClick={() => {
-                            setRules({ ...rules, [type]: m });
-                            setSaved(false);
-                          }}
-                          className={`flex-1 rounded-md px-2 py-1 font-medium ${rules[type] === m ? "bg-white text-slate-900 shadow-sm" : "text-slate-500 hover:text-slate-700"}`}
-                        >
-                          {ENTRY_MODE_LABELS[m]}
-                        </button>
-                      ))}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+          <ul className="mt-4 divide-y divide-line">
+            {ENTRY_RULE_TYPES.map(({ type, label }) => (
+              <li key={type} className="flex flex-col items-start gap-1.5 py-2.5 sm:flex-row sm:items-center sm:justify-between sm:gap-4">
+                <span className="text-sm text-ink sm:min-w-0 sm:flex-1">{label}</span>
+                <SlideSwitch
+                  label={label}
+                  itemWidthClass="w-24 sm:w-28"
+                  options={(Object.keys(ENTRY_MODE_LABELS) as EntryMode[]).map((m) => ({ key: m, label: ENTRY_MODE_LABELS[m] }))}
+                  value={rules[type]}
+                  onChange={(m) => {
+                    setRules({ ...rules, [type]: m });
+                    setSaved(false);
+                  }}
+                />
+              </li>
+            ))}
+          </ul>
         )}
         {settings && settings.locations.length > 0 && (
-          <div className="mt-4 border-t border-slate-100 pt-3">
-            <label htmlFor="stock-default-location" className="block text-sm font-medium text-slate-700">
+          <div className="mt-4 border-t border-line pt-3">
+            <label htmlFor="stock-default-location" className="block text-sm font-medium text-ink">
               Localização principal do Stock
             </label>
-            <p className="mt-0.5 text-xs text-slate-500">
+            <p className="mt-0.5 text-xs text-ink-muted">
               {settings.locations.length === 1
                 ? "Só há uma loja ativa: as entradas das faturas vão para ela."
                 : "As entradas das faturas vão para esta loja, sem perguntar. Sem localização principal, a entrada fica bloqueada até a definir."}
@@ -104,7 +94,7 @@ export function EntryRulesModal({ onClose }: { onClose(): void }) {
                 setDefaultLocationId(e.target.value || null);
                 setSaved(false);
               }}
-              className="mt-1.5 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm"
+              className="mt-1.5 w-full rounded-md border border-line bg-surface-card px-2 py-1.5 text-sm text-ink"
             >
               <option value="">— por definir —</option>
               {settings.locations.map((l) => (
@@ -118,10 +108,10 @@ export function EntryRulesModal({ onClose }: { onClose(): void }) {
         {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
         {saved && <p className="mt-3 text-xs text-emerald-700">Regras gravadas.</p>}
         <div className="mt-5 flex justify-end gap-2">
-          <button type="button" onClick={onClose} disabled={saving} className="rounded-md px-4 py-2 text-sm text-slate-500 hover:bg-slate-100 disabled:opacity-50">
+          <button type="button" onClick={onClose} disabled={saving} className="rounded-md px-4 py-2 text-sm text-ink-secondary hover:bg-surface-soft disabled:opacity-50">
             Fechar
           </button>
-          <button type="button" onClick={() => void save()} disabled={!rules || saving} className="rounded-md bg-[#ED5C32] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
+          <button type="button" onClick={() => void save()} disabled={!rules || saving} className="rounded-md bg-brand-600 px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
             {saving ? "A gravar…" : "Gravar regras"}
           </button>
         </div>

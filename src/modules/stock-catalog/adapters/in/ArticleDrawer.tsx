@@ -4,24 +4,20 @@ import {
   SITUATION_LABELS,
   STOCK_ITEM_TYPE_LABELS,
   type ArticlePurchaseDTO,
-  type IngredientUsageDTO,
   type StockMovementDTO,
 } from "../../domain/entities/stock-catalog.ts";
 import type { CatalogRow } from "../../domain/services/catalog-rows.ts";
 import { formatDate, formatPct, formatQuantity, formatUnitCost } from "../../domain/services/unit-cost.ts";
 import { useStockCatalogModule } from "../../stock-catalog.module.tsx";
 
-export type DrawerTab = "stock" | "prices" | "purchases" | "recipes" | "movements";
+export type DrawerTab = "stock" | "prices" | "purchases" | "movements";
 
 const TABS: { key: DrawerTab; label: string }[] = [
   { key: "stock", label: "Stock" },
   { key: "prices", label: "Preços e histórico" },
   { key: "purchases", label: "Compras" },
-  { key: "recipes", label: "Fichas técnicas" },
   { key: "movements", label: "Movimentos" },
 ];
-const SIZE_LABELS: Record<string, string> = { small: "Pequena", large: "Grande" };
-const eur = (v: number) => v.toLocaleString("pt-PT", { style: "currency", currency: "EUR", minimumFractionDigits: 2, maximumFractionDigits: 4 });
 const cents = (c: number) => (c / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
 
 function useLoad<T>(load: () => Promise<T>, active: boolean, deps: unknown[]) {
@@ -76,7 +72,6 @@ export function ArticleDrawer({
   }, [onClose]);
 
   const purchases = useLoad<ArticlePurchaseDTO[]>(() => api.listPurchases(item.id), tab === "purchases", [item.id]);
-  const usage = useLoad<IngredientUsageDTO[]>(() => api.getUsage(item.id), tab === "recipes", [item.id]);
   const movements = useLoad<StockMovementDTO[]>(() => api.listMovements(item.id, 50), tab === "movements" || tab === "stock", [item.id]);
 
   return (
@@ -178,36 +173,6 @@ export function ArticleDrawer({
                     </li>
                   ))}
                 </ul>
-              )}
-            </Loaded>
-          )}
-          {tab === "recipes" && (
-            <Loaded state={usage} empty="Não entra em nenhuma ficha técnica com receita ativa.">
-              {(list) => (
-                <table className="w-full text-xs">
-                  <thead>
-                    <tr className="text-left text-[10px] uppercase tracking-wide text-ink-muted">
-                      <th className="py-1 font-medium">Pizza</th>
-                      <th className="py-1 text-right font-medium">Quantidade</th>
-                      <th className="py-1 text-right font-medium">Custo</th>
-                      <th className="py-1 text-right font-medium">Peso</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-line">
-                    {list.map((u, i) => (
-                      <tr key={`${u.pizzaId}-${u.size}-${i}`}>
-                        <td className="py-1.5 text-ink">
-                          {u.name} <span className="text-ink-muted">· {SIZE_LABELS[u.size] ?? u.size}</span>
-                          {u.via && <span className="block text-[11px] text-ink-muted">via {u.via}</span>}
-                          {!u.isActive && <span className="ml-1 text-[11px] text-ink-muted">(inativa)</span>}
-                        </td>
-                        <td className="py-1.5 text-right tabular-nums text-ink-secondary">{formatQuantity(u.quantity, item.base_unit)}</td>
-                        <td className="py-1.5 text-right tabular-nums text-ink">{u.costWithoutVat !== null ? eur(u.costWithoutVat) : "Sem preço"}</td>
-                        <td className="py-1.5 text-right tabular-nums text-ink-secondary">{u.share !== null ? formatPct(u.share).replace("+", "") : "—"}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
               )}
             </Loaded>
           )}

@@ -1,7 +1,6 @@
 import type {
   ArticlePurchaseDTO,
   CostOverviewResponseDTO,
-  IngredientUsageDTO,
   PurchasePresentationDTO,
   StockCategoryDTO,
   StockItemDTO,
@@ -16,7 +15,6 @@ export interface StockCatalogApiPort {
   /** Embalagens de compra confirmadas de todos os fornecedores; [] sem permissão. */
   listPresentations(): Promise<PurchasePresentationDTO[]>;
   listMovements(stockItemId: string, limit?: number): Promise<StockMovementDTO[]>;
-  getUsage(stockItemId: string): Promise<IngredientUsageDTO[]>;
   /** Compras confirmadas do artigo (mais recentes primeiro). */
   listPurchases(stockItemId: string): Promise<ArticlePurchaseDTO[]>;
 }
