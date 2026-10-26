@@ -8,7 +8,7 @@ import { DemonstrativoPage } from "./pages/dre/DemonstrativoPage";
 import { DreLayout } from "./pages/dre/DreLayout";
 import { ReceitaBrutaPage } from "./pages/dre/ReceitaBrutaPage";
 import { MovimentacoesPage } from "./pages/stock/MovimentacoesPage";
-import { PizzasPage } from "./pages/stock/PizzasPage";
+import { FichasTecnicasPage } from "./pages/stock/FichasTecnicasPage";
 import { StockLayout } from "./pages/stock/StockLayout";
 import { InventoryIndexRedirect, InventoryLayout } from "./pages/stock/InventoryLayout";
 import { StockMovementHistoryPage } from "./pages/stock/StockMovementHistoryPage";
@@ -208,6 +208,7 @@ export default function App() {
                   path="/stock"
                   element={<Navigate to="/stock/movimentacoes" replace />}
                 />
+                <Route path="/fichas-tecnicas" element={<FichasTecnicasPage />} />
                 <Route element={<StockLayout />}>
                   <Route path="/stock/inventario" element={<InventoryIndexRedirect />} />
                   <Route
@@ -250,7 +251,8 @@ export default function App() {
                   />
                   </Route>
                   <Route path="/stock/stock" element={<StockPage />} />
-                  <Route path="/stock/pizzas" element={<PizzasPage />} />
+                  {/* Fichas técnicas (V7) passaram para /fichas-tecnicas; o endereço antigo continua a abrir. */}
+                  <Route path="/stock/pizzas" element={<Navigate to="/fichas-tecnicas" replace />} />
                   {/* Detalhe de uma compra: fora dos separadores do Inventário, em largura total. */}
                   <Route
                     path="/stock/compras-por-rever/:id"
