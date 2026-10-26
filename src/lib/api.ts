@@ -13,7 +13,20 @@ let headerProvider: HeaderProvider | null = null;
 export function setRequestHeaderProvider(provider: HeaderProvider | null): void {
   headerProvider = provider;
 }
-const extraHeaders = (path: string): Record<string, string> => headerProvider?.(path) ?? {};
+/**
+ * Fornecedores adicionais, independentes do de cima (ex.: a demonstração do Stock junta `X-Stock-Demo` só nas
+ * páginas do Stock, sem mexer no do Novo RH). Devolve a função que o retira.
+ */
+const additionalProviders = new Set<HeaderProvider>();
+export function addRequestHeaderProvider(provider: HeaderProvider): () => void {
+  additionalProviders.add(provider);
+  return () => additionalProviders.delete(provider);
+}
+const extraHeaders = (path: string): Record<string, string> => {
+  const out: Record<string, string> = { ...(headerProvider?.(path) ?? {}) };
+  for (const p of additionalProviders) Object.assign(out, p(path));
+  return out;
+};
 
 async function getAuthHeaders(): Promise<Record<string, string>> {
   const { data } = await supabase.auth.getSession();
