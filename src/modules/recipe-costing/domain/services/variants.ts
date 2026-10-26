@@ -50,7 +50,7 @@ export type ItemChange =
 
 /**
  * Alterações para gravar as quantidades de um componente: 0 ou vazio apaga, valor novo cria ou
- * atualiza. Nas doces com XS, a XS segue sempre a Pequena (metade), mesmo que não venha no pedido.
+ * atualiza. Nas doces com XS, gravar a Pequena atualiza também a XS (metade).
  */
 export function planRowChanges(
   row: Pick<CompositionRow, "bySize">,
@@ -58,7 +58,8 @@ export function planRowChanges(
   options: { xsFollowsSmall: boolean },
 ): ItemChange[] {
   const target = { ...quantities };
-  if (options.xsFollowsSmall) target.xs = target.small && target.small > 0 ? xsQuantity(target.small) : 0;
+  // A XS segue a Pequena só quando a Pequena faz parte do pedido (gravar só a Grande não mexe na XS).
+  if (options.xsFollowsSmall && "small" in target) target.xs = target.small && target.small > 0 ? xsQuantity(target.small) : 0;
   const changes: ItemChange[] = [];
   for (const size of VARIANTS) {
     if (!(size in target)) continue;

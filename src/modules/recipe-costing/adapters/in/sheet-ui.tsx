@@ -21,11 +21,14 @@ export function SheetDrawer<T extends string>({
   tab,
   onTab,
   onClose,
+  toolbar,
   children,
 }: {
   title: string;
   subtitle?: ReactNode;
   actions?: ReactNode;
+  /** Controlo comum a todos os separadores (ex.: variante do prato), por baixo do título. */
+  toolbar?: ReactNode;
   tabs: { key: T; label: string }[];
   tab: T;
   onTab: (t: T) => void;
@@ -61,6 +64,7 @@ export function SheetDrawer<T extends string>({
               </button>
             </div>
           </div>
+          {toolbar && <div className="mt-3">{toolbar}</div>}
           <nav role="tablist" aria-label="Detalhe" className="mt-3 flex gap-1 overflow-x-auto overflow-y-hidden">
             {tabs.map((t) => (
               <button
@@ -91,5 +95,44 @@ export function Section({ title, children, aside }: { title: string; children: R
       </div>
       {children}
     </section>
+  );
+}
+
+/**
+ * Interruptor deslizante entre opções do mesmo tamanho (ex.: XS · Pequena · Grande). O destaque desliza para a
+ * opção escolhida; setas ← → também mudam.
+ */
+export function VariantSwitch<T extends string>({ options, value, onChange, label }: { options: { key: T; label: string }[]; value: T; onChange: (v: T) => void; label: string }) {
+  const index = Math.max(0, options.findIndex((o) => o.key === value));
+  const move = (delta: number) => onChange(options[(index + delta + options.length) % options.length]!.key);
+  return (
+    <div
+      role="radiogroup"
+      aria-label={label}
+      onKeyDown={(e) => {
+        if (e.key === "ArrowRight") move(1);
+        if (e.key === "ArrowLeft") move(-1);
+      }}
+      className="relative inline-flex rounded-full bg-surface-soft p-0.5 text-xs font-medium"
+    >
+      <span
+        aria-hidden="true"
+        className="absolute inset-y-0.5 left-0.5 w-24 rounded-full bg-navy-900 shadow-sm transition-transform duration-200 ease-out motion-reduce:transition-none"
+        style={{ transform: `translateX(${index * 100}%)` }}
+      />
+      {options.map((o) => (
+        <button
+          key={o.key}
+          type="button"
+          role="radio"
+          aria-checked={o.key === value}
+          tabIndex={o.key === value ? 0 : -1}
+          onClick={() => onChange(o.key)}
+          className={`relative z-10 w-24 rounded-full py-1 text-center transition-colors ${o.key === value ? "text-white" : "text-ink-secondary hover:text-ink"}`}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
   );
 }
