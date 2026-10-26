@@ -15,6 +15,8 @@ const STOCK_ITEMS: NavItem[] = [
   // Inventário: um só item; Stock atual, Movimentos, Contagens e Compras por rever são separadores dentro da página.
   { kind: "item", path: "/stock/inventario", label: "Inventário", match: ["/stock/movimentacoes", "/stock/historico-movimentos", "/stock/contagens", "/stock/compras-por-rever"] },
   { kind: "item", path: "/stock/planeamento", label: "Reposição e planeamento" },
+  // Fichas técnicas (V7): página única com Pratos | Preparações | Análise de custos.
+  { kind: "item", path: "/stock/fichas-tecnicas", label: "Fichas técnicas" },
 ];
 
 /** Itens do grupo em blocos: soltos, ou um subgrupo com os seus itens seguidos. */
@@ -77,8 +79,6 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
       basePath: "/stock",
       items: STOCK_ITEMS,
     },
-    // Fichas técnicas (V7): área própria, página única com Pratos | Preparações | Análise de custos.
-    { kind: "item", path: "/fichas-tecnicas", label: "Fichas técnicas", icon: "recipes" },
     {
       kind: "group",
       id: "hr",
