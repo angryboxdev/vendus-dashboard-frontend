@@ -30,6 +30,7 @@ import { OPEN_STOCK_PURCHASE_REVIEW_STATUSES } from "../../modules/stock-purchas
 import { StockCatalogProvider } from "../../modules/stock-catalog/stock-catalog.module.tsx";
 import { ArticlesView } from "../../modules/stock-catalog/adapters/in/ArticlesView.tsx";
 import { useAuth } from "../../contexts/AuthContext";
+import { StockDemoMenu } from "../../modules/stock-demo/adapters/in/StockDemoControls.tsx";
 
 const DEFAULT_CATEGORY_NAME = "Geral";
 
@@ -217,6 +218,7 @@ export function StockPage() {
           )}
           headerActions={
             <>
+              <StockDemoMenu />
               <button
                 type="button"
                 onClick={() => setEntryRulesOpen(true)}
