@@ -240,16 +240,35 @@ export interface MovementCandidateDTO {
 
 // ── Account calendar ──────────────────────────────────────────────────────────
 
+/** Estado do mês: extrato e conciliação são independentes; sem extrato nunca há percentagem. */
+export type MonthStatus = "no_statement" | "imported" | "partial" | "reconciled";
+
 export interface AccountMonthStatDTO {
   year: number;
   month: number; // 1–12
+  statementImported: boolean;
+  status: MonthStatus;
   totalMovements: number;
+  /** Movimentos que contam para a conciliação (sem os créditos aceites automaticamente na importação). */
+  reconcilableMovements: number;
   reconciledMovements: number;
-  salesReconciledPercent: number; // 0–100 — créditos resolvidos / total de créditos
-  expensesReconciledPercent: number; // 0–100 — débitos resolvidos / total de débitos
+  /** `null` sem extrato ou sem movimentos. */
+  reconciledPercent: number | null;
+  inflowCents: number;
+  outflowCents: number;
+  netCents: number;
+  openingBalanceCents: number | null;
+  closingBalanceCents: number | null;
+  /** @deprecated use `reconciledPercent`. */
+  salesReconciledPercent: number;
+  /** @deprecated use `reconciledPercent`. */
+  expensesReconciledPercent: number;
+  /** @deprecated = `inflowCents`. */
   totalCreditCents: number;
+  /** @deprecated = `outflowCents`. */
   totalDebitCents: number;
-  balanceCents: number; // totalCreditCents - totalDebitCents
+  /** @deprecated = `netCents`. */
+  balanceCents: number;
 }
 
 export interface DaySlotDTO {

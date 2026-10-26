@@ -3,7 +3,8 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
 import { useBankAccountsModule } from "../../../bank-accounts/bank-accounts.module.tsx";
-import type { AccountMonthStatDTO } from "../../domain/entities/bank-statement.ts";
+import type { AccountMonthStatDTO, MonthStatus } from "../../domain/entities/bank-statement.ts";
+import { summarizeYear } from "../../domain/services/account-year.ts";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 import { ImportModal } from "./ImportModal.tsx";
 
@@ -25,6 +26,13 @@ function pctBarColor(pct: number): string {
   if (pct >= 50) return "bg-amber-400";
   return "bg-red-400";
 }
+
+const STATUS_BADGE: Record<MonthStatus, { label: string; className: string }> = {
+  no_statement: { label: "Sem extrato", className: "bg-stone-100 text-stone-500" },
+  imported: { label: "Importado", className: "bg-sky-50 text-sky-700" },
+  partial: { label: "Parcial", className: "bg-amber-50 text-amber-700" },
+  reconciled: { label: "Conciliado", className: "bg-emerald-50 text-emerald-700" },
+};
 
 function fromCents(cents: number): string {
   return (cents / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
@@ -52,9 +60,22 @@ function MonthCard({
     );
   }
 
-  const sales = Math.round(stat.salesReconciledPercent);
-  const expenses = Math.round(stat.expensesReconciledPercent);
-  const balance = stat.balanceCents;
+  // Sem extrato: estado neutro, sem percentagem nem valores (nunca um 100% verde num mês vazio).
+  if (!stat.statementImported) {
+    return (
+      <div className="rounded-xl border border-dashed border-stone-200 bg-stone-50 p-4 flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <p className="text-sm font-semibold text-stone-500">{name}</p>
+          <span className="rounded-full bg-stone-100 px-2 py-0.5 text-[10px] font-medium text-stone-500">Sem extrato</span>
+        </div>
+        <p className="text-xs text-stone-400">Nenhum extrato importado para este mês.</p>
+      </div>
+    );
+  }
+
+  const pct = stat.reconciledPercent;
+  const net = stat.netCents;
+  const badge = STATUS_BADGE[stat.status];
 
   return (
     <button
@@ -63,45 +84,27 @@ function MonthCard({
     >
       <div className="flex items-center justify-between">
         <p className="text-sm font-semibold text-stone-800">{name}</p>
-        <span className="text-xs text-stone-400">{stat.totalMovements} mov.</span>
+        <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${badge.className}`}>{badge.label}</span>
       </div>
 
-      <div className="space-y-1.5">
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-stone-400">Vendas conciliadas</span>
-            <span className={`text-[10px] font-semibold ${pctColor(sales)}`}>{sales}%</span>
-          </div>
-          <div className="h-1.5 w-full rounded-full bg-stone-100">
-            <div
-              className={`h-1.5 rounded-full ${pctBarColor(sales)}`}
-              style={{ width: `${sales}%` }}
-            />
-          </div>
+      <dl className="space-y-1 text-xs">
+        <div className="flex justify-between text-stone-500"><dt>Movimentos</dt><dd>{stat.totalMovements}</dd></div>
+        <div className="flex justify-between text-stone-500"><dt>Entradas</dt><dd className="text-stone-700">{fromCents(stat.inflowCents)}</dd></div>
+        <div className="flex justify-between text-stone-500"><dt>Saídas</dt><dd className="text-stone-700">{fromCents(stat.outflowCents)}</dd></div>
+        <div className="flex justify-between text-stone-500">
+          <dt>Resultado</dt>
+          <dd className={`font-semibold ${net < 0 ? "text-red-600" : "text-emerald-600"}`}>{net >= 0 ? "+" : ""}{fromCents(net)}</dd>
         </div>
-        <div>
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-stone-400">Despesas conciliadas</span>
-            <span className={`text-[10px] font-semibold ${pctColor(expenses)}`}>{expenses}%</span>
-          </div>
-          <div className="h-1.5 w-full rounded-full bg-stone-100">
-            <div
-              className={`h-1.5 rounded-full ${pctBarColor(expenses)}`}
-              style={{ width: `${expenses}%` }}
-            />
-          </div>
-        </div>
-      </div>
+      </dl>
 
-      <div className="flex items-center justify-between">
-        <p className="text-[10px] text-stone-400">
-          {stat.reconciledMovements}/{stat.totalMovements} conciliados
-        </p>
-        <p className={`text-xs font-semibold ${balance < 0 ? "text-red-600" : "text-emerald-600"}`}>
-          {balance >= 0 ? "+" : ""}
-          {fromCents(balance)}
-        </p>
-      </div>
+      {pct !== null && (
+        <div>
+          <div className="h-1.5 w-full rounded-full bg-stone-100">
+            <div className={`h-1.5 rounded-full ${pctBarColor(pct)}`} style={{ width: `${pct}%` }} />
+          </div>
+          <p className={`mt-1 text-right text-[10px] font-semibold ${pctColor(pct)}`}>{pct}% conciliado</p>
+        </div>
+      )}
     </button>
   );
 }
@@ -160,11 +163,9 @@ export function BankAccountCalendarView() {
     statByMonth.set(s.month, s);
   }
 
-  // Months to show: 1-12 for past years, 1-currentMonth for current year
-  const visibleMonths =
-    year < currentYear
-      ? Array.from({ length: 12 }, (_, i) => i + 1)
-      : Array.from({ length: new Date().getMonth() + 1 }, (_, i) => i + 1);
+  // Os 12 meses (os sem extrato aparecem neutros), com o resumo do ano só dos meses importados.
+  const visibleMonths = Array.from({ length: 12 }, (_, i) => i + 1);
+  const yearSummary = summarizeYear(calendar ?? []);
 
   const accountLabel =
     accountDetail?.nickname ??
@@ -249,6 +250,17 @@ export function BankAccountCalendarView() {
             A carregar calendário…
           </div>
         ) : (
+          <>
+          <div className="mb-4 grid grid-cols-2 gap-3 rounded-xl border border-[#F5C992]/40 bg-white p-4 text-sm sm:grid-cols-5">
+            <div><p className="text-xs text-stone-400">Entradas do ano</p><p className="font-semibold text-stone-800">{fromCents(yearSummary.inflowCents)}</p></div>
+            <div><p className="text-xs text-stone-400">Saídas do ano</p><p className="font-semibold text-stone-800">{fromCents(yearSummary.outflowCents)}</p></div>
+            <div>
+              <p className="text-xs text-stone-400">Resultado líquido</p>
+              <p className={`font-semibold ${yearSummary.netCents < 0 ? "text-red-600" : "text-emerald-600"}`}>{yearSummary.netCents >= 0 ? "+" : ""}{fromCents(yearSummary.netCents)}</p>
+            </div>
+            <div><p className="text-xs text-stone-400">Meses importados</p><p className="font-semibold text-stone-800">{yearSummary.importedMonths} / 12</p></div>
+            <div><p className="text-xs text-stone-400">Conciliação do ano</p><p className="font-semibold text-stone-800">{yearSummary.reconciledPercent === null ? "—" : `${yearSummary.reconciledPercent}%`}</p></div>
+          </div>
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
             {visibleMonths.map((month) => (
               <MonthCard
@@ -263,6 +275,7 @@ export function BankAccountCalendarView() {
               />
             ))}
           </div>
+          </>
         )}
       </div>
 
