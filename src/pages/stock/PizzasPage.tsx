@@ -19,6 +19,7 @@ import { RecipeCostingProvider } from "../../modules/recipe-costing/recipe-costi
 import { RecipeCostingSection } from "../../modules/recipe-costing/adapters/in/RecipeCostingSection.tsx";
 import { useDishCosting } from "../../modules/recipe-costing/adapters/in/useDishCosting.ts";
 import { DishWeeklyCost } from "../../modules/recipe-costing/adapters/in/DishWeeklyCost.tsx";
+import { DishesImpact } from "../../modules/recipe-costing/adapters/in/DishesImpact.tsx";
 import {
   lineCostFor,
   sizeTotalFor,
@@ -682,7 +683,10 @@ export function PizzasPage() {
       </section>
 
       <RecipeCostingProvider>
-        <RecipeCostingSection refreshKey={costingRefreshKey} />
+        <DishesImpact categoryLabels={PIZZA_CATEGORY_LABELS} refreshKey={costingRefreshKey} />
+        <div className="mt-6">
+          <RecipeCostingSection refreshKey={costingRefreshKey} />
+        </div>
       </RecipeCostingProvider>
 
       {/* ------------------------------------------------------------------ */}
