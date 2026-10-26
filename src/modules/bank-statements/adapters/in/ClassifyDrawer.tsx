@@ -2,6 +2,7 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { createPortal } from "react-dom";
 import { Link, useParams } from "react-router-dom";
+import { isStrongCandidate } from "../../domain/services/suggestions.ts";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import {
   canBeRecurring,
@@ -792,7 +793,10 @@ export function ClassifyDrawer({
   const canSubmitB = activeTab === "justificar" && missingB.length === 0 && !uploading;
   const canSubmit = canSubmitA || canSubmitB;
 
-  const candidateEntityIds = new Set(candidates.map((c) => c.entityId));
+  // Só as sugestões fortes (nome + valor, ≥ 90%) aparecem como «Sugestões automáticas»; as restantes
+  // continuam a aparecer nos resultados da pesquisa manual.
+  const suggestedCandidates = candidates.filter((c) => isStrongCandidate(c) && !allocatedEntityIds.has(c.entityId));
+  const candidateEntityIds = new Set(suggestedCandidates.map((c) => c.entityId));
   const filteredSearchResults = invoiceSearchResults.filter(
     (inv) =>
       !candidateEntityIds.has(inv.id) &&
@@ -1190,12 +1194,12 @@ export function ClassifyDrawer({
                 <div>
                   <p className="text-xs font-semibold text-stone-500 uppercase tracking-wide mb-2">Sugestões automáticas</p>
                   {loadingCandidates && <p className="text-xs text-stone-400 py-1">A procurar correspondências…</p>}
-                  {!loadingCandidates && candidates.filter((c) => !allocatedEntityIds.has(c.entityId)).length === 0 && (
-                    <p className="text-xs text-stone-400 py-1">Nenhuma correspondência automática encontrada.</p>
+                  {!loadingCandidates && suggestedCandidates.length === 0 && (
+                    <p className="text-xs text-stone-400 py-1">Nenhuma sugestão com o nome e o valor a bater. Procura o documento abaixo.</p>
                   )}
-                  {candidates.filter((c) => !allocatedEntityIds.has(c.entityId)).length > 0 && (
+                  {suggestedCandidates.length > 0 && (
                     <div className="space-y-1.5">
-                      {candidates.filter((c) => !allocatedEntityIds.has(c.entityId)).map((c) => (
+                      {suggestedCandidates.map((c) => (
                         <EntityCard key={c.entityId} candidate={c}
                           onAdd={() => addAllocation({ entityType: c.entityType, entityId: c.entityId, entityLabel: c.entityLabel, supplierId: c.supplierId, totalCents: c.amountCents, openBalanceCents: c.openBalanceCents })} />
                       ))}

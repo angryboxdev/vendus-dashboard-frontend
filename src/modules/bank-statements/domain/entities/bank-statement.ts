@@ -290,6 +290,10 @@ export interface MovementCandidateDTO {
   openBalanceCents: number;  // unpaid balance
   date: string;
   confidence: number;
+  /** Fornecedor aprendido ou nome do fornecedor na descrição (backend). */
+  nameMatched?: boolean;
+  /** Total ou saldo em aberto a ≤ 1 € do movimento (backend). */
+  amountMatched?: boolean;
 }
 
 // ── Account calendar ──────────────────────────────────────────────────────────
