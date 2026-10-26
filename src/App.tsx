@@ -49,6 +49,7 @@ import { PayableEntriesView } from "./modules/payable-entries/adapters/in/Payabl
 import { BankStatementsProvider } from "./modules/bank-statements/bank-statements.module.tsx";
 import { BankAccountCalendarView } from "./modules/bank-statements/adapters/in/BankAccountCalendarView.tsx";
 import { MonthDetailView } from "./modules/bank-statements/adapters/in/MonthDetailView.tsx";
+import { RecurringMovementsView } from "./modules/bank-statements/adapters/in/RecurringMovementsView.tsx";
 import { BankAccountsProvider } from "./modules/bank-accounts/bank-accounts.module.tsx";
 import { BanksView } from "./modules/bank-accounts/adapters/in/BanksView.tsx";
 import { BankAccountsView } from "./modules/bank-accounts/adapters/in/BankAccountsView.tsx";
@@ -363,6 +364,7 @@ export default function App() {
                                     <Route path="recurrences/monthly/:year/:month" element={<RecurrencesMonthlyView />} />
                                     <Route path="recurrences/:id" element={<RecurrenceDetailView />} />
                                     <Route path="bank-statements" element={<BanksView />} />
+                                    <Route path="bank-statements/recurring" element={<RecurringMovementsView />} />
                                     <Route path="bank-statements/banks/:bankId" element={<BankAccountsView />} />
                                     <Route path="bank-statements/banks/:bankId/accounts/:accountId" element={<BankAccountCalendarView />} />
                                     <Route path="bank-statements/banks/:bankId/accounts/:accountId/:year/:month" element={<MonthDetailView />} />
