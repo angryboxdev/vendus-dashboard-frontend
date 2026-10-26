@@ -3,25 +3,17 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
 import { useBankAccountsModule } from "../../../bank-accounts/bank-accounts.module.tsx";
-import type { AccountMonthStatDTO } from "../../domain/entities/bank-statement.ts";
 import { latestImportedMonth, MONTH_NAMES_PT, shiftMonth, summarizeYear } from "../../domain/services/account-year.ts";
 import { maskIban } from "../../domain/services/statement-account.ts";
-import { formatEUR } from "../../../../lib/format.ts";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 import {
-  Button,
-  IconArrowDown,
-  IconArrowUp,
-  IconCalendar,
-  IconChart,
-  IconChevronLeft,
-  IconRepeat,
-  IconChevronRight,
-  IconFile,
-  IconInfo,
-  IconPie,
   AppIcon,
-  IconWallet,
+  Button,
+  IconChevronLeft,
+  IconChevronRight,
+  IconLayers,
+  IconMenu,
+  IconRepeat,
   NUMERIC,
   PAGE_BG,
   PAGE_TITLE,
@@ -29,109 +21,38 @@ import {
   SURFACE,
 } from "../../../../components/ui/index.ts";
 import { ImportModal } from "./ImportModal.tsx";
-import { KpiCard, MonthStatusPill, ReconciliationBar } from "./BankUi.tsx";
+import { MonthSummary, MonthsBoard, MonthsTable, YearMetricsStrip } from "./AccountYearViews.tsx";
+import { eur } from "./money.ts";
 
-const eur = (cents: number) => formatEUR(cents / 100);
-const signed = (cents: number) => `${cents > 0 ? "+ " : cents < 0 ? "− " : ""}${formatEUR(Math.abs(cents) / 100)}`;
-const netClass = (cents: number) => (cents > 0 ? "text-emerald-600" : cents < 0 ? "text-red-600" : "text-navy-900");
+type Layout = "table" | "board";
+const LAYOUT_STORAGE_KEY = "mezza.bank-account.months-layout";
 
-function Figure({ label, value, valueClass = "text-navy-900" }: { label: string; value: string; valueClass?: string }) {
-  return (
-    <div className="flex items-baseline justify-between gap-3 text-[13px]">
-      <dt className="text-ink-secondary">{label}</dt>
-      <dd className={`font-medium ${NUMERIC} ${valueClass}`}>{value}</dd>
-    </div>
-  );
-}
-
-/** Um mês da grelha: «Sem extrato» neutro (nunca 100% inventado) ou estado, fluxo e conciliação real. */
-function MonthCard({ stat, month, onOpen }: { stat: AccountMonthStatDTO | undefined; month: number; onOpen: () => void }) {
-  const name = MONTH_NAMES_PT[month - 1]!;
-  const imported = !!stat?.statementImported;
-  const body = (
-    <>
-      <div className="flex items-start justify-between gap-2">
-        <div>
-          <p className="text-base font-semibold text-navy-900">{name}</p>
-          {imported && <p className="mt-0.5 text-[13px] text-ink-secondary">{stat!.totalMovements} movimentos</p>}
-        </div>
-        <MonthStatusPill status={stat?.status ?? "no_statement"} />
-      </div>
-      <dl className="mt-3 space-y-1">
-        {!imported && <Figure label="Movimentos" value="—" valueClass="text-ink-muted" />}
-        <Figure label="Entradas" value={imported ? eur(stat!.inflowCents) : "—"} valueClass={imported ? "text-navy-900" : "text-ink-muted"} />
-        <Figure label="Saídas" value={imported ? eur(stat!.outflowCents) : "—"} valueClass={imported ? "text-navy-900" : "text-ink-muted"} />
-        <Figure label="Resultado" value={imported ? signed(stat!.netCents) : "—"} valueClass={imported ? `font-semibold ${netClass(stat!.netCents)}` : "text-ink-muted"} />
-      </dl>
-      {imported && stat!.reconciledPercent !== null && (
-        <div className="mt-3">
-          <ReconciliationBar status={stat!.status} percent={stat!.reconciledPercent} />
-        </div>
-      )}
-    </>
-  );
-  if (!imported) return <div className="rounded-xl border border-line bg-surface-card px-4 py-3.5">{body}</div>;
-  return (
-    <button type="button" onClick={onOpen} className="rounded-xl border border-line bg-surface-card px-4 py-3.5 text-left transition hover:border-brand-500/40 hover:shadow-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/40">
-      {body}
-    </button>
-  );
-}
-
-/** O mês em destaque: estado, fluxo de caixa, saldos e conciliação, com o acesso aos movimentos. */
-function MonthFocus({ stat, label, onOpen, onImport }: { stat: AccountMonthStatDTO | undefined; label: string; onOpen: () => void; onImport: () => void }) {
-  if (!stat?.statementImported) {
-    return (
-      <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-line px-6 py-12 text-center">
-        <MonthStatusPill status="no_statement" />
-        <p className="text-base font-semibold text-navy-900">Ainda não há extrato de {label}</p>
-        <p className="max-w-md text-sm text-ink-secondary">Importe o extrato deste mês para ver as entradas, as saídas e o estado da conciliação.</p>
-        <Button variant="primary" icon={<AppIcon name="upload" size={16} />} onClick={onImport}>Importar extrato</Button>
-      </div>
-    );
+/** Tabela por defeito; a escolha fica no browser (mesmo padrão das colunas dos fornecedores). */
+function loadLayout(): Layout {
+  try {
+    return localStorage.getItem(LAYOUT_STORAGE_KEY) === "board" ? "board" : "table";
+  } catch {
+    return "table";
   }
-  const items: { label: string; value: string; cls?: string }[] = [
-    { label: "Entradas", value: eur(stat.inflowCents), cls: "text-emerald-600" },
-    { label: "Saídas", value: eur(stat.outflowCents), cls: "text-red-600" },
-    { label: "Resultado", value: signed(stat.netCents), cls: netClass(stat.netCents) },
-    { label: "Saldo inicial", value: stat.openingBalanceCents === null ? "—" : eur(stat.openingBalanceCents) },
-    { label: "Saldo final", value: stat.closingBalanceCents === null ? "—" : eur(stat.closingBalanceCents) },
-  ];
-  return (
-    <div className="rounded-xl border border-line p-5">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <p className="text-lg font-bold text-navy-900">{label}</p>
-          <MonthStatusPill status={stat.status} />
-          <span className="text-[13px] text-ink-secondary">{stat.totalMovements} movimentos</span>
-        </div>
-        <Button variant="primary" onClick={onOpen}>
-          Ver movimentos <IconChevronRight size={14} />
-        </Button>
-      </div>
-      <dl className="mt-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        {items.map((i) => (
-          <div key={i.label} className="rounded-xl bg-surface-soft/60 px-4 py-3">
-            <dt className="text-xs text-ink-secondary">{i.label}</dt>
-            <dd className={`mt-0.5 text-lg font-bold ${NUMERIC} ${i.cls ?? "text-navy-900"}`}>{i.value}</dd>
-          </div>
-        ))}
-      </dl>
-      {stat.reconciledPercent !== null && (
-        <div className="mt-5">
-          <p className="mb-1.5 text-xs text-ink-secondary">
-            {stat.reconciledMovements} de {stat.reconcilableMovements} movimentos conciliados
-          </p>
-          <ReconciliationBar status={stat.status} percent={stat.reconciledPercent} />
-        </div>
-      )}
-    </div>
-  );
+}
+
+function saveLayout(layout: Layout) {
+  try {
+    localStorage.setItem(LAYOUT_STORAGE_KEY, layout);
+  } catch {
+    // localStorage indisponível (ex: modo privado) — a preferência simplesmente não persiste.
+  }
+}
+
+/** «12345678903» → «•••• 8903» (o número completo não aparece no cabeçalho). */
+function maskAccountNumber(n: string): string {
+  return n.length > 4 ? `•••• ${n.slice(-4)}` : n;
 }
 
 /**
- * Vista anual da conta (task «Conciliação bancária V2», mockup do utilizador): resumo do ano, grelha dos
- * 12 meses com o estado do extrato e a conciliação real, e os saldos conhecidos.
+ * Vista da conta (task «Bancos V3»): cabeçalho único, uma faixa de indicadores, os 12 meses em Tabela
+ * (predefinida) ou Quadro, e o resumo de um mês (com ou sem extrato) no mesmo contentor. Os saldos
+ * continuam nos dados — na página só o último saldo conhecido, datado, no cabeçalho.
  */
 export function BankAccountCalendarView() {
   const { api } = useBankStatementsModule();
@@ -144,25 +65,14 @@ export function BankAccountCalendarView() {
   const currentYear = today.getFullYear();
   const currentMonth = today.getMonth() + 1;
   const [year, setYear] = useState(currentYear);
-  // Abre no mês corrente; «2026» mostra o ano inteiro (as setas passam a mudar de ano).
-  const [month, setMonth] = useState(currentMonth);
-  const [view, setView] = useState<"month" | "year">("month");
+  const [layout, setLayoutState] = useState<Layout>(loadLayout);
+  /** `null` = visão anual; um número = resumo desse mês. */
+  const [openMonth, setOpenMonth] = useState<number | null>(null);
   const [showImport, setShowImport] = useState(false);
 
-  const atCurrent = view === "month" ? year * 12 + month >= currentYear * 12 + currentMonth : year >= currentYear;
-  const canNext = !atCurrent;
-  const canPrev = year > 2020 || (view === "month" && month > 1);
-  const goPrev = () => {
-    if (view === "year") return setYear((y) => y - 1);
-    const p = shiftMonth(year, month, -1);
-    setYear(p.year);
-    setMonth(p.month);
-  };
-  const goNext = () => {
-    if (view === "year") return setYear((y) => y + 1);
-    const n = shiftMonth(year, month, 1);
-    setYear(n.year);
-    setMonth(n.month);
+  const setLayout = (l: Layout) => {
+    setLayoutState(l);
+    saveLayout(l);
   };
 
   const { data: accountDetail } = useQuery({
@@ -177,7 +87,7 @@ export function BankAccountCalendarView() {
     enabled: !!bankId,
   });
 
-  const { data: calendar, isLoading } = useQuery({
+  const { data: calendar, isLoading, isError } = useQuery({
     queryKey: ["bank-calendar", accountId, year],
     queryFn: () => api.getAccountCalendar(accountId!, year),
     enabled: !!accountId,
@@ -200,16 +110,30 @@ export function BankAccountCalendarView() {
     onError: (e: Error) => alert(`Erro ao importar: ${e.message}`),
   });
 
+  // Um único agregado para a faixa, a Tabela, o Quadro e o resumo do mês.
   const months = calendar ?? [];
   const statByMonth = new Map(months.map((s) => [s.month, s]));
   const summary = summarizeYear(months);
   const lastMonth = latestImportedMonth(months);
-  const lastImported = [...months].filter((m) => m.statementImported).sort((a, b) => b.month - a.month)[0];
+  const lastWithBalance = [...months].filter((m) => m.statementImported && m.closingBalanceCents !== null).sort((a, b) => b.month - a.month)[0];
 
   const accountLabel = accountDetail?.nickname ?? accountDetail?.iban ?? accountDetail?.accountNumber ?? "Conta";
   const contextIdentifier = accountDetail?.iban ?? accountDetail?.accountNumber ?? undefined;
-  const identifier = accountDetail?.iban ? `IBAN ${maskIban(accountDetail.iban)}` : accountDetail?.accountNumber ? `N.º ${accountDetail.accountNumber}` : null;
-  const monthUrl = (m: number) => `/financial/bank-statements/banks/${bankId}/accounts/${accountId}/${year}/${m}`;
+  const identifier = accountDetail?.iban
+    ? `IBAN ${maskIban(accountDetail.iban)}`
+    : accountDetail?.accountNumber
+      ? `Conta ${maskAccountNumber(accountDetail.accountNumber)}`
+      : null;
+  const monthUrl = (y: number, m: number) => `/financial/bank-statements/banks/${bankId}/accounts/${accountId}/${y}/${m}`;
+
+  // Navegação mês a mês no resumo (passa de ano; não vai além do mês corrente).
+  const isAfterNow = (y: number, m: number) => y * 12 + m > currentYear * 12 + currentMonth;
+  const goMonth = (delta: number) => {
+    if (openMonth === null) return;
+    const n = shiftMonth(year, openMonth, delta);
+    setYear(n.year);
+    setOpenMonth(n.month);
+  };
 
   const crumbs: [string, (() => void) | null][] = [
     ["Financeiro", null],
@@ -220,8 +144,8 @@ export function BankAccountCalendarView() {
 
   return (
     <div className={`flex min-h-full flex-col ${PAGE_BG}`}>
-      <div className="space-y-6 px-4 py-6 sm:px-8">
-        {/* Cabeçalho */}
+      <div className="min-w-0 space-y-5 px-4 py-6 sm:px-8">
+        {/* Cabeçalho (igual em todas as vistas) */}
         <header className="flex flex-wrap items-start justify-between gap-4 motion-safe:animate-motion-fade-up">
           <div className="min-w-0">
             <nav aria-label="Localização" className="mb-3 flex flex-wrap items-center gap-2 text-[13px] text-ink-secondary">
@@ -237,15 +161,19 @@ export function BankAccountCalendarView() {
               ))}
             </nav>
             <h1 className={PAGE_TITLE}>{accountLabel}</h1>
-            <p className="mt-1.5 text-[15px] text-ink-secondary">
-              {[bankDetail?.name, identifier, "EUR"].filter(Boolean).join("  ·  ")}
-            </p>
+            <p className="mt-1.5 text-[15px] text-ink-secondary">{[bankDetail?.name, identifier, "EUR"].filter(Boolean).join("  ·  ")}</p>
+            {lastWithBalance && (
+              <p className={`mt-1 text-[13px] text-ink-muted ${NUMERIC}`}>
+                Último saldo conhecido: <span className="font-medium text-navy-900">{eur(lastWithBalance.closingBalanceCents!)}</span> · fim do extrato de{" "}
+                {MONTH_NAMES_PT[lastWithBalance.month - 1]!.toLowerCase()} {year}
+              </p>
+            )}
           </div>
-          <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
             <Button icon={<IconRepeat size={16} />} onClick={() => navigate(`/financial/bank-statements/banks/${bankId}/recurring`)}>
               Movimentos recorrentes
             </Button>
-            <Button disabled={lastMonth === null} onClick={() => lastMonth !== null && navigate(monthUrl(lastMonth))}>
+            <Button disabled={lastMonth === null} onClick={() => lastMonth !== null && navigate(monthUrl(year, lastMonth))}>
               Ver movimentos
             </Button>
             <Button variant="primary" icon={<AppIcon name="upload" size={16} />} onClick={() => setShowImport(true)}>
@@ -254,88 +182,66 @@ export function BankAccountCalendarView() {
           </div>
         </header>
 
-        {/* Resumo do ano */}
-        <section aria-label={`Resumo de ${year}`} className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-5">
-          <KpiCard tone="green" icon={<IconArrowDown size={22} />} label="Entradas do ano" value={eur(summary.inflowCents)} />
-          <KpiCard tone="red" icon={<IconArrowUp size={22} />} label="Saídas do ano" value={eur(summary.outflowCents)} />
-          <KpiCard tone={summary.netCents < 0 ? "red" : "green"} icon={<IconChart size={22} />} label="Resultado líquido" value={signed(summary.netCents)} valueClass={netClass(summary.netCents)} />
-          <KpiCard tone="violet" icon={<IconFile size={22} />} label="Meses importados" value={`${summary.importedMonths} / 12`} />
-          <KpiCard tone="blue" icon={<IconPie size={22} />} label="Conciliação do ano" value={summary.reconciledPercent === null ? "—" : `${summary.reconciledPercent}%`} />
-        </section>
+        {/* Faixa única de indicadores */}
+        <YearMetricsStrip summary={summary} year={year} />
 
-        {/* Resumo mensal */}
+        {/* Resumo mensal: Tabela | Quadro | um mês */}
         <section className={`${SURFACE} p-5 sm:p-6`}>
-          <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
-            <div className="flex flex-wrap items-center gap-3">
-              <h2 className="text-xl font-bold text-navy-900">Resumo mensal</h2>
-              <div className="flex items-center gap-1 rounded-xl border border-line px-1 py-0.5">
-                <button type="button" onClick={goPrev} disabled={!canPrev} aria-label={view === "month" ? "Mês anterior" : "Ano anterior"} className="rounded-lg p-1.5 text-ink-secondary hover:bg-surface-soft disabled:opacity-30">
-                  <IconChevronLeft size={16} />
-                </button>
-                <span className={`min-w-[8.5rem] text-center text-sm font-semibold text-navy-900 ${NUMERIC}`}>
-                  {view === "month" ? `${MONTH_NAMES_PT[month - 1]} ${year}` : year}
-                </span>
-                <button type="button" onClick={goNext} disabled={!canNext} aria-label={view === "month" ? "Mês seguinte" : "Ano seguinte"} className="rounded-lg p-1.5 text-ink-secondary hover:bg-surface-soft disabled:opacity-30">
-                  <IconChevronRight size={16} />
-                </button>
+          {openMonth === null && (
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-navy-900">Resumo mensal</h2>
+                <p className="text-[13px] text-ink-secondary">Movimentos, fluxo bancário e conciliação de cada mês.</p>
               </div>
-              <SegmentedControl
-                label="Período"
-                size="sm"
-                value={view}
-                onChange={setView}
-                items={[
-                  { key: "month", label: "Mês" },
-                  { key: "year", label: String(year) },
-                ]}
-              />
-            </div>
-            <p className="flex items-center gap-1.5 text-[13px] text-ink-secondary">
-              <IconInfo size={14} /> Meses sem extrato importado não exibem percentagem de conciliação.
-            </p>
-          </div>
-
-          {isLoading ? (
-            <p className="py-16 text-center text-sm text-ink-secondary">A carregar…</p>
-          ) : view === "month" ? (
-            <MonthFocus
-              stat={statByMonth.get(month)}
-              label={`${MONTH_NAMES_PT[month - 1]} ${year}`}
-              onOpen={() => navigate(monthUrl(month))}
-              onImport={() => setShowImport(true)}
-            />
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-              {Array.from({ length: 12 }, (_, i) => i + 1).map((m) => (
-                <MonthCard
-                  key={m}
-                  month={m}
-                  stat={statByMonth.get(m)}
-                  onOpen={() => {
-                    setMonth(m);
-                    setView("month");
-                  }}
+              <div className="flex flex-wrap items-center gap-2">
+                <SegmentedControl
+                  label="Vista dos meses"
+                  size="sm"
+                  value={layout}
+                  onChange={setLayout}
+                  items={[
+                    { key: "table", label: <span className="inline-flex items-center gap-1.5"><IconMenu size={14} /> Tabela</span> },
+                    { key: "board", label: <span className="inline-flex items-center gap-1.5"><IconLayers size={14} /> Quadro</span> },
+                  ]}
                 />
-              ))}
+                <div className="flex items-center gap-1 rounded-xl border border-line px-1 py-0.5">
+                  <button type="button" onClick={() => setYear((y) => y - 1)} disabled={year <= 2020} aria-label="Ano anterior" className="rounded-lg p-1.5 text-ink-secondary hover:bg-surface-soft disabled:opacity-30">
+                    <IconChevronLeft size={16} />
+                  </button>
+                  <span className={`min-w-[3.5rem] text-center text-sm font-semibold text-navy-900 ${NUMERIC}`}>{year}</span>
+                  <button type="button" onClick={() => setYear((y) => y + 1)} disabled={year >= currentYear} aria-label="Ano seguinte" className="rounded-lg p-1.5 text-ink-secondary hover:bg-surface-soft disabled:opacity-30">
+                    <IconChevronRight size={16} />
+                  </button>
+                </div>
+              </div>
             </div>
           )}
 
-          {/* Saldos conhecidos */}
-          <div className="mt-5 grid gap-3 rounded-xl border border-line bg-surface-card p-4 sm:grid-cols-3 sm:divide-x sm:divide-line-subtle">
-            {[
-              { icon: <IconWallet size={20} />, label: "Saldo inicial conhecido", value: summary.openingBalanceCents === null ? "—" : eur(summary.openingBalanceCents) },
-              { icon: <IconChart size={20} />, label: "Saldo final mais recente", value: summary.closingBalanceCents === null ? "—" : eur(summary.closingBalanceCents) },
-              { icon: <IconCalendar size={20} />, label: "Último extrato", value: lastImported ? `${MONTH_NAMES_PT[lastImported.month - 1]!.slice(0, 3)} ${year}` : "—" },
-            ].map((item) => (
-              <div key={item.label} className="flex items-center gap-3 sm:px-4 first:sm:pl-0">
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-surface-soft text-navy-900">{item.icon}</span>
-                <div>
-                  <p className="text-xs text-ink-secondary">{item.label}</p>
-                  <p className={`text-lg font-bold text-navy-900 ${NUMERIC}`}>{item.value}</p>
-                </div>
-              </div>
-            ))}
-          </div>
+          {isLoading ? (
+            <p className="py-16 text-center text-sm text-ink-secondary">A carregar…</p>
+          ) : isError ? (
+            <p className="py-16 text-center text-sm text-red-600">Não foi possível carregar os meses desta conta.</p>
+          ) : openMonth !== null ? (
+            <MonthSummary
+              stat={statByMonth.get(openMonth)}
+              year={year}
+              month={openMonth}
+              canPrev={year * 12 + openMonth > 2020 * 12 + 1}
+              canNext={(() => {
+                const next = shiftMonth(year, openMonth, 1);
+                return !isAfterNow(next.year, next.month);
+              })()}
+              onPrev={() => goMonth(-1)}
+              onNext={() => goMonth(1)}
+              onBack={() => setOpenMonth(null)}
+              onOpenMovements={() => navigate(monthUrl(year, openMonth))}
+              onImport={() => setShowImport(true)}
+            />
+          ) : layout === "table" ? (
+            <MonthsTable months={statByMonth} summary={summary} onOpen={setOpenMonth} onImport={() => setShowImport(true)} />
+          ) : (
+            <MonthsBoard months={statByMonth} onOpen={setOpenMonth} onImport={() => setShowImport(true)} />
+          )}
         </section>
       </div>
 

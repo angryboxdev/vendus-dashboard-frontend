@@ -5,8 +5,12 @@ export interface AccountYearSummary {
   outflowCents: number;
   netCents: number;
   importedMonths: number;
-  /** Conciliação do ano sobre os movimentos conciliáveis dos meses com extrato; `null` sem nenhum. */
+  /** Conciliação do ano = conciliados ÷ conciliáveis dos meses com extrato (não é a média das percentagens);
+   *  `null` sem extrato ou sem nenhum movimento conciliável («Não aplicável», nunca 100%). */
   reconciledPercent: number | null;
+  reconciledMovements: number;
+  reconcilableMovements: number;
+  totalMovements: number;
   /** Saldo antes do 1.º movimento do primeiro mês importado / depois do último do último mês importado. */
   openingBalanceCents: number | null;
   closingBalanceCents: number | null;
@@ -25,9 +29,35 @@ export function summarizeYear(months: AccountMonthStatDTO[]): AccountYearSummary
     outflowCents,
     netCents: inflowCents - outflowCents,
     importedMonths: imported.length,
-    reconciledPercent: imported.some((m) => m.totalMovements > 0) ? (reconcilable === 0 ? 100 : Math.round((reconciled / reconcilable) * 100)) : null,
+    reconciledPercent: reconcilable === 0 ? null : Math.round((reconciled / reconcilable) * 100),
+    reconciledMovements: reconciled,
+    reconcilableMovements: reconcilable,
+    totalMovements: imported.reduce((s, m) => s + m.totalMovements, 0),
     openingBalanceCents: withBalances[0]?.openingBalanceCents ?? null,
     closingBalanceCents: withBalances[withBalances.length - 1]?.closingBalanceCents ?? null,
+  };
+}
+
+/**
+ * Conciliação de um mês para mostrar (task V3 §9.3): sem extrato não há percentagem; com extrato mas sem
+ * movimentos conciliáveis é «Não aplicável» (nunca 100%); senão conciliados ÷ conciliáveis, com os
+ * movimentos que ficam fora do denominador (entradas aceites automaticamente na importação).
+ */
+export type MonthReconciliation =
+  | { kind: "no_statement" }
+  | { kind: "not_applicable"; outside: number }
+  | { kind: "percent"; percent: number; reconciled: number; reconcilable: number; outside: number };
+
+export function monthReconciliation(stat: AccountMonthStatDTO | undefined): MonthReconciliation {
+  if (!stat?.statementImported) return { kind: "no_statement" };
+  const outside = stat.totalMovements - stat.reconcilableMovements;
+  if (stat.reconcilableMovements === 0) return { kind: "not_applicable", outside };
+  return {
+    kind: "percent",
+    percent: Math.round((stat.reconciledMovements / stat.reconcilableMovements) * 100),
+    reconciled: stat.reconciledMovements,
+    reconcilable: stat.reconcilableMovements,
+    outside,
   };
 }
 

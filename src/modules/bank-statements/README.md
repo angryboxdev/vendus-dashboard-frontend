@@ -1,7 +1,7 @@
 # Módulo: bank-statements (Frontend)
 
 > Status: ativo
-> Última atualização: 2026-10-26 (faturas ↔ recorrências e documento de pagamento — ADR-0041 do backend)
+> Última atualização: 2026-10-26 (vista da conta V3 — Tabela/Quadro/mês; faturas ↔ recorrências e documento de pagamento — ADR-0041 do backend)
 
 ---
 
@@ -131,6 +131,8 @@ Definidos em `domain/entities/bank-statement.ts`:
 - `HttpBankStatementsApiAdapter` — implementa `BankStatementsApiPort` usando `apiGet`, `apiPost`, `apiPatch`, `apiDeleteNoContent`, `apiPostFormData` de `lib/api.ts`; base URL `/api/bank-statements`
 
 ## Decisões de design (ADR resumido)
+
+**Vista da conta V3 — Tabela | Quadro | mês (2026-10-26)** — task «Bancos V3», aprovada em pré-visualização. `BankAccountCalendarView` + `AccountYearViews.tsx`: uma faixa única de indicadores (Entradas, Saídas, Fluxo líquido bancário, Meses importados, Conciliação do ano — «Acumulado dos meses com extrato importado»), os 12 meses em Tabela (predefinida) ou Quadro com o MESMO agregado (`summarizeYear` + mapa por mês; nenhuma das vistas faz contas), e o resumo do mês (com extrato: entradas/saídas/fluxo em linha, conciliação «X de Y conciliáveis · N entradas aceites automaticamente não contam», saldos datados, «Ver movimentos»; sem extrato: estado vazio compacto). Escolha Tabela/Quadro guardada no browser (`localStorage`, mesmo padrão das colunas dos fornecedores). Saíram os três blocos de saldos; fica só «Último saldo conhecido» datado no cabeçalho (os saldos continuam nos dados). Conciliação: `monthReconciliation` (sem extrato / «Não aplicável» / percentagem) e a do ano = conciliados ÷ conciliáveis (nunca média nem 100% sem nada para conciliar). «Período parcial» quando o backend diz que o extrato não cobre o mês todo (`partialPeriod`). Euros com milhares sempre separados (`money.ts`) para a tabela alinhar.
 
 **Filtro do mês num só seletor e sugestões só fortes (2026-10-26)** — decisões do utilizador. No separador «Movimentos» a fila de botões deu lugar a um seletor «Por conciliar ▾» (predefinido) que abre Todos / Entradas / Saídas / Transferências; «Com sugestão» saiu (há o separador «Sugestões»). As «Sugestões automáticas» do painel só mostram candidatos com nome E valor a bater e confiança ≥ 90% (`isStrongCandidate`, `domain/services/suggestions.ts`, flags `nameMatched`/`amountMatched` do backend); os restantes candidatos voltam a aparecer na pesquisa manual de documentos.
 
