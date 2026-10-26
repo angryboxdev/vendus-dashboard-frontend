@@ -49,6 +49,10 @@ Página **Mapa de rentabilidade → Fluxo de caixa** (`/dre/fluxo-caixa`), só a
 
 `ToHandleCard` no topo do painel lateral (`useCashFlowToHandle`, `GetCashFlowToHandlePort`): «A pagar» com o valor em atraso (→ `/financial/payable-entries`) e «N documentos por arrumar» = faturas por rever (→ `/financial/invoices`). Estado atual, não depende do mês. O endpoint exige a permissão de Contas a pagar: com 403 o adapter devolve `null` e o painel não aparece.
 
+## DRE (Mapa)
+
+`DreView` + `useDre` (`GetDrePort`, `GET /api/reports/dre/resultado`) substitui o conteúdo de **Mapa de rentabilidade → Mapa** (`/dre/demonstrativo`, `pages/dre/DemonstrativoPage.tsx` passou a só embrulhar a vista). Tudo sem IVA, calculado no backend a partir da conciliação bancária: resultado e margem; demonstração (receita = restaurante pelo Vendus + plataformas pelo recebido no banco, com o vendido no AirMenu e as comissões estimadas; gastos por categoria, abríveis, com «IVA por confirmar» / «Por classificar»; ajustes manuais; resultado); IVA do mês (vendas − compras = estimativa a entregar); «Confiança dos gastos» (`dreConfidencePct`: gastos com categoria e IVA conhecido) com atalho para a conciliação. As páginas antigas de custos fixos/variáveis continuam para lançar os ajustes manuais.
+
 ## Lacunas conhecidas
 
 - O seletor de período é o legado do Mapa (`DrePeriodSelector`).

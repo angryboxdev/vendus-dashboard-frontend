@@ -5,6 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeAll, describe, expect, it } from "vitest";
 import { CashFlowProvider, type CashFlowModule } from "../../cash-flow.module.tsx";
 import { sampleReport } from "../../domain/services/fixtures.ts";
+import { sampleDre } from "../../domain/services/dre-fixtures.ts";
 import { CashFlowView } from "./CashFlowView.tsx";
 
 // O jsdom não tem ResizeObserver (usado pelo ResponsiveContainer do recharts).
@@ -33,6 +34,7 @@ const toHandle = { payables: { dueCents: 278_672, overdueCents: 238_535 }, invoi
 const fakeModule = (handle: typeof toHandle | null = toHandle): CashFlowModule => ({
   getCashFlow: { execute: async () => sampleReport() },
   getToHandle: { execute: async () => handle },
+  getDre: { execute: async () => sampleDre() },
 });
 
 describe("CashFlowView", () => {
@@ -79,7 +81,7 @@ describe("CashFlowView", () => {
   it("mês futuro: não pede nada", () => {
     let called = false;
     renderView(
-      { getCashFlow: { execute: async () => ((called = true), sampleReport()) }, getToHandle: { execute: async () => null } },
+      { ...fakeModule(), getCashFlow: { execute: async () => ((called = true), sampleReport()) } },
       2099,
       1,
     );

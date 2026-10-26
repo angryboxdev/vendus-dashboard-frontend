@@ -1,10 +1,15 @@
 import { ApiError, apiGet } from "../../../../lib/api.ts";
 import type { CashFlowReport, CashFlowToHandle } from "../../domain/entities/cash-flow.ts";
+import type { DreReport } from "../../domain/entities/dre.ts";
 import type { CashFlowApiPort } from "../../domain/ports/out/cash-flow-api.port.ts";
 
 export class HttpCashFlowApiAdapter implements CashFlowApiPort {
   getCashFlow(year: number, month: number): Promise<CashFlowReport> {
     return apiGet<CashFlowReport>(`/api/reports/dre/fluxo-caixa?year=${year}&month=${month}`);
+  }
+
+  getDre(year: number, month: number): Promise<DreReport> {
+    return apiGet<DreReport>(`/api/reports/dre/resultado?year=${year}&month=${month}`);
   }
 
   async getToHandle(): Promise<CashFlowToHandle | null> {

@@ -3,6 +3,8 @@ import { GetCashFlowUseCase } from "./get-cash-flow.use-case.ts";
 import { GetCashFlowToHandleUseCase } from "./get-cash-flow-to-handle.use-case.ts";
 import type { CashFlowApiPort } from "../../domain/ports/out/cash-flow-api.port.ts";
 import { sampleReport } from "../../domain/services/fixtures.ts";
+import { sampleDre } from "../../domain/services/dre-fixtures.ts";
+import { GetDreUseCase } from "./get-dre.use-case.ts";
 
 function fakeApi(calls: [number, number][] = []): CashFlowApiPort {
   return {
@@ -11,6 +13,7 @@ function fakeApi(calls: [number, number][] = []): CashFlowApiPort {
       return sampleReport();
     },
     getToHandle: async () => ({ payables: { dueCents: 100, overdueCents: 40 }, invoicesToReview: 2 }),
+    getDre: async () => sampleDre(),
   };
 }
 
@@ -29,5 +32,11 @@ describe("GetCashFlowToHandleUseCase", () => {
       payables: { dueCents: 100, overdueCents: 40 },
       invoicesToReview: 2,
     });
+  });
+});
+
+describe("GetDreUseCase", () => {
+  it("pede a DRE do mês à API", async () => {
+    await expect(new GetDreUseCase(fakeApi()).execute(2026, 3)).resolves.toMatchObject({ resultCents: 355_000 });
   });
 });

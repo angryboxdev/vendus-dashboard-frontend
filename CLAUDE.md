@@ -59,7 +59,8 @@ padrão novo, abra o `README.md` dele e veja o campo `Status`; sem README ou com
 - `sales-declaration` (outubro 2026) — Financeiro → Declaração de Vendas
   (Excel para o Mercado Bom Sucesso a partir dos SAF-T enviados)
 - `cash-flow` (outubro 2026) — Mapa de rentabilidade → Fluxo de caixa (só
-  banco: entradas vs saídas, despesas por categoria, % justificada)
+  banco: entradas vs saídas, despesas por categoria, % justificada) e Mapa
+  (DRE pela conciliação bancária, sem IVA)
 - `calendar` (outubro 2026) — Empresa & Estrutura → Calendário & Eventos
   (feriados, eventos empresariais e prazos de documentos)
 - `access` (outubro 2026) — Utilizadores & Perfis de Acesso 2.0 (ecrãs de
