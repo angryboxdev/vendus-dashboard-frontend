@@ -14,7 +14,7 @@ import {
 import { AccountFormDrawer } from "./BankAccountsView.tsx";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 import { useToast, ToastContainer } from "../../../../components/Toast.tsx";
-import { AppIcon, Button, DropdownMenu, EmptyState, IconButton, IconCard, IconCheck, IconChevronRight, IconClock, IconClose, IconCopy, IconFile, IconInfo, IconMore, IconPlus, NUMERIC, PAGE_BG, PAGE_TITLE, StatusBadge, SURFACE, TABLE, TR, IconBuilding } from "../../../../components/ui/index.ts";
+import { AppIcon, Button, DropdownMenu, EmptyState, IconButton, IconCard, IconCheck, IconChevronRight, IconClock, IconClose, IconCopy, IconFile, IconInfo, IconMore, IconPlus, IconRepeat, NUMERIC, PAGE_BG, PAGE_TITLE, StatusBadge, SURFACE, TABLE, TR, IconBuilding } from "../../../../components/ui/index.ts";
 import { formatEUR, formatIsoDatePt } from "../../../../lib/format.ts";
 import { KpiCard } from "../../../bank-statements/adapters/in/BankUi.tsx";
 import { maskIban } from "../../../bank-statements/domain/services/statement-account.ts";
@@ -310,6 +310,7 @@ export function BanksView() {
             ) : (
               <DropdownMenu label="Adicionar conta" items={addAccountItems} trigger={({ toggle }) => <Button icon={<IconPlus size={16} />} onClick={toggle}>Adicionar conta manualmente</Button>} />
             )}
+            <Button icon={<IconRepeat size={16} />} onClick={() => navigate("/financial/bank-statements/recurring")}>Movimentos recorrentes</Button>
             <Button variant="primary" icon={<AppIcon name="upload" size={16} />} onClick={() => setShowImport(true)}>Importar extrato</Button>
           </div>
         </header>

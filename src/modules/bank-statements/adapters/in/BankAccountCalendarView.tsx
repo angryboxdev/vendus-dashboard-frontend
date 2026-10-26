@@ -15,6 +15,7 @@ import {
   IconCalendar,
   IconChart,
   IconChevronLeft,
+  IconRepeat,
   IconChevronRight,
   IconFile,
   IconInfo,
@@ -241,6 +242,9 @@ export function BankAccountCalendarView() {
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
+            <Button icon={<IconRepeat size={16} />} onClick={() => navigate("/financial/bank-statements/recurring")}>
+              Movimentos recorrentes
+            </Button>
             <Button disabled={lastMonth === null} onClick={() => lastMonth !== null && navigate(monthUrl(lastMonth))}>
               Ver movimentos
             </Button>
