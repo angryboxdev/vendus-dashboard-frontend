@@ -1,11 +1,11 @@
 import { useState } from "react";
+import { BankLogo } from "./BankLogo.tsx";
 import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { useNavigate, useParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBankAccountsModule } from "../../bank-accounts.module.tsx";
 import type { BankAccountDTO } from "../../domain/entities/bank-account.ts";
 import {
-  BANK_LOGO_ABBREVS,
   type BankAccountType,
   type CheckingAccountType,
 } from "../../domain/entities/bank-account.ts";
@@ -499,12 +499,7 @@ export function BankAccountsView() {
               <>
                 <span className="text-stone-300">/</span>
                 <div className="flex items-center gap-2">
-                  <div
-                    className="flex h-7 w-7 items-center justify-center rounded-lg text-[10px] font-bold text-white"
-                    style={{ backgroundColor: bank.color }}
-                  >
-                    {BANK_LOGO_ABBREVS[bank.logoKey]}
-                  </div>
+                  <BankLogo logoKey={bank.logoKey} color={bank.color} size="sm" />
                   <h1 className="text-xl font-bold text-stone-900">
                     {bank.name}
                   </h1>

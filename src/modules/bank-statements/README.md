@@ -1,7 +1,7 @@
 # Módulo: bank-statements (Frontend)
 
 > Status: ativo
-> Última atualização: 2026-09-30
+> Última atualização: 2026-10-26 (task «Conciliação bancária V2», F1–F5: ver «Decisões de design»). Antes: 2026-09-30.
 
 ---
 
@@ -131,6 +131,13 @@ Definidos em `domain/entities/bank-statement.ts`:
 - `HttpBankStatementsApiAdapter` — implementa `BankStatementsApiPort` usando `apiGet`, `apiPost`, `apiPatch`, `apiDeleteNoContent`, `apiPostFormData` de `lib/api.ts`; base URL `/api/bank-statements`
 
 ## Decisões de design (ADR resumido)
+
+- **Conciliação bancária V2 — nova interface (F5, 2026-10-26; mockups do utilizador, Design System Mezza)**:
+  - **Bancos** (`bank-accounts/adapters/in/BanksView.tsx`): indicadores (bancos, contas, extratos importados este mês, última importação), cartão por banco com «Parser reconhecido» (formato `millennium_bcp_pdf`) e tabela de contas (IBAN mascarado + copiar, último extrato, saldo mais recente, estado), «Adicionar conta manualmente» (menu por banco ou banco novo) e «Importar extrato» sem escolher conta (F3). Último extrato por conta e indicadores: `statementsOverview` (`domain/services/statement-overview.ts`) sobre `listStatements`.
+  - **Vista anual da conta** (`BankAccountCalendarView`): 5 indicadores do ano (`summarizeYear`), grelha dos 12 meses com «Sem extrato / Importado / Parcial / Conciliado» (nunca 100% num mês vazio — F1), entradas/saídas/resultado e barra de conciliação só com extrato; saldos inicial/final conhecidos e último extrato.
+  - **Mês** (`MonthDetailView`): 6 indicadores, separadores Movimentos / Sugestões / Conciliados, filtros Todos · Por conciliar · Entradas · Saídas · Transferências · Com sugestão, pesquisa (descrição original/normalizada ou valor) e ordem «Mais prioritários» (`visibleMonthDays`, `domain/services/month-movements.ts`); dias recolhíveis; linhas com tipo do movimento (F4), estado, valor e saldo. O painel de conciliação (`ClassifyDrawer inline`) e todas as mutações ficaram iguais.
+  - Peças partilhadas em `adapters/in/BankUi.tsx` (`KpiCard`, `MonthStatusPill`, `ReconciliationBar`); ícones novos no kit (`IconArrowDown/Up`, `IconPie`, `IconCard`).
+  - Diferenças face ao mockup: «Ver extrato» do mês substituído por «Vista anual» (o PDF original não fica guardado); «Com sugestão IA» chama-se «Com sugestão» (as sugestões são de faturas/contas a pagar e de classificações repetidas, não de IA).
 
 - **CSV/XLSX processado no backend**: o frontend faz `multipart/form-data` upload; não toca nos dados do ficheiro.
 - **Sem sub-rotas**: a navegação lista ↔ detalhe é feita por estado local (`selectedId`) dentro de `BankStatementsView`, evitando URLs voláteis para um ecrã transacional.

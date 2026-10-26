@@ -19,6 +19,7 @@ import type {
   ReconciliationRuleDTO,
   ReconciliationStatus,
   RiskLevel,
+  StatementAccountResolutionDTO,
   StatementStatus,
 } from "../../entities/bank-statement.ts";
 
@@ -43,6 +44,20 @@ export interface StatementPreview {
   periodStart: string | null;     // YYYY-MM-DD
   periodEnd: string | null;       // YYYY-MM-DD
   movementsCount: number;
+  /** V2 — opcionais: um backend anterior não os envia. */
+  inflowCents?: number;
+  outflowCents?: number;
+  /** Modelo de PDF reconhecido (ex.: «millennium_pdf»); `null` para CSV/XLSX. */
+  template?: string | null;
+  iban?: string | null;
+  currency?: string | null;
+  statementNumber?: string | null;
+  accountLabel?: string | null;
+  issues?: { code: string; message: string; blocking: boolean }[];
+  /** `false` quando o extrato não fecha (saldos/movimentos ilegíveis): não se pode importar. */
+  canImport?: boolean;
+  /** V2 (F3): conta existente ou banco/conta que vão ser criados ao importar (fora do contexto de uma conta). */
+  accountResolution?: StatementAccountResolutionDTO | null;
 }
 
 export interface BankStatementsApiPort {
