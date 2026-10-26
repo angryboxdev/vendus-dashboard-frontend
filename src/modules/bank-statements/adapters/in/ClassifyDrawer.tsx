@@ -2,6 +2,12 @@ import { useState, useRef, useEffect, useMemo } from "react";
 import { NumericInput } from "../../../../components/NumericInput.tsx";
 import { createPortal } from "react-dom";
 import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
+import {
+  canBeRecurring,
+  recurringMatchPreview,
+  suggestedRuleName,
+  type RecurringRuleDraft,
+} from "../../domain/services/recurring-rule.ts";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
 import { useInvoicesModule } from "../../../invoices/invoices.module.tsx";
@@ -244,7 +250,8 @@ export function ClassifyDrawer({
   /** Pre-fills the form from a "Sugestões" tab suggestion — see ClassifyDrawerSuggestion. */
   suggestion?: ClassifyDrawerSuggestion | null;
   onClose: () => void;
-  onSave: (payload: ClassifyMovementPayload) => void;
+  /** `recurring`: «Classificar sempre assim» — o chamador cria a regra depois de gravar a classificação. */
+  onSave: (payload: ClassifyMovementPayload, recurring?: RecurringRuleDraft | null) => void;
   onReconcile: (
     entityLinks: Array<{
       entityType: "invoice" | "payable_entry";
@@ -408,6 +415,20 @@ export function ClassifyDrawer({
   const [vatRate, setVatRate] = useState<number>(
     suggestion?.kind === "repeat_justification" && suggestion.vatRate != null ? suggestion.vatRate : 23,
   );
+  // «Movimento recorrente»: guardar esta classificação como regra para os próximos meses.
+  const [recurringOn, setRecurringOn] = useState(false);
+  const [recurringName, setRecurringName] = useState(() => suggestedRuleName(movement));
+  const [recurringFixed, setRecurringFixed] = useState(false);
+  const [recurringApply, setRecurringApply] = useState(true);
+  const recurringAvailable = canBeRecurring(subType);
+  const { data: rules = [] } = useQuery({
+    queryKey: ["bank-rules"],
+    queryFn: () => api.listRules(),
+    enabled: !!movement.classifiedByRuleId,
+    staleTime: 60_000,
+  });
+  const appliedRule = movement.classifiedByRuleId ? rules.find((r) => r.id === movement.classifiedByRuleId) : undefined;
+
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const [documentUrl, setDocumentUrl] = useState<string | null>(movement.documentUrl);
@@ -420,7 +441,7 @@ export function ClassifyDrawer({
     staleTime: 300_000,
   });
 
-  const { data: categories = [] } = useQuery<CostCenterCategory[]>({
+  const { data: categories = [], isFetched: categoriesFetched } = useQuery<CostCenterCategory[]>({
     queryKey: ["cost-center-categories", groupId],
     queryFn: () => fbApi.listCostCenterCategories({ groupId, isActive: true }),
     enabled: !!groupId,
@@ -743,7 +764,12 @@ export function ClassifyDrawer({
       }
     }
 
-    onSave(payload);
+    onSave(
+      payload,
+      recurringOn && recurringAvailable
+        ? { name: recurringName, fixedAmount: recurringFixed, applyToExisting: recurringApply }
+        : null,
+    );
   }
 
   const canSubmitA =
@@ -752,12 +778,16 @@ export function ClassifyDrawer({
     !overAllocated &&
     allocations.every((a) => (a.documentType === "credit_note" ? a.allocatedCents < 0 : a.allocatedCents > 0)) &&
     !groupedSettlementMut.isPending;
-  const canSubmitB =
-    activeTab === "justificar" &&
-    (!requiresSupplier(subType) || !!supplierId) &&
-    (!requiresCostCenter(subType) || (!!groupId && !!categoryId)) &&
-    (!requiresNotes(subType) || !!notes.trim()) &&
-    !uploading;
+  // Categoria sem subcategorias ativas: basta a categoria (antes o botão ficava bloqueado sem saída).
+  const needsCategory = requiresCostCenter(subType) && !!groupId && !(categoriesFetched && categories.length === 0);
+  /** O que falta para poder classificar no separador «Justificar despesa» (mostrado junto ao botão). */
+  const missingB = [
+    requiresSupplier(subType) && !supplierId ? "fornecedor" : null,
+    requiresCostCenter(subType) && !groupId ? "categoria" : null,
+    needsCategory && !categoryId ? "subcategoria" : null,
+    requiresNotes(subType) && !notes.trim() ? "notas (motivo)" : null,
+  ].filter((x): x is string => x !== null);
+  const canSubmitB = activeTab === "justificar" && missingB.length === 0 && !uploading;
   const canSubmit = canSubmitA || canSubmitB;
 
   const candidateEntityIds = new Set(candidates.map((c) => c.entityId));
@@ -796,6 +826,17 @@ export function ClassifyDrawer({
         {!isEditMode ? (
           <>
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+              {movement.classifiedByRuleId && (
+                <div className="rounded-lg border border-violet-100 bg-violet-50/60 px-4 py-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-violet-600">Conciliado automaticamente</p>
+                  <p className="mt-1 text-sm text-violet-900">
+                    Pelo movimento recorrente <span className="font-semibold">«{appliedRule?.name ?? "…"}»</span>.
+                  </p>
+                  <p className="mt-1 text-xs text-violet-700">
+                    «Anular justificação» devolve-o a por classificar; «Alterar classificação» passa a ser manual.
+                  </p>
+                </div>
+              )}
               {/* How it was classified */}
               {movement.entityLinks.length > 0 ? (
                 <div>
@@ -1404,12 +1445,65 @@ export function ClassifyDrawer({
                     required={requiresNotes(subType)} className={inputCls}
                     placeholder={requiresNotes(subType) ? "Motivo obrigatório" : "Opcional"} />
                 </div>
+
+                {recurringAvailable && (
+                  <div className={`rounded-lg border px-4 py-3 transition-colors ${recurringOn ? "border-[#ED5C32]/50 bg-[#FDF8F5]" : "border-stone-200"}`}>
+                    <label className="flex cursor-pointer items-start gap-3">
+                      <input type="checkbox" checked={recurringOn} onChange={(e) => setRecurringOn(e.target.checked)}
+                        className="mt-0.5 h-4 w-4 accent-[#ED5C32]" />
+                      <span>
+                        <span className="block text-sm font-semibold text-stone-800">Classificar sempre assim</span>
+                        <span className="block text-xs text-stone-500">
+                          Movimento recorrente: os próximos iguais nesta conta ficam conciliados sozinhos ao importar.
+                        </span>
+                      </span>
+                    </label>
+
+                    {recurringOn && (
+                      <div className="mt-3 space-y-3 border-t border-[#F5C992]/50 pt-3">
+                        <div>
+                          <label className={labelCls}>Nome</label>
+                          <input type="text" value={recurringName} onChange={(e) => setRecurringName(e.target.value)}
+                            maxLength={120} className={inputCls} placeholder="Ex.: Taxa TPA" />
+                        </div>
+                        <div>
+                          <p className={labelCls}>Reconhece movimentos com</p>
+                          <p className="rounded-md bg-white px-3 py-2 text-xs font-medium text-stone-700 ring-1 ring-stone-200">
+                            {recurringMatchPreview(movement.description) || movement.description}
+                          </p>
+                          <p className="mt-1 text-[11px] text-stone-400">Números, referências e valores na descrição são ignorados.</p>
+                        </div>
+                        <div>
+                          <p className={labelCls}>Valor</p>
+                          <div className="flex gap-2">
+                            {([[false, "Qualquer valor"], [true, `Só ${fromCents(movement.amount)} (± 1 €)`]] as [boolean, string][]).map(([fixed, label]) => (
+                              <button key={String(fixed)} type="button" onClick={() => setRecurringFixed(fixed)}
+                                className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${recurringFixed === fixed ? "border-[#ED5C32] bg-white text-[#ED5C32]" : "border-stone-200 text-stone-500 hover:border-stone-300"}`}>
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                        <label className="flex cursor-pointer items-center gap-2 text-xs text-stone-600">
+                          <input type="checkbox" checked={recurringApply} onChange={(e) => setRecurringApply(e.target.checked)}
+                            className="h-4 w-4 accent-[#ED5C32]" />
+                          Aplicar também aos movimentos por classificar dos meses já importados
+                        </label>
+                      </div>
+                    )}
+                  </div>
+                )}
               </>
             )}
           </div>
 
           {/* Footer */}
-          <div className="flex gap-3 border-t border-[#F5C992]/40 px-6 py-4 shrink-0">
+          {activeTab === "justificar" && missingB.length > 0 && (
+            <p className="border-t border-[#F5C992]/40 px-6 pt-3 text-xs text-amber-700">
+              Para classificar, falta: {missingB.join(", ")}.
+            </p>
+          )}
+          <div className={`flex gap-3 px-6 py-4 shrink-0 ${activeTab === "justificar" && missingB.length > 0 ? "" : "border-t border-[#F5C992]/40"}`}>
             <button type="button" onClick={onClose}
               className="flex-1 rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">
               Cancelar

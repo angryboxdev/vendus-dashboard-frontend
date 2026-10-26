@@ -155,6 +155,8 @@ export interface BankMovementDTO {
   vatIncluded: boolean | null;
   entityLinks: EntityLinkDTO[];
   reconciliationAmountDiff: number | null;
+  /** Regra («movimento recorrente») que o conciliou automaticamente; null = manual/nenhuma. Opcional até o backend novo estar em produção. */
+  classifiedByRuleId?: string | null;
 }
 
 export interface BankStatementDetailDTO extends BankStatementSummaryDTO {
@@ -203,16 +205,37 @@ export interface MatchSuggestionDTO {
   confidence: number;
 }
 
+/**
+ * «Movimento recorrente»: regra de conciliação automática (taxas TPA, despesas bancárias…).
+ * Reconhece pela descrição (sem palavras com dígitos), com valor fixo opcional, só na conta de origem.
+ */
 export interface ReconciliationRuleDTO {
   id: string;
   name: string;
   descriptionContains: string;
   movementType: MovementType | null;
+  /** null = todas as contas (regras antigas). */
+  bankAccountId: string | null;
+  /** null = qualquer valor. */
+  amountCents: number | null;
+  amountToleranceCents: number;
+  costCenterGroupId: string | null;
+  costCenterCategoryId: string | null;
+  supplierId: string | null;
+  vatRate: number | null;
+  vatIncluded: boolean | null;
   justificationType: JustificationType;
   requiresDocument: boolean;
   riskLevel: RiskLevel;
   isActive: boolean;
   createdAt: string;
+  /** Só na listagem: movimentos conciliados pela regra e data do último. */
+  usage?: { movementsCount: number; lastBookingDate: string | null };
+}
+
+/** Criar/alterar uma regra devolve também quantos movimentos já importados ficaram conciliados. */
+export interface ReconciliationRuleWriteResultDTO extends ReconciliationRuleDTO {
+  appliedCount: number;
 }
 
 export interface OccurrenceCandidateDTO {
@@ -357,6 +380,31 @@ export interface CreateRulePayload {
   justificationType: JustificationType;
   requiresDocument?: boolean;
   riskLevel?: RiskLevel;
+  bankAccountId?: string | null;
+  amountCents?: number | null;
+  amountToleranceCents?: number;
+  costCenterGroupId?: string | null;
+  costCenterCategoryId?: string | null;
+  supplierId?: string | null;
+  vatRate?: number | null;
+  vatIncluded?: boolean | null;
+  /** Aplica já aos movimentos por classificar desta conta nos meses importados. */
+  applyToExisting?: boolean;
+}
+
+export interface UpdateRulePayload {
+  name?: string;
+  descriptionContains?: string;
+  amountCents?: number | null;
+  amountToleranceCents?: number;
+  costCenterGroupId?: string | null;
+  costCenterCategoryId?: string | null;
+  supplierId?: string | null;
+  vatRate?: number | null;
+  vatIncluded?: boolean | null;
+  justificationType?: JustificationType;
+  isActive?: boolean;
+  applyToExisting?: boolean;
 }
 
 // ── Grouped settlement ("Liquidação agrupada") ─────────────────────────────────
