@@ -12,6 +12,7 @@ import type {
   PurchasePresentationDTO,
   SavePurchasePresentationPayload,
   EntryRules,
+  StockSettings,
 } from "../../entities/stock-purchase-review.ts";
 
 export interface StockPurchaseReviewApiPort {
@@ -30,6 +31,9 @@ export interface StockPurchaseReviewApiPort {
    * `already_in_stock` (bloqueia), `already_in_review`, `draft_in_finance`, `exists_not_routed`; 422 `extraction_failed`.
    */
   importInvoiceForStock(file: File, options?: { routeExisting?: boolean }): Promise<StockInvoiceImportResultDTO>;
+  /** Localização principal do Stock (entradas de faturas sem perguntar a loja). */
+  getStockSettings(): Promise<StockSettings>;
+  saveStockSettings(defaultLocationId: string | null): Promise<StockSettings>;
   /** Regras de entrada no Stock da empresa (efetivas, com as predefinições). */
   getEntryRules(): Promise<EntryRules>;
   saveEntryRules(rules: EntryRules): Promise<EntryRules>;

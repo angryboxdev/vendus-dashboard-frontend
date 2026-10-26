@@ -18,6 +18,7 @@ import { formatEUR, formatNumber } from "../../lib/format";
 import { RecipeCostingProvider } from "../../modules/recipe-costing/recipe-costing.module.tsx";
 import { RecipeCostingSection } from "../../modules/recipe-costing/adapters/in/RecipeCostingSection.tsx";
 import { useDishCosting } from "../../modules/recipe-costing/adapters/in/useDishCosting.ts";
+import { DishWeeklyCost } from "../../modules/recipe-costing/adapters/in/DishWeeklyCost.tsx";
 import {
   lineCostFor,
   sizeTotalFor,
@@ -85,6 +86,7 @@ export function PizzasPage() {
     description: "",
     yield_unit: "g",
     use_as_unit: false,
+    is_active: true,
   });
   const [prepFormError, setPrepFormError] = useState<string | null>(null);
   const [prepFormSaving, setPrepFormSaving] = useState(false);
@@ -339,7 +341,7 @@ export function PizzasPage() {
 
   const openPrepFormCreate = useCallback(() => {
     setEditingPrep(null);
-    setPrepForm({ name: "", description: "", yield_unit: "g", use_as_unit: false });
+    setPrepForm({ name: "", description: "", yield_unit: "g", use_as_unit: false, is_active: true });
     setPrepFormError(null);
     setPrepFormOpen(true);
   }, []);
@@ -351,6 +353,7 @@ export function PizzasPage() {
       description: prep.description ?? "",
       yield_unit: prep.yield_unit,
       use_as_unit: prep.use_as_unit,
+      is_active: prep.is_active !== false,
     });
     setPrepFormError(null);
     setPrepFormOpen(true);
@@ -407,7 +410,7 @@ export function PizzasPage() {
       if (editingPrep) {
         const updated = await apiPut<Preparation>(
           `/api/preparations/${editingPrep.id}`,
-          { ...body, yield_qty: editingPrep.yield_qty },
+          { ...body, yield_qty: editingPrep.yield_qty, is_active: prepForm.is_active },
         );
         setPreparations((prev) =>
           prev.map((p) => (p.id === editingPrep.id ? updated : p)),
@@ -439,24 +442,6 @@ export function PizzasPage() {
       setPreparations((prev) => prev.filter((p) => p.id !== id));
     } catch (e) {
       setPrepError(e instanceof Error ? e.message : "Erro ao apagar preparo");
-    }
-  }, []);
-
-  const [togglingPrepId, setTogglingPrepId] = useState<string | null>(null);
-  const togglePreparationActive = useCallback(async (prep: Preparation) => {
-    setPrepError(null);
-    setTogglingPrepId(prep.id);
-    try {
-      const updated = await apiPut<Preparation>(`/api/preparations/${prep.id}`, {
-        is_active: prep.is_active === false,
-      });
-      setPreparations((prev) => prev.map((p) => (p.id === prep.id ? updated : p)));
-    } catch (e) {
-      setPrepError(
-        e instanceof Error ? e.message : "Erro ao alterar o estado do preparo",
-      );
-    } finally {
-      setTogglingPrepId(null);
     }
   }, []);
 
@@ -783,19 +768,6 @@ export function PizzasPage() {
                         </button>
                         <button
                           type="button"
-                          onClick={() => togglePreparationActive(prep)}
-                          disabled={togglingPrepId === prep.id}
-                          title={
-                            prep.is_active !== false
-                              ? "Inativar: deixa de aparecer para adicionar a receitas (as receitas que já o usam continuam iguais)"
-                              : "Reativar o preparo"
-                          }
-                          className={`rounded px-2 py-1 text-xs font-medium disabled:opacity-50 ${prep.is_active !== false ? "text-amber-700 hover:bg-amber-50" : "text-green-700 hover:bg-green-50"}`}
-                        >
-                          {prep.is_active !== false ? "Inativar" : "Reativar"}
-                        </button>
-                        <button
-                          type="button"
                           onClick={() => deletePreparation(prep.id)}
                           className="rounded px-2 py-1 text-xs font-medium text-red-600 hover:bg-red-50"
                         >
@@ -1029,6 +1001,7 @@ function PreparationFormModal({
     description: string;
     yield_unit: string;
     use_as_unit: boolean;
+    is_active: boolean;
   };
   setForm: React.Dispatch<
     React.SetStateAction<{
@@ -1036,6 +1009,7 @@ function PreparationFormModal({
       description: string;
       yield_unit: string;
       use_as_unit: boolean;
+      is_active: boolean;
     }>
   >;
   error: string | null;
@@ -1113,6 +1087,28 @@ function PreparationFormModal({
               ? "Este preparo aparecerá nas receitas em unidades (un). Ex: 1 un = receita completa, 0.5 un = meia receita."
               : `Este preparo aparecerá nas receitas em ${form.yield_unit}. O rendimento será calculado pela soma dos ingredientes.`}
           </p>
+          {editing && (
+            <div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  id="prep-is-active"
+                  checked={form.is_active}
+                  onChange={(e) =>
+                    setForm((f) => ({ ...f, is_active: e.target.checked }))
+                  }
+                />
+                <label htmlFor="prep-is-active" className="text-sm text-slate-600">
+                  Ativo
+                </label>
+              </div>
+              {!form.is_active && (
+                <p className="mt-1 text-[11px] text-slate-500">
+                  Inativo: deixa de aparecer para adicionar a receitas. As receitas que já o usam continuam iguais.
+                </p>
+              )}
+            </div>
+          )}
         </div>
         {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
         <div className="mt-6 flex justify-end gap-2">
@@ -1855,6 +1851,7 @@ function RecipeModal({
                   Custo indisponível: {costingError}
                 </p>
               )}
+              <DishWeeklyCost pizzaId={pizza.id} refreshKey={costingKey} />
             </>
           )}
           {error && <p className="mt-3 text-sm text-red-600">{error}</p>}
