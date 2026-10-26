@@ -68,7 +68,7 @@ export function RecurringMovementsView() {
   const [editing, setEditing] = useState<ReconciliationRuleDTO | null>(null);
   const [deleting, setDeleting] = useState<ReconciliationRuleDTO | null>(null);
 
-  const { data: rules = [], isLoading } = useQuery({ queryKey: ["bank-rules"], queryFn: () => api.listRules() });
+  const { data: rules = [], isLoading, isError, error, refetch } = useQuery({ queryKey: ["bank-rules"], queryFn: () => api.listRules() });
   const { data: banks = [] } = useQuery({ queryKey: ["bank-accounts:banks"], queryFn: () => bankAccountsApi.listBanks() });
   const { data: groups = [] } = useQuery({
     queryKey: ["cost-center-groups"],
@@ -173,6 +173,15 @@ export function RecurringMovementsView() {
 
         {isLoading ? (
           <p className="py-16 text-center text-sm text-ink-secondary">A carregar…</p>
+        ) : isError ? (
+          <section className={SURFACE}>
+            <EmptyState
+              icon={<IconInfo size={28} />}
+              title="Não foi possível carregar os movimentos recorrentes"
+              description={error instanceof Error ? error.message : "Erro desconhecido."}
+              action={<Button onClick={() => void refetch()}>Tentar de novo</Button>}
+            />
+          </section>
         ) : visible.length === 0 ? (
           <section className={SURFACE}>
             <EmptyState
