@@ -23,6 +23,8 @@ import { useLocations } from "../../modules/locations/adapters/in/use-locations.
 import { resolveLocationId } from "../../modules/locations/domain/services/resolve-location-id.ts";
 import { InvoiceImportModal } from "./invoiceImport/InvoiceImportModal";
 import { ReferenceCostField, formatPerPricingUnit } from "./ReferenceCostField.tsx";
+import { RecipeCostingProvider } from "../../modules/recipe-costing/recipe-costing.module.tsx";
+import { IngredientPriceHistory } from "../../modules/recipe-costing/adapters/in/IngredientPriceHistory.tsx";
 import { StockPurchaseReviewProvider } from "../../modules/stock-purchase-review/stock-purchase-review.module.tsx";
 import { EntryRulesModal } from "../../modules/stock-purchase-review/adapters/in/EntryRulesModal.tsx";
 import type { ReviewableInvoiceLine } from "./invoiceImport/invoiceImport.types";
@@ -750,6 +752,12 @@ function StockEditModal({
   onSave: () => void;
   onClose: () => void;
 }) {
+  // A unidade é a régua do stock, das compras e das receitas: fixa depois do primeiro uso (o servidor
+  // também recusa). Sinal no ecrã: stock atual ou custo de compra já registados.
+  const unitLocked =
+    (item.current_quantity ?? 0) !== 0 ||
+    (item.last_purchase_unit_cost_without_vat ?? 0) > 0 ||
+    (item.last_purchase_unit_cost_with_vat ?? 0) > 0;
   return (
     <div
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
@@ -757,7 +765,7 @@ function StockEditModal({
       aria-modal="true"
       aria-labelledby="stock-edit-title"
     >
-      <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-lg">
+      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-xl border border-slate-200 bg-white p-6 shadow-lg">
         <h3
           id="stock-edit-title"
           className="text-base font-semibold text-slate-800"
@@ -848,6 +856,8 @@ function StockEditModal({
           <div>
             <label className="mb-1 block text-xs text-slate-500">Unidade</label>
             <select
+              disabled={unitLocked}
+              title={unitLocked ? "A unidade fica fixa depois do primeiro movimento ou compra" : undefined}
               value={form.base_unit ?? ""}
               onChange={(e) =>
                 setForm((f) => ({
@@ -855,7 +865,7 @@ function StockEditModal({
                   base_unit: e.target.value as StockBaseUnit,
                 }))
               }
-              className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
+              className="w-full rounded border border-slate-200 px-3 py-2 text-sm disabled:bg-slate-50 disabled:text-slate-500"
             >
               {(
                 Object.entries(STOCK_BASE_UNIT_LABELS) as [
@@ -868,6 +878,11 @@ function StockEditModal({
                 </option>
               ))}
             </select>
+            {unitLocked && (
+              <p className="mt-1 text-[11px] text-slate-500">
+                Fixa: o artigo já tem stock ou compras nesta unidade. Os preços aparecem por kg/l e as faturas em kg convertem-se sozinhas.
+              </p>
+            )}
           </div>
           <ReferenceCostField
             label="Custo de referência c/ IVA"
@@ -912,6 +927,10 @@ function StockEditModal({
               </p>
             </div>
           )}
+          {/* Evolução semanal do preço de compra (task V5 §5.3). */}
+          <RecipeCostingProvider>
+            <IngredientPriceHistory stockItemId={item.id} />
+          </RecipeCostingProvider>
           <div className="flex items-center gap-2">
             <input
               type="checkbox"
