@@ -1,5 +1,5 @@
 /** Tipo de item de stock */
-export type StockItemType = "ingredient" | "other";
+export type StockItemType = "ingredient" | "beverage" | "packaging" | "cleaning" | "other";
 
 /** Unidade base para quantidade */
 export type StockBaseUnit = "g" | "kg" | "ml" | "cl" | "l" | "un";
@@ -147,6 +147,9 @@ export type StockMovementsPaginatedResponse = {
 
 export const STOCK_ITEM_TYPE_LABELS: Record<StockItemType, string> = {
   ingredient: "Ingrediente",
+  beverage: "Bebida",
+  packaging: "Embalagem",
+  cleaning: "Limpeza",
   other: "Outro",
 };
 
