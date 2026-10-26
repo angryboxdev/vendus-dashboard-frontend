@@ -5,6 +5,7 @@ import { formatPeriod } from "../../domain/entities/recurrence.ts";
 import { KpiCard } from "./KpiCard.tsx";
 import { OccurrenceStateBadge } from "./OccurrenceStateBadge.tsx";
 import { NewRecurrenceButton } from "./NewRecurrenceButton.tsx";
+import { CategoryBreakdownCard } from "./CategoryBreakdownCard.tsx";
 import { RecurrencesViewSwitch } from "./RecurrencesViewSwitch.tsx";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 
@@ -133,6 +134,11 @@ export function RecurrencesMonthlyView() {
               accentClass={summary.overdueCount > 0 ? "text-red-600" : "text-stone-800"}
             />
           </div>
+        )}
+
+        {/* Valor do mês por categoria */}
+        {!loadingOccurrences && (
+          <CategoryBreakdownCard occurrences={occurrences} recurrenceById={recurrenceById} />
         )}
 
         {/* Ocorrências do mês */}

@@ -39,6 +39,7 @@ Não há use cases formais; a lógica de UI é orquestrada diretamente nos adapt
 ### Entrada (UI)
 - `RecurrencesMonthlyView` — **vista predefinida** da aba: `/financial/recurrences` (mês atual) e `/financial/recurrences/monthly/:year/:month`; KPIs e ocorrências do mês.
 - `RecurrencesView` — **Histórico** em `/financial/recurrences/history`: todas as recorrências (filtro de estado em «Todos»), com Início e Fim (encerrada em / pausada em / fim previsto), KPIs Total/Ativas/Pausadas/Encerradas.
+- `CategoryBreakdownCard` — cartão «Categorias» na vista mensal: valor do mês (`effectiveAmountCents`, sem canceladas) por grupo do centro de custo, barra laranja em degradê relativa à maior, % do total e nº de recorrências; «Detalhes» abre a lista das ocorrências dessa categoria. Agrupamento em `domain/services/category-breakdown.ts` (`buildCategoryBreakdown`, testado).
 - `RecurrencesViewSwitch` — seletor «Do mês | Histórico» no topo das duas vistas; `NewRecurrenceButton` — «Nova recorrência» + drawer, partilhado pelas duas.
 - `RecurrenceDetailView` — página de detalhe em `/financial/payable-recurrences/:id`, com resumo, ocorrências mensais, documentos e próximos pagamentos. A tabela de ocorrências inclui coluna "Banco": quando `linkedBankMovement` está preenchido, exibe badge com valor e data do débito bancário identificado; caso contrário exibe "—".
 - `RecurrenceDrawer` — drawer lateral reutilizável para criar e editar recorrências; usa `useFinancialBaseModule` para obter fornecedores e centros de custo. Com categoria de salários (ou tipo «Pessoal») o campo Fornecedor passa a «Colaborador» (ativos + o já associado, marcado «inativo»); escolher o colaborador sugere o nome «Salário — <nome>» e, na criação, a categoria de salários passa o tipo a «Pessoal».
@@ -59,7 +60,7 @@ Não há use cases formais; a lógica de UI é orquestrada diretamente nos adapt
 - **D9**: o colaborador vem de `GET /payable-recurrences/employees` (endpoint do próprio módulo, não do RH), para que quem gere recorrências não precise de permissões do RH; só id, nome e estado.
 
 ## Como testar
-- Funções puras: `npx vitest run src/modules/payable-recurrences` — cobre `expectedDocumentLabel`, `nextDueDate`, `formatPeriod`, `isSalaryCategoryName`.
+- Funções puras: `npx vitest run src/modules/payable-recurrences` — cobre `expectedDocumentLabel`, `nextDueDate`, `formatPeriod`, `isSalaryCategoryName`, `buildCategoryBreakdown`.
 - Componentes React: sem testes automatizados (requerem DOM + mocks de API — fora do scope actual).
 
 ## Pontos de atenção / dívidas conhecidas
