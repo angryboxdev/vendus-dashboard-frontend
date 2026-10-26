@@ -4,6 +4,7 @@ import {
   apiPatch,
   apiPostFormData,
   apiDeleteNoContent,
+  apiDeleteJson,
   ApiError,
 } from "../../../../lib/api.ts";
 import type { RecurrencesApiPort } from "../../domain/ports/out/recurrences-api.port.ts";
@@ -21,6 +22,8 @@ import type {
   ListRecurrencesParams,
   ListOccurrencesParams,
   RecurrenceEmployeeDTO,
+  InvoiceRecurrenceStatusDTO,
+  LinkInvoiceToRecurrencePayload,
 } from "../../domain/entities/recurrence.ts";
 
 const BASE = "/api/payable-recurrences";
@@ -166,5 +169,17 @@ export class HttpRecurrencesApiAdapter implements RecurrencesApiPort {
     await apiDeleteNoContent(
       `${BASE}/occurrences/${encodeURIComponent(occId)}/document`,
     );
+  }
+
+  async getInvoiceRecurrenceStatus(invoiceId: string): Promise<InvoiceRecurrenceStatusDTO> {
+    return apiGet(`${BASE}/invoice-links/${encodeURIComponent(invoiceId)}`);
+  }
+
+  async linkInvoiceToRecurrence(payload: LinkInvoiceToRecurrencePayload): Promise<OccurrenceDTO> {
+    return apiPost(`${BASE}/invoice-links`, payload);
+  }
+
+  async unlinkInvoiceFromOccurrence(occId: string): Promise<OccurrenceDTO> {
+    return apiDeleteJson(`${BASE}/occurrences/${encodeURIComponent(occId)}/invoice`);
   }
 }

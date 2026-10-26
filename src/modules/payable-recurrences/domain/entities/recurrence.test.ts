@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { expectedDocumentLabel, nextDueDate, formatPeriod, isSalaryCategoryName } from "./recurrence.ts";
+import { expectedDocumentLabel, nextDueDate, formatPeriod, isSalaryCategoryName, formatDeviation } from "./recurrence.ts";
 
 // ── expectedDocumentLabel ─────────────────────────────────────────────────────
 
@@ -109,5 +109,15 @@ describe("isSalaryCategoryName", () => {
     expect(isSalaryCategoryName("")).toBe(false);
     expect(isSalaryCategoryName(null)).toBe(false);
     expect(isSalaryCategoryName(undefined)).toBe(false);
+  });
+});
+
+// ── formatDeviation ───────────────────────────────────────────────────────────
+
+describe("formatDeviation", () => {
+  it("sinal e vírgula decimal em pt-PT", () => {
+    expect(formatDeviation(30)).toBe("+30 %");
+    expect(formatDeviation(-12.5)).toBe("−12,5 %");
+    expect(formatDeviation(0)).toBe("0 %");
   });
 });

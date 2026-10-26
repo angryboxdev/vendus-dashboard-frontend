@@ -23,6 +23,7 @@ import {
   expectedDocumentLabel,
   nextDueDate,
   formatPeriod,
+  formatDeviation,
 } from "../../domain/entities/recurrence.ts";
 import { RecurrenceDrawer } from "./RecurrenceDrawer.tsx";
 import { KpiCard } from "./KpiCard.tsx";
@@ -472,6 +473,7 @@ function OccurrenceRow({
   occ,
   onMarkPaid,
   onLinkInvoice,
+  onUnlinkInvoice,
   onViewInvoice,
   onCancel,
   onUploadDoc,
@@ -481,6 +483,7 @@ function OccurrenceRow({
   occ: OccurrenceDTO;
   onMarkPaid: (id: string) => void;
   onLinkInvoice: (id: string) => void;
+  onUnlinkInvoice: (id: string) => void;
   onViewInvoice: (invoiceId: string) => void;
   onCancel: (id: string) => void;
   onUploadDoc: (id: string, file: File) => void;
@@ -533,6 +536,14 @@ function OccurrenceRow({
           </button>
         ) : (
           <span className="text-stone-300 text-sm">—</span>
+        )}
+        {occ.invoiceDeviationWarning && occ.invoiceDeviationPercent != null && (
+          <span
+            title="O valor da fatura afasta-se 20 % ou mais do previsto — confirme se está correto."
+            className="mt-1 block text-[10px] font-medium text-amber-600 whitespace-nowrap"
+          >
+            ⚠ {formatDeviation(occ.invoiceDeviationPercent)} face ao previsto
+          </span>
         )}
       </td>
       <td className="px-3 py-2.5">
@@ -610,6 +621,14 @@ function OccurrenceRow({
                     className="flex w-full items-center px-3 py-2 text-xs text-purple-700 hover:bg-stone-50"
                   >
                     Vincular fatura
+                  </button>
+                )}
+                {occ.status === "invoice_linked" && occ.invoiceId && (
+                  <button
+                    onClick={() => { setMenuOpen(false); onUnlinkInvoice(occ.id); }}
+                    className="flex w-full items-center px-3 py-2 text-xs text-stone-600 hover:bg-stone-50"
+                  >
+                    Desassociar fatura
                   </button>
                 )}
                 {canAttachDoc && (occ.documentUrl ? (
@@ -816,6 +835,15 @@ export function RecurrenceDetailView() {
       setLinkInvoiceOccId(null);
       void qc.invalidateQueries({ queryKey: ["payable-recurrences", id, "occurrences"] });
     },
+  });
+
+  const unlinkInvoiceMutation = useMutation({
+    mutationFn: (occId: string) => api.unlinkInvoiceFromOccurrence(occId),
+    onSuccess: () => {
+      setBusyOccId(null);
+      void qc.invalidateQueries({ queryKey: ["payable-recurrences", id, "occurrences"] });
+    },
+    onError: () => setBusyOccId(null),
   });
 
   const cancelOccMutation = useMutation({
@@ -1109,6 +1137,12 @@ export function RecurrenceDetailView() {
                             occ={occ}
                             onMarkPaid={(occId) => setMarkPaidOccId(occId)}
                             onLinkInvoice={(occId) => setLinkInvoiceOccId(occId)}
+                            onUnlinkInvoice={(occId) => {
+                              if (confirm("Desassociar a fatura desta ocorrência? Volta ao valor previsto.")) {
+                                setBusyOccId(occId);
+                                unlinkInvoiceMutation.mutate(occId);
+                              }
+                            }}
                             onViewInvoice={(invoiceId) => setViewInvoiceId(invoiceId)}
                             onCancel={(occId) => { if (confirm("Apagar esta ocorrência? Poderá gerar uma nova para o mesmo período.")) { setBusyOccId(occId); cancelOccMutation.mutate(occId); } }}
                             onUploadDoc={(occId, file) => { setBusyOccId(occId); uploadOccDocMutation.mutate({ occId, file }); }}

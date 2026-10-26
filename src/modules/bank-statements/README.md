@@ -1,7 +1,7 @@
 # Módulo: bank-statements (Frontend)
 
 > Status: ativo
-> Última atualização: 2026-10-26 («Movimentos recorrentes» no painel de classificação; task «Conciliação bancária V2», F1–F5: ver «Decisões de design»). Antes: 2026-09-30.
+> Última atualização: 2026-10-26 (faturas ↔ recorrências e documento de pagamento — ADR-0041 do backend)
 
 ---
 
@@ -133,6 +133,8 @@ Definidos em `domain/entities/bank-statement.ts`:
 ## Decisões de design (ADR resumido)
 
 **Filtro do mês num só seletor e sugestões só fortes (2026-10-26)** — decisões do utilizador. No separador «Movimentos» a fila de botões deu lugar a um seletor «Por conciliar ▾» (predefinido) que abre Todos / Entradas / Saídas / Transferências; «Com sugestão» saiu (há o separador «Sugestões»). As «Sugestões automáticas» do painel só mostram candidatos com nome E valor a bater e confiança ≥ 90% (`isStrongCandidate`, `domain/services/suggestions.ts`, flags `nameMatched`/`amountMatched` do backend); os restantes candidatos voltam a aparecer na pesquisa manual de documentos.
+
+- **Documento de pagamento (2026-10-26):** `GroupedSettlementCombinationDTO.paymentGroupId` — o cartão da liquidação agrupada diz «Documento de pagamento encontrado» (faturas de emitentes diferentes pagas num só débito).
 
 **«Movimentos recorrentes» (2026-10-26)** — no separador «Justificar despesa» do `ClassifyDrawer`, «Classificar sempre assim» guarda a classificação como regra do backend (`POST /bank-statements/rules` com `bankAccountId`, `amountCents` só se «Só X € (± 1 €)», `applyToExisting`). Só para justificações sem documento por mês (`canBeRecurring`: recibo, despesa bancária, transferência interna, empréstimo). O `MonthDetailView` grava primeiro a classificação e depois cria a regra (se a regra falhar, a classificação fica e aparece um aviso); com regra, invalida a conta toda (outros meses mudam). `recurringMatchPreview` replica o `recurringMatchText` do backend só para mostrar o texto reconhecido. Movimentos com `classifiedByRuleId` mostram o selo «Auto» e, no painel, «Conciliado automaticamente». O botão «Classificar» diz o que falta; uma categoria sem subcategorias ativas já não exige subcategoria. **Página «Movimentos recorrentes» por banco** (`RecurringMovementsView`, rota `/financial/bank-statements/banks/:bankId/recurring` — decisão do utilizador: cada banco tem a sua nomenclatura e as suas despesas; abre-se no menu «⋯» do banco na página Bancos, na vista da conta e no aviso do painel; mostra só as regras das contas desse banco e as antigas sem conta): indicadores (ativos, movimentos conciliados automaticamente, em pausa), filtros por estado/conta/pesquisa, regras agrupadas por conta (`groupRulesByAccount`; regras antigas sem conta em «Todas as contas»), editar (nome, descrição do banco com pré-visualização do texto reconhecido, justificação, categoria/subcategoria, valor fixo ± margem, IVA, aplicar aos por classificar) via `PATCH /rules/:id`, pausar/reativar (reativar aplica logo aos por classificar) e apagar (os conciliados mantêm a classificação). Lógica pura em `domain/services/recurring-rules-overview.ts` (`parseEuroToCents` para os valores escritos).
 

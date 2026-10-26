@@ -900,6 +900,8 @@ interface Props {
    * valores gravados (`storedAmounts`) e das repartições, não da extração.
    */
   reopenDraft?: boolean;
+  /** Documento de pagamento com várias faturas fiscais (ex.: águas + resíduos): qual destas está a ser revista. */
+  paymentGroupPosition?: { index: number; total: number };
   onClose(): void;
   onConfirmed(invoice: InvoiceDTO): void;
   /** Abrir um documento já existente (conflito de identidade fiscal: original/duplicado parecido). */
@@ -915,7 +917,7 @@ interface ConfirmConflict {
   candidates?: { invoiceId: string | null; seriesNumber: string }[];
 }
 
-export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", existingLineIds = [], reopenDraft = false, onClose, onConfirmed, onOpenExisting }: Props) {
+export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", existingLineIds = [], reopenDraft = false, paymentGroupPosition, onClose, onConfirmed, onOpenExisting }: Props) {
   const { api } = useInvoicesModule();
   const fbModule = useFinancialBaseModule();
   const qc = useQueryClient();
@@ -1393,6 +1395,11 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
                   ? "Corrige qualquer campo desde a raiz — fornecedor, número, valores e linhas."
                   : "Verifique os dados e corrija se necessário antes de guardar."}
               </p>
+              {!isEdit && paymentGroupPosition && paymentGroupPosition.total > 1 && (
+                <p className="mt-1 inline-flex rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
+                  Documento de pagamento · fatura {paymentGroupPosition.index} de {paymentGroupPosition.total} (um só pagamento)
+                </p>
+              )}
             </div>
             {!isEdit && importResult.reading?.source === "deterministic" ? (
               <span className="shrink-0 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-medium text-emerald-700">Lido sem IA</span>
