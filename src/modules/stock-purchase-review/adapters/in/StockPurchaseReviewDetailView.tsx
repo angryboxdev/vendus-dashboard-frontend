@@ -2,14 +2,24 @@ import { Fragment, useEffect, useRef, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useStockPurchaseReviewModule } from "../../stock-purchase-review.module.tsx";
-import { LocationSelect } from "../../../../components/LocationSelect.tsx";
 import { useLocations } from "../../../locations/adapters/in/use-locations.ts";
 import { ApiError } from "../../../../lib/api.ts";
 import { PackagingPanel } from "./PackagingPanel.tsx";
 import { invoiceQuantityUnit, unitFactor } from "../../domain/services/presentation.ts";
 import {
+  COMPACT_STATE_LABELS,
+  compactKpis,
+  compactRows,
+  invoiceBreakdown,
+  matchesFilter,
+  sortRows,
+  type CompactFilter,
+  type CompactRow,
+  type CompactState,
+} from "../../domain/services/compact-review.ts";
+import { EntryRulesModal } from "./EntryRulesModal.tsx";
+import {
   STOCK_PURCHASE_REVIEW_STATUS_LABELS,
-  DECISION_SOURCE_LABELS,
   RESOLUTION_TYPE_LABELS,
   CATEGORY_DIVERGENCE_LABELS,
   SUGGESTION_SOURCE_LABELS,
@@ -18,7 +28,6 @@ import {
   type StockItemOptionDTO,
   type StockCategoryOptionDTO,
   type ResolveStockReviewLinePayload,
-  type ReviewConferenceDTO,
   type CategoryDivergenceDTO,
 } from "../../domain/entities/stock-purchase-review.ts";
 
@@ -84,7 +93,7 @@ type SplitRow = { locationId: string | null; quantity: string };
 
 function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, onVersionConflict, unresolvedGateOpen, onPackagingSaved }: LineRowProps) {
   const { api } = useStockPurchaseReviewModule();
-  const { activeLocations, hasMultipleLocations } = useLocations();
+  const { hasMultipleLocations } = useLocations();
   const isResolved = line.resolutionType !== "unresolved";
   const isTerminal = TERMINAL_STATUSES.includes(review.status);
   const [editing, setEditing] = useState(!isResolved);
@@ -94,9 +103,10 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
   );
   const [stockItemId, setStockItemId] = useState(line.stockItemId ?? "");
   const [conversionFactor, setConversionFactor] = useState(line.conversionFactor != null ? String(line.conversionFactor) : "1");
-  const [locationId, setLocationId] = useState<string | null>(line.locationId);
-  const [splitMode, setSplitMode] = useState(!!line.locationSplits?.length);
-  const [splits, setSplits] = useState<SplitRow[]>(
+  // V5 §2.4: sem destino na fatura — guarda o que a linha já tiver; a loja vem da localização principal.
+  const [locationId] = useState<string | null>(line.locationId);
+  const [splitMode] = useState(!!line.locationSplits?.length);
+  const [splits] = useState<SplitRow[]>(
     line.locationSplits?.length
       ? line.locationSplits.map((sp) => ({ locationId: sp.locationId, quantity: String(sp.purchaseQuantity) }))
       : [{ locationId: null, quantity: "" }, { locationId: null, quantity: "" }],
@@ -148,8 +158,40 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
     });
   }
 
-  const locationName = (id: string | null) => activeLocations.find((l) => l.id === id)?.name ?? "—";
   const splitSum = splits.reduce((acc, sp) => acc + (Number.isFinite(parseQty(sp.quantity)) ? parseQty(sp.quantity) : 0), 0);
+
+  // Fatura em kg/l e artigo em g/ml: a conversão é exata e automática; o campo só aparece se for preciso.
+  const [manualFactor, setManualFactor] = useState(false);
+  const selectedBaseUnit = mode === "new_item" ? newItemBaseUnit : stockItems.find((i) => i.id === stockItemId)?.baseUnit;
+  const autoFactor = lineInvoiceUnit && selectedBaseUnit ? unitFactor(lineInvoiceUnit, selectedBaseUnit) : null;
+  const conversionField = (
+    <div>
+      {lineInvoiceUnit && !selectedBaseUnit && !manualFactor ? (
+        <p className="pt-5 text-xs text-stone-500">A fatura conta em {lineInvoiceUnit}: a conversão é automática ao escolher o artigo.</p>
+      ) : autoFactor && !manualFactor ? (
+        <p className="pt-5 text-xs text-stone-600">
+          Conversão automática: <span className="font-medium tabular-nums">1 {lineInvoiceUnit} = {qtyFmt(autoFactor)} {selectedBaseUnit}</span>{" "}
+          <button
+            type="button"
+            onClick={() => {
+              setConversionFactor(String(autoFactor));
+              setManualFactor(true);
+            }}
+            className="text-stone-400 underline hover:text-stone-600"
+          >
+            alterar
+          </button>
+        </p>
+      ) : (
+        <>
+          <label className={labelCls}>
+            Quanto tem 1 {lineInvoiceUnit ?? line.purchaseUnit}? (em {selectedBaseUnit ?? "unidade do artigo"})
+          </label>
+          <input type="text" inputMode="decimal" aria-label="Conversão" value={conversionFactor} onChange={(e) => setConversionFactor(e.target.value)} className={inputCls} />
+        </>
+      )}
+    </div>
+  );
 
   function applySuggestion() {
     if (!suggestion) return;
@@ -188,7 +230,8 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
       resolveMutation.mutate({ expectedVersion: review.version, resolution: "no_stock_effect" });
       return;
     }
-    const factor = parseQty(conversionFactor);
+    // Conversão automática (kg → g) sem campo; senão o valor escrito.
+    const factor = autoFactor && !manualFactor ? autoFactor : parseQty(conversionFactor);
     if (!Number.isFinite(factor) || factor <= 0) {
       setError("Fator de conversão inválido.");
       return;
@@ -217,49 +260,8 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
     });
   }
 
-  const destinationFields = (
-    <div className="col-span-2 space-y-2">
-      {hasMultipleLocations && (
-        <label className="flex items-center gap-2 text-xs text-stone-600">
-          <input type="checkbox" checked={splitMode} onChange={(e) => setSplitMode(e.target.checked)} />
-          Dividir por lojas (quantidades explícitas)
-        </label>
-      )}
-      {splitMode && hasMultipleLocations ? (
-        <div className="space-y-1.5 rounded-md border border-stone-200 bg-stone-50 p-2">
-          {splits.map((sp, i) => (
-            <div key={i} className="flex items-end gap-2">
-              <div className="flex-1">
-                <LocationSelect value={sp.locationId} onChange={(v) => setSplits(splits.map((x, j) => (j === i ? { ...x, locationId: v } : x)))} label={i === 0 ? "Loja" : undefined} />
-              </div>
-              <div className="w-28">
-                {i === 0 && <label className={labelCls}>Qtd. ({line.purchaseUnit})</label>}
-                <input type="text" inputMode="decimal" value={sp.quantity} onChange={(e) => setSplits(splits.map((x, j) => (j === i ? { ...x, quantity: e.target.value } : x)))} className={inputCls} />
-              </div>
-              {splits.length > 2 && (
-                <button type="button" onClick={() => setSplits(splits.filter((_, j) => j !== i))} className="pb-1.5 text-xs text-stone-400 hover:text-red-600" aria-label="Remover loja">
-                  ✕
-                </button>
-              )}
-            </div>
-          ))}
-          <div className="flex items-center justify-between text-xs">
-            <button type="button" onClick={() => setSplits([...splits, { locationId: null, quantity: "" }])} className="font-medium text-stone-600 hover:text-stone-800">
-              + Loja
-            </button>
-            <span className={Math.abs(splitSum - line.purchaseQuantity) > 0.000001 ? "font-medium text-amber-700" : "text-emerald-700"}>
-              {qtyFmt(splitSum)} de {qtyFmt(line.purchaseQuantity)} {line.purchaseUnit}
-            </span>
-          </div>
-        </div>
-      ) : (
-        <LocationSelect value={locationId} onChange={setLocationId} label="Destino (loja)" />
-      )}
-    </div>
-  );
-
   const amounts = [
-    `${qtyFmt(line.purchaseQuantity)} ${line.purchaseUnit} × ${fromCents(line.unitCostWithoutVat)}`,
+    `${qtyFmt(line.purchaseQuantity)} ${lineInvoiceUnit ?? line.purchaseUnit} × ${fromCents(line.unitCostWithoutVat)}`,
     line.discountAmount ? `desconto ${fromCents(line.discountAmount)}` : null,
     line.netAmount != null ? `base ${fromCents(line.netAmount)}` : null,
     line.vatAmount != null ? `IVA ${fromCents(line.vatAmount)}` : null,
@@ -281,6 +283,7 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
         </p>
       </div>
 
+      {!lineInvoiceUnit && (
       <PackagingPanel
         review={review}
         line={line}
@@ -295,6 +298,7 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
           onPackagingSaved();
         }}
       />
+      )}
 
       {suspicious && !isTerminal && (
         <div className="mt-2 flex flex-wrap items-center justify-between gap-2 rounded-md border border-red-200 bg-red-50 px-2.5 py-1.5 text-xs text-red-800">
@@ -321,10 +325,8 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
           <p>
             {line.resolutionType === "existing_item" || line.resolutionType === "new_item"
               ? <>
-                  {stockItems.find((i) => i.id === line.stockItemId)?.name ?? "Artigo"} · {qtyFmt(line.stockQuantity ?? 0)} un. base (fator {line.conversionFactor ?? "—"}) ·{" "}
-                  {line.locationSplits?.length
-                    ? line.locationSplits.map((sp) => `${locationName(sp.locationId)} ${qtyFmt(sp.purchaseQuantity)} ${line.purchaseUnit}`).join(" · ")
-                    : `destino ${line.locationId ? locationName(line.locationId) : "loja da confirmação"}`}
+                  {stockItems.find((i) => i.id === line.stockItemId)?.name ?? "Artigo"} · {qtyFmt(line.purchaseQuantity)} {lineInvoiceUnit ?? line.purchaseUnit} →{" "}
+                  {qtyFmt(line.stockQuantity ?? 0)} {resolvedItem?.baseUnit ?? ""}
                 </>
               : "Fica no documento e na classificação financeira; não entra no inventário."}
             {line.autoResolved && (
@@ -406,13 +408,7 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
                   ))}
                 </select>
               </div>
-              <div>
-                <label className={labelCls}>
-                  Conversão: 1 {lineInvoiceUnit ?? line.purchaseUnit} = ? {stockItems.find((i) => i.id === stockItemId)?.baseUnit ?? "un. base"}
-                </label>
-                <input type="text" value={conversionFactor} onChange={(e) => setConversionFactor(e.target.value)} className={inputCls} />
-              </div>
-              {destinationFields}
+              {conversionField}
             </div>
           )}
 
@@ -447,11 +443,7 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
                   ))}
                 </select>
               </div>
-              <div>
-                <label className={labelCls}>Fator de conversão ({line.purchaseUnit} → {newItemBaseUnit})</label>
-                <input type="text" value={conversionFactor} onChange={(e) => setConversionFactor(e.target.value)} className={inputCls} />
-              </div>
-              {destinationFields}
+              {conversionField}
             </div>
           )}
 
@@ -482,79 +474,117 @@ function ReviewLineRow({ review, line, stockItems, stockCategories, onResolved, 
   );
 }
 
+const STATE_TONE: Record<CompactState, string> = {
+  resolved: "bg-emerald-50 text-emerald-700",
+  confirm: "bg-sky-50 text-sky-700",
+  review: "bg-amber-50 text-amber-800",
+  out: "bg-stone-100 text-stone-600",
+};
+
+const FILTERS: { key: CompactFilter; label: string }[] = [
+  { key: "all", label: "Todos" },
+  { key: "pending", label: "Por rever" },
+  { key: "stock", label: "Artigos para Stock" },
+  { key: "out", label: "Fora do Stock" },
+];
+
 /**
- * Conciliação em três secções (task Stock inteligente V4 §5): Artigos para Stock → Por rever →
- * Artigos fora do Stock. A última é compacta (Artigo | Categoria financeira | Valor c/ IVA, com
- * subtotal) e cada linha abre para editar; continua incluída na fatura, sem associação nem conversão.
+ * Lista compacta da conciliação (task V5 §2.1): uma linha por artigo (linhas equivalentes juntas só
+ * no ecrã — no servidor cada linha da fatura continua individual), estado, e um único painel aberto
+ * de cada vez para ver ou rever. Ordem V4: Artigos para Stock → Por rever → Fora do Stock.
  */
-function ReviewSections({ review, renderRow }: { review: StockPurchaseReviewDTO; renderRow: (line: StockReviewLineDTO) => React.ReactNode }) {
-  const [openNonStock, setOpenNonStock] = useState<string | null>(null);
-  const stock = review.lines.filter((l) => l.resolutionType === "existing_item" || l.resolutionType === "new_item");
-  const pending = review.lines.filter((l) => l.resolutionType === "unresolved");
-  const nonStock = review.lines.filter((l) => l.resolutionType === "no_stock_effect");
-  const sum = (ls: StockReviewLineDTO[]) => ls.reduce((acc, l) => acc + l.totalWithVat, 0);
-  const header = (title: string, count: number, extra?: string) => (
-    <div className="flex items-center justify-between border-b border-stone-100 bg-stone-50 px-4 py-2">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-600">
-        {title} <span className="ml-1 rounded-full bg-white px-1.5 text-stone-500">{count}</span>
-      </h3>
-      {extra && <span className="text-xs tabular-nums text-stone-500">{extra}</span>}
-    </div>
-  );
+function CompactReviewList({ review, stockItems, renderLine }: { review: StockPurchaseReviewDTO; stockItems: StockItemOptionDTO[]; renderLine: (line: StockReviewLineDTO) => React.ReactNode }) {
+  const [filter, setFilter] = useState<CompactFilter>("all");
+  const [open, setOpen] = useState<string | null>(null);
+  const rows = sortRows(compactRows(review, (itemId) => stockItems.find((i) => i.id === itemId)));
+  const visible = rows.filter((r) => matchesFilter(r, filter));
+  const count = (k: CompactFilter) => rows.filter((r) => matchesFilter(r, k)).length;
+  const action = (r: CompactRow) => (r.state === "confirm" || r.state === "review" ? "Rever" : "Ver");
   return (
-    <div className="space-y-3">
-      {stock.length > 0 && (
-        <section aria-label="Artigos para Stock" className="overflow-hidden rounded-xl border border-stone-200 bg-white">
-          {header("Artigos para Stock", stock.length, `${fromCents(sum(stock))} c/ IVA`)}
-          {stock.map(renderRow)}
-        </section>
-      )}
-      {pending.length > 0 && (
-        <section aria-label="Por rever" className="overflow-hidden rounded-xl border border-amber-200 bg-white">
-          {header("Por rever", pending.length)}
-          {pending.map(renderRow)}
-        </section>
-      )}
-      {nonStock.length > 0 && (
-        <section aria-label="Artigos fora do Stock" className="overflow-hidden rounded-xl border border-stone-200 bg-white">
-          {header("Artigos fora do Stock", nonStock.length)}
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="text-left text-[11px] uppercase tracking-wide text-stone-400">
-                <th className="px-4 py-1.5 font-medium">Artigo</th>
-                <th className="px-4 py-1.5 font-medium">Categoria financeira</th>
-                <th className="px-4 py-1.5 text-right font-medium">Valor c/ IVA</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-stone-100">
-              {nonStock.map((l) => (
-                <Fragment key={l.id}>
-                  <tr className="cursor-pointer hover:bg-stone-50" onClick={() => setOpenNonStock(openNonStock === l.id ? null : l.id)} aria-expanded={openNonStock === l.id}>
-                    <td className="px-4 py-1.5 text-stone-800">
-                      {l.description}
-                      {l.autoResolved && <span className="ml-2 text-[11px] text-sky-700">automático</span>}
+    <section aria-label="Linhas da fatura" className="overflow-hidden rounded-xl border border-stone-200 bg-white">
+      <div role="tablist" aria-label="Filtrar linhas" className="flex flex-wrap gap-1 border-b border-stone-100 px-3 py-2">
+        {FILTERS.map((x) => (
+          <button
+            key={x.key}
+            type="button"
+            role="tab"
+            aria-selected={filter === x.key}
+            onClick={() => setFilter(x.key)}
+            className={`rounded-md px-2.5 py-1 text-xs font-medium ${filter === x.key ? "bg-stone-800 text-white" : "text-stone-500 hover:bg-stone-100"}`}
+          >
+            {x.label} <span className="tabular-nums opacity-70">{count(x.key)}</span>
+          </button>
+        ))}
+      </div>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-[11px] uppercase tracking-wide text-stone-400">
+              <th className="px-4 py-2 font-medium">Artigo</th>
+              <th className="px-3 py-2 font-medium">Na fatura</th>
+              <th className="px-3 py-2 text-right font-medium">Faturado</th>
+              <th className="px-3 py-2 text-right font-medium">Entrada prevista</th>
+              <th className="px-3 py-2 text-right font-medium">Custo líquido</th>
+              <th className="px-3 py-2 font-medium">Estado</th>
+              <th className="px-3 py-2"><span className="sr-only">Ação</span></th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-stone-100">
+            {visible.map((r) => (
+              <Fragment key={r.key}>
+                <tr className={open === r.key ? "bg-stone-50" : "hover:bg-stone-50/60"}>
+                  <td className="px-4 py-2">
+                    <p className="font-medium text-stone-800">{r.label}</p>
+                    {r.lines[0]!.resolvedBy?.includes("depósito de embalagem") && (
+                      <p className="text-[11px] text-stone-400">Depósito de embalagem (devolvível) — fora do Stock automaticamente</p>
+                    )}
+                    {(r.reference || r.lines.length > 1) && (
+                      <p className="text-[11px] text-stone-400">
+                        {r.reference ? `ref. ${r.reference}` : ""}
+                        {r.lines.length > 1 ? `${r.reference ? " · " : ""}${r.lines.length} linhas da fatura` : ""}
+                      </p>
+                    )}
+                  </td>
+                  <td className="px-3 py-2 text-xs tabular-nums text-stone-500">
+                    {r.lines.map((l) => (
+                      <p key={l.id} className="whitespace-nowrap">{invoiceBreakdown(l)}</p>
+                    ))}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-stone-700">{r.invoiced}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-stone-700">{r.expected ? `${qtyFmt(r.expected.quantity)} ${r.expected.unit}` : "—"}</td>
+                  <td className="whitespace-nowrap px-3 py-2 text-right tabular-nums text-stone-700">{fromCents(r.netCents)}</td>
+                  <td className="px-3 py-2">
+                    <span className={`inline-flex whitespace-nowrap rounded px-1.5 py-0.5 text-[11px] font-medium ${STATE_TONE[r.state]}`}>{COMPACT_STATE_LABELS[r.state]}</span>
+                  </td>
+                  <td className="px-3 py-2 text-right">
+                    <button
+                      type="button"
+                      aria-expanded={open === r.key}
+                      onClick={() => setOpen(open === r.key ? null : r.key)}
+                      className={`rounded px-2 py-0.5 text-xs font-medium ${action(r) === "Rever" ? "bg-amber-100 text-amber-900 hover:bg-amber-200" : "text-stone-500 hover:bg-stone-100"}`}
+                    >
+                      {open === r.key ? "Fechar" : action(r)}
+                    </button>
+                  </td>
+                </tr>
+                {open === r.key && (
+                  <tr>
+                    <td colSpan={7} className="bg-stone-50/60 p-0">
+                      {r.lines.map((l) => renderLine(l))}
                     </td>
-                    <td className="px-4 py-1.5 text-stone-500">{l.costCenterCategoryLabel ?? "—"}</td>
-                    <td className="px-4 py-1.5 text-right tabular-nums text-stone-700">{fromCents(l.totalWithVat)}</td>
                   </tr>
-                  {openNonStock === l.id && (
-                    <tr>
-                      <td colSpan={3} className="bg-stone-50/60 p-0">{renderRow(l)}</td>
-                    </tr>
-                  )}
-                </Fragment>
-              ))}
-            </tbody>
-            <tfoot>
-              <tr className="border-t border-stone-200">
-                <td colSpan={2} className="px-4 py-1.5 text-xs font-medium text-stone-500">Subtotal fora do Stock (continua na fatura)</td>
-                <td className="px-4 py-1.5 text-right text-sm font-semibold tabular-nums text-stone-800">{fromCents(sum(nonStock))}</td>
+                )}
+              </Fragment>
+            ))}
+            {visible.length === 0 && (
+              <tr>
+                <td colSpan={7} className="px-4 py-6 text-center text-xs text-stone-400">Sem linhas neste filtro.</td>
               </tr>
-            </tfoot>
-          </table>
-        </section>
-      )}
-    </div>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </section>
   );
 }
 
@@ -567,58 +597,6 @@ function DivergenceList({ divergences }: { divergences: CategoryDivergenceDTO[] 
         </li>
       ))}
     </ul>
-  );
-}
-
-/** As três conferências da F3a: documento (bloqueia), Stock (informativo), categorias (pendência para o Financeiro). */
-function ConferencePanel({ conference }: { conference: ReviewConferenceDTO }) {
-  const { document: doc, stock, categories } = conference;
-  const docTone = doc.status === "ok" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : doc.status === "mismatch" ? "border-red-200 bg-red-50 text-red-700" : "border-stone-200 bg-stone-50 text-stone-600";
-  return (
-    <div className="grid gap-3 md:grid-cols-3">
-      <div className={`rounded-xl border p-3 text-xs ${docTone}`}>
-        <p className="font-semibold">1. Documento</p>
-        {doc.status === "unavailable" ? (
-          <p className="mt-1">Sem conferência (revisão anterior à atualização).</p>
-        ) : (
-          <>
-            <p className="mt-1 tabular-nums">
-              Linhas: base {fromCents(doc.linesNetCents ?? 0)} · IVA {fromCents(doc.linesVatCents ?? 0)}
-            </p>
-            <p className="tabular-nums">
-              Fatura: base {fromCents(doc.invoiceNetCents ?? 0)} · IVA {fromCents(doc.invoiceVatCents ?? 0)}
-            </p>
-            <p className="mt-1 font-medium">
-              {doc.status === "ok"
-                ? "Todas as linhas batem com a fatura."
-                : `Diferença: base ${fromCents(doc.netDifferenceCents ?? 0)} · IVA ${fromCents(doc.vatDifferenceCents ?? 0)} — corrigir no Financeiro antes de movimentar.`}
-            </p>
-          </>
-        )}
-      </div>
-      <div className="rounded-xl border border-stone-200 bg-white p-3 text-xs text-stone-600">
-        <p className="font-semibold text-stone-800">2. Stock</p>
-        <p className="mt-1 tabular-nums">
-          Inventariáveis: {stock.inventoriableLines}{stock.inventoriableNetCents != null ? ` · base ${fromCents(stock.inventoriableNetCents)}` : ""}
-        </p>
-        <p className="tabular-nums">
-          Não são item de stock: {stock.nonStockLines}{stock.nonStockNetCents != null ? ` · ${fromCents(stock.nonStockNetCents)}` : ""}
-        </p>
-        {stock.unresolvedLines > 0 && <p className="font-medium text-amber-700">Por resolver: {stock.unresolvedLines}</p>}
-        <p className="mt-1 text-stone-400">Só as linhas inventariáveis geram quantidade e custo.</p>
-      </div>
-      <div className={`rounded-xl border p-3 text-xs ${categories.divergences.length ? "border-amber-200 bg-amber-50 text-amber-800" : "border-stone-200 bg-white text-stone-600"}`}>
-        <p className={`font-semibold ${categories.divergences.length ? "" : "text-stone-800"}`}>3. Categorias</p>
-        {categories.divergences.length === 0 ? (
-          <p className="mt-1">Sem divergências com a classificação financeira.</p>
-        ) : (
-          <>
-            <DivergenceList divergences={categories.divergences} />
-            <p className="mt-1">Não impede a entrada; fica como pendência para o Financeiro rever (nada é corrigido sozinho).</p>
-          </>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -637,8 +615,8 @@ export function StockPurchaseReviewDetailView() {
   const [reloadNotice, setReloadNotice] = useState<string | null>(null);
   const [showCancel, setShowCancel] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
-  const [confirmLocationId, setConfirmLocationId] = useState<string | null>(null);
-  const [needsConfirmLocation, setNeedsConfirmLocation] = useState(false);
+  const [needsDefaultLocation, setNeedsDefaultLocation] = useState(false);
+  const [rulesOpen, setRulesOpen] = useState(false);
   const [effectiveDate, setEffectiveDate] = useState("");
 
   const { data: review, isLoading, isError } = useQuery({
@@ -721,15 +699,14 @@ export function StockPurchaseReviewDetailView() {
   });
 
   const confirmMutation = useMutation({
-    mutationFn: (locationId: string | null) =>
+    mutationFn: () =>
       api.confirmReview(id!, {
         expectedVersion: review!.version,
         effectiveDate: effectiveDate || undefined,
-        locationId: locationId ?? undefined,
       }),
     onSuccess: (updated) => {
       handleUpdated(updated);
-      setNeedsConfirmLocation(false);
+      setNeedsDefaultLocation(false);
     },
     onError: (e: unknown) => {
       if (isVersionConflict(e)) {
@@ -737,7 +714,7 @@ export function StockPurchaseReviewDetailView() {
         return;
       }
       if (isLocationRequired(e)) {
-        setNeedsConfirmLocation(true);
+        setNeedsDefaultLocation(true);
         return;
       }
     },
@@ -764,6 +741,8 @@ export function StockPurchaseReviewDetailView() {
   const documentMismatch = review.conference?.document.status === "mismatch";
   const allNonStock = review.lines.length > 0 && review.lines.every((l) => l.resolutionType === "no_stock_effect");
   const acceptableCount = review.lines.filter((l) => l.resolutionType === "unresolved" && suggestionPayload(review, l)).length;
+  const kpis = compactKpis(review);
+  const divergences = review.conference?.categories.divergences ?? [];
 
   return (
     <div className="flex min-h-full flex-col bg-[#FAF6F3]">
@@ -772,11 +751,26 @@ export function StockPurchaseReviewDetailView() {
           <button type="button" onClick={() => navigate("/stock/compras-por-rever")} className="mb-1 text-xs text-stone-400 hover:text-stone-600">
             ← Voltar à lista
           </button>
-          <h1 className="text-xl font-bold text-stone-900">{review.supplierName} · {review.invoiceNumber}</h1>
+          <h1 className="text-xl font-bold text-stone-900">{review.supplierName}</h1>
           <p className="mt-0.5 text-sm text-stone-500">
-            {formatDate(review.invoiceDate)} · {STOCK_PURCHASE_REVIEW_STATUS_LABELS[review.status]} · Origem da decisão: {DECISION_SOURCE_LABELS[review.decisionSource]}
+            {review.invoiceNumber} · {formatDate(review.invoiceDate)} · {STOCK_PURCHASE_REVIEW_STATUS_LABELS[review.status]}
           </p>
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+        {review.attachmentUrl ? (
+          <a
+            href={review.attachmentUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-md bg-stone-800 px-3 py-1.5 text-xs font-medium text-white hover:opacity-90"
+          >
+            Ver fatura
+          </a>
+        ) : (
+          <span className="rounded-md border border-dashed border-stone-300 px-3 py-1.5 text-xs text-stone-400" title="Esta fatura não tem o PDF anexado">
+            Sem PDF da fatura
+          </span>
+        )}
         {!isTerminal && (
           <button
             type="button"
@@ -796,6 +790,7 @@ export function StockPurchaseReviewDetailView() {
             {restoreMutation.isPending ? "A repor…" : "Repor em Compras por rever"}
           </button>
         )}
+        </div>
       </div>
 
       {reloadNotice && (
@@ -837,7 +832,32 @@ export function StockPurchaseReviewDetailView() {
           </div>
         )}
 
-        {review.conference && !isTerminal && <ConferencePanel conference={review.conference} />}
+        <div className="grid grid-cols-2 gap-2 md:grid-cols-4">
+          {[
+            { label: "Linhas do documento", value: String(kpis.documentLines) },
+            { label: "Artigos distintos para Stock", value: String(kpis.stockItems) },
+            { label: "Base sem IVA", value: kpis.netCents != null ? fromCents(kpis.netCents) : "—" },
+            { label: "Total da fatura", value: kpis.totalCents != null ? fromCents(kpis.totalCents) : "—", detail: kpis.vatCents != null ? `IVA ${fromCents(kpis.vatCents)}` : null },
+          ].map((k) => (
+            <div key={k.label} className="rounded-lg border border-stone-200 bg-white px-3 py-2">
+              <p className="text-[11px] text-stone-500">{k.label}</p>
+              <p className="text-base font-semibold tabular-nums text-stone-900">{k.value}</p>
+              {"detail" in k && k.detail && <p className="text-[11px] tabular-nums text-stone-400">{k.detail}</p>}
+            </div>
+          ))}
+        </div>
+
+        {!isTerminal && documentMismatch && review.conference && (
+          <p className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+            As linhas não batem com a fatura (base {fromCents(review.conference.document.netDifferenceCents ?? 0)} · IVA {fromCents(review.conference.document.vatDifferenceCents ?? 0)}) — corrigir no Financeiro antes de dar entrada.
+          </p>
+        )}
+        {!isTerminal && divergences.length > 0 && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            <p className="font-medium">Pendência para o Financeiro — categorias (não impede a entrada)</p>
+            <DivergenceList divergences={divergences} />
+          </div>
+        )}
 
         {isTerminal && review.categoryDivergences && review.categoryDivergences.length > 0 && (
           <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
@@ -871,16 +891,17 @@ export function StockPurchaseReviewDetailView() {
                   disabled={acceptingAll || suggestMutation.isPending}
                   className="rounded-md bg-sky-700 px-3 py-1.5 font-medium text-white hover:opacity-90 disabled:opacity-50"
                 >
-                  {acceptingAll ? "A aceitar…" : `Aceitar as ${acceptableCount} propostas`}
+                  {acceptingAll ? "A aceitar…" : acceptableCount === 1 ? "Aceitar a proposta" : `Aceitar as ${acceptableCount} propostas`}
                 </button>
               )}
             </div>
           </div>
         )}
 
-        <ReviewSections
+        <CompactReviewList
           review={review}
-          renderRow={(line) => (
+          stockItems={stockItems}
+          renderLine={(line) => (
             <ReviewLineRow
               key={line.id}
               review={review}
@@ -896,41 +917,53 @@ export function StockPurchaseReviewDetailView() {
         />
 
         {!isTerminal && (
-          <div className="rounded-xl border border-stone-200 bg-white p-4">
-            {review.status !== "ready" ? (
-              <p className="text-xs text-stone-500">
-                Confirmação indisponível — {unresolvedLinesCount > 0 ? `faltam ${unresolvedLinesCount} linha(s) por resolver.` : "estado atual não permite confirmar."}
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-stone-200 bg-white px-4 py-3">
+            <p className={`text-xs ${kpis.pending > 0 || documentMismatch ? "font-medium text-amber-800" : "text-stone-500"}`}>
+              {kpis.pending > 0
+                ? `${kpis.pending} linha(s) por rever.`
+                : documentMismatch
+                  ? "As linhas não batem com a fatura."
+                  : review.status === "ready"
+                    ? "Tudo resolvido — pronto a dar entrada."
+                    : "Estado atual não permite confirmar."}
+            </p>
+            <div className="flex flex-wrap items-end gap-2">
+              <label className="text-[11px] text-stone-500">
+                Data efetiva
+                <input type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} className={`${inputCls} mt-0.5 py-1 text-xs`} />
+              </label>
+              <button
+                type="button"
+                onClick={() => navigate("/stock/compras-por-rever")}
+                className="rounded-md border border-stone-300 px-3 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50"
+              >
+                Guardar para rever depois
+              </button>
+              <button
+                type="button"
+                onClick={() => confirmMutation.mutate()}
+                disabled={confirmMutation.isPending || review.status !== "ready" || documentMismatch}
+                className="rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
+              >
+                {confirmMutation.isPending ? "A confirmar…" : allNonStock ? "Confirmar — não afeta Stock" : "Confirmar entrada no Stock"}
+              </button>
+            </div>
+            {needsDefaultLocation && (
+              <p className="w-full rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-900">
+                Há várias lojas ativas e ainda não há localização principal do Stock.{" "}
+                <button type="button" onClick={() => setRulesOpen(true)} className="font-semibold underline">
+                  Definir localização principal
+                </button>{" "}
+                (uma vez) e voltar a confirmar.
               </p>
-            ) : documentMismatch ? (
-              <p className="text-xs font-medium text-red-700">Confirmação indisponível — as linhas não batem com a fatura (ver «Documento»).</p>
-            ) : (
-              <div className="space-y-2">
-                <div className="flex flex-wrap items-end gap-3">
-                  <div>
-                    <label className={labelCls}>Data efetiva (opcional)</label>
-                    <input type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} className={inputCls} />
-                  </div>
-                  {needsConfirmLocation && (
-                    <LocationSelect value={confirmLocationId} onChange={setConfirmLocationId} label="Loja (obrigatório)" />
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => confirmMutation.mutate(confirmLocationId)}
-                    disabled={confirmMutation.isPending}
-                    className="rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50"
-                  >
-                    {confirmMutation.isPending ? "A confirmar…" : allNonStock ? "Confirmar — não afeta Stock" : "Confirmar e adicionar ao stock"}
-                  </button>
-                </div>
-                {confirmMutation.isError && !isVersionConflict(confirmMutation.error) && !isLocationRequired(confirmMutation.error) && (
-                  <p className="text-xs text-red-600">
-                    {confirmMutation.error instanceof Error ? confirmMutation.error.message : "Erro ao confirmar."}
-                  </p>
-                )}
-              </div>
+            )}
+            {confirmMutation.isError && !isVersionConflict(confirmMutation.error) && !isLocationRequired(confirmMutation.error) && (
+              <p className="w-full text-xs text-red-600">{confirmMutation.error instanceof Error ? confirmMutation.error.message : "Erro ao confirmar."}</p>
             )}
           </div>
         )}
+        {review.status === "applied" && <p className="text-xs font-medium text-emerald-700">Entrada no Stock confirmada.</p>}
+        {rulesOpen && <EntryRulesModal onClose={() => setRulesOpen(false)} />}
 
         {review.cancellationReason && (
           <p className="text-xs text-stone-400">Motivo da retirada: {review.cancellationReason}</p>

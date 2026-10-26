@@ -18,6 +18,7 @@ import { formatEUR, formatNumber } from "../../lib/format";
 import { RecipeCostingProvider } from "../../modules/recipe-costing/recipe-costing.module.tsx";
 import { RecipeCostingSection } from "../../modules/recipe-costing/adapters/in/RecipeCostingSection.tsx";
 import { useDishCosting } from "../../modules/recipe-costing/adapters/in/useDishCosting.ts";
+import { DishWeeklyCost } from "../../modules/recipe-costing/adapters/in/DishWeeklyCost.tsx";
 import {
   lineCostFor,
   sizeTotalFor,
@@ -1850,6 +1851,7 @@ function RecipeModal({
                   Custo indisponível: {costingError}
                 </p>
               )}
+              <DishWeeklyCost pizzaId={pizza.id} refreshKey={costingKey} />
             </>
           )}
           {error && <p className="mt-3 text-sm text-red-600">{error}</p>}

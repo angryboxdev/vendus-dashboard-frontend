@@ -6,6 +6,7 @@ import { StockPurchaseReviewProvider } from "../../stock-purchase-review.module.
 import type { StockPurchaseReviewApiPort } from "../../domain/ports/out/stock-purchase-review-api.port.ts";
 import type { StockPurchaseReviewDTO, StockReviewLineDTO } from "../../domain/entities/stock-purchase-review.ts";
 import { StockPurchaseReviewDetailView } from "./StockPurchaseReviewDetailView.tsx";
+import { ApiError } from "../../../../lib/api.ts";
 
 const locationsState = {
   activeLocations: [{ id: "loc-1", name: "Loja A" }, { id: "loc-2", name: "Loja B" }],
@@ -62,56 +63,72 @@ function renderView(api: Partial<StockPurchaseReviewApiPort>) {
   return full;
 }
 
-describe("StockPurchaseReviewDetailView (F3a)", () => {
-  it("mostra as três conferências, a referência/base/IVA da linha e as três ações", async () => {
+describe("StockPurchaseReviewDetailView (V5 — conciliação compacta)", () => {
+  it("cabeçalho, quatro indicadores, linha compacta com referência; ao rever: base/IVA e as três ações, sem loja nem divisão", async () => {
     renderView({ getReview: async () => review() });
-    expect(await screen.findByText("1. Documento")).toBeTruthy();
-    expect(screen.getByText("Todas as linhas batem com a fatura.")).toBeTruthy();
+    expect(await screen.findByText("Linhas do documento")).toBeTruthy();
+    for (const k of ["Artigos distintos para Stock", "Base sem IVA", "Total da fatura"]) expect(screen.getByText(k)).toBeTruthy();
+    // Pendência de categorias aparece só porque existe; não impede a entrada.
     expect(screen.getByText(/Batedeira industrial/)).toBeTruthy();
-    expect(screen.getByText(/pendência para o Financeiro/)).toBeTruthy();
     expect(screen.getByText("ref. 12345")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Rever" }));
     expect(screen.getByText(/base 300,00\s€ · IVA 18,00\s€/)).toBeTruthy();
     for (const label of ["Associar artigo", "Criar artigo", "Não é item de stock"]) expect(screen.getByRole("button", { name: label })).toBeTruthy();
+    expect(screen.queryByText(/Destino \(loja\)/)).toBeNull();
+    expect(screen.queryByText(/Dividir por lojas/)).toBeNull();
+    expect(screen.queryByText(/Fator de conversão/)).toBeNull();
   });
 
-  it("divisão por lojas: recusa soma errada e envia quantidades explícitas", async () => {
+  it("sem unidade de medida na fatura: pergunta «Quanto tem 1 saco?» e guarda sem loja nem divisão", async () => {
     const resolveLine = vi.fn(async () => review());
     renderView({ getReview: async () => review(), resolveLine });
-    await screen.findByText("1. Documento");
+    fireEvent.click(await screen.findByRole("button", { name: "Rever" }));
     await waitFor(() => expect(screen.getByRole("option", { name: "Farinha T65" })).toBeTruthy());
     fireEvent.change(screen.getAllByRole("combobox")[0]!, { target: { value: "item-farinha" } });
-    fireEvent.change(screen.getByDisplayValue("1"), { target: { value: "25" } });
-    fireEvent.click(screen.getByLabelText(/Dividir por lojas/));
-    const selects = screen.getAllByRole("combobox").slice(1);
-    fireEvent.change(selects[0]!, { target: { value: "loc-1" } });
-    fireEvent.change(selects[1]!, { target: { value: "loc-2" } });
-    const qty = screen.getAllByRole("textbox").filter((el) => (el as HTMLInputElement).inputMode === "decimal");
-    fireEvent.change(qty[0]!, { target: { value: "12" } });
-    fireEvent.change(qty[1]!, { target: { value: "12" } });
-    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
-    expect(await screen.findByText(/A divisão soma 24 saco; tem de somar 12 saco/)).toBeTruthy();
-    expect(resolveLine).not.toHaveBeenCalled();
-    fireEvent.change(qty[1]!, { target: { value: "5" } });
-    fireEvent.change(qty[0]!, { target: { value: "7" } });
+    fireEvent.change(screen.getByLabelText("Conversão"), { target: { value: "25" } });
     fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
     await waitFor(() => expect(resolveLine).toHaveBeenCalled());
-    expect(resolveLine).toHaveBeenCalledWith("r1", "l1", expect.objectContaining({
-      resolution: "existing_item", stockItemId: "item-farinha", conversionFactor: 25, locationId: null,
-      locationSplits: [{ locationId: "loc-1", purchaseQuantity: 7 }, { locationId: "loc-2", purchaseQuantity: 5 }],
-    }));
+    expect(resolveLine).toHaveBeenCalledWith("r1", "l1", expect.objectContaining({ resolution: "existing_item", stockItemId: "item-farinha", conversionFactor: 25, locationId: null }));
+    expect((resolveLine.mock.calls[0] as unknown[])[2]).not.toHaveProperty("locationSplits", expect.anything());
   });
 
-  it("documento em divergência bloqueia a confirmação", async () => {
+  it("T03: «Q. Cheddar Ralado kg» com artigo em g → conversão automática 1 kg = 1000 g, sem campo", async () => {
+    const resolveLine = vi.fn(async () => review());
+    renderView({
+      getReview: async () => review({ lines: [line({ description: "Q. Cheddar Ralado kg", purchaseQuantity: 6, purchaseUnit: "un" })] }),
+      listStockItemOptions: async () => [{ id: "item-cheddar", name: "Cheddar Ralado", baseUnit: "g", categoryId: "c", isActive: true }],
+      resolveLine,
+    });
+    fireEvent.click(await screen.findByRole("button", { name: "Rever" }));
+    await waitFor(() => expect(screen.getByRole("option", { name: "Cheddar Ralado" })).toBeTruthy());
+    fireEvent.change(screen.getAllByRole("combobox")[0]!, { target: { value: "item-cheddar" } });
+    expect(screen.getByText(/1 kg = 1000 g/)).toBeTruthy();
+    expect(screen.queryByLabelText("Conversão")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Guardar" }));
+    await waitFor(() => expect(resolveLine).toHaveBeenCalledWith("r1", "l1", expect.objectContaining({ stockItemId: "item-cheddar", conversionFactor: 1000 })));
+  });
+
+  it("documento em divergência: aviso e confirmação desativada", async () => {
     const mismatch = review({ status: "ready", lines: [line({ resolutionType: "no_stock_effect" })] });
     mismatch.conference = { ...mismatch.conference!, document: { ...mismatch.conference!.document, status: "mismatch", netDifferenceCents: -100 } };
     renderView({ getReview: async () => mismatch });
-    expect(await screen.findByText(/as linhas não batem com a fatura/)).toBeTruthy();
-    expect(screen.queryByRole("button", { name: /Confirmar/ })).toBeNull();
+    expect(await screen.findByText(/As linhas não batem com a fatura \(base/)).toBeTruthy();
+    expect((screen.getByRole("button", { name: /Confirmar/ }) as HTMLButtonElement).disabled).toBe(true);
   });
 
   it("todas as linhas «Não é item de stock» → «Confirmar — não afeta Stock»", async () => {
     renderView({ getReview: async () => review({ status: "ready", lines: [line({ resolutionType: "no_stock_effect" })] }) });
     expect(await screen.findByRole("button", { name: "Confirmar — não afeta Stock" })).toBeTruthy();
+  });
+
+  it("T22: várias lojas sem localização principal → aviso para definir uma vez (sem seletor de loja)", async () => {
+    const confirmReview = vi.fn(async () => {
+      throw new ApiError("Há várias lojas ativas e nenhuma localização principal do Stock", 400, { error: "Há várias lojas ativas e nenhuma localização principal do Stock — defina-a" });
+    });
+    renderView({ getReview: async () => review({ status: "ready", lines: [line({ resolutionType: "no_stock_effect" })] }), confirmReview });
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar — não afeta Stock" }));
+    expect(await screen.findByRole("button", { name: "Definir localização principal" })).toBeTruthy();
+    expect(screen.queryByText(/Loja \(obrigatório\)/)).toBeNull();
   });
 });
 
@@ -120,12 +137,13 @@ describe("StockPurchaseReviewDetailView (F3b — conciliação e fila)", () => {
     source: "ai" as const, resolution: "existing_item" as const, stockItemId: "item-farinha", conversionFactor: 25, confidence: 0.92, packagingChanged: false, ...over,
   });
 
-  it("ao abrir procura conciliações; a proposta mostra artigo, fator e origem e «Aceitar» resolve a linha", async () => {
+  it("ao abrir procura conciliações; «Confirmar» na linha; a proposta mostra artigo, fator e origem e «Aceitar» resolve", async () => {
     const suggestMappings = vi.fn(async () => review({ lines: [line({ suggestion: proposal() })] }));
     const resolveLine = vi.fn(async () => review());
     renderView({ getReview: async () => review(), suggestMappings, resolveLine });
-    expect(await screen.findByText(/Conciliação proposta/)).toBeTruthy();
-    expect(suggestMappings).toHaveBeenCalledWith("r1", { refresh: false });
+    await waitFor(() => expect(suggestMappings).toHaveBeenCalledWith("r1", { refresh: false }));
+    expect(await screen.findByText("Confirmar")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Rever" }));
     await waitFor(() => expect(screen.getByText(/Farinha T65 · fator 25/)).toBeTruthy());
     expect(screen.getByText(/IA 92%/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Aceitar" }));
@@ -134,6 +152,7 @@ describe("StockPurchaseReviewDetailView (F3b — conciliação e fila)", () => {
 
   it("proposta sem fator não pode ser aceite diretamente (só «Ajustar»)", async () => {
     renderView({ getReview: async () => review({ lines: [line({ suggestion: proposal({ conversionFactor: null, source: "name_match", confidence: 0.8 }) })] }) });
+    fireEvent.click(await screen.findByRole("button", { name: "Rever" }));
     expect(await screen.findByText(/fator por preencher/)).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Aceitar" })).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Ajustar" }));
@@ -158,26 +177,30 @@ describe("StockPurchaseReviewDetailView (F3b — conciliação e fila)", () => {
   });
 });
 
-describe("StockPurchaseReviewDetailView (V4 — secções e associação automática)", () => {
-  it("Artigos para Stock → Por rever → Artigos fora do Stock (compacta, com categoria, valor c/ IVA e subtotal); automático assinalado", async () => {
+describe("StockPurchaseReviewDetailView (V5 — ordem, filtros e agrupamento só no ecrã)", () => {
+  it("Stock → Por rever → Fora do Stock; filtros com contagens; Cheddar de dois lotes numa linha com as duas por baixo", async () => {
     const r = review({
       lines: [
-        line({ id: "a", description: "Mozzarella", resolutionType: "existing_item", stockItemId: "item-farinha", conversionFactor: 1000, stockQuantity: 20000, autoResolved: true }),
-        line({ id: "b", description: "Cheddar" }),
-        line({ id: "c", description: "Caixa térmica", resolutionType: "no_stock_effect", totalWithVat: 1107, costCenterCategoryLabel: "EQP.02 Utensílios", autoResolved: true }),
-        line({ id: "d", description: "Portes", resolutionType: "no_stock_effect", totalWithVat: 615, costCenterCategoryLabel: "SRV.01 Transportes" }),
+        line({ id: "d", description: "Portes", resolutionType: "no_stock_effect", totalWithVat: 615 }),
+        line({ id: "b", description: "Produto novo" }),
+        line({ id: "ch1", description: "Q. Cheddar Ralado kg", purchaseUnit: "un", purchaseQuantity: 6, resolutionType: "existing_item", stockItemId: "item-cheddar", conversionFactor: 1000, stockQuantity: 6000, netAmount: 4674, autoResolved: true }),
+        line({ id: "ch2", description: "Q. Cheddar Ralado kg", purchaseUnit: "un", purchaseQuantity: 1, resolutionType: "existing_item", stockItemId: "item-cheddar", conversionFactor: 1000, stockQuantity: 1000, netAmount: 779 }),
       ],
     });
-    renderView({ getReview: async () => r });
-    const sections = await screen.findAllByRole("region");
-    expect(sections.map((s) => s.getAttribute("aria-label"))).toEqual(["Artigos para Stock", "Por rever", "Artigos fora do Stock"]);
+    renderView({ getReview: async () => r, listStockItemOptions: async () => [{ id: "item-cheddar", name: "Cheddar Ralado", baseUnit: "g", categoryId: "c", isActive: true }] });
+    expect(await screen.findByText("6 + 1 kg")).toBeTruthy();
+    expect(screen.getByText("7000 g")).toBeTruthy();
+    expect(screen.getByText(/54,53\s€/)).toBeTruthy();
+    expect(screen.getByText(/2 linhas da fatura/)).toBeTruthy();
+    const states = screen.getAllByText(/^(Resolvido|Por rever|Fora do Stock)$/, { selector: "span" }).map((el) => el.textContent);
+    expect(states).toEqual(["Resolvido", "Por rever", "Fora do Stock"]);
+    fireEvent.click(screen.getByRole("tab", { name: /Fora do Stock/ }));
+    expect(screen.getByText("Portes")).toBeTruthy();
+    expect(screen.queryByText("6 + 1 kg")).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: /Todos/ }));
+    fireEvent.click(screen.getAllByRole("button", { name: "Ver" })[0]!);
     expect(screen.getByText("Associado automaticamente")).toBeTruthy();
-    expect(screen.getByText("EQP.02 Utensílios")).toBeTruthy();
-    expect(screen.getByText(/17,22\s€/)).toBeTruthy();
-    // Linha fora do Stock abre para editar (passa a ter também «Alterar», além da linha do Stock).
-    expect(screen.getAllByRole("button", { name: "Alterar" })).toHaveLength(1);
-    fireEvent.click(screen.getByText("Portes"));
-    expect(await screen.findAllByRole("button", { name: "Alterar" })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: "Alterar" })).toHaveLength(2);
   });
 });
 
@@ -193,10 +216,27 @@ describe("conversão errada com a fatura em kg (Cheddar «…Ralado kg», 1 kg =
       listStockItemOptions: async () => [{ id: "item-cheddar", name: "Cheddar Ralado", baseUnit: "g", categoryId: "c", isActive: true }],
       resolveLine,
     });
+    fireEvent.click(await screen.findByRole("button", { name: "Ver" }));
     expect(await screen.findByText(/A fatura conta em/)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Corrigir: 1 kg = 1000 g" }));
     await waitFor(() =>
       expect(resolveLine).toHaveBeenCalledWith("r1", "l1", expect.objectContaining({ resolution: "existing_item", stockItemId: "item-cheddar", conversionFactor: 1000, locationId: "loc-1" })),
     );
+  });
+});
+
+describe("V5 — ver a fatura e conferir como aparece na fatura", () => {
+  it("botão «Ver fatura» abre o PDF; sem PDF fica indicado", async () => {
+    renderView({ getReview: async () => review({ attachmentUrl: "https://exemplo.invalid/fatura.pdf" }) });
+    const link = await screen.findByRole("link", { name: "Ver fatura" });
+    expect(link.getAttribute("href")).toBe("https://exemplo.invalid/fatura.pdf");
+    expect(link.getAttribute("target")).toBe("_blank");
+  });
+
+  it("sem PDF: «Sem PDF da fatura»; coluna «Na fatura» com a embalagem escrita na descrição", async () => {
+    renderView({ getReview: async () => review({ attachmentUrl: null, lines: [line({ description: "Tomate Mutti p/ Pizza Classico 5 kg bolsa", purchaseQuantity: 4, purchaseUnit: "un" })] }) });
+    expect(await screen.findByText("Sem PDF da fatura")).toBeTruthy();
+    expect(screen.getByText("Na fatura")).toBeTruthy();
+    expect(screen.getByText("4 bolsas × 5 kg = 20 kg")).toBeTruthy();
   });
 });
