@@ -143,8 +143,19 @@ export interface BankStatementDetailDTO extends BankStatementSummaryDTO {
   statusCounts: Partial<Record<ReconciliationStatus, number>>;
 }
 
+/** V2 (F3): para que conta foi (ou vai) o extrato quando o banco/conta vêm do próprio extrato. */
+export interface StatementAccountResolutionDTO {
+  status: "existing" | "created" | "to_create";
+  bankId: string | null;
+  bankName: string;
+  bankIsNew: boolean;
+  accountId: string | null;
+  accountName: string;
+}
+
 export interface ImportStatementResult {
   id: string;
+  accountResolution?: StatementAccountResolutionDTO | null;
   bankAccountId: string | null;
   accountMatched: boolean;
   parsedAccountNumber: string;

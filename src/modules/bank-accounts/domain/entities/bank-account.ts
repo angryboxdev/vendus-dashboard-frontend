@@ -79,6 +79,7 @@ export const BANK_LOGO_ABBREVS: Record<BankLogoKey, string> = {
 
 export type StatementFormat =
   | "millennium_bcp_csv"
+  | "millennium_bcp_pdf"
   | "generic_xlsx"
   | "generic_csv"
   | "cgd_csv"
@@ -87,6 +88,7 @@ export type StatementFormat =
 
 export const STATEMENT_FORMAT_LABELS: Record<StatementFormat, string> = {
   millennium_bcp_csv: "Millennium BCP (CSV)",
+  millennium_bcp_pdf: "Millennium BCP (PDF)",
   generic_xlsx: "Genérico (XLSX)",
   generic_csv: "Genérico (CSV)",
   cgd_csv: "CGD (CSV)",

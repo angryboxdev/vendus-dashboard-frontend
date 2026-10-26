@@ -79,6 +79,8 @@ export function ImportModal({
     detectedAccount !== "" &&
     !isSameAccount(contextAccountIdentifier!, detectedAccount, pdfPreview?.iban ?? null);
   const blockingIssues = (pdfPreview?.issues ?? []).filter((i) => i.blocking);
+  // Fora do contexto de uma conta: para que conta vai o extrato (existente ou a criar).
+  const resolution = !inAccountContext ? (pdfPreview?.accountResolution ?? null) : null;
   const warnings = (pdfPreview?.issues ?? []).filter((i) => !i.blocking);
 
   async function handleAnalyse() {
@@ -228,6 +230,25 @@ export function ImportModal({
                   <span className="font-mono">{contextAccountIdentifier}</span>
                 </span>
               </div>
+            ) : resolution ? (
+              // V2 (F3): o banco e a conta vêm do próprio extrato — existentes, ou criados ao confirmar.
+              <div className={`rounded-lg border px-4 py-3 text-xs ${resolution.status === "existing" ? "border-emerald-200 bg-emerald-50 text-emerald-800" : "border-sky-200 bg-sky-50 text-sky-800"}`}>
+                {resolution.status === "existing" ? (
+                  <p>
+                    Vai para a conta <span className="font-semibold">{resolution.accountName}</span> do banco{" "}
+                    <span className="font-semibold">{resolution.bankName}</span> (reconhecida pelo IBAN / nº de conta).
+                  </p>
+                ) : (
+                  <>
+                    <p className="font-semibold">Conta nova — será criada ao importar</p>
+                    <p className="mt-0.5">
+                      {resolution.bankIsNew ? <>Banco <span className="font-semibold">{resolution.bankName}</span> (novo)</> : <>No banco <span className="font-semibold">{resolution.bankName}</span></>}
+                      {" · "}conta <span className="font-semibold">{resolution.accountName}</span>
+                      {pdfPreview?.iban && <> · <span className="font-mono">{maskIban(pdfPreview.iban)}</span></>}. Pode mudar o nome depois.
+                    </p>
+                  </>
+                )}
+              </div>
             ) : (
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -302,7 +323,7 @@ export function ImportModal({
               </button>
               <button type="submit" disabled={saving || blockingIssues.length > 0}
                 className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90 disabled:opacity-50">
-                {saving ? "A importar…" : "Importar"}
+                {saving ? "A importar…" : resolution?.status === "to_create" ? "Criar conta e importar" : "Importar"}
               </button>
             </div>
           </form>

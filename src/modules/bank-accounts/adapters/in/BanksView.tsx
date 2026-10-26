@@ -14,6 +14,8 @@ import {
 import { AccountFormDrawer } from "./BankAccountsView.tsx";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 import { useToast, ToastContainer } from "../../../../components/Toast.tsx";
+import { ImportModal } from "../../../bank-statements/adapters/in/ImportModal.tsx";
+import { useBankStatementsModule } from "../../../bank-statements/bank-statements.module.tsx";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -232,10 +234,30 @@ export function BanksView() {
   const [showCreate, setShowCreate] = useState(false);
   const [editing, setEditing] = useState<BankDTO | null>(null);
   const [creatingForBankId, setCreatingForBankId] = useState<string | null>(null);
+  const [showImport, setShowImport] = useState(false);
+  const statementsApi = useBankStatementsModule().api;
 
   const { data: banks = [], isLoading } = useQuery({
     queryKey: ["bank-accounts:banks"],
     queryFn: () => api.listBanks(),
+  });
+
+  // V2 (F3): importar sem escolher conta — o banco e a conta são reconhecidos ou criados pelo extrato.
+  const importMut = useMutation({
+    mutationFn: (fd: FormData) => statementsApi.importStatement(fd),
+    onSuccess: (result) => {
+      void qc.invalidateQueries({ queryKey: ["bank-accounts:banks"] });
+      void qc.invalidateQueries({ queryKey: ["bank-statements"] });
+      setShowImport(false);
+      const r = result.accountResolution;
+      showToast(
+        r?.status === "created"
+          ? `Extrato importado: ${r.bankIsNew ? `banco «${r.bankName}» e ` : ""}conta «${r.accountName}» criados (${result.importedMovementsCount} movimentos).`
+          : `Extrato importado: ${result.importedMovementsCount} movimentos${result.skippedDuplicates ? `, ${result.skippedDuplicates} já existiam` : ""}.`,
+      );
+      if (r?.bankId && r.accountId) navigate(`/financial/bank-statements/banks/${r.bankId}/accounts/${r.accountId}`);
+    },
+    onError: (e: Error) => showToast(e.message, "error"),
   });
 
   const createMut = useMutation({
@@ -292,17 +314,26 @@ export function BanksView() {
             </h1>
             <p className="mt-0.5 text-sm text-stone-500">Bancos configurados</p>
           </div>
+          <div className="flex items-center gap-3">
           <button
             onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            className="flex items-center gap-2 rounded-md border border-stone-300 bg-white px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
           >
             <svg className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
               <path d="M10.75 4.75a.75.75 0 00-1.5 0v4.5h-4.5a.75.75 0 000 1.5h4.5v4.5a.75.75 0 001.5 0v-4.5h4.5a.75.75 0 000-1.5h-4.5v-4.5z" />
             </svg>
             Adicionar banco
           </button>
+          <button
+            onClick={() => setShowImport(true)}
+            className="flex items-center gap-2 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+          >
+            Importar extrato
+          </button>
+          </div>
         </div>
       </div>
+      <ImportModal open={showImport} saving={importMut.isPending} onClose={() => setShowImport(false)} onSubmit={(fd) => importMut.mutate(fd)} />
 
       <div className="p-6">
         {isLoading ? (
