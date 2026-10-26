@@ -7,14 +7,14 @@ import {
 import { chunkBySubgroup } from "./nav-state.service.ts";
 
 describe("buildTree", () => {
-  it("returns 10 entries for a non-admin user (includes Empresa & Estrutura and Fichas técnicas)", () => {
+  it("returns 9 entries for a non-admin user (includes Empresa & Estrutura)", () => {
     const tree = buildTree({ email: "a@b.com", role: "manager" });
-    expect(tree).toHaveLength(10);
+    expect(tree).toHaveLength(9);
   });
 
-  it("returns 12 entries for admin (includes Utilizadores + Tokens de dispositivo)", () => {
+  it("returns 11 entries for admin (includes Utilizadores + Tokens de dispositivo)", () => {
     const tree = buildTree({ email: "a@b.com", role: "admin" });
-    expect(tree).toHaveLength(12);
+    expect(tree).toHaveLength(11);
     const last = tree[tree.length - 1];
     expect(last?.kind).toBe("item");
     expect(last?.kind === "item" && last.path).toBe("/admin/location-tokens");
@@ -106,17 +106,15 @@ describe("buildTree com acesso efetivo (Utilizadores & Perfis 2.0)", () => {
 });
 
 describe("menu do Stock (task Stock inteligente V4 §1)", () => {
-  it("Artigos e ingredientes, Inventário (um só item; separadores na página), Reposição e planeamento; Fichas técnicas fora do grupo (V7)", () => {
+  it("Artigos e ingredientes, Inventário (um só item; separadores na página), Reposição e planeamento, Fichas técnicas (quarta)", () => {
     const stock = buildTree({ role: "admin", email: "a@teste.pt" } as never).find((e) => e.kind === "group" && e.id === "stock");
     if (!stock || stock.kind !== "group") throw new Error("sem grupo Stock");
     expect(chunkBySubgroup(stock.items).map((c) => (c.kind === "item" ? [c.item.label, c.item.path] : [c.label, c.items.map((i) => `${i.label} ${i.path}`)]))).toEqual([
       ["Artigos e ingredientes", "/stock/stock"],
       ["Inventário", "/stock/inventario"],
       ["Reposição e planeamento", "/stock/planeamento"],
+      ["Fichas técnicas", "/stock/fichas-tecnicas"],
     ]);
-    const tree = buildTree({ role: "admin", email: "a@teste.pt" } as never);
-    const stockIndex = tree.findIndex((e) => e.kind === "group" && e.id === "stock");
-    expect(tree[stockIndex + 1]).toMatchObject({ kind: "item", path: "/fichas-tecnicas", label: "Fichas técnicas", icon: "recipes" });
   });
 
   it("Inventário fica ativo nos seus separadores, incluindo Compras por rever", () => {
