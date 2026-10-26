@@ -1,16 +1,23 @@
 import { Link } from "react-router-dom";
 import { SURFACE, SECTION_TITLE } from "../../../../components/ui/index.ts";
-import type { CashFlowReport } from "../../domain/entities/cash-flow.ts";
+import type { CashFlowReport, CashFlowToHandle } from "../../domain/entities/cash-flow.ts";
 import { sharePct } from "../../domain/services/cash-flow-view.ts";
 import { euros, kindLabel } from "./cash-flow-format.ts";
+import { ToHandleCard } from "./ToHandleCard.tsx";
 
-/** Painel lateral: quanto das saídas está justificado e de onde vieram as entradas. */
-export function CashFlowSidePanel({ report }: { report: CashFlowReport }) {
+/** Painel lateral: o que há para tratar, quanto das saídas está justificado e de onde vieram as entradas. */
+export function CashFlowSidePanel({ report, toHandle }: { report: CashFlowReport; toHandle: CashFlowToHandle | null }) {
   const { justification, inflowKinds, totals } = report;
   const pct = justification.percent;
 
   return (
     <aside className={`${SURFACE} flex flex-col p-6`}>
+      {toHandle && (
+        <>
+          <ToHandleCard toHandle={toHandle} />
+          <div className="my-5 border-t border-line-subtle" />
+        </>
+      )}
       <h2 className={SECTION_TITLE}>Saídas justificadas</h2>
       {pct === null ? (
         <p className="mt-3 text-sm text-ink-secondary">Sem saídas neste período.</p>

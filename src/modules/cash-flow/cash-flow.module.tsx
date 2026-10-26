@@ -1,15 +1,19 @@
 import { createContext, useContext, type ReactNode } from "react";
 import { HttpCashFlowApiAdapter } from "./adapters/out/http-cash-flow-api.adapter.ts";
 import { GetCashFlowUseCase } from "./application/use-cases/get-cash-flow.use-case.ts";
+import { GetCashFlowToHandleUseCase } from "./application/use-cases/get-cash-flow-to-handle.use-case.ts";
 import type { GetCashFlowPort } from "./domain/ports/in/get-cash-flow.port.ts";
+import type { GetCashFlowToHandlePort } from "./domain/ports/in/get-cash-flow-to-handle.port.ts";
 
 export interface CashFlowModule {
   getCashFlow: GetCashFlowPort;
+  getToHandle: GetCashFlowToHandlePort;
 }
 
-/** Composition root: liga o adapter HTTP ao caso de uso. */
+/** Composition root: liga o adapter HTTP aos casos de uso. */
 function buildModule(): CashFlowModule {
-  return { getCashFlow: new GetCashFlowUseCase(new HttpCashFlowApiAdapter()) };
+  const api = new HttpCashFlowApiAdapter();
+  return { getCashFlow: new GetCashFlowUseCase(api), getToHandle: new GetCashFlowToHandleUseCase(api) };
 }
 
 const CashFlowContext = createContext<CashFlowModule | null>(null);

@@ -55,7 +55,7 @@ export function CashFlowChartCard({ report }: { report: CashFlowReport }) {
   const lastDay = Number(period.to.slice(8, 10));
 
   return (
-    <section className={`${SURFACE} flex flex-col p-6`}>
+    <section className={`${SURFACE} flex h-full flex-col p-6`}>
       <h2 className={`${SECTION_TITLE} first-letter:uppercase`}>{monthName(period.month)}</h2>
       <p className="mt-3 text-sm text-ink-secondary">Resultado</p>
       <p className={`text-4xl font-bold tracking-tight tabular-nums sm:text-[44px] ${totals.netCents < 0 ? "text-rose-600" : "text-navy-900"}`}>
@@ -74,7 +74,7 @@ export function CashFlowChartCard({ report }: { report: CashFlowReport }) {
         </p>
       )}
 
-      <div className="mt-4 h-56 w-full" role="img" aria-label="Entradas e saídas acumuladas ao longo do mês">
+      <div className="mt-4 h-56 w-full lg:h-auto lg:min-h-56 lg:flex-1" role="img" aria-label="Entradas e saídas acumuladas ao longo do mês">
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={chartRows(report)} margin={{ top: 8, right: 8, bottom: 0, left: 8 }}>
             <defs>
@@ -122,7 +122,7 @@ export function CashFlowChartCard({ report }: { report: CashFlowReport }) {
         </div>
       </div>
 
-      <div className="mt-6 flex justify-end">
+      <div className="mt-auto flex justify-end pt-6">
         <Link to="/financial/bank-statements" className={buttonClass("secondary", "sm")}>
           Ver conciliação bancária
         </Link>

@@ -45,7 +45,10 @@ Página **Mapa de rentabilidade → Fluxo de caixa** (`/dre/fluxo-caixa`), só a
 
 - `VITE_SUPABASE_URL=http://localhost:54321 VITE_SUPABASE_ANON_KEY=teste-ficticio npx vitest run src/modules/cash-flow`
 
+## Para tratar
+
+`ToHandleCard` no topo do painel lateral (`useCashFlowToHandle`, `GetCashFlowToHandlePort`): «A pagar» com o valor em atraso (→ `/financial/payable-entries`) e «N documentos por arrumar» = faturas por rever (→ `/financial/invoices`). Estado atual, não depende do mês. O endpoint exige a permissão de Contas a pagar: com 403 o adapter devolve `null` e o painel não aparece.
+
 ## Lacunas conhecidas
 
-- Painel «Para tratar» (a pagar / em atraso, documentos por arrumar) fica para a F3.
 - O seletor de período é o legado do Mapa (`DrePeriodSelector`).

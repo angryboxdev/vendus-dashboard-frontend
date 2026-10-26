@@ -29,7 +29,11 @@ function renderView(mod: CashFlowModule, year = 2026, month = 3) {
   );
 }
 
-const fakeModule = (): CashFlowModule => ({ getCashFlow: { execute: async () => sampleReport() } });
+const toHandle = { payables: { dueCents: 278_672, overdueCents: 238_535 }, invoicesToReview: 1 };
+const fakeModule = (handle: typeof toHandle | null = toHandle): CashFlowModule => ({
+  getCashFlow: { execute: async () => sampleReport() },
+  getToHandle: { execute: async () => handle },
+});
 
 describe("CashFlowView", () => {
   it("mostra resultado, justificação, entradas por tipo e as 3 maiores categorias", async () => {
@@ -58,9 +62,27 @@ describe("CashFlowView", () => {
     expect(screen.getByText("Encargos")).toBeInTheDocument();
   });
 
+  it("«Para tratar»: a pagar, em atraso e documentos por arrumar", async () => {
+    renderView(fakeModule());
+    const panel = (await screen.findByRole("heading", { name: "Para tratar" })).closest("section")!;
+    expect(within(panel).getByText(/2786,72/)).toBeInTheDocument();
+    expect(within(panel).getByText(/2385,35 € em atraso/)).toBeInTheDocument();
+    expect(within(panel).getByText("1 documento por arrumar")).toBeInTheDocument();
+  });
+
+  it("sem permissão de Contas a pagar: o painel «Para tratar» não aparece", async () => {
+    renderView(fakeModule(null));
+    expect(await screen.findByText("Resultado")).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Para tratar" })).not.toBeInTheDocument();
+  });
+
   it("mês futuro: não pede nada", () => {
     let called = false;
-    renderView({ getCashFlow: { execute: async () => ((called = true), sampleReport()) } }, 2099, 1);
+    renderView(
+      { getCashFlow: { execute: async () => ((called = true), sampleReport()) }, getToHandle: { execute: async () => null } },
+      2099,
+      1,
+    );
     expect(screen.getByText("Este mês ainda não começou")).toBeInTheDocument();
     expect(called).toBe(false);
   });

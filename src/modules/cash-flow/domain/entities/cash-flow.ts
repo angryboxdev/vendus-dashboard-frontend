@@ -76,3 +76,11 @@ export interface CashFlowReport {
   categories: CashFlowCategory[];
   justification: CashFlowJustification;
 }
+
+/** Painel «Para tratar» — estado atual, não depende do mês (`GET /api/reports/dre/fluxo-caixa/para-tratar`). */
+export interface CashFlowToHandle {
+  /** Contas a pagar em aberto (pendentes + em atraso) e só as em atraso, em cêntimos. */
+  payables: { dueCents: number; overdueCents: number };
+  /** Faturas importadas ainda por rever/confirmar. */
+  invoicesToReview: number;
+}

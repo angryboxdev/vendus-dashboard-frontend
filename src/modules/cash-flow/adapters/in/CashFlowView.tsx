@@ -4,10 +4,12 @@ import { CashFlowChartCard } from "./CashFlowChartCard.tsx";
 import { CashFlowSidePanel } from "./CashFlowSidePanel.tsx";
 import { ExpenseCategoriesCard } from "./ExpenseCategoriesCard.tsx";
 import { useCashFlow } from "./use-cash-flow.ts";
+import { useCashFlowToHandle } from "./use-cash-flow-to-handle.ts";
 
 /** Fluxo de caixa do mês, só a partir do banco (entradas vs saídas de todas as contas). */
 export function CashFlowView({ year, month }: { year: number; month: number }) {
   const { report, loading, error, future } = useCashFlow(year, month);
+  const toHandle = useCashFlowToHandle();
 
   return (
     <div className={`${PAGE_BG} mx-auto w-full max-w-6xl space-y-5 p-4 sm:p-6`}>
@@ -29,7 +31,7 @@ export function CashFlowView({ year, month }: { year: number; month: number }) {
             <div className="lg:col-span-2">
               <CashFlowChartCard report={report} />
             </div>
-            <CashFlowSidePanel report={report} />
+            <CashFlowSidePanel report={report} toHandle={toHandle} />
           </div>
           <ExpenseCategoriesCard
             categories={report.categories}
