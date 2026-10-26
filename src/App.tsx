@@ -208,7 +208,7 @@ export default function App() {
                   path="/stock"
                   element={<Navigate to="/stock/movimentacoes" replace />}
                 />
-                <Route path="/fichas-tecnicas" element={<FichasTecnicasPage />} />
+                <Route path="/fichas-tecnicas" element={<Navigate to="/stock/fichas-tecnicas" replace />} />
                 <Route element={<StockLayout />}>
                   <Route path="/stock/inventario" element={<InventoryIndexRedirect />} />
                   <Route
@@ -251,8 +251,9 @@ export default function App() {
                   />
                   </Route>
                   <Route path="/stock/stock" element={<StockPage />} />
-                  {/* Fichas técnicas (V7) passaram para /fichas-tecnicas; o endereço antigo continua a abrir. */}
-                  <Route path="/stock/pizzas" element={<Navigate to="/fichas-tecnicas" replace />} />
+                  {/* Fichas técnicas (V7): quarta entrada da Gestão de Stock; os endereços antigos continuam a abrir. */}
+                  <Route path="/stock/fichas-tecnicas" element={<FichasTecnicasPage />} />
+                  <Route path="/stock/pizzas" element={<Navigate to="/stock/fichas-tecnicas" replace />} />
                   {/* Detalhe de uma compra: fora dos separadores do Inventário, em largura total. */}
                   <Route
                     path="/stock/compras-por-rever/:id"

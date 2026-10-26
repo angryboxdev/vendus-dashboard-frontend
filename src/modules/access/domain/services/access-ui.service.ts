@@ -122,6 +122,7 @@ const PATH_PERMISSIONS: Array<[RegExp, PathPermission]> = [
   [/^\/stock\/(movimentacoes|historico-movimentos)/, "stock.movements"],
   [/^\/stock\/stock/, "stock.items"],
   [/^\/stock\/pizzas/, "stock.recipes"],
+  [/^\/stock\/fichas-tecnicas/, "stock.recipes"],
   [/^\/fichas-tecnicas/, "stock.recipes"],
   [/^\/stock\/contagens/, "stock.counts"],
   [/^\/stock\/inventario/, ["stock.movements", "stock.counts", "stock.purchase_reviews"]],
