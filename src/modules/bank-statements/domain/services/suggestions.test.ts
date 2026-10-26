@@ -2,9 +2,9 @@ import { describe, expect, it } from "vitest";
 import { isStrongCandidate } from "./suggestions.ts";
 
 describe("isStrongCandidate", () => {
-  it("needs name, amount and ≥ 90%", () => {
-    expect(isStrongCandidate({ confidence: 0.95, nameMatched: true, amountMatched: true })).toBe(true);
-    expect(isStrongCandidate({ confidence: 0.89, nameMatched: true, amountMatched: true })).toBe(false);
+  it("needs name, amount and ≥ 70%", () => {
+    expect(isStrongCandidate({ confidence: 0.8, nameMatched: true, amountMatched: true })).toBe(true);
+    expect(isStrongCandidate({ confidence: 0.69, nameMatched: true, amountMatched: true })).toBe(false);
     expect(isStrongCandidate({ confidence: 0.95, nameMatched: false, amountMatched: true })).toBe(false);
     expect(isStrongCandidate({ confidence: 0.95, nameMatched: true, amountMatched: false })).toBe(false);
   });
