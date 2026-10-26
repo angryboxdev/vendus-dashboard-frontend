@@ -234,7 +234,16 @@ export interface AiExtractedLineDTO {
   classificationConflict?: boolean;
 }
 
-export type ClassificationSource = "line_kind" | "history_code" | "history_description" | "keyword" | "ai" | "none" | "manual";
+export type ClassificationSource =
+  | "line_kind"
+  | "history_code"
+  | "history_description"
+  | "keyword"
+  | "ai"
+  | "supplier_default"
+  | "recurrence"
+  | "none"
+  | "manual";
 
 /** Metadados de uma linha lida pelo leitor determinístico (guardados com a linha). */
 export interface LineReadingMeta {
@@ -267,6 +276,8 @@ export const CLASSIFICATION_SOURCE_LABELS: Record<ClassificationSource, string> 
   history_description: "descrição já classificada",
   keyword: "regra",
   ai: "IA",
+  supplier_default: "categoria do fornecedor",
+  recurrence: "categoria da recorrência",
   none: "sem sugestão",
   manual: "escolha manual",
 };

@@ -3091,14 +3091,18 @@ export function InvoicesView() {
     useState<InvoiceImportResultDTO | null>(null);
   // Documento de pagamento com várias faturas (ex.: águas + resíduos): as que faltam rever, por ordem.
   const [pendingSiblings, setPendingSiblings] = useState<InvoiceImportResultDTO[]>([]);
-  const [groupPosition, setGroupPosition] = useState<{ index: number; total: number } | undefined>(undefined);
+  const [groupPosition, setGroupPosition] = useState<
+    { index: number; total: number; parts: { label: string; totalCents: number }[] } | undefined
+  >(undefined);
 
   /** Abre a revisão de uma importação; com várias faturas no mesmo PDF, as restantes ficam em fila. */
   function openImportReview(result: InvoiceImportResultDTO) {
     const { siblings = [], ...first } = result;
     const toReview = siblings.filter((r) => !r.reused || r.invoice.status === "draft_ai" || r.invoice.status === "pending_review");
     setPendingSiblings(toReview);
-    setGroupPosition(toReview.length ? { index: 1, total: toReview.length + 1 } : undefined);
+    // Total do documento (todas as faturas do PDF, também as que já existiam): é o valor do débito.
+    const parts = [first, ...siblings].map((r) => ({ label: `${r.invoice.supplierName} ${r.invoice.invoiceNumber}`, totalCents: r.invoice.totalWithVat }));
+    setGroupPosition(toReview.length ? { index: 1, total: toReview.length + 1, parts } : undefined);
     setReopenDraft(false);
     setImportResult(first);
   }
@@ -3108,7 +3112,7 @@ export function InvoicesView() {
     const [next, ...rest] = pendingSiblings;
     if (!next) return false;
     setPendingSiblings(rest);
-    setGroupPosition((p) => (p ? { index: p.index + 1, total: p.total } : undefined));
+    setGroupPosition((p) => (p ? { ...p, index: p.index + 1 } : undefined));
     setReopenDraft(false);
     setImportResult(next);
     return true;
