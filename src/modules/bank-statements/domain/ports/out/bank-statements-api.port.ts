@@ -17,6 +17,8 @@ import type {
   MovementType,
   OccurrenceCandidateDTO,
   ReconciliationRuleDTO,
+  ReconciliationRuleWriteResultDTO,
+  UpdateRulePayload,
   ReconciliationStatus,
   RiskLevel,
   StatementAccountResolutionDTO,
@@ -92,7 +94,8 @@ export interface BankStatementsApiPort {
   updateStatementBalances(id: string, openingBalance: number, closingBalance: number): Promise<void>;
 
   listRules(): Promise<ReconciliationRuleDTO[]>;
-  createRule(payload: CreateRulePayload): Promise<ReconciliationRuleDTO>;
+  createRule(payload: CreateRulePayload): Promise<ReconciliationRuleWriteResultDTO>;
+  updateRule(id: string, payload: UpdateRulePayload): Promise<ReconciliationRuleWriteResultDTO>;
   deleteRule(id: string): Promise<void>;
 
   /** Calendar paradigm — new endpoints. */

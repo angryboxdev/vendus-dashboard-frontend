@@ -1,6 +1,7 @@
 import {
   apiGet,
   apiPost,
+  apiPatch,
   apiPatchNoContent,
   apiDeleteNoContent,
   apiPostFormData,
@@ -24,6 +25,8 @@ import type {
   MovementCandidateDTO,
   OccurrenceCandidateDTO,
   ReconciliationRuleDTO,
+  ReconciliationRuleWriteResultDTO,
+  UpdateRulePayload,
 } from "../../domain/entities/bank-statement.ts";
 
 const BASE = "/api/bank-statements";
@@ -92,8 +95,12 @@ export class HttpBankStatementsApiAdapter implements BankStatementsApiPort {
     return apiGet(`${BASE}/rules`);
   }
 
-  async createRule(payload: CreateRulePayload): Promise<ReconciliationRuleDTO> {
+  async createRule(payload: CreateRulePayload): Promise<ReconciliationRuleWriteResultDTO> {
     return apiPost(`${BASE}/rules`, payload);
+  }
+
+  async updateRule(id: string, payload: UpdateRulePayload): Promise<ReconciliationRuleWriteResultDTO> {
+    return apiPatch(`${BASE}/rules/${encodeURIComponent(id)}`, payload);
   }
 
   async deleteStatement(id: string): Promise<void> {

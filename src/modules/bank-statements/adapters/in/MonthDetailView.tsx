@@ -20,6 +20,7 @@ import { ImportModal } from "./ImportModal.tsx";
 import { MOVEMENT_KIND_LABELS } from "../../domain/services/movement-kind.ts";
 import { rowStatus, visibleMonthDays, type MonthChip, type MonthSort, type MonthTab, type RowStatus } from "../../domain/services/month-movements.ts";
 import { maskIban } from "../../domain/services/statement-account.ts";
+import { buildRecurringRulePayload, type RecurringRuleDraft } from "../../domain/services/recurring-rule.ts";
 import { KpiCard } from "./BankUi.tsx";
 import {
   AppIcon,
@@ -35,6 +36,7 @@ import {
   IconChevronRight,
   IconClock,
   IconFile,
+  IconRepeat,
   IconSparkle,
   NUMERIC,
   PAGE_BG,
@@ -120,6 +122,15 @@ function MovementRow({
           {movement.movementKind ? MOVEMENT_KIND_LABELS[movement.movementKind] : (movement.notes ?? " ")}
         </span>
       </span>
+
+      {movement.classifiedByRuleId && (
+        <span
+          title="Conciliado automaticamente por um movimento recorrente"
+          className="hidden shrink-0 items-center gap-1 rounded-full bg-violet-50 px-2 py-1 text-[11px] font-semibold text-violet-700 sm:inline-flex"
+        >
+          <IconRepeat size={12} /> Auto
+        </span>
+      )}
 
       <span className={`hidden shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium sm:inline-flex ${s.chip}`}>
         {status === "reconciled" ? <IconCheck size={12} /> : <IconClock size={12} />}
@@ -248,23 +259,46 @@ export function MonthDetailView() {
   });
 
   const classifyMut = useMutation({
-    mutationFn: (args: {
-      movementId: string;
+    mutationFn: async (args: {
+      movement: BankMovementDTO;
       payload: ClassifyMovementPayload;
-    }) => api.classifyMovement(args.movementId, args.payload),
-    onSuccess: () => {
+      recurring?: RecurringRuleDraft | null;
+    }) => {
+      await api.classifyMovement(args.movement.id, args.payload);
+      if (!args.recurring || !accountId) return { rule: null };
+      // «Classificar sempre assim»: a classificação já está gravada; se a regra falhar, avisa sem a perder.
+      try {
+        const rule = await api.createRule(buildRecurringRulePayload(args.movement, accountId, args.payload, args.recurring));
+        return { rule };
+      } catch (e) {
+        return { rule: null, ruleError: e instanceof Error ? e.message : "erro desconhecido" };
+      }
+    },
+    onSuccess: (result) => {
+      // Uma regra aplicada aos meses anteriores mexe noutros meses da conta: invalida a conta toda.
+      const scope = result.rule ? ["bank-month", accountId] : ["bank-month", accountId, year, month];
+      void qc.invalidateQueries({ queryKey: scope });
       void qc.invalidateQueries({
-        queryKey: ["bank-month", accountId, year, month],
+        queryKey: result.rule ? ["bank-calendar", accountId] : ["bank-calendar", accountId, year],
       });
       void qc.invalidateQueries({
-        queryKey: ["bank-calendar", accountId, year],
+        queryKey: result.rule ? ["bank-month-suggestions", accountId] : ["bank-month-suggestions", accountId, year, month],
       });
-      void qc.invalidateQueries({
-        queryKey: ["bank-month-suggestions", accountId, year, month],
-      });
+      if (result.rule) void qc.invalidateQueries({ queryKey: ["bank-rules"] });
       setClassifying(null);
       setClassifyingSuggestion(null);
-      showToast("Movimento classificado com sucesso");
+      if ("ruleError" in result && result.ruleError) {
+        showToast(`Movimento classificado, mas o movimento recorrente não foi criado: ${result.ruleError}`, "error");
+      } else if (result.rule) {
+        const n = result.rule.appliedCount;
+        showToast(
+          n > 0
+            ? `Movimento recorrente «${result.rule.name}» criado — ${n} movimento${n === 1 ? "" : "s"} de outros meses conciliado${n === 1 ? "" : "s"}`
+            : `Movimento recorrente «${result.rule.name}» criado — os próximos ficam conciliados ao importar`,
+        );
+      } else {
+        showToast("Movimento classificado com sucesso");
+      }
     },
     onError: (e: Error) => showToast(e.message, "error"),
   });
@@ -393,8 +427,8 @@ export function MonthDetailView() {
           setClassifying(null);
           setClassifyingSuggestion(null);
         },
-        onSave: (payload: ClassifyMovementPayload) =>
-          classifyMut.mutate({ movementId: classifying.id, payload }),
+        onSave: (payload: ClassifyMovementPayload, recurring?: RecurringRuleDraft | null) =>
+          classifyMut.mutate({ movement: classifying, payload, recurring }),
         onReconcile: (
           entityLinks: Array<{
             entityType: "invoice" | "payable_entry";
