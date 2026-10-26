@@ -12,6 +12,7 @@ export interface RulesSummary {
 }
 
 export function summarizeRules(rules: ReconciliationRuleDTO[]): RulesSummary {
+  // (o chamador passa só as regras do banco da página)
   return rules.reduce<RulesSummary>(
     (acc, r) => ({
       active: acc.active + (r.isActive ? 1 : 0),
@@ -28,10 +29,17 @@ function fold(s: string): string {
 
 export function filterRules(
   rules: ReconciliationRuleDTO[],
-  opts: { status: RuleStatusFilter; accountId: string | null; search: string },
+  opts: {
+    status: RuleStatusFilter;
+    accountId: string | null;
+    search: string;
+    /** Contas do banco da página: só as regras delas (e as antigas, sem conta, que valem para todas). */
+    bankAccountIds?: ReadonlySet<string>;
+  },
 ): ReconciliationRuleDTO[] {
   const q = fold(opts.search.trim());
   return rules.filter((r) => {
+    if (opts.bankAccountIds && r.bankAccountId !== null && !opts.bankAccountIds.has(r.bankAccountId)) return false;
     if (opts.status === "active" && !r.isActive) return false;
     if (opts.status === "paused" && r.isActive) return false;
     if (opts.accountId && r.bankAccountId !== opts.accountId) return false;

@@ -46,6 +46,11 @@ describe("recurring-rules-overview", () => {
     expect(filterRules(rules, { status: "all", accountId: null, search: "senhorio" }).map((r) => r.id)).toEqual(["3"]);
   });
 
+  it("limits to the accounts of the page's bank (rules without account stay: they apply everywhere)", () => {
+    const a1 = new Set(["a1"]);
+    expect(filterRules(rules, { status: "all", accountId: null, search: "", bankAccountIds: a1 }).map((r) => r.id)).toEqual(["1", "2", "4"]);
+  });
+
   it("groups by account (rules without account last), active and most used first", () => {
     const groups = groupRulesByAccount(rules, (id) => (id === "a1" ? "Millennium · Conta principal" : "CGD · Conta"));
     expect(groups.map((g) => g.label)).toEqual(["CGD · Conta", "Millennium · Conta principal", "Todas as contas"]);

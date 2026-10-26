@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
 import { useBankAccountsModule } from "../../../bank-accounts/bank-accounts.module.tsx";
@@ -31,6 +31,7 @@ import {
   SURFACE,
 } from "../../../../components/ui/index.ts";
 import { KpiCard } from "./BankUi.tsx";
+import { BankLogo } from "../../../bank-accounts/adapters/in/BankLogo.tsx";
 import {
   JUSTIFICATION_TYPE_LABELS,
   type JustificationType,
@@ -51,11 +52,13 @@ const RULE_JUSTIFICATIONS = (Object.keys(JUSTIFICATION_TYPE_LABELS) as Justifica
 const VAT_RATES = [6, 13, 23];
 
 /**
- * «Movimentos recorrentes»: as regras que conciliam sozinhas taxas TPA, despesas bancárias e outros
- * movimentos sem fatura. Criam-se no painel do movimento («Classificar sempre assim»); aqui editam-se,
- * pausam-se e apagam-se.
+ * «Movimentos recorrentes» de um banco (cada banco tem a sua nomenclatura e as suas despesas): as regras
+ * que conciliam sozinhas taxas TPA, despesas bancárias e outros movimentos sem fatura nas contas desse
+ * banco. Criam-se no painel do movimento («Classificar sempre assim»); aqui editam-se, pausam-se e apagam-se.
+ * Abre-se no menu «⋯» do banco na página Bancos.
  */
 export function RecurringMovementsView() {
+  const { bankId } = useParams<{ bankId: string }>();
   const { api } = useBankStatementsModule();
   const bankAccountsApi = useBankAccountsModule().api;
   const fbApi = useFinancialBaseModule().api;
@@ -68,7 +71,7 @@ export function RecurringMovementsView() {
   const [editing, setEditing] = useState<ReconciliationRuleDTO | null>(null);
   const [deleting, setDeleting] = useState<ReconciliationRuleDTO | null>(null);
 
-  const { data: rules = [], isLoading } = useQuery({ queryKey: ["bank-rules"], queryFn: () => api.listRules() });
+  const { data: rules = [], isLoading, isError, error, refetch } = useQuery({ queryKey: ["bank-rules"], queryFn: () => api.listRules() });
   const { data: banks = [] } = useQuery({ queryKey: ["bank-accounts:banks"], queryFn: () => bankAccountsApi.listBanks() });
   const { data: groups = [] } = useQuery({
     queryKey: ["cost-center-groups"],
@@ -81,16 +84,19 @@ export function RecurringMovementsView() {
     staleTime: 300_000,
   });
 
-  const accounts = useMemo(
-    () => banks.flatMap((b) => b.accountPreviews.map((a) => ({ id: a.id, label: `${b.name} · ${a.label}` }))),
-    [banks],
-  );
+  const bank = banks.find((b) => b.id === bankId);
+  const accounts = useMemo(() => (bank?.accountPreviews ?? []).map((a) => ({ id: a.id, label: a.label })), [bank]);
+  const bankAccountIds = useMemo(() => new Set(accounts.map((a) => a.id)), [accounts]);
   const accountLabel = (id: string) => accounts.find((a) => a.id === id)?.label ?? "Conta";
+  const bankRules = useMemo(
+    () => (bank ? filterRules(rules, { status: "all", accountId: null, search: "", bankAccountIds }) : []),
+    [rules, bank, bankAccountIds],
+  );
   const groupName = new Map(groups.map((g) => [g.id, g.name]));
   const categoryName = new Map(categories.map((c) => [c.id, c.name]));
 
-  const summary = summarizeRules(rules);
-  const visible = groupRulesByAccount(filterRules(rules, { status, accountId: accountId || null, search }), accountLabel);
+  const summary = summarizeRules(bankRules);
+  const visible = groupRulesByAccount(filterRules(bankRules, { status, accountId: accountId || null, search }), accountLabel);
 
   const invalidate = () => {
     void qc.invalidateQueries({ queryKey: ["bank-rules"] });
@@ -133,12 +139,24 @@ export function RecurringMovementsView() {
           <nav aria-label="Caminho" className="flex items-center gap-1.5 text-[13px] text-ink-secondary">
             <Link to="/financial/bank-statements" className="hover:text-navy-900">Bancos</Link>
             <IconChevronRight size={12} />
+            {bank && (
+              <>
+                <Link to={`/financial/bank-statements/banks/${bank.id}`} className="hover:text-navy-900">{bank.name}</Link>
+                <IconChevronRight size={12} />
+              </>
+            )}
             <span className="text-navy-900">Movimentos recorrentes</span>
           </nav>
-          <h1 className={PAGE_TITLE}>Movimentos recorrentes</h1>
+          <div className="flex items-center gap-4">
+            {bank && <BankLogo logoKey={bank.logoKey} color={bank.color} size="lg" name={bank.name} />}
+            <div>
+              <h1 className={PAGE_TITLE}>Movimentos recorrentes</h1>
+              {bank && <p className="text-[15px] font-medium text-navy-900">{bank.name}</p>}
+            </div>
+          </div>
           <p className="max-w-3xl text-[15px] text-ink-secondary">
-            Taxas TPA, despesas bancárias e outros movimentos sem fatura que se repetem: ficam conciliados sozinhos ao
-            importar o extrato, com a classificação que lhes deste uma vez.
+            Taxas TPA, despesas bancárias e outros movimentos sem fatura que se repetem neste banco: ficam conciliados
+            sozinhos ao importar o extrato, com a classificação que lhes deste uma vez.
           </p>
         </header>
 
@@ -161,25 +179,36 @@ export function RecurringMovementsView() {
                 { key: "all", label: "Todos" },
               ]}
             />
+            {accounts.length > 1 && (
             <select aria-label="Conta" value={accountId} onChange={(e) => setAccountId(e.target.value)} className={`${FIELD} w-auto min-w-[14rem]`}>
-              <option value="">Todas as contas</option>
+              <option value="">Todas as contas do banco</option>
               {accounts.map((a) => (
                 <option key={a.id} value={a.id}>{a.label}</option>
               ))}
             </select>
+            )}
             <SearchInput label="Pesquisar nome ou descrição" value={search} onChange={(e) => setSearch(e.target.value)} className="min-w-[16rem] flex-1" />
           </div>
         </section>
 
-        {isLoading ? (
+        {isLoading || (!bank && banks.length === 0) ? (
           <p className="py-16 text-center text-sm text-ink-secondary">A carregar…</p>
+        ) : isError ? (
+          <section className={SURFACE}>
+            <EmptyState
+              icon={<IconInfo size={28} />}
+              title="Não foi possível carregar os movimentos recorrentes"
+              description={error instanceof Error ? error.message : "Erro desconhecido."}
+              action={<Button onClick={() => void refetch()}>Tentar de novo</Button>}
+            />
+          </section>
         ) : visible.length === 0 ? (
           <section className={SURFACE}>
             <EmptyState
               icon={<IconRepeat size={28} />}
-              title={rules.length === 0 ? "Ainda não há movimentos recorrentes" : "Nenhum movimento recorrente com estes filtros"}
+              title={bankRules.length === 0 ? `Ainda não há movimentos recorrentes${bank ? ` no ${bank.name}` : ""}` : "Nenhum movimento recorrente com estes filtros"}
               description={
-                rules.length === 0
+                bankRules.length === 0
                   ? "Abre um movimento por conciliar (ex.: uma taxa TPA), classifica-o em «Justificar despesa» e marca «Classificar sempre assim»."
                   : "Muda o estado, a conta ou a pesquisa."
               }

@@ -242,7 +242,7 @@ export function BankAccountCalendarView() {
             </p>
           </div>
           <div className="flex shrink-0 flex-wrap items-center gap-2">
-            <Button icon={<IconRepeat size={16} />} onClick={() => navigate("/financial/bank-statements/recurring")}>
+            <Button icon={<IconRepeat size={16} />} onClick={() => navigate(`/financial/bank-statements/banks/${bankId}/recurring`)}>
               Movimentos recorrentes
             </Button>
             <Button disabled={lastMonth === null} onClick={() => lastMonth !== null && navigate(monthUrl(lastMonth))}>
