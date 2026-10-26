@@ -37,7 +37,6 @@ function renderView(onEdit = vi.fn()) {
     }),
     listPresentations: async () => [],
     listMovements: async () => [],
-    getUsage: async () => [],
     listPurchases: async () => [],
   };
   render(

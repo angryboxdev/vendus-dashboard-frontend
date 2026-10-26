@@ -84,19 +84,6 @@ export const MOVEMENT_TYPE_LABELS: Record<string, string> = {
   transfer: "Transferência",
 };
 
-/** Ficha técnica que usa o ingrediente (`GET /api/recipe-costing/ingredients/:id/usage`). */
-export interface IngredientUsageDTO {
-  pizzaId: string;
-  name: string;
-  isActive: boolean;
-  size: string;
-  quantity: number;
-  costWithoutVat: number | null;
-  dishCostWithoutVat: number;
-  share: number | null;
-  via: string | null;
-}
-
 /** Compra confirmada de um artigo (linhas do histórico de preços). */
 export interface ArticlePurchaseDTO {
   lineId: string;

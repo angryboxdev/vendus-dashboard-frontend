@@ -2,7 +2,6 @@ import { apiGet } from "../../../../lib/api.ts";
 import type {
   ArticlePurchaseDTO,
   CostOverviewResponseDTO,
-  IngredientUsageDTO,
   PurchasePresentationDTO,
   StockCategoryDTO,
   StockItemDTO,
@@ -36,9 +35,6 @@ export class HttpStockCatalogApiAdapter implements StockCatalogApiPort {
     return apiGet<StockMovementDTO[]>(`/api/stock/items/${stockItemId}/movements?limit=${limit}`);
   }
 
-  getUsage(stockItemId: string): Promise<IngredientUsageDTO[]> {
-    return apiGet<IngredientUsageDTO[]>(`/api/recipe-costing/ingredients/${stockItemId}/usage`);
-  }
 
   async listPurchases(stockItemId: string): Promise<ArticlePurchaseDTO[]> {
     const history = await apiGet<{ weeks: { observations: ArticlePurchaseDTO[] }[] }>(`/api/recipe-costing/ingredients/${stockItemId}/price-history?weeks=104`);
