@@ -7,6 +7,7 @@ export { StatusBadge, type StatusTone } from "./StatusBadge.tsx";
 export { AlertBanner, type AlertTone } from "./AlertBanner.tsx";
 export { Drawer } from "./Drawer.tsx";
 export { SearchInput, SegmentedControl } from "./Inputs.tsx";
+export { SlideSwitch } from "./SlideSwitch.tsx";
 export { Avatar, AvatarStack, EmployeeCell, type AvatarSize, type AvatarStackItem } from "./Avatar.tsx";
 export { Popover, DropdownMenu, SearchableSelect, type MenuEntry } from "./Popover.tsx";
 export { PageHeader, Toolbar, ToolbarGroup, ToolbarDivider, DateNavigator, Skeleton, EmptyState } from "./Layout.tsx";

@@ -5,7 +5,7 @@
 
 ## Propósito
 
-«Artigos e ingredientes» (task V6): a lista única do Stock com três vistas da mesma tabela — **Geral** (categoria, tipo, stock, mínimo, situação, último custo), **Reposição** (só o que está em falta, com a sugestão de compra pela embalagem do fornecedor habitual) e **Custos** (último custo, referência de 12 semanas, variação, tendência, fornecedor, última compra, custo manual) — e o painel lateral do artigo (Stock, Preços e histórico, Compras, Fichas técnicas, Movimentos).
+«Artigos e ingredientes» (task V6): a lista única do Stock com três vistas da mesma tabela — **Geral** (categoria, tipo, stock, mínimo, situação, último custo), **Reposição** (só o que está em falta, com a sugestão de compra pela embalagem do fornecedor habitual) e **Custos** (último custo, referência de 12 semanas, variação, tendência, fornecedor, última compra, custo manual) — e o painel lateral do artigo (Stock, Preços e histórico, Compras, Movimentos). As fichas que usam o artigo veem-se na área própria «Fichas técnicas» (o separador saiu do painel a pedido do utilizador, 2026-10-26).
 
 ## Ports
 
