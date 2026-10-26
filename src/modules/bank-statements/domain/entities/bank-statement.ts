@@ -310,8 +310,10 @@ export interface AccountMonthStatDTO {
   /** Movimentos que contam para a conciliação (sem os créditos aceites automaticamente na importação). */
   reconcilableMovements: number;
   reconciledMovements: number;
-  /** `null` sem extrato ou sem movimentos. */
+  /** `null` sem extrato, sem movimentos ou sem movimentos conciliáveis («Não aplicável»). */
   reconciledPercent: number | null;
+  /** Há extrato mas não cobre o mês todo (os totais são só dos dias cobertos). Opcional até o backend novo estar em produção. */
+  partialPeriod?: boolean;
   inflowCents: number;
   outflowCents: number;
   netCents: number;
@@ -442,6 +444,8 @@ export interface GroupedSettlementCombinationDTO {
   creditNoteTotalCents: number; // ≤ 0
   netTotalCents: number; // always equals the movement amount here
   isExactMatch: true;
+  /** Documento de pagamento com várias faturas fiscais (ex.: águas + resíduos, emitentes diferentes, um só débito). */
+  paymentGroupId?: string;
 }
 
 export interface GetGroupedSettlementSuggestionsResult {

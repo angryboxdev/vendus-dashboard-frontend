@@ -1,7 +1,7 @@
 # Módulo: payable-recurrences
 
 > Status: ativo
-> Última atualização: 2026-10-26 (salários com colaborador do RH; vista mensal predefinida; seletor «Do mês | Histórico»)
+> Última atualização: 2026-10-26 (faturas ↔ recorrências e documento de pagamento — ADR-0041 do backend)
 
 ## Propósito
 Gere recorrências financeiras (contratos, serviços recorrentes, salários, etc.) e as suas ocorrências mensais no frontend. Permite listar, criar, editar e controlar o ciclo de vida de cada recorrência, bem como gerir as ocorrências associadas (vincular faturas, gerar contas a pagar, anexar documentos). Não é responsabilidade deste módulo criar faturas diretamente nem gerir contas a pagar fora do contexto de uma ocorrência.
@@ -48,6 +48,8 @@ Não há use cases formais; a lógica de UI é orquestrada diretamente nos adapt
 - `HttpRecurrencesApiAdapter` — implementa `RecurrencesApiPort` usando os helpers `apiGet/apiPost/apiPatch/apiPostFormData/apiDeleteNoContent` de `src/lib/api.ts`. Base URL: `/api/payable-recurrences`.
 
 ## Decisões de design
+
+- **Fatura ↔ recorrência (2026-10-26):** `RecurrencesApiPort` ganhou `getInvoiceRecurrenceStatus`, `linkInvoiceToRecurrence` e `unlinkInvoiceFromOccurrence`; `OccurrenceDTO` traz `invoiceDeviationPercent`/`invoiceDeviationWarning` (aviso «⚠ +30 % face ao previsto» na coluna da fatura) e o menu da ocorrência tem «Desassociar fatura». `formatDeviation` testado.
 
 - **D1**: RecurrenceDetailView é uma página roteada (não um drawer), pois o volume de informação (resumo + ocorrências + documentos + próximos pagamentos) justifica o espaço de ecrã completo.
 - **D2**: `RecurrenceDrawer` é reutilizado para criação e edição; o campo `startDate` é omitido no modo de edição (imutável no backend).

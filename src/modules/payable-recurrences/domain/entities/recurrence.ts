@@ -146,6 +146,10 @@ export interface OccurrenceDTO {
   /** paidAmountCents - effectiveAmountCents. Nunca ler como "dívida" automaticamente. */
   differenceCents: number;
   displayState: OccurrenceDisplayState;
+  /** (real − previsto) / previsto × 100 — só com fatura. */
+  invoiceDeviationPercent: number | null;
+  /** Desvio ≥ 20 %: associada na mesma, mas a rever. */
+  invoiceDeviationWarning: boolean;
   createdAt: string;
   updatedAt: string;
 }
@@ -215,6 +219,37 @@ export interface MarkOccurrenceAsPaidPayload {
 export interface OccurrenceWithRecurrenceDTO {
   occurrence: OccurrenceDTO;
   recurrenceName: string;
+}
+
+/** Ocorrência (existente ou a gerar) a que uma fatura pode ser associada. */
+export interface InvoiceRecurrenceCandidateDTO {
+  recurrenceId: string;
+  recurrenceName: string;
+  /** `supplier` = mesmo fornecedor; `category_name` = mesma categoria e nome parecido (só sugestão). */
+  matchedBy: "supplier" | "category_name";
+  supplierName: string;
+  period: string; // YYYY-MM
+  occurrenceId: string | null;
+  estimatedAmountCents: number;
+  deviationPercent: number | null;
+}
+
+/** Fatura ↔ recorrência: a associação atual ou, sem ela, as sugestões. */
+export interface InvoiceRecurrenceStatusDTO {
+  linked: OccurrenceWithRecurrenceDTO | null;
+  candidates: InvoiceRecurrenceCandidateDTO[];
+}
+
+export interface LinkInvoiceToRecurrencePayload {
+  invoiceId: string;
+  recurrenceId: string;
+  period: string; // YYYY-MM
+}
+
+/** "+30 %" / "−12,5 %" */
+export function formatDeviation(percent: number): string {
+  const abs = Math.abs(percent).toLocaleString("pt-PT", { maximumFractionDigits: 1 });
+  return `${percent > 0 ? "+" : percent < 0 ? "−" : ""}${abs} %`;
 }
 
 export interface RecurrenceSummaryDTO {
