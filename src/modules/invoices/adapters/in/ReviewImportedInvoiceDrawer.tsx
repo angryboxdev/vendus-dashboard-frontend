@@ -901,7 +901,7 @@ interface Props {
    */
   reopenDraft?: boolean;
   /** Documento de pagamento com várias faturas fiscais (ex.: águas + resíduos): qual destas está a ser revista. */
-  paymentGroupPosition?: { index: number; total: number };
+  paymentGroupPosition?: { index: number; total: number; parts?: { label: string; totalCents: number }[] };
   onClose(): void;
   onConfirmed(invoice: InvoiceDTO): void;
   /** Abrir um documento já existente (conflito de identidade fiscal: original/duplicado parecido). */
@@ -915,6 +915,11 @@ interface ConfirmConflict {
   existingInvoiceId?: string | null;
   identityId?: string;
   candidates?: { invoiceId: string | null; seriesNumber: string }[];
+}
+
+/** "59,98 €" — para a faixa do documento de pagamento. */
+function fromCentsLabel(cents: number): string {
+  return (cents / 100).toLocaleString("pt-PT", { style: "currency", currency: "EUR" });
 }
 
 export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", existingLineIds = [], reopenDraft = false, paymentGroupPosition, onClose, onConfirmed, onOpenExisting }: Props) {
@@ -1397,7 +1402,10 @@ export function ReviewImportedInvoiceDrawer({ importResult, mode = "confirm", ex
               </p>
               {!isEdit && paymentGroupPosition && paymentGroupPosition.total > 1 && (
                 <p className="mt-1 inline-flex rounded-full bg-sky-50 px-2 py-0.5 text-[11px] font-medium text-sky-700">
-                  Documento de pagamento · fatura {paymentGroupPosition.index} de {paymentGroupPosition.total} (um só pagamento)
+                  Documento de pagamento · fatura {paymentGroupPosition.index} de {paymentGroupPosition.total}
+                  {paymentGroupPosition.parts && paymentGroupPosition.parts.length > 1
+                    ? ` · ${paymentGroupPosition.parts.map((p) => fromCentsLabel(p.totalCents)).join(" + ")} = ${fromCentsLabel(paymentGroupPosition.parts.reduce((s, p) => s + p.totalCents, 0))} (um só pagamento)`
+                    : " (um só pagamento)"}
                 </p>
               )}
             </div>
