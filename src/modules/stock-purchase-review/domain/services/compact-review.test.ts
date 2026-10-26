@@ -24,13 +24,13 @@ const items: Record<string, { name: string; baseUnit: string }> = {
 };
 
 describe("lista compacta da conciliação (V5 §2)", () => {
-  it("T01/T02: 5 linhas do documento, 4 artigos; Cheddar 6 + 1 kg → 7 000 g e 54,53 € numa linha, com as 2 linhas por baixo", () => {
+  it("T01/T02: 5 linhas do documento, 4 artigos; Cheddar 6 + 1 kg mostra só o total (7 kg) → 7 000 g e 54,53 € numa linha, com as 2 linhas por baixo", () => {
     expect(compactKpis(review)).toMatchObject({ documentLines: 5, stockItems: 4, netCents: 33099, totalCents: 35738, pending: 0 });
     const rows = compactRows(review, (id) => items[id]);
     expect(rows.map((r) => [r.label, r.invoiced, r.expected?.quantity, r.netCents, r.lines.length])).toEqual([
       ["Mozzarela Ralado", "40 kg", 40000, 22320, 1],
       ["Grana Padano", "1 un", 1000, 1481, 1],
-      ["Cheddar Ralado", "6 + 1 kg", 7000, 5453, 2],
+      ["Cheddar Ralado", "7 kg", 7000, 5453, 2],
       ["Tomate Mutti", "4 un", 20000, 3845, 1],
     ]);
   });

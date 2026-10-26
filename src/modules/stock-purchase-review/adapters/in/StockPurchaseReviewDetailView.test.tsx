@@ -218,7 +218,10 @@ describe("StockPurchaseReviewDetailView (V5 — ordem, filtros e agrupamento só
       ],
     });
     renderView({ getReview: async () => r, listStockItemOptions: async () => [{ id: "item-cheddar", name: "Cheddar Ralado", baseUnit: "g", categoryId: "c", isActive: true }] });
-    expect(await screen.findByText("6 + 1 kg")).toBeTruthy();
+    // Total faturado na lista; «6 + 1» e cada lote só no painel.
+    expect(await screen.findByText("7 kg")).toBeTruthy();
+    expect(screen.queryByText(/6 + 1/)).toBeNull();
+    expect(screen.getByText("2 lotes")).toBeTruthy();
     expect(screen.getByText("7000 g")).toBeTruthy();
     expect(screen.getByText(/54,53\s€/)).toBeTruthy();
     expect(screen.getByText(/2 linhas da fatura/)).toBeTruthy();
@@ -226,7 +229,7 @@ describe("StockPurchaseReviewDetailView (V5 — ordem, filtros e agrupamento só
     expect(states).toEqual(["Resolvido", "Por rever", "Fora do Stock"]);
     fireEvent.click(screen.getByRole("tab", { name: /Fora do Stock/ }));
     expect(screen.getByText("Portes")).toBeTruthy();
-    expect(screen.queryByText("6 + 1 kg")).toBeNull();
+    expect(screen.queryByText("7 kg")).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: /Todos/ }));
     fireEvent.click(screen.getAllByRole("button", { name: "Ver" })[0]!);
     expect(screen.getByText("Associado automaticamente")).toBeTruthy();
