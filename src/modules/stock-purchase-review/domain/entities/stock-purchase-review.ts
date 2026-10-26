@@ -157,6 +157,8 @@ export interface StockReviewLineDTO {
 export interface StockPurchaseReviewDTO {
   id: string;
   invoiceId: string;
+  /** PDF da fatura de origem (só no detalhe). */
+  attachmentUrl?: string | null;
   status: StockPurchaseReviewStatus;
   /** Optimistic-lock — obrigatório fazer round-trip em qualquer chamada de escrita. */
   version: number;
@@ -342,3 +344,11 @@ export const ENTRY_RULE_TYPES: { type: EntryRuleType; label: string }[] = [
   { type: "other", label: "Outros" },
   { type: "unknown", label: "Desconhecidos (sem artigo)" },
 ];
+
+// ── Localização principal do Stock (task V5 §2.4) ─────────────────────────
+
+export interface StockSettings {
+  /** Loja das entradas de faturas; `null` = não configurada. */
+  defaultLocationId: string | null;
+  locations: { id: string; name: string }[];
+}

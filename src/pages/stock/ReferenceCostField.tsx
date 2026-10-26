@@ -7,6 +7,8 @@ import {
 } from "../../modules/recipe-costing/domain/services/pricing-unit.ts";
 
 const round6 = (n: number) => Math.round(n * 1_000_000) / 1_000_000;
+/** Acima disto (por kg/l ou por unidade) quase sempre é o preço da embalagem ou um valor ao grama. */
+const UNUSUAL_COST = 100;
 
 /**
  * Custo de referência introduzido como as pessoas pensam o preço (€/kg, €/l); o catálogo
@@ -25,6 +27,7 @@ export function ReferenceCostField({
   onChange: (perBaseUnit: number | null) => void;
 }) {
   const unit = pricingUnit(baseUnit);
+  const shown = value == null || value === 0 ? null : round6(toPricingUnitCost(value, baseUnit));
   return (
     <div>
       <label className="mb-1 block text-xs text-slate-500">
@@ -32,7 +35,7 @@ export function ReferenceCostField({
       </label>
       <NumericInput
         decimals={unit.factor > 1 ? 2 : 4}
-        value={value == null || value === 0 ? "" : round6(toPricingUnitCost(value, baseUnit))}
+        value={shown ?? ""}
         onChange={(e) => {
           const n = e.target.value !== "" ? Number(e.target.value) : NaN;
           onChange(Number.isFinite(n) && n > 0 ? fromPricingUnitCost(n, baseUnit) : null);
@@ -40,6 +43,11 @@ export function ReferenceCostField({
         className="w-full rounded border border-slate-200 px-3 py-2 text-sm"
         placeholder="Opcional"
       />
+      {shown !== null && shown > UNUSUAL_COST && (
+        <p role="alert" className="mt-1 text-xs text-amber-700">
+          {formatEUR(shown)}/{unit.label} é invulgar — confirme que é o preço por {unit.label} e não o da embalagem.
+        </p>
+      )}
     </div>
   );
 }

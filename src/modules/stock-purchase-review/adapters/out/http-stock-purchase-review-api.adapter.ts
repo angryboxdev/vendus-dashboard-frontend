@@ -14,6 +14,7 @@ import type {
   PurchasePresentationDTO,
   SavePurchasePresentationPayload,
   EntryRules,
+  StockSettings,
 } from "../../domain/entities/stock-purchase-review.ts";
 
 const BASE = "/api/stock-purchase-reviews";
@@ -75,6 +76,14 @@ export class HttpStockPurchaseReviewApiAdapter implements StockPurchaseReviewApi
     formData.append("file", file);
     if (options?.routeExisting) formData.append("routeExisting", "true");
     return apiPostFormData("/api/invoices/import-for-stock", formData);
+  }
+
+  async getStockSettings(): Promise<StockSettings> {
+    return apiGet(`${BASE}/settings`);
+  }
+
+  async saveStockSettings(defaultLocationId: string | null): Promise<StockSettings> {
+    return apiPut(`${BASE}/settings`, { defaultLocationId });
   }
 
   async getEntryRules(): Promise<EntryRules> {

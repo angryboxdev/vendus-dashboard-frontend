@@ -51,8 +51,8 @@ export function PackagingPanel({ review, line, stockItemId, stockItems, readOnly
   const [form, setForm] = useState<PresentationForm>(() => presentation ?? guessPresentation(line));
   const [noPackage, setNoPackage] = useState(presentation ? presentation.packageUnit === null : false);
   const [contentText, setContentText] = useState(String(form.contentQuantity).replace(".", ","));
-  const [minText, setMinText] = useState(String(form.minOrderPackages));
-  const [incText, setIncText] = useState(String(form.orderIncrementPackages));
+  const [minText] = useState(String(form.minOrderPackages));
+  const [incText] = useState(String(form.orderIncrementPackages));
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -130,9 +130,8 @@ export function PackagingPanel({ review, line, stockItemId, stockItems, readOnly
           )}
           {!editing && presentation && (
             <div className="flex flex-wrap items-center justify-between gap-2 pt-0.5">
-              <span className="text-stone-500">
-                Encomenda mínima {qty(presentation.minOrderPackages)} {presentation.packageUnit ? plural(presentation.packageUnit, presentation.minOrderPackages) : presentation.contentUnit}, de {qty(presentation.orderIncrementPackages)} em {qty(presentation.orderIncrementPackages)}.
-              </span>
+              {/* Encomenda mínima/incremento ficam em Reposição e planeamento (task V5 §2.3). */}
+              <span />
               {!readOnly && (
                 <button type="button" onClick={() => setEditing(true)} className="rounded border border-stone-300 bg-white px-2 py-0.5 font-medium text-stone-700 hover:bg-stone-100">
                   Alterar embalagem
@@ -179,18 +178,9 @@ export function PackagingPanel({ review, line, stockItemId, stockItems, readOnly
                 </select>
               </label>
             )}
-            {!noPackage && (
-              <label className="block">
-                <span className="mb-0.5 block text-[11px] text-stone-500">Encomenda mínima / de … em …</span>
-                <span className="flex gap-1">
-                  <input aria-label="Encomenda mínima" type="text" inputMode="decimal" value={minText} onChange={(e) => setMinText(e.target.value)} className={`${inputCls} w-12`} />
-                  <input aria-label="Incremento" type="text" inputMode="decimal" value={incText} onChange={(e) => setIncText(e.target.value)} className={`${inputCls} w-12`} />
-                </span>
-              </label>
-            )}
           </div>
-          {noPackage && <p className="text-stone-500">Sem embalagem: a fatura conta {form.contentUnit} e a encomenda é ao {form.contentUnit}.</p>}
-          <p className="text-[11px] text-stone-500">Vale para as próximas faturas e encomendas deste fornecedor; o que já entrou no Stock não muda.</p>
+          {noPackage && <p className="text-stone-500">Sem embalagem: a fatura conta {form.contentUnit}.</p>}
+          <p className="text-[11px] text-stone-500">Vale para as próximas faturas deste fornecedor; o que já entrou no Stock não muda. Encomenda mínima em Reposição e planeamento.</p>
           {error && <p className="text-red-600">{error}</p>}
           <div className="flex gap-2">
             <button type="button" onClick={() => void save()} disabled={saving} className="rounded-md bg-stone-800 px-3 py-1 font-medium text-white hover:opacity-90 disabled:opacity-50">

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useStockPurchaseReviewModule } from "../../stock-purchase-review.module.tsx";
-import { ENTRY_MODE_LABELS, ENTRY_RULE_TYPES, type EntryMode, type EntryRules } from "../../domain/entities/stock-purchase-review.ts";
+import { ENTRY_MODE_LABELS, ENTRY_RULE_TYPES, type EntryMode, type EntryRules, type StockSettings } from "../../domain/entities/stock-purchase-review.ts";
 
 /**
  * Regras de entrada no Stock por tipo de artigo (task «Stock inteligente» V4 §2), abertas pela
@@ -14,9 +14,19 @@ export function EntryRulesModal({ onClose }: { onClose(): void }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  // V5 §2.4: localização principal do Stock (para onde vão as entradas das faturas).
+  const [settings, setSettings] = useState<StockSettings | null>(null);
+  const [defaultLocationId, setDefaultLocationId] = useState<string | null>(null);
 
   useEffect(() => {
     api.getEntryRules().then(setRules).catch((e: unknown) => setError(e instanceof Error ? e.message : "Não foi possível ler as regras."));
+    api
+      .getStockSettings()
+      .then((s) => {
+        setSettings(s);
+        setDefaultLocationId(s.defaultLocationId);
+      })
+      .catch(() => setSettings(null));
   }, [api]);
 
   async function save() {
@@ -25,6 +35,11 @@ export function EntryRulesModal({ onClose }: { onClose(): void }) {
     setError(null);
     try {
       setRules(await api.saveEntryRules(rules));
+      if (settings && defaultLocationId !== settings.defaultLocationId) {
+        const next = await api.saveStockSettings(defaultLocationId);
+        setSettings(next);
+        setDefaultLocationId(next.defaultLocationId);
+      }
       setSaved(true);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Não foi possível gravar.");
@@ -71,6 +86,34 @@ export function EntryRulesModal({ onClose }: { onClose(): void }) {
               ))}
             </tbody>
           </table>
+        )}
+        {settings && settings.locations.length > 0 && (
+          <div className="mt-4 border-t border-slate-100 pt-3">
+            <label htmlFor="stock-default-location" className="block text-sm font-medium text-slate-700">
+              Localização principal do Stock
+            </label>
+            <p className="mt-0.5 text-xs text-slate-500">
+              {settings.locations.length === 1
+                ? "Só há uma loja ativa: as entradas das faturas vão para ela."
+                : "As entradas das faturas vão para esta loja, sem perguntar. Sem localização principal, a entrada fica bloqueada até a definir."}
+            </p>
+            <select
+              id="stock-default-location"
+              value={defaultLocationId ?? ""}
+              onChange={(e) => {
+                setDefaultLocationId(e.target.value || null);
+                setSaved(false);
+              }}
+              className="mt-1.5 w-full rounded-md border border-slate-200 px-2 py-1.5 text-sm"
+            >
+              <option value="">— por definir —</option>
+              {settings.locations.map((l) => (
+                <option key={l.id} value={l.id}>
+                  {l.name}
+                </option>
+              ))}
+            </select>
+          </div>
         )}
         {error && <p className="mt-3 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">{error}</p>}
         {saved && <p className="mt-3 text-xs text-emerald-700">Regras gravadas.</p>}
