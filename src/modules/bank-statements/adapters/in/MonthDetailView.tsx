@@ -273,13 +273,18 @@ export function MonthDetailView() {
       payload: ClassifyMovementPayload;
       recurring?: RecurringRuleDraft | null;
     }) => {
-      await api.classifyMovement(args.movement.id, args.payload);
+      // Regra ligada a uma recorrência sem ocorrência escolhida: é a própria regra (aplicada já) que liga este
+      // movimento à ocorrência do mês certo e a deixa paga — não se classifica antes.
+      const ruleOnly = !!accountId && !!args.recurring?.recurrenceId && !args.payload.matchedEntityId;
+      if (!ruleOnly) await api.classifyMovement(args.movement.id, args.payload);
       if (!args.recurring || !accountId) return { rule: null };
       // «Classificar sempre assim»: a classificação já está gravada; se a regra falhar, avisa sem a perder.
       try {
-        const rule = await api.createRule(buildRecurringRulePayload(args.movement, accountId, args.payload, args.recurring));
-        return { rule };
+        const draft = ruleOnly ? { ...args.recurring, applyToExisting: true } : args.recurring;
+        const rule = await api.createRule(buildRecurringRulePayload(args.movement, accountId, args.payload, draft));
+        return { rule, ruleOnly };
       } catch (e) {
+        if (ruleOnly) throw e;
         return { rule: null, ruleError: e instanceof Error ? e.message : "erro desconhecido" };
       }
     },
@@ -298,6 +303,11 @@ export function MonthDetailView() {
       setClassifyingSuggestion(null);
       if ("ruleError" in result && result.ruleError) {
         showToast(`Movimento classificado, mas o movimento recorrente não foi criado: ${result.ruleError}`, "error");
+      } else if (result.rule && "ruleOnly" in result && result.ruleOnly && result.rule.appliedCount === 0) {
+        showToast(
+          `Movimento recorrente «${result.rule.name}» criado, mas este movimento ficou por conciliar: o mês a que se refere já está pago ou não tem ocorrência em aberto.`,
+          "error",
+        );
       } else if (result.rule) {
         const n = result.rule.appliedCount;
         showToast(

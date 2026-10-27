@@ -58,3 +58,16 @@ describe("recurring-rule", () => {
     expect(payload.applyToExisting).toBe(false);
   });
 });
+
+describe("buildRecurringRulePayload — regra ligada a uma recorrência", () => {
+  it("leva a recorrência e a justificação «Contrato / Recorrência»", async () => {
+    const { buildRecurringRulePayload } = await import("./recurring-rule.ts");
+    const p = buildRecurringRulePayload(
+      { description: "TRF P/ Senhorio Exemplo", normalizedDescription: "", movementType: "debit", amount: 40_000 },
+      "acc-1",
+      { justificationType: "contrato_recorrencia", costCenterGroupId: "g", costCenterCategoryId: "c" },
+      { name: "Renda", fixedAmount: false, applyToExisting: true, recurrenceId: "rec-1" },
+    );
+    expect(p).toMatchObject({ justificationType: "contrato_recorrencia", recurrenceId: "rec-1", amountCents: null, bankAccountId: "acc-1" });
+  });
+});

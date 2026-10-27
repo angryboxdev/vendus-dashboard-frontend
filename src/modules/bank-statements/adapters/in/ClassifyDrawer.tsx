@@ -14,6 +14,7 @@ import { useBankStatementsModule } from "../../bank-statements.module.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
 import { useInvoicesModule } from "../../../invoices/invoices.module.tsx";
 import { usePayableRecurrencesModule } from "../../../payable-recurrences/payable-recurrences.module.tsx";
+import { useRuleRecurrences, paymentPeriodHint } from "./useRuleRecurrences.ts";
 import { ApiError } from "../../../../lib/api.ts";
 import type {
   CostCenterGroup,
@@ -435,7 +436,11 @@ export function ClassifyDrawer({
   const [recurringName, setRecurringName] = useState(() => suggestedRuleName(movement));
   const [recurringFixed, setRecurringFixed] = useState(false);
   const [recurringApply, setRecurringApply] = useState(true);
-  const recurringAvailable = canBeRecurring(subType);
+  // «Contrato / Recorrência» também pode virar regra: liga cada pagamento futuro à recorrência (fica paga).
+  const recurringAvailable = canBeRecurring(subType) || subType === "contrato_recorrencia";
+  const recurringForRecurrence = subType === "contrato_recorrencia";
+  const [ruleRecurrenceId, setRuleRecurrenceId] = useState("");
+  const { recurrences: ruleRecurrences } = useRuleRecurrences(recurringForRecurrence && recurringOn);
   const { data: rules = [] } = useQuery({
     queryKey: ["bank-rules"],
     queryFn: () => api.listRules(),
@@ -477,6 +482,11 @@ export function ClassifyDrawer({
   });
 
   const selectedOccurrence = occurrenceCandidates.find((o) => o.id === occurrenceId) ?? null;
+  // Por defeito, a recorrência da ocorrência escolhida (se não exigir fatura).
+  const effectiveRuleRecurrenceId =
+    ruleRecurrenceId ||
+    (selectedOccurrence && ruleRecurrences.some((r) => r.id === selectedOccurrence.recurrenceId) ? selectedOccurrence.recurrenceId : "");
+  const ruleRecurrence = ruleRecurrences.find((r) => r.id === effectiveRuleRecurrenceId);
 
   const selectedSupplier = suppliers.find((s) => s.id === supplierId) ?? null;
 
@@ -752,7 +762,12 @@ export function ClassifyDrawer({
     onSave(
       payload,
       recurringOn && recurringAvailable
-        ? { name: recurringName, fixedAmount: recurringFixed, applyToExisting: recurringApply }
+        ? {
+            name: recurringName,
+            fixedAmount: recurringFixed,
+            applyToExisting: recurringApply,
+            ...(recurringForRecurrence && effectiveRuleRecurrenceId && { recurrenceId: effectiveRuleRecurrenceId }),
+          }
         : null,
     );
   }
@@ -768,7 +783,9 @@ export function ClassifyDrawer({
   /** O que falta para poder classificar no separador «Justificar despesa» (mostrado junto ao botão). */
   const missingB = [
     // Com a ocorrência escolhida o fornecedor é dispensável: a recorrência já diz quem recebe (ex.: salários).
-    requiresSupplier(subType) && !supplierId && !occurrenceId ? "fornecedor" : null,
+    // Idem com «Classificar sempre assim» ligado a uma recorrência (a regra paga a ocorrência do mês certo).
+    requiresSupplier(subType) && !supplierId && !occurrenceId && !(recurringOn && recurringForRecurrence && effectiveRuleRecurrenceId) ? "fornecedor" : null,
+    recurringOn && recurringForRecurrence && !effectiveRuleRecurrenceId ? "recorrência a pagar (em «Classificar sempre assim»)" : null,
     requiresCostCenter(subType) && !groupId ? "categoria" : null,
     needsCategory && !categoryId ? "subcategoria" : null,
     requiresNotes(subType) && !notes.trim() ? "notas (motivo)" : null,
@@ -1448,7 +1465,9 @@ export function ClassifyDrawer({
                       <span>
                         <span className="block text-sm font-semibold text-stone-800">Classificar sempre assim</span>
                         <span className="block text-xs text-stone-500">
-                          Movimento recorrente: os próximos iguais nesta conta ficam conciliados sozinhos ao importar.
+                          {recurringForRecurrence
+                            ? "Os próximos pagamentos iguais nesta conta ficam conciliados sozinhos e a recorrência fica paga."
+                            : "Movimento recorrente: os próximos iguais nesta conta ficam conciliados sozinhos ao importar."}
                         </span>
                       </span>
                     </label>
@@ -1460,6 +1479,20 @@ export function ClassifyDrawer({
                           <input type="text" value={recurringName} onChange={(e) => setRecurringName(e.target.value)}
                             maxLength={120} className={inputCls} placeholder="Ex.: Taxa TPA" />
                         </div>
+                        {recurringForRecurrence && (
+                          <div>
+                            <label className={labelCls}>Recorrência a pagar *</label>
+                            <select value={effectiveRuleRecurrenceId} onChange={(e) => setRuleRecurrenceId(e.target.value)} className={inputCls}>
+                              <option value="">Escolhe a recorrência…</option>
+                              {ruleRecurrences.map((r) => (
+                                <option key={r.id} value={r.id}>{r.name}</option>
+                              ))}
+                            </select>
+                            <p className="mt-1 text-[11px] text-stone-400">
+                              {ruleRecurrence ? paymentPeriodHint(ruleRecurrence) + " Muda isto na ficha da recorrência." : "Só recorrências sem fatura obrigatória (as com fatura concilia-se pela fatura)."}
+                            </p>
+                          </div>
+                        )}
                         <div>
                           <p className={labelCls}>Reconhece movimentos com</p>
                           <p className="rounded-md bg-white px-3 py-2 text-xs font-medium text-stone-700 ring-1 ring-stone-200">

@@ -111,9 +111,18 @@ export interface RecurrenceDTO {
   pausedAt: string | null; // YYYY-MM-DD — data da pausa; limpa ao retomar (vazia nas pausadas antes de existir)
   vatRate: number | null;
   vatIncluded: boolean | null;
+  /** A que mês se refere o pagamento: 0 = o próprio mês (renda), -1 = o anterior (salários). Opcional até o backend novo. */
+  paymentPeriodOffset?: PaymentPeriodOffset;
   createdAt: string;
   updatedAt: string;
 }
+
+export type PaymentPeriodOffset = 0 | -1;
+
+export const PAYMENT_PERIOD_LABELS: Record<PaymentPeriodOffset, string> = {
+  0: "Mês do pagamento",
+  [-1]: "Mês anterior",
+};
 
 export interface LinkedBankMovement {
   id: string;
@@ -171,6 +180,7 @@ export interface CreateRecurrencePayload {
   paymentMethod: PaymentMethod;
   requireInvoice: boolean;
   notes?: string | null;
+  paymentPeriodOffset?: PaymentPeriodOffset;
 }
 
 export interface UpdateRecurrencePayload {
@@ -189,6 +199,7 @@ export interface UpdateRecurrencePayload {
   notes?: string | null;
   vatRate?: number | null;
   vatIncluded?: boolean | null;
+  paymentPeriodOffset?: PaymentPeriodOffset;
 }
 
 /** Colaborador do RH para associar a uma recorrência de salários (só id, nome e estado). */

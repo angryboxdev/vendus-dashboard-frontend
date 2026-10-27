@@ -224,6 +224,8 @@ export interface ReconciliationRuleDTO {
   supplierId: string | null;
   vatRate: number | null;
   vatIncluded: boolean | null;
+  /** Recorrência sem fatura que a regra paga (renda, salário). Opcional até o backend novo. */
+  recurrenceId?: string | null;
   justificationType: JustificationType;
   requiresDocument: boolean;
   riskLevel: RiskLevel;
@@ -412,6 +414,8 @@ export interface CreateRulePayload {
   supplierId?: string | null;
   vatRate?: number | null;
   vatIncluded?: boolean | null;
+  /** Liga a regra a uma recorrência sem fatura: cada movimento paga a ocorrência do mês (exige «Contrato / Recorrência»). */
+  recurrenceId?: string | null;
   /** Aplica já aos movimentos por classificar desta conta nos meses importados. */
   applyToExisting?: boolean;
 }
@@ -426,6 +430,8 @@ export interface UpdateRulePayload {
   supplierId?: string | null;
   vatRate?: number | null;
   vatIncluded?: boolean | null;
+  /** Liga a regra a uma recorrência sem fatura: cada movimento paga a ocorrência do mês (exige «Contrato / Recorrência»). */
+  recurrenceId?: string | null;
   justificationType?: JustificationType;
   isActive?: boolean;
   applyToExisting?: boolean;
