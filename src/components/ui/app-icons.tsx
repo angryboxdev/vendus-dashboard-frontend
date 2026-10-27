@@ -1,5 +1,6 @@
 import type { LucideIcon, LucideProps } from "lucide-react";
 import {
+  Lock,
   Settings,
   Archive,
   ChefHat,
@@ -78,6 +79,7 @@ export const APP_ICONS = {
   users: wrap(UserCog),
   deviceTokens: wrap(KeyRound),
   settings: wrap(Settings),
+  lock: wrap(Lock),
   overview: wrap(LayoutDashboard),
   rosters: wrap(CalendarDays),
   attendance: wrap(Clock),

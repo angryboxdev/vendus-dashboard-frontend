@@ -11,6 +11,8 @@ export interface EmailIntakeAttachmentDTO {
   /** Ainda vai ser tentado de novo (falha passageira). */
   retrying: boolean;
   invoiceId: string | null;
+  /** A fatura já foi eliminada: o histórico fica, sem link. Opcional até o backend novo. */
+  invoiceDeleted?: boolean;
   message: string | null;
 }
 
