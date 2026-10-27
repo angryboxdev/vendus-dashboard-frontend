@@ -2,11 +2,16 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { CashFlowProvider, type CashFlowModule } from "../../cash-flow.module.tsx";
 import { sampleDre } from "../../domain/services/dre-fixtures.ts";
+import { sampleParameters, sampleReconciliation } from "../../domain/services/sales-reconciliation-fixtures.ts";
 import { sampleReport } from "../../domain/services/fixtures.ts";
 import { DreView } from "./DreView.tsx";
+
+vi.mock("../../../../contexts/AuthContext", () => ({
+  useAuth: () => ({ user: { access: { portalOnly: false, isAdmin: false, permissions: { "dre.statement": "MANAGE" } } } }),
+}));
 
 function renderView(mod: CashFlowModule, year = 2026, month = 3) {
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -25,6 +30,9 @@ const fakeModule = (): CashFlowModule => ({
   getCashFlow: { execute: async () => sampleReport() },
   getToHandle: { execute: async () => null },
   getDre: { execute: async () => sampleDre() },
+  getSalesReconciliation: { execute: async () => sampleReconciliation() },
+  getDreParameters: { execute: async () => sampleParameters() },
+  saveDreParameters: { execute: async () => sampleParameters() },
 });
 
 describe("DreView", () => {

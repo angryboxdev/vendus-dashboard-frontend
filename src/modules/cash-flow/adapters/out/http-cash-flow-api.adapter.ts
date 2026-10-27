@@ -1,6 +1,7 @@
-import { ApiError, apiGet } from "../../../../lib/api.ts";
+import { ApiError, apiGet, apiPut } from "../../../../lib/api.ts";
 import type { CashFlowReport, CashFlowToHandle } from "../../domain/entities/cash-flow.ts";
-import type { DreReport } from "../../domain/entities/dre.ts";
+import type { DreParameters, DreReport, ResolvedDreParameters } from "../../domain/entities/dre.ts";
+import type { SalesReconciliation } from "../../domain/entities/sales-reconciliation.ts";
 import type { CashFlowApiPort } from "../../domain/ports/out/cash-flow-api.port.ts";
 
 export class HttpCashFlowApiAdapter implements CashFlowApiPort {
@@ -10,6 +11,18 @@ export class HttpCashFlowApiAdapter implements CashFlowApiPort {
 
   getDre(year: number, month: number): Promise<DreReport> {
     return apiGet<DreReport>(`/api/reports/dre/resultado?year=${year}&month=${month}`);
+  }
+
+  getSalesReconciliation(year: number, month: number): Promise<SalesReconciliation> {
+    return apiGet<SalesReconciliation>(`/api/reports/dre/conferencia-vendas?year=${year}&month=${month}`);
+  }
+
+  getDreParameters(year: number, month: number): Promise<ResolvedDreParameters> {
+    return apiGet<ResolvedDreParameters>(`/api/reports/dre/parametros?year=${year}&month=${month}`);
+  }
+
+  saveDreParameters(year: number, month: number, parameters: DreParameters): Promise<ResolvedDreParameters> {
+    return apiPut<ResolvedDreParameters>(`/api/reports/dre/parametros?year=${year}&month=${month}`, parameters);
   }
 
   async getToHandle(): Promise<CashFlowToHandle | null> {

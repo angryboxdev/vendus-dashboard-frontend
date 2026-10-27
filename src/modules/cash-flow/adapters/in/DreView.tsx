@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertBanner,
+  Button,
   EmptyState,
   IconChevronDown,
   PAGE_BG,
@@ -15,6 +16,7 @@ import { monthName } from "../../domain/services/cash-flow-view.ts";
 import { dreConfidencePct, platformLabel } from "../../domain/services/dre-view.ts";
 import { euros, kindLabel } from "./cash-flow-format.ts";
 import { useDre } from "./use-dre.ts";
+import { DreParametersDrawer } from "./DreParametersDrawer.tsx";
 
 const ROW = "flex items-baseline justify-between gap-4 py-2.5";
 const AMOUNT = "shrink-0 text-sm tabular-nums";
@@ -242,9 +244,18 @@ function SidePanel({ report }: { report: DreReport }) {
 /** DRE do mês pela conciliação bancária (Mapa de rentabilidade → Mapa). */
 export function DreView({ year, month }: { year: number; month: number }) {
   const { report, loading, error, future } = useDre(year, month);
+  const [paramsOpen, setParamsOpen] = useState(false);
 
   return (
     <div className={`${PAGE_BG} mx-auto w-full max-w-6xl space-y-5 p-4 sm:p-6`}>
+      {!future && (
+        <div className="flex justify-end">
+          <Button size="sm" onClick={() => setParamsOpen(true)}>
+            Parâmetros do mês
+          </Button>
+          <DreParametersDrawer year={year} month={month} open={paramsOpen} onClose={() => setParamsOpen(false)} />
+        </div>
+      )}
       {future ? (
         <EmptyState title="Este mês ainda não começou" description="Escolha um mês até ao atual." />
       ) : error ? (

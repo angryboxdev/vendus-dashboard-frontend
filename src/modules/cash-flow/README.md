@@ -1,7 +1,7 @@
 # Módulo: cash-flow
 
 > Status: ativo
-> Última atualização: 2026-10-26
+> Última atualização: 2026-10-27 (conferência de vendas; parâmetros do mês no Mapa; DRE com delivery em bruto)
 
 ## Propósito
 
@@ -18,10 +18,11 @@ Página **Mapa de rentabilidade → Fluxo de caixa** (`/dre/fluxo-caixa`), só a
 ### Entrada (use cases)
 
 - `GetCashFlowPort` — relatório de um mês.
+- `GetDrePort`, `GetSalesReconciliationPort`, `GetDreParametersPort` / `SaveDreParametersPort` — DRE, conferência de vendas e parâmetros do mês.
 
 ### Saída (dependências do domínio)
 
-- `CashFlowApiPort` — `getCashFlow(year, month)`.
+- `CashFlowApiPort` — `getCashFlow`, `getToHandle`, `getDre`, `getSalesReconciliation`, `getDreParameters`, `saveDreParameters`.
 
 ## Adapters
 
@@ -32,7 +33,7 @@ Página **Mapa de rentabilidade → Fluxo de caixa** (`/dre/fluxo-caixa`), só a
 
 ### Saída
 
-- `HttpCashFlowApiAdapter` → `GET /api/reports/dre/fluxo-caixa?year&month`.
+- `HttpCashFlowApiAdapter` → `GET /api/reports/dre/fluxo-caixa`, `/resultado`, `/conferencia-vendas`, `GET|PUT /parametros` (sempre `?year&month`) e `/fluxo-caixa/para-tratar`.
 
 ## Decisões de design
 
@@ -52,6 +53,12 @@ Página **Mapa de rentabilidade → Fluxo de caixa** (`/dre/fluxo-caixa`), só a
 ## DRE (Mapa)
 
 `DreView` + `useDre` (`GetDrePort`, `GET /api/reports/dre/resultado`) substitui o conteúdo de **Mapa de rentabilidade → Mapa** (`/dre/demonstrativo`, `pages/dre/DemonstrativoPage.tsx` passou a só embrulhar a vista). Tudo sem IVA, calculado no backend a partir da conciliação bancária: resultado e margem; demonstração (receita = restaurante pelo Vendus (cartão / dinheiro / outros) + plataformas em bruto, reconstituídas do recebido no banco pelos parâmetros do mês (sem AirMenu), com o recebido e a margem por plataforma; custos das plataformas (comissões, marketing); gastos por categoria, abríveis, com «IVA por confirmar» / «Por classificar»; ajustes manuais; resultado); IVA do mês (vendas − compras = estimativa a entregar, com a parte estimada); «Confiança dos gastos» (`dreConfidencePct`: gastos com categoria e IVA conhecido) com atalho para a conciliação. As páginas antigas de custos fixos/variáveis continuam para lançar os ajustes manuais.
+
+**Parâmetros do mês** (botão no Mapa → `DreParametersDrawer`; `GetDreParametersPort` / `SaveDreParametersPort`, `GET|PUT /api/reports/dre/parametros`): IVA médio do delivery, comissão e IVA da comissão, base da comissão (com/sem IVA), IVA do marketing, taxa do TPA, IVA teórico dos gastos e marketing por plataforma (euros sem IVA → cêntimos com `parseEuroToCents` do `bank-statements`). Mostra se os valores são do mês, herdados ou de omissão. Gravar exige «Mapa» com gestão (ou Admin); sem ela o painel é só de consulta. Gravar invalida o Mapa e a conferência do mês. A conversão do formulário vive em `sales-reconciliation-view.ts` (`toForm` / `fromForm`).
+
+## Conferência de vendas
+
+`SalesReconciliationView` + `useSalesReconciliation` (`GetSalesReconciliationPort`, `GET /api/reports/dre/conferencia-vendas`), página **Mapa de rentabilidade → Conferência de vendas** (`/dre/conferencia-vendas`, `pages/dre/ConferenciaVendasPage.tsx`, permissão `dre.statement`): venda restaurante cartão (Vendus) × créditos TPA — vendido, recebido, diferença, taxa implícita vs esperada, cada liquidação com os dias de venda que cobre e o estado (Taxa OK / Verificar / Sem vendas), e o que está por liquidar; venda restaurante dinheiro × depósitos — vendido, depositado, por depositar e cada depósito com o vendido desde o anterior. O cálculo é todo do backend.
 
 ## Lacunas conhecidas
 

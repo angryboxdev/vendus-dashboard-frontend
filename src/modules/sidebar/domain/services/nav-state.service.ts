@@ -5,6 +5,7 @@ import { canOpenPath } from "../../../access/domain/services/access-ui.service.t
 const DRE_ITEMS: NavItem[] = [
   { kind: "item", path: "/dre/demonstrativo", label: "Mapa" },
   { kind: "item", path: "/dre/fluxo-caixa", label: "Fluxo de caixa" },
+  { kind: "item", path: "/dre/conferencia-vendas", label: "Conferência de vendas" },
   { kind: "item", path: "/dre/receita-bruta", label: "Receitas" },
   { kind: "item", path: "/dre/custos-fixos", label: "Custos Fixos" },
   { kind: "item", path: "/dre/custos-variaveis", label: "Custos Variáveis" },

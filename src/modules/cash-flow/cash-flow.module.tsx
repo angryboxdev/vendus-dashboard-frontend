@@ -3,14 +3,21 @@ import { HttpCashFlowApiAdapter } from "./adapters/out/http-cash-flow-api.adapte
 import { GetCashFlowUseCase } from "./application/use-cases/get-cash-flow.use-case.ts";
 import { GetCashFlowToHandleUseCase } from "./application/use-cases/get-cash-flow-to-handle.use-case.ts";
 import { GetDreUseCase } from "./application/use-cases/get-dre.use-case.ts";
+import { GetSalesReconciliationUseCase } from "./application/use-cases/sales-reconciliation.use-case.ts";
+import { GetDreParametersUseCase, SaveDreParametersUseCase } from "./application/use-cases/dre-parameters.use-case.ts";
 import type { GetCashFlowPort } from "./domain/ports/in/get-cash-flow.port.ts";
 import type { GetCashFlowToHandlePort } from "./domain/ports/in/get-cash-flow-to-handle.port.ts";
 import type { GetDrePort } from "./domain/ports/in/get-dre.port.ts";
+import type { GetSalesReconciliationPort } from "./domain/ports/in/sales-reconciliation.port.ts";
+import type { GetDreParametersPort, SaveDreParametersPort } from "./domain/ports/in/dre-parameters.port.ts";
 
 export interface CashFlowModule {
   getCashFlow: GetCashFlowPort;
   getToHandle: GetCashFlowToHandlePort;
   getDre: GetDrePort;
+  getSalesReconciliation: GetSalesReconciliationPort;
+  getDreParameters: GetDreParametersPort;
+  saveDreParameters: SaveDreParametersPort;
 }
 
 /** Composition root: liga o adapter HTTP aos casos de uso. */
@@ -20,6 +27,9 @@ function buildModule(): CashFlowModule {
     getCashFlow: new GetCashFlowUseCase(api),
     getToHandle: new GetCashFlowToHandleUseCase(api),
     getDre: new GetDreUseCase(api),
+    getSalesReconciliation: new GetSalesReconciliationUseCase(api),
+    getDreParameters: new GetDreParametersUseCase(api),
+    saveDreParameters: new SaveDreParametersUseCase(api),
   };
 }
 
