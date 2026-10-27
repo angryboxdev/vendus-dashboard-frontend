@@ -35,8 +35,7 @@ export function useSidebar(): UseSidebarResult {
   const { getNavState, signOut: signOutUseCase, badgeCounts } = useSidebarModule();
   const location = useLocation();
   const navigate = useNavigate();
-  const [manualExpanded, setManualExpanded] = useState<Set<string>>(new Set());
-  const [manualCollapsed, setManualCollapsed] = useState<Set<string>>(new Set());
+  const [choice, setChoice] = useState<{ pathname: string; groupId: string | null } | null>(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(loadCollapsed);
 
@@ -65,39 +64,16 @@ export function useSidebar(): UseSidebarResult {
     return state.activeGroupId === groupId;
   }
 
+  // Acordeão: só um grupo aberto de cada vez. A escolha manual vale até mudar de ecrã;
+  // depois volta a abrir-se o grupo ativo.
+  const openGroupId = choice && choice.pathname === location.pathname ? choice.groupId : state.activeGroupId;
+
   function isGroupExpanded(groupId: string): boolean {
-    if (manualCollapsed.has(groupId)) return false;
-    if (manualExpanded.has(groupId)) return true;
-    return state.activeGroupId === groupId;
+    return openGroupId === groupId;
   }
 
   function toggleGroup(groupId: string): void {
-    if (isGroupExpanded(groupId)) {
-      if (isGroupActive(groupId)) {
-        // active group: collapse it manually
-        setManualCollapsed((prev) => new Set(prev).add(groupId));
-        setManualExpanded((prev) => {
-          const n = new Set(prev);
-          n.delete(groupId);
-          return n;
-        });
-      } else {
-        // manually expanded: close it
-        setManualExpanded((prev) => {
-          const n = new Set(prev);
-          n.delete(groupId);
-          return n;
-        });
-      }
-    } else {
-      // collapsed: open it and clear any manual-collapsed flag
-      setManualCollapsed((prev) => {
-        const n = new Set(prev);
-        n.delete(groupId);
-        return n;
-      });
-      setManualExpanded((prev) => new Set(prev).add(groupId));
-    }
+    setChoice({ pathname: location.pathname, groupId: openGroupId === groupId ? null : groupId });
   }
 
   function signOut(): void {
