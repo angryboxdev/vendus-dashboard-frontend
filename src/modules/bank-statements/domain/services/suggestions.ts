@@ -1,4 +1,4 @@
-import type { MonthlyEntityMatchSuggestionDTO, MovementCandidateDTO } from "../entities/bank-statement.ts";
+import type { ClassifyMovementPayload, MonthlyEntityMatchSuggestionDTO, MonthlyOccurrenceMatchSuggestionDTO, MovementCandidateDTO } from "../entities/bank-statement.ts";
 
 /** Abaixo disto não é sugestão (decisão do utilizador 2026-10-26: «abaixo de 70% não interessa»; mesmo valor que o backend). */
 export const SUGGESTION_MIN_CONFIDENCE = 0.7;
@@ -37,4 +37,20 @@ export function bulkReconcileItems(
       entityLinks: [{ entityType: s.entityType, entityId: s.entityId, allocatedAmountCents: Math.min(s.openBalanceCents, amount), supplierId: s.supplierId }],
     }];
   });
+}
+
+/**
+ * Classificação a enviar para uma sugestão de recorrência (como no painel «Justificar despesa → Contrato /
+ * Recorrência»): liga o movimento à ocorrência — o backend deixa-a paga — e herda a categoria da recorrência.
+ */
+export function occurrenceClassification(s: MonthlyOccurrenceMatchSuggestionDTO): ClassifyMovementPayload {
+  return {
+    justificationType: "contrato_recorrencia",
+    matchedEntityType: "recurrence_occurrence",
+    matchedEntityId: s.occurrenceId,
+    ...(s.costCenterGroupId && { costCenterGroupId: s.costCenterGroupId }),
+    ...(s.costCenterCategoryId && { costCenterCategoryId: s.costCenterCategoryId }),
+    ...(s.supplierId && { supplierId: s.supplierId }),
+    ...(s.vatRate != null && { vatRate: s.vatRate, vatIncluded: s.vatIncluded ?? true }),
+  };
 }
