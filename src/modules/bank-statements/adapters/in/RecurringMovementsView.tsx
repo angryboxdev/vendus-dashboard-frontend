@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
 import { useBankAccountsModule } from "../../../bank-accounts/bank-accounts.module.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
+import { useRuleRecurrences, paymentPeriodHint } from "./useRuleRecurrences.ts";
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 import { useToast, ToastContainer } from "../../../../components/Toast.tsx";
 import { formatEUR, formatIsoDatePt } from "../../../../lib/format.ts";
@@ -93,6 +94,8 @@ export function RecurringMovementsView() {
     [rules, bank, bankAccountIds],
   );
   const groupName = new Map(groups.map((g) => [g.id, g.name]));
+  const { all: allRecurrences } = useRuleRecurrences();
+  const recurrenceName = new Map(allRecurrences.map((r) => [r.id, r.name]));
   const categoryName = new Map(categories.map((c) => [c.id, c.name]));
 
   const summary = summarizeRules(bankRules);
@@ -229,6 +232,7 @@ export function RecurringMovementsView() {
                     category={[r.costCenterGroupId && groupName.get(r.costCenterGroupId), r.costCenterCategoryId && categoryName.get(r.costCenterCategoryId)]
                       .filter(Boolean)
                       .join(" › ")}
+                    recurrenceName={r.recurrenceId ? recurrenceName.get(r.recurrenceId) : undefined}
                     busy={updateMut.isPending || deleteMut.isPending}
                     onEdit={() => setEditing(r)}
                     onToggle={() =>
@@ -291,6 +295,7 @@ export function RecurringMovementsView() {
 function RuleRow({
   rule,
   category,
+  recurrenceName,
   busy,
   onEdit,
   onToggle,
@@ -298,6 +303,7 @@ function RuleRow({
 }: {
   rule: ReconciliationRuleDTO;
   category: string;
+  recurrenceName?: string | undefined;
   busy: boolean;
   onEdit: () => void;
   onToggle: () => void;
@@ -313,6 +319,7 @@ function RuleRow({
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate text-sm font-semibold text-navy-900">{rule.name}</p>
           {rule.isActive ? <StatusBadge tone="success">Ativo</StatusBadge> : <StatusBadge tone="neutral">Em pausa</StatusBadge>}
+          {rule.recurrenceId && <StatusBadge tone="neutral">Paga «{recurrenceName ?? "recorrência"}»</StatusBadge>}
         </div>
         <p className="mt-0.5 truncate text-[13px] text-ink-secondary">
           Reconhece «{recurringMatchPreview(rule.descriptionContains) || rule.descriptionContains}»
@@ -379,6 +386,10 @@ function RuleEditDrawer({
   const [tolerance, setTolerance] = useState((rule.amountToleranceCents / 100).toFixed(2).replace(".", ","));
   const [vat, setVat] = useState<string>(rule.vatRate != null ? `${rule.vatRate}|${rule.vatIncluded ? "in" : "ex"}` : "");
   const [applyToExisting, setApplyToExisting] = useState(true);
+  // Recorrência sem fatura que a regra paga (renda, salário); com ela, a justificação é «Contrato / Recorrência».
+  const [recurrenceId, setRecurrenceId] = useState(rule.recurrenceId ?? "");
+  const { recurrences } = useRuleRecurrences();
+  const chosenRecurrence = recurrences.find((r) => r.id === recurrenceId);
 
   const { data: categories = [] } = useQuery({
     queryKey: ["cost-center-categories", groupId],
@@ -404,7 +415,8 @@ function RuleEditDrawer({
     onSave({
       name: name.trim(),
       descriptionContains: text.trim(),
-      justificationType: justification,
+      justificationType: recurrenceId ? "contrato_recorrencia" : justification,
+      recurrenceId: recurrenceId || null,
       costCenterGroupId: groupId || null,
       costCenterCategoryId: groupId ? categoryId || null : null,
       amountCents,
@@ -447,13 +459,30 @@ function RuleEditDrawer({
           </p>
         </div>
         <div>
-          <label className={LABEL} htmlFor="rule-just">Justificação</label>
-          <select id="rule-just" className={`${FIELD} w-full`} value={justification} onChange={(e) => setJustification(e.target.value as JustificationType)}>
-            {RULE_JUSTIFICATIONS.map((j) => (
-              <option key={j} value={j}>{JUSTIFICATION_TYPE_LABELS[j]}</option>
-            ))}
+          <label className={LABEL} htmlFor="rule-rec">Paga a recorrência</label>
+          <select id="rule-rec" className={`${FIELD} w-full`} value={recurrenceId} onChange={(e) => setRecurrenceId(e.target.value)}>
+            <option value="">Nenhuma (só classificar)</option>
+            {rule.recurrenceId && !recurrences.some((r) => r.id === rule.recurrenceId) && (
+              <option value={rule.recurrenceId}>Recorrência atual (encerrada ou com fatura)</option>
+            )}
+            {recurrences.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
+          <p className="mt-1.5 text-xs text-ink-secondary">
+            {recurrenceId
+              ? `Cada movimento fica ligado à ocorrência do mês e a recorrência fica paga. ${paymentPeriodHint(chosenRecurrence)} Se esse mês já estiver pago, o movimento fica por conciliar.`
+              : "Rendas, salários e outras recorrências sem fatura obrigatória."}
+          </p>
         </div>
+        {!recurrenceId && (
+          <div>
+            <label className={LABEL} htmlFor="rule-just">Justificação</label>
+            <select id="rule-just" className={`${FIELD} w-full`} value={justification} onChange={(e) => setJustification(e.target.value as JustificationType)}>
+              {RULE_JUSTIFICATIONS.map((j) => (
+                <option key={j} value={j}>{JUSTIFICATION_TYPE_LABELS[j]}</option>
+              ))}
+            </select>
+          </div>
+        )}
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className={LABEL} htmlFor="rule-group">Categoria</label>
