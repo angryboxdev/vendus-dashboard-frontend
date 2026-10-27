@@ -36,6 +36,8 @@ Página **Mapa de rentabilidade → Fluxo de caixa** (`/dre/fluxo-caixa`), só a
 
 ## Decisões de design
 
+- **Ajustes manuais no Mapa (Menu V1, 2026-10-27)** — Custos Fixos e Custos Variáveis saíram do menu; a linha «Ajustes manuais» da DRE tem ligações para essas páginas (só as que a pessoa pode abrir; `useOptionalAuth`, para funcionar sem sessão nos testes).
+
 - **Só o banco** (decisão do utilizador, 2026-10-26): as vendas do Vendus ficam para a DRE.
 - **Nomes dos tipos de movimento** reutilizam `MOVEMENT_KIND_LABELS` do módulo `bank-statements` (o backend devolve só a chave), para coincidirem com a conciliação bancária.
 - **Cores do gráfico em HEX** (`cash-flow-format.ts`): o recharts não aceita classes; verde/vermelho só como estados (entradas/saídas), como no kit.

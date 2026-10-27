@@ -62,8 +62,8 @@ describe("GetNavStateUseCase", () => {
     const uc = new GetNavStateUseCase(
       new FakeAuth({ email: "a@b.com", role: "manager" }),
     );
-    expect(uc.execute("/dre/demonstrativo").activeGroupId).toBe("dre");
-    expect(uc.execute("/cash-closings").activeGroupId).toBeNull();
+    expect(uc.execute("/dre/demonstrativo").activeGroupId).toBeNull(); // Mapa de rentabilidade: clique direto
+    expect(uc.execute("/cash-closings").activeGroupId).toBe("operations");
     expect(uc.execute("/financial/invoices").activeGroupId).toBe("financial");
     expect(uc.execute("/financial/payable-entries").activeGroupId).toBe("financial");
   });

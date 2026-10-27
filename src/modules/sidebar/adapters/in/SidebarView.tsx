@@ -1,6 +1,6 @@
 import { NavLink, useLocation } from "react-router-dom";
 import { useState } from "react";
-import { chunkBySubgroup, isItemActive } from "../../domain/services/nav-state.service.ts";
+import { chunkBySubgroup, isItemActive, splitBottom } from "../../domain/services/nav-state.service.ts";
 import { useSidebar } from "./use-sidebar.ts";
 import type { NavGroup, NavItem, SidebarNavEntry } from "../../domain/entities/nav-item.ts";
 import type { UseSidebarResult } from "./use-sidebar.ts";
@@ -211,9 +211,9 @@ function SidebarBody({
         </div>
       </div>
 
-      {/* Nav */}
-      <nav className="flex flex-1 flex-col gap-0.5 px-3 pb-4">
-        {tree.map((entry) => {
+      {/* Nav — os módulos; Configurações fica fixo no fundo, junto ao utilizador. */}
+      <nav aria-label="Navegação principal" className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto px-3 pb-4">
+        {splitBottom(tree).main.map((entry) => {
           if (entry.kind === "item") {
             return (
               <NavItemLink key={entry.path} item={entry} onClick={onNavClick} badge={entry.badgeKey ? badges[entry.badgeKey] : 0} />
@@ -232,6 +232,27 @@ function SidebarBody({
           );
         })}
       </nav>
+
+      {/* Fundo da barra: Configurações (abre no sítio, como os outros módulos) */}
+      {splitBottom(tree).bottom.length > 0 && (
+        <nav aria-label="Configurações" className="border-t border-white/10 px-3 py-2">
+          {splitBottom(tree).bottom.map((entry) =>
+            entry.kind === "group" ? (
+              <NavGroupSection
+                key={entry.id}
+                group={entry}
+                expanded={isGroupExpanded(entry.id)}
+                active={isGroupActive(entry.id)}
+                onToggle={() => toggleGroup(entry.id)}
+                onNavClick={onNavClick}
+                badges={badges}
+              />
+            ) : (
+              <NavItemLink key={entry.path} item={entry} onClick={onNavClick} badge={entry.badgeKey ? badges[entry.badgeKey] : 0} />
+            ),
+          )}
+        </nav>
+      )}
 
       {/* Footer */}
       <div className="border-t border-white/10 px-3 py-3">

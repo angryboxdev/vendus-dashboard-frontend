@@ -2,13 +2,17 @@ import type { NavItem, SidebarNavEntry } from "../entities/nav-item.ts";
 import type { SidebarUser } from "../entities/sidebar-user.ts";
 import { canOpenPath } from "../../../access/domain/services/access-ui.service.ts";
 
-const DRE_ITEMS: NavItem[] = [
-  { kind: "item", path: "/dre/demonstrativo", label: "Mapa" },
-  { kind: "item", path: "/dre/fluxo-caixa", label: "Fluxo de caixa" },
-  { kind: "item", path: "/dre/receita-bruta", label: "Receitas" },
-  { kind: "item", path: "/dre/custos-fixos", label: "Custos Fixos" },
-  { kind: "item", path: "/dre/custos-variaveis", label: "Custos Variáveis" },
-];
+/**
+ * Menu V1 (protótipo, 2026-10-27): Rentabilidade é um clique direto para o Mapa. Receitas, Custos Fixos e Custos
+ * Variáveis saem do MENU — as rotas e os dados ficam (os ajustes manuais da DRE continuam nessas páginas).
+ */
+const PROFITABILITY_ITEM: NavItem = {
+  kind: "item",
+  path: "/dre/demonstrativo",
+  label: "Mapa de rentabilidade",
+  icon: "profitability",
+  match: ["/dre/receita-bruta", "/dre/custos-fixos", "/dre/custos-variaveis"],
+};
 
 // Mesmas rotas e ecrãs; só os nomes e o agrupamento (task «Stock inteligente» V4 §1).
 const STOCK_ITEMS: NavItem[] = [
@@ -52,14 +56,23 @@ const CRM_ITEMS: NavItem[] = [
   { kind: "item", path: "/crm/parameters", label: "Parâmetros" },
 ];
 
+// Fluxo de caixa passa para o Financeiro (mesma página e rota). Declaração de Vendas passa para Operação.
 const FINANCIAL_ITEMS: NavItem[] = [
   { kind: "item", path: "/financial/cost-centers", label: "Categorias" },
   { kind: "item", path: "/financial/suppliers", label: "Fornecedores" },
   { kind: "item", path: "/financial/invoices", label: "Faturas" },
   { kind: "item", path: "/financial/recurrences", label: "Recorrências" },
-  { kind: "item", path: "/financial/bank-statements", label: "Conciliação Bancária" },
+  { kind: "item", path: "/financial/bank-statements", label: "Conciliação bancária" },
+  { kind: "item", path: "/dre/fluxo-caixa", label: "Fluxo de caixa" },
   { kind: "item", path: "/financial/accounting", label: "Contabilidade" },
+];
+
+// Operação (proposta): o dia a dia das vendas — páginas que já existem, nas mesmas rotas.
+const OPERATIONS_ITEMS: NavItem[] = [
+  { kind: "item", path: "/cash-closings", label: "Fechos de Caixa" },
   { kind: "item", path: "/financial/sales-declaration", label: "Declaração de Vendas" },
+  { kind: "item", path: "/air-menu", label: "Air Menu" },
+  { kind: "item", path: "/vendus", label: "Vendus" },
 ];
 
 /**
@@ -67,22 +80,15 @@ const FINANCIAL_ITEMS: NavItem[] = [
  * permissões — e as integrações técnicas. Sem página «Integrações» vazia: o subgrupo leva aos ecrãs reais.
  */
 const SETTINGS_ITEMS: NavItem[] = [
-  { kind: "item", path: "/empresa", label: "Empresa & Estrutura" },
+  { kind: "item", path: "/empresa", label: "Empresa e Estrutura" },
   { kind: "item", path: "/admin/users", label: "Utilizadores e permissões", match: ["/admin/access-profiles"] },
-  { kind: "item", path: "/configuracoes/integracoes/faturas-por-email", label: "Faturas por email", subgroup: "Integrações" },
-  { kind: "item", path: "/admin/location-tokens", label: "Tokens de dispositivo", subgroup: "Integrações" },
+  // Um destino único (sem terceiro nível): a página Integrações lista Faturas por email e Tokens de dispositivo.
+  { kind: "item", path: "/configuracoes/integracoes", label: "Integrações", match: ["/configuracoes/integracoes/faturas-por-email", "/admin/location-tokens"] },
 ];
 
 export function buildTree(user: SidebarUser): SidebarNavEntry[] {
   const entries: SidebarNavEntry[] = [
-    {
-      kind: "group",
-      id: "dre",
-      label: "Mapa de rentabilidade",
-      icon: "profitability",
-      basePath: "/dre",
-      items: DRE_ITEMS,
-    },
+    PROFITABILITY_ITEM,
     {
       kind: "group",
       id: "stock",
@@ -115,9 +121,14 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
       basePath: "/financial",
       items: FINANCIAL_ITEMS,
     },
-    { kind: "item", path: "/cash-closings", label: "Fechos de Caixa", icon: "cashClosings" },
-    { kind: "item", path: "/air-menu", label: "Air Menu", icon: "airMenu" },
-    { kind: "item", path: "/vendus", label: "Vendus", icon: "vendus" },
+    {
+      kind: "group",
+      id: "operations",
+      label: "Operação",
+      icon: "cashClosings",
+      basePath: "/operacao",
+      items: OPERATIONS_ITEMS,
+    },
     {
       kind: "group",
       id: "settings",
@@ -144,14 +155,15 @@ export function resolveActiveGroup(
   tree: SidebarNavEntry[],
   currentPath: string,
 ): string | null {
+  // Primeiro pelos destinos (Fluxo de caixa vive em /dre/… mas é do Financeiro; Declaração de Vendas vive em
+  // /financial/… mas é da Operação); depois pelo prefixo do grupo (ecrãs internos sem item próprio).
   for (const entry of tree) {
-    if (entry.kind === "group" && currentPath.startsWith(entry.basePath)) {
+    if (entry.kind === "group" && entry.items.some((i) => [i.path, ...(i.match ?? [])].some((p) => isItemActive(p, currentPath)))) {
       return entry.id;
     }
   }
-  // Grupos com ecrãs de outros caminhos (Configurações: /empresa, /admin/…).
   for (const entry of tree) {
-    if (entry.kind === "group" && entry.items.some((i) => [i.path, ...(i.match ?? [])].some((p) => isItemActive(p, currentPath)))) {
+    if (entry.kind === "group" && currentPath.startsWith(entry.basePath)) {
       return entry.id;
     }
   }
@@ -165,4 +177,14 @@ export function isItemActive(
 ): boolean {
   if (end) return currentPath === path;
   return currentPath === path || currentPath.startsWith(path + "/");
+}
+
+
+/** Grupo fixo no fundo da barra, junto ao utilizador (Menu V1: pedido do utilizador). */
+export const BOTTOM_GROUP_ID = "settings";
+
+/** Separa os módulos da lista principal do grupo fixo no fundo (Configurações). */
+export function splitBottom(tree: SidebarNavEntry[]): { main: SidebarNavEntry[]; bottom: SidebarNavEntry[] } {
+  const isBottom = (e: SidebarNavEntry) => e.kind === "group" && e.id === BOTTOM_GROUP_ID;
+  return { main: tree.filter((e) => !isBottom(e)), bottom: tree.filter(isBottom) };
 }
