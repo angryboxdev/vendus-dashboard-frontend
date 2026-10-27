@@ -28,6 +28,13 @@ export function daysFrom(from: string, days: number): string[] {
   return out;
 }
 
+/** `date` (AAAA-MM-DD) mais `n` dias; `n` pode ser negativo (semana anterior). */
+export function addDays(date: string, n: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+}
+
 /** Rótulo curto de um turno na grelha: abreviatura do modelo ou as horas; folga = "F". */
 export function cellLabel(s: Pick<RosterShift, "kind" | "segments" | "templateId">, templates: ShiftTemplate[]): string {
   if (s.kind === "day_off") return "F";

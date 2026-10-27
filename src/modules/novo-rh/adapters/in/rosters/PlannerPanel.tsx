@@ -45,6 +45,7 @@ import type {
 } from "../../../domain/entities/rosters.ts";
 import { weekOf } from "../../../domain/services/attendance.service.ts";
 import {
+  addDays,
   cellLabel,
   daysFrom,
   violationsOf,
@@ -78,7 +79,7 @@ const MODE_KEY = "novo-rh-roster-board-mode";
 const ASSIGN_KEY = "novo-rh-assign-collapsed";
 const message = (e: unknown, fallback: string) =>
   e instanceof Error ? e.message : fallback;
-const plus = (d: string, n: number) => daysFrom(d, n + 1).at(-1)!;
+const plus = addDays;
 
 function load(key: string): string {
   try {
