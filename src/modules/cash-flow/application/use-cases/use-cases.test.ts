@@ -37,6 +37,6 @@ describe("GetCashFlowToHandleUseCase", () => {
 
 describe("GetDreUseCase", () => {
   it("pede a DRE do mês à API", async () => {
-    await expect(new GetDreUseCase(fakeApi()).execute(2026, 3)).resolves.toMatchObject({ resultCents: 355_000 });
+    await expect(new GetDreUseCase(fakeApi()).execute(2026, 3)).resolves.toMatchObject({ resultCents: 341_957 });
   });
 });

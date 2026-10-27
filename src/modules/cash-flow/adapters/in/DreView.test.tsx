@@ -32,13 +32,15 @@ describe("DreView", () => {
     renderView(fakeModule());
     expect(await screen.findByText("Demonstração de resultados")).toBeInTheDocument();
     expect(screen.getByText("Restaurante")).toBeInTheDocument();
-    expect(screen.getByText(/comissões e acertos ≈ 300,00/)).toBeInTheDocument();
-    expect(screen.getByText("Uber Eats")).toBeInTheDocument();
+    expect(screen.getByText("Venda restaurante cartão")).toBeInTheDocument();
+    expect(screen.getByText("Custos das plataformas")).toBeInTheDocument();
+    expect(screen.getByText(/margem 569,57/)).toBeInTheDocument();
+    expect(screen.getByText(/Venda plataforma Uber Eats/)).toBeInTheDocument();
     expect(screen.getByText("Compra com cartão")).toBeInTheDocument();
     expect(screen.getByText(/IVA por confirmar 100,00/)).toBeInTheDocument();
     expect(screen.getByText("A entregar (estimativa)")).toBeInTheDocument();
     expect(screen.getByText("90%")).toBeInTheDocument();
-    expect(screen.getAllByText(/3550,00/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/3419,57/).length).toBeGreaterThan(0);
   });
 
   it("abre o detalhe de um grupo de gastos", async () => {
