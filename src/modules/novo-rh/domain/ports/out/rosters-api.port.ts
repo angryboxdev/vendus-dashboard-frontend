@@ -1,4 +1,4 @@
-import type { Publication, PublishOptions, Roster, RosterCandidates, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation, WorkArea, CoverageReport, CoverageRule } from "../../entities/rosters.ts";
+import type { CopyWeekResult, Publication, PublishOptions, Roster, RosterCandidates, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation, WorkArea, CoverageReport, CoverageRule } from "../../entities/rosters.ts";
 
 /** Escalas (`/api/novo-rh/rosters`) e o meu horário (`/api/me/roster`). */
 export interface RostersApiPort {
@@ -30,6 +30,8 @@ export interface RostersApiPort {
   listShifts(rosterId: string, from: string, to: string): Promise<{ roster: Roster; pending: number; shifts: RosterShift[] }>;
   addShift(rosterId: string, input: ShiftInput): Promise<{ shift: RosterShift; warnings: Violation[] }>;
   assignBulk(rosterId: string, input: { employeeIds: string[]; from: string; to: string; weekdays: string[]; kind: "shift" | "day_off"; templateId: string | null; areaId?: string | null }): Promise<{ created: number; warnings: Violation[] }>;
+  /** Copia a semana `from` … +6 desta escala para a seguinte, em rascunho; dias já preenchidos, sobreposições e quem está fora do âmbito saltam. */
+  copyWeek(rosterId: string, input: { from: string }): Promise<CopyWeekResult>;
   updateShift(id: string, patch: Partial<ShiftInput>, opts: PublishOptions): Promise<{ shift: RosterShift; warnings: Violation[]; publication: Publication | null }>;
   deleteShift(id: string, opts: PublishOptions): Promise<{ publication: Publication | null }>;
   /** Limpa numa só operação os turnos nunca publicados de um colaborador no período (opcionalmente só estes ids). */

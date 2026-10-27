@@ -1,5 +1,5 @@
 import { apiGet, apiWrite } from "../../../../lib/api.ts";
-import type { Publication, PublishOptions, Roster, RosterCandidates, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation, WorkArea, CoverageReport, CoverageRule } from "../../domain/entities/rosters.ts";
+import type { CopyWeekResult, Publication, PublishOptions, Roster, RosterCandidates, RosterShift, RosterSummary, ShiftInput, ShiftState, ShiftTemplate, Swap, Violation, WorkArea, CoverageReport, CoverageRule } from "../../domain/entities/rosters.ts";
 import type { RostersApiPort } from "../../domain/ports/out/rosters-api.port.ts";
 
 const R = "/api/novo-rh/rosters";
@@ -74,6 +74,9 @@ export class HttpRostersApiAdapter implements RostersApiPort {
   }
   async assignBulk(rosterId: string, input: { employeeIds: string[]; from: string; to: string; weekdays: string[]; kind: "shift" | "day_off"; templateId: string | null }) {
     return (await apiWrite<{ created: number; warnings: Violation[] }>(`${R}/${rosterId}/shifts/bulk`, { body: input })).data;
+  }
+  async copyWeek(rosterId: string, input: { from: string }) {
+    return (await apiWrite<CopyWeekResult>(`${R}/${rosterId}/copy-week`, { body: input })).data;
   }
   async updateShift(id: string, patch: Partial<ShiftInput>, opts: PublishOptions) {
     return (await apiWrite<{ shift: RosterShift; warnings: Violation[]; publication: Publication | null }>(`${R}/shifts/${id}`, { method: "PATCH", body: { ...patch, ...opts } })).data;

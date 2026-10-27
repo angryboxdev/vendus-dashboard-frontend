@@ -23,6 +23,7 @@ import {
   IconLayers,
   IconPlus,
   IconRedo,
+  IconRepeat,
   IconSearch,
   IconSliders,
   IconStore,
@@ -481,6 +482,18 @@ export function PlannerPanel({
     }
   };
 
+  // Copiar a semana visível (a primeira, em vista de 2 semanas) para a seguinte, em rascunho.
+  const [copyOpen, setCopyOpen] = useState(false);
+  const copyWeek = useMutation({
+    mutationFn: () => rosters.copyWeek(rosterId, { from }),
+    onSuccess: () => refresh(),
+  });
+  const closeCopy = () => {
+    setCopyOpen(false);
+    copyWeek.reset();
+  };
+  const ddmm = (d: string) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
+
   useEffect(() => {
     if (waitSaving && editing.saving === 0) setWaitSaving(false);
   }, [waitSaving, editing.saving]);
@@ -892,6 +905,14 @@ export function PlannerPanel({
             <IconCopy size={18} />
           </IconButton>
           <IconButton
+            label={t("ros.copyWeek")}
+            className={`${iconBtn} text-navy-900`}
+            onClick={() => setCopyOpen(true)}
+            disabled={!rosterId}
+          >
+            <IconRepeat size={18} />
+          </IconButton>
+          <IconButton
             label={t("ros.history")}
             className={`${iconBtn} text-navy-900`}
             onClick={() => setDrawer("history")}
@@ -975,6 +996,12 @@ export function PlannerPanel({
                   icon: <IconCopy size={16} />,
                   disabled: !rosterId,
                   onSelect: () => setDrawer("bulk"),
+                },
+                {
+                  label: t("ros.copyWeek"),
+                  icon: <IconCopy size={16} />,
+                  disabled: !rosterId,
+                  onSelect: () => setCopyOpen(true),
                 },
                 {
                   label: t("ros.roster.new"),
@@ -1382,6 +1409,70 @@ export function PlannerPanel({
           </>
         }
       />
+
+      {/* Copiar a semana para a seguinte: confirma, depois mostra o que foi copiado e o que saltou. */}
+      <Dialog
+        open={copyOpen}
+        title={t("ros.copyWeek.title")}
+        description={
+          !copyWeek.data &&
+          t("ros.copyWeek.body", { from: ddmm(from), to: ddmm(plus(from, 6)), nextFrom: ddmm(plus(from, 7)), nextTo: ddmm(plus(from, 13)) })
+        }
+        onClose={closeCopy}
+        actions={
+          copyWeek.data ? (
+            <>
+              <Button variant="tertiary" onClick={closeCopy}>
+                {t("common.close")}
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  closeCopy();
+                  setFrom(plus(from, 7));
+                }}
+              >
+                {t("ros.copyWeek.open")}
+              </Button>
+            </>
+          ) : (
+            <>
+              <Button variant="tertiary" onClick={closeCopy}>
+                {t("common.cancel")}
+              </Button>
+              <Button variant="primary" icon={<IconCopy size={14} />} loading={copyWeek.isPending} disabled={copyWeek.isPending} onClick={() => copyWeek.mutate()}>
+                {t("ros.copyWeek.confirm")}
+              </Button>
+            </>
+          )
+        }
+      >
+        {copyWeek.isError && (
+          <p role="alert" className="text-sm text-red-700">
+            {message(copyWeek.error, t("common.error"))}
+          </p>
+        )}
+        {copyWeek.data && (
+          <div role="status" className="space-y-2 text-sm text-ink-secondary">
+            <p className="font-medium text-navy-900">{t("ros.copyWeek.done", { count: copyWeek.data.created })}</p>
+            {copyWeek.data.skipped.existing > 0 && <p>{t("ros.copyWeek.existing", { count: copyWeek.data.skipped.existing })}</p>}
+            {copyWeek.data.skipped.outOfScope > 0 && <p>{t("ros.copyWeek.outOfScope", { count: copyWeek.data.skipped.outOfScope })}</p>}
+            {copyWeek.data.skipped.overlap.length > 0 && (
+              <div>
+                <p className="text-red-700">{t("ros.copyWeek.overlap")}</p>
+                <ul className="mt-1 list-disc space-y-0.5 pl-5">
+                  {copyWeek.data.skipped.overlap.map((v, i) => (
+                    <li key={i}>
+                      {name(v.employeeId)} · {ddmm(v.workDate)}
+                      {v.conflict && ` — ${v.conflict.rosterName ?? "—"} (${v.conflict.hours})`}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+          </div>
+        )}
+      </Dialog>
 
       {paint && assignOpen && (
         <PlacementPreview

@@ -7,7 +7,7 @@ import { ApiError } from "../../../../../lib/api.ts";
 import type { RosterShift } from "../../../domain/entities/rosters.ts";
 import { weekOf } from "../../../domain/services/attendance.service.ts";
 import { areaRows, chipLabel, hoursLabel, hoursLong, overlappingIds, rosterRows, segmentsTone, shiftRows, templateTone } from "../../../domain/services/roster-board.service.ts";
-import { cellLabel, daysFrom, parseSegments, violationsOf } from "../../../domain/services/rosters.service.ts";
+import { addDays, cellLabel, daysFrom, parseSegments, violationsOf } from "../../../domain/services/rosters.service.ts";
 import { cellRect, copyInputs, paintInputs } from "../../../domain/services/roster-edit.service.ts";
 import { afterRedo, afterUndo, emptyHistory, HISTORY_LIMIT, recordOp, type EditOp } from "../../../domain/services/edit-history.service.ts";
 import { todayIn } from "../../../domain/services/settings-format.service.ts";
@@ -430,6 +430,39 @@ describe("Escalas — ecrãs", () => {
     expect(m.rosters.clearPending).toHaveBeenCalledWith("r1", { employeeId: "e1", from: MON, to: sun });
     await user.click(screen.getByRole("button", { name: "Desfazer" }));
     await vi.waitFor(() => expect(m.rosters.restoreShifts).toHaveBeenCalledWith("r1", ["s2"]));
+  });
+
+  it("«Semana anterior» recua 7 dias e a grelha continua a carregar", async () => {
+    const m = mod();
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(screen.getByRole("button", { name: "Semana anterior" }));
+    const prev = addDays(MON, -7);
+    await vi.waitFor(() => expect(m.rosters.listShifts).toHaveBeenCalledWith("r1", prev, daysFrom(prev, 7)[6]));
+  });
+
+  it("copiar a semana para a seguinte: confirma, mostra o que saltou e abre a semana seguinte", async () => {
+    const m = mod();
+    m.rosters.copyWeek = vi.fn(async () => ({
+      created: 3,
+      skipped: { existing: 1, outOfScope: 0, overlap: [{ rule: "overlap" as const, severity: "block" as const, employeeId: "e2", workDate: daysFrom(MON, 8)[7]!, message: "x", conflict: { shiftId: "o1", rosterId: "r2", rosterName: "Loja Braga", workDate: daysFrom(MON, 8)[7]!, hours: "08:00–16:00", published: true } }] },
+      warnings: [],
+    }));
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(screen.getByRole("button", { name: "Adicionar" }));
+    await user.click(screen.getByRole("menuitem", { name: "Copiar para a semana seguinte" }));
+    const box = screen.getByRole("dialog", { name: "Copiar a escala para a semana seguinte?" });
+    expect(box).toHaveTextContent("em rascunho");
+    await user.click(within(box).getByRole("button", { name: "Copiar semana" }));
+    await vi.waitFor(() => expect(m.rosters.copyWeek).toHaveBeenCalledWith("r1", { from: MON }));
+    expect(await within(box).findByText("3 turno(s)/folga(s) copiados para a semana seguinte, em rascunho.")).toBeInTheDocument();
+    expect(box).toHaveTextContent("1 dia(s) mantidos");
+    expect(box).toHaveTextContent("Bruno Teste");
+    expect(box).toHaveTextContent("Loja Braga (08:00–16:00)");
+    await user.click(within(box).getByRole("button", { name: "Ver semana seguinte" }));
+    const next = addDays(MON, 7);
+    await vi.waitFor(() => expect(m.rosters.listShifts).toHaveBeenCalledWith("r1", next, daysFrom(next, 7)[6]));
   });
 
   it("publicar com sucesso limpa o histórico de edição", async () => {
