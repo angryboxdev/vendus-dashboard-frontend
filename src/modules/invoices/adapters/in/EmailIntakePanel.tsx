@@ -5,7 +5,7 @@ import { useInvoicesModule } from "../../invoices.module.tsx";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { hasLevel } from "../../../access/domain/services/access-ui.service.ts";
 import { formatIsoDatePt } from "../../../../lib/format.ts";
-import { AlertBanner, AppIcon, Button, Dialog, Drawer, FIELD, IconCopy, IconCheck, IconInbox, LABEL, SegmentedControl, Skeleton, StatusBadge } from "../../../../components/ui/index.ts";
+import { AlertBanner, AppIcon, Button, Dialog, FIELD, IconCopy, IconCheck, IconInbox, LABEL, SegmentedControl, Skeleton, StatusBadge } from "../../../../components/ui/index.ts";
 import type { EmailIntakeDTO, EmailIntakeDestination } from "../../domain/entities/email-intake.ts";
 import { emailIntakeStatus } from "../../domain/services/email-intake.ts";
 
@@ -275,14 +275,5 @@ function ActivityBlock({ data }: { data: EmailIntakeDTO }) {
         </ul>
       )}
     </section>
-  );
-}
-
-/** Gaveta aberta a partir de Faturas → Opções. */
-export function EmailIntakeDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
-  return (
-    <Drawer open={open} title="Faturas por email" description="Os fornecedores enviam as faturas para o endereço da empresa e elas entram para rever." onClose={onClose} width="max-w-lg">
-      {open && <EmailIntakePanel />}
-    </Drawer>
   );
 }

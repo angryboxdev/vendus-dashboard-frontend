@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import { AppIcon } from "../../../../components/ui/app-icons.tsx";
 import type { NavGroup, NavItem, SidebarNavEntry } from "../../domain/entities/nav-item.ts";
-import { isItemActive } from "../../domain/services/nav-state.service.ts";
+import { isItemActive, splitBottom } from "../../domain/services/nav-state.service.ts";
 import type { UseSidebarResult } from "./use-sidebar.ts";
 
 const ICON_BTN = "relative flex h-10 w-10 items-center justify-center rounded-lg transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#ED5C32]";
@@ -43,7 +43,8 @@ function ItemIcon({ item, badge }: { item: NavItem; badge: number }) {
 /** Grupo: ícone que abre um menu flutuante com os sub-itens (nenhuma rota fica inacessível). */
 function GroupIcon({ group, active, badges }: { group: NavGroup; active: boolean; badges: UseSidebarResult["badges"] }) {
   const [open, setOpen] = useState(false);
-  const [top, setTop] = useState(0);
+  // Posição do menu: ao lado do ícone; no fundo da barra (Configurações) abre para cima, alinhado pelo fundo.
+  const [pos, setPos] = useState<{ top: number } | { bottom: number }>({ top: 0 });
   const btn = useRef<HTMLButtonElement>(null);
   const panel = useRef<HTMLDivElement>(null);
   const { pathname } = useLocation();
@@ -79,7 +80,8 @@ function GroupIcon({ group, active, badges }: { group: NavGroup; active: boolean
         aria-expanded={open}
         className={iconClass(active)}
         onClick={() => {
-          setTop(btn.current?.getBoundingClientRect().top ?? 0);
+          const r = btn.current?.getBoundingClientRect();
+          setPos(r && window.innerHeight - r.top < 260 ? { bottom: window.innerHeight - r.bottom } : { top: r?.top ?? 0 });
           setOpen((o) => !o);
         }}
       >
@@ -88,7 +90,7 @@ function GroupIcon({ group, active, badges }: { group: NavGroup; active: boolean
       </button>
       {!open && <Tip text={group.label} />}
       {open && (
-        <div ref={panel} role="menu" aria-label={group.label} className="fixed left-[76px] z-50 w-56 rounded-xl border border-white/10 bg-[#1B2438] p-2 shadow-2xl" style={{ top }}>
+        <div ref={panel} role="menu" aria-label={group.label} className="fixed left-[76px] z-50 w-56 rounded-xl border border-white/10 bg-[#1B2438] p-2 shadow-2xl" style={pos}>
           <p className="px-3 pb-1.5 pt-1 text-xs font-semibold uppercase tracking-wide text-slate-400">{group.label}</p>
           {group.items.map((i, idx) => {
             const b = i.badgeKey ? (badges[i.badgeKey] ?? 0) : 0;
@@ -148,8 +150,8 @@ export function CollapsedSidebarBody({
           <Tip text="Expandir" />
         </div>
       </div>
-      <nav aria-label="Navegação principal" className="flex flex-1 flex-col items-center gap-1 pb-4">
-        {tree.map((e) =>
+      <nav aria-label="Navegação principal" className="flex min-h-0 flex-1 flex-col items-center gap-1 overflow-y-auto pb-4">
+        {splitBottom(tree).main.map((e) =>
           e.kind === "item" ? (
             <ItemIcon key={e.path} item={e} badge={e.badgeKey ? (badges[e.badgeKey] ?? 0) : 0} />
           ) : (
@@ -157,6 +159,17 @@ export function CollapsedSidebarBody({
           ),
         )}
       </nav>
+      {splitBottom(tree).bottom.length > 0 && (
+        <nav aria-label="Configurações" className="flex flex-col items-center gap-1 border-t border-white/10 py-2">
+          {splitBottom(tree).bottom.map((e) =>
+            e.kind === "item" ? (
+              <ItemIcon key={e.path} item={e} badge={e.badgeKey ? (badges[e.badgeKey] ?? 0) : 0} />
+            ) : (
+              <GroupIcon key={e.id} group={e} active={isGroupActive(e.id)} badges={badges} />
+            ),
+          )}
+        </nav>
+      )}
       <div className="flex flex-col items-center border-t border-white/10 py-3">
         <div className="group relative">
           <button type="button" aria-label="Sair" onClick={onSignOut} className={`${ICON_BTN} text-slate-300 hover:bg-white/5 hover:text-white`}>

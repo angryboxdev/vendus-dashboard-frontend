@@ -3,6 +3,7 @@ import {
   buildTree,
   isItemActive,
   resolveActiveGroup,
+  splitBottom,
 } from "./nav-state.service.ts";
 import { chunkBySubgroup } from "./nav-state.service.ts";
 
@@ -12,22 +13,38 @@ describe("buildTree", () => {
     return g && g.kind === "group" ? g.items : [];
   };
 
-  it("Configurações é o último grupo (junto ao utilizador) com Empresa & Estrutura e Integrações", () => {
+  it("Menu V1: módulos na ordem proposta; Configurações no fim (junto ao utilizador)", () => {
     const tree = buildTree({ email: "a@b.com", role: "manager" });
-    expect(tree).toHaveLength(9);
-    const last = tree[tree.length - 1];
-    expect(last?.kind === "group" && last.id).toBe("settings");
-    expect(settings("manager").map((i) => i.label)).toEqual(["Empresa & Estrutura", "Faturas por email"]);
+    expect(tree.map((e) => (e.kind === "item" ? e.label : e.label))).toEqual([
+      "Mapa de rentabilidade", "Gestão de Stock", "Recursos Humanos", "CRM", "Financeiro", "Operação", "Configurações",
+    ]);
+    expect(settings("manager").map((i) => i.label)).toEqual(["Empresa e Estrutura", "Integrações"]);
   });
 
-  it("para o Admin inclui Utilizadores e permissões e Tokens de dispositivo (em Integrações)", () => {
+  it("para o Admin: Utilizadores e permissões; Integrações é um só destino (sem terceiro nível)", () => {
     const items = settings("admin");
-    expect(items.map((i) => [i.label, i.subgroup ?? null])).toEqual([
-      ["Empresa & Estrutura", null],
-      ["Utilizadores e permissões", null],
-      ["Faturas por email", "Integrações"],
-      ["Tokens de dispositivo", "Integrações"],
+    expect(items.map((i) => [i.label, i.path, i.subgroup ?? null])).toEqual([
+      ["Empresa e Estrutura", "/empresa", null],
+      ["Utilizadores e permissões", "/admin/users", null],
+      ["Integrações", "/configuracoes/integracoes", null],
     ]);
+  });
+
+  it("Fichas técnicas dentro de Gestão de Stock; Fluxo de caixa no Financeiro; Receitas e Custos fora do menu", () => {
+    const tree = buildTree({ email: "a@b.com", role: "admin" });
+    const group = (id: string) => {
+      const g = tree.find((e) => e.kind === "group" && e.id === id);
+      return g && g.kind === "group" ? g.items.map((i) => i.label) : [];
+    };
+    expect(group("stock")).toContain("Fichas técnicas");
+    expect(tree.some((e) => e.kind === "item" && e.label === "Fichas técnicas")).toBe(false);
+    expect(group("financial")).toEqual(["Categorias", "Fornecedores", "Faturas", "Recorrências", "Conciliação bancária", "Fluxo de caixa", "Contabilidade"]);
+    expect(group("operations")).toEqual(["Fechos de Caixa", "Declaração de Vendas", "Air Menu", "Vendus"]);
+    const paths = tree.flatMap((e) => (e.kind === "item" ? [e.path] : e.items.map((i) => i.path)));
+    expect(paths).not.toContain("/dre/receita-bruta");
+    expect(paths).not.toContain("/dre/custos-fixos");
+    expect(paths).not.toContain("/dre/custos-variaveis");
+    expect(new Set(paths).size).toBe(paths.length); // sem destinos duplicados
   });
 
   it("admin entries are not present for non-admin roles", () => {
@@ -43,8 +60,10 @@ describe("resolveActiveGroup", () => {
   const tree = buildTree({ email: "a@b.com", role: "manager" });
 
   it.each([
-    ["/dre/demonstrativo", "dre"],
-    ["/dre/receita-bruta", "dre"],
+    ["/dre/fluxo-caixa", "financial"],
+    ["/financial/sales-declaration", "operations"],
+    ["/cash-closings", "operations"],
+    ["/stock/fichas-tecnicas", "stock"],
     ["/stock/movimentacoes", "stock"],
     ["/hr", "hr"],
     ["/hr/calendar", "hr"],
@@ -61,11 +80,12 @@ describe("resolveActiveGroup", () => {
   it.each([
     ["/empresa/locais", "settings"],
     ["/configuracoes/integracoes/faturas-por-email", "settings"],
+    ["/admin/location-tokens", "settings"],
   ])("Configurações: %s → %s", (path, expected) => {
     expect(resolveActiveGroup(tree, path)).toBe(expected);
   });
 
-  it.each(["/results", "/cash-closings", "/admin/users"])(
+  it.each(["/results", "/dre/demonstrativo", "/dre/custos-fixos"])(
     "top-level path %s → null",
     (path) => {
       expect(resolveActiveGroup(tree, path)).toBeNull();
@@ -102,6 +122,7 @@ describe("buildTree com acesso efetivo (Utilizadores & Perfis 2.0)", () => {
     });
     const paths = tree.flatMap((e) => (e.kind === "item" ? [e.path] : e.items.map((i) => i.path)));
     expect(paths).not.toContain("/configuracoes/integracoes/faturas-por-email");
+    expect(paths).not.toContain("/configuracoes/integracoes");
     // RH: o Novo RH abre a quem tem permissões de RH, cada área pela sua (2026-10-20); o RH antigo saiu do menu (2026-10-22).
     expect(paths).not.toContain("/hr/antigo");
     expect(paths).toContain("/hr/novo/pessoas");
@@ -137,5 +158,19 @@ describe("menu do Stock (task Stock inteligente V4 §1)", () => {
     const stock = buildTree({ role: "admin", email: "a@teste.pt" } as never).find((e) => e.kind === "group" && e.id === "stock");
     if (!stock || stock.kind !== "group") throw new Error("sem grupo Stock");
     expect(stock.items.find((i) => i.label === "Inventário")?.match).toEqual(["/stock/movimentacoes", "/stock/historico-movimentos", "/stock/contagens", "/stock/compras-por-rever"]);
+  });
+});
+
+
+describe("splitBottom — Configurações no fundo da barra", () => {
+  it("tira Configurações da lista principal e põe-no no fundo", () => {
+    const { main, bottom } = splitBottom(buildTree({ email: "a@b.com", role: "admin" }));
+    expect(bottom.map((e) => (e.kind === "group" ? e.id : e.path))).toEqual(["settings"]);
+    expect(main.some((e) => e.kind === "group" && e.id === "settings")).toBe(false);
+    expect(main.length).toBeGreaterThan(0);
+  });
+  it("sem acesso a nada de Configurações, o fundo fica vazio", () => {
+    const tree = buildTree({ email: "x@b.com", role: "manager", access: { isAdmin: false, portalOnly: true, permissions: {} } });
+    expect(splitBottom(tree).bottom).toEqual([]);
   });
 });

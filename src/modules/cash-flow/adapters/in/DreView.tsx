@@ -15,6 +15,8 @@ import { monthName } from "../../domain/services/cash-flow-view.ts";
 import { dreConfidencePct, platformLabel } from "../../domain/services/dre-view.ts";
 import { euros, kindLabel } from "./cash-flow-format.ts";
 import { useDre } from "./use-dre.ts";
+import { useOptionalAuth } from "../../../../contexts/AuthContext";
+import { canOpenPath } from "../../../access/domain/services/access-ui.service.ts";
 
 const ROW = "flex items-baseline justify-between gap-4 py-2.5";
 const AMOUNT = "shrink-0 text-sm tabular-nums";
@@ -69,6 +71,30 @@ function ExpenseRow({ category }: { category: DreExpenseCategory }) {
   );
 }
 
+/** Onde se lançam os ajustes manuais (páginas que saíram do menu); só as que a pessoa pode abrir. */
+function AdjustmentLinks() {
+  const user = useOptionalAuth()?.user;
+  const access = user?.access;
+  const links = [
+    { to: "/dre/custos-fixos", label: "Custos fixos" },
+    { to: "/dre/custos-variaveis", label: "Custos variáveis" },
+  ].filter((l) => !access || canOpenPath({ isAdmin: access.isAdmin, portalOnly: access.portalOnly, permissions: { ...access.permissions } }, l.to));
+  return (
+    <>
+      Custos lançados à mão
+      {links.length > 0 && " · lançar: "}
+      {links.map((l, i) => (
+        <span key={l.to}>
+          {i > 0 && " · "}
+          <Link to={l.to} className="font-medium text-ink-secondary underline-offset-2 hover:text-navy-900 hover:underline">
+            {l.label}
+          </Link>
+        </span>
+      ))}
+    </>
+  );
+}
+
 /** Demonstração de resultados: receita, gastos por categoria, ajustes manuais e resultado. */
 function Statement({ report }: { report: DreReport }) {
   const { revenue, expenses, manualAdjustments } = report;
@@ -114,15 +140,14 @@ function Statement({ report }: { report: DreReport }) {
           )}
         </div>
 
-        {manualAdjustments.totalCents !== 0 && (
-          <div>
-            <Line label="Ajustes manuais" amount={manualAdjustments.totalCents} strong negative hint="Custos lançados à mão no Mapa" />
-            <div className="pl-3">
-              {manualAdjustments.fixedCents !== 0 && <Line label="Custos fixos" amount={manualAdjustments.fixedCents} negative />}
-              {manualAdjustments.variableCents !== 0 && <Line label="Custos variáveis" amount={manualAdjustments.variableCents} negative />}
-            </div>
+        {/* Menu V1: Custos fixos e variáveis saíram do menu — lançam-se a partir daqui. */}
+        <div>
+          <Line label="Ajustes manuais" amount={manualAdjustments.totalCents} strong negative hint={<AdjustmentLinks />} />
+          <div className="pl-3">
+            {manualAdjustments.fixedCents !== 0 && <Line label="Custos fixos" amount={manualAdjustments.fixedCents} negative />}
+            {manualAdjustments.variableCents !== 0 && <Line label="Custos variáveis" amount={manualAdjustments.variableCents} negative />}
           </div>
-        )}
+        </div>
 
         <div className={`${ROW} pt-4`}>
           <span className="text-base font-semibold text-navy-900">Resultado</span>

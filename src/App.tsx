@@ -44,6 +44,7 @@ import { SupplierDetailView } from "./modules/financial-base/adapters/in/Supplie
 import { InvoicesProvider } from "./modules/invoices/invoices.module.tsx";
 import { InvoicesView } from "./modules/invoices/adapters/in/InvoicesView.tsx";
 import { EmailIntakeSettingsView } from "./modules/invoices/adapters/in/EmailIntakeSettingsView.tsx";
+import { IntegrationsPage } from "./pages/settings/IntegrationsPage.tsx";
 import { AccountingProvider } from "./modules/accounting/accounting.module.tsx";
 import { AccountingView } from "./modules/accounting/adapters/in/AccountingView.tsx";
 import { PayableEntriesProvider } from "./modules/payable-entries/payable-entries.module.tsx";
@@ -432,6 +433,7 @@ export default function App() {
                 <Route path="/admin/users/:userId" element={<AccessProvider><UserEditorView /></AccessProvider>} />
                 <Route path="/admin/access-profiles" element={<AccessProvider><ProfilesView /></AccessProvider>} />
                 <Route path="/admin/location-tokens" element={<LocationCredentialsAdminView />} />
+                <Route path="/configuracoes/integracoes" element={<IntegrationsPage />} />
                 <Route
                   path="/configuracoes/integracoes/faturas-por-email"
                   element={
