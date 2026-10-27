@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link } from "react-router-dom";
 import {
   AlertBanner,
+  Button,
   EmptyState,
   IconChevronDown,
   PAGE_BG,
@@ -15,6 +16,7 @@ import { monthName } from "../../domain/services/cash-flow-view.ts";
 import { dreConfidencePct, platformLabel } from "../../domain/services/dre-view.ts";
 import { euros, kindLabel } from "./cash-flow-format.ts";
 import { useDre } from "./use-dre.ts";
+import { DreParametersDrawer } from "./DreParametersDrawer.tsx";
 import { useOptionalAuth } from "../../../../contexts/AuthContext";
 import { canOpenPath } from "../../../access/domain/services/access-ui.service.ts";
 
@@ -71,6 +73,8 @@ function ExpenseRow({ category }: { category: DreExpenseCategory }) {
   );
 }
 
+const SUB_ROW = "flex items-baseline justify-between gap-4 py-1 pl-3 text-xs text-ink-secondary";
+
 /** Onde se lançam os ajustes manuais (páginas que saíram do menu); só as que a pessoa pode abrir. */
 function AdjustmentLinks() {
   const user = useOptionalAuth()?.user;
@@ -95,9 +99,10 @@ function AdjustmentLinks() {
   );
 }
 
-/** Demonstração de resultados: receita, gastos por categoria, ajustes manuais e resultado. */
+/** Demonstração de resultados: receita, custos das plataformas, gastos por categoria, ajustes manuais e resultado. */
 function Statement({ report }: { report: DreReport }) {
-  const { revenue, expenses, manualAdjustments } = report;
+  const { revenue, platformCosts, expenses, manualAdjustments, parameters } = report;
+  const byPayment = revenue.restaurantByPayment;
   return (
     <section className={`${SURFACE} p-6`} aria-labelledby="dre-statement">
       <h2 id="dre-statement" className={SECTION_TITLE}>
@@ -109,23 +114,53 @@ function Statement({ report }: { report: DreReport }) {
           <Line label="Receita" amount={revenue.totalNetCents} strong />
           <div className="pl-3">
             <Line label="Restaurante" amount={revenue.restaurantNetCents} hint="Vendas do Vendus" />
+            {[
+              { label: "Venda restaurante cartão", value: byPayment.cardNetCents },
+              { label: "Venda restaurante dinheiro", value: byPayment.cashNetCents },
+              { label: "Outros (Eatz, MB Way…)", value: byPayment.otherNetCents },
+            ]
+              .filter((r) => r.value !== 0)
+              .map((r) => (
+                <div key={r.label} className={SUB_ROW}>
+                  <span>{r.label}</span>
+                  <span className="tabular-nums">{euros(r.value)}</span>
+                </div>
+              ))}
             <Line
               label="Plataformas de entrega"
               amount={revenue.platformsNetCents}
-              hint={
-                revenue.platformsVatKnown
-                  ? `Recebido no banco, já sem comissão · vendido ${euros(revenue.platformsSoldNetCents)} · comissões e acertos ≈ ${euros(revenue.platformsCommissionEstimateCents)}`
-                  : "Recebido no banco pelo valor total (sem vendas do AirMenu para tirar o IVA)"
-              }
+              hint={`Venda reconstituída do recebido no banco (${euros(revenue.platformsReceivedCents)}) · bruto com IVA ${euros(revenue.platformsGrossCents)}`}
             />
             {revenue.byPlatform.map((p) => (
-              <div key={p.platform} className="flex items-baseline justify-between gap-4 py-1 pl-3 text-xs text-ink-secondary">
-                <span>{platformLabel(p.platform)}</span>
+              <div key={p.platform} className={SUB_ROW}>
+                <span>
+                  Venda plataforma {platformLabel(p.platform)}
+                  <span className="block">
+                    Recebido {euros(p.receivedCents)} · margem {euros(p.contributionCents)}
+                    {p.contributionPct !== null && ` (${Math.round(p.contributionPct)}%)`}
+                  </span>
+                </span>
                 <span className="tabular-nums">{euros(p.netCents)}</span>
               </div>
             ))}
           </div>
         </div>
+
+        {platformCosts.totalNetCents !== 0 && (
+          <div>
+            <Line
+              label="Custos das plataformas"
+              amount={platformCosts.totalNetCents}
+              strong
+              negative
+              hint={`Comissão ${parameters.platformCommissionPct}% + IVA ${parameters.platformCommissionVatPct}% · IVA das vendas ${parameters.deliverySalesVatPct}%${parameters.source === "month" ? "" : parameters.source === "inherited" ? " (herdados do mês anterior)" : " (valores de omissão)"}`}
+            />
+            <div className="pl-3">
+              <Line label="Comissões" amount={platformCosts.commissionNetCents} negative />
+              {platformCosts.marketingNetCents !== 0 && <Line label="Marketing" amount={platformCosts.marketingNetCents} negative />}
+            </div>
+          </div>
+        )}
 
         <div>
           <Line label="Gastos" amount={expenses.totalNetCents} strong negative />
@@ -171,7 +206,12 @@ function SidePanel({ report }: { report: DreReport }) {
         </h2>
         <div className="mt-2 divide-y divide-line-subtle">
           <Line label="IVA das vendas" amount={vat.salesCents} />
-          <Line label="IVA das compras" amount={vat.purchasesCents} negative hint="Dedutível conhecido" />
+          <Line
+            label="IVA das compras"
+            amount={vat.purchasesCents}
+            negative
+            hint={vat.purchasesEstimatedCents > 0 ? `Dedutível · ${euros(vat.purchasesEstimatedCents)} estimado` : "Dedutível conhecido"}
+          />
           <div className={ROW}>
             <span className="text-sm font-semibold text-navy-900">{vat.balanceCents >= 0 ? "A entregar (estimativa)" : "A recuperar (estimativa)"}</span>
             <span className="text-sm font-semibold tabular-nums text-navy-900">{euros(Math.abs(vat.balanceCents))}</span>
@@ -195,6 +235,12 @@ function SidePanel({ report }: { report: DreReport }) {
             </div>
             <p className="mt-2 text-xs text-ink-secondary">Gastos com categoria e IVA conhecido.</p>
             <ul className="mt-3 space-y-1.5 text-sm">
+              {expenses.estimatedVatCents > 0 && (
+                <li className="flex justify-between gap-3">
+                  <span className="text-ink">IVA estimado (média das faturas / teórico)</span>
+                  <span className="tabular-nums text-ink">{euros(expenses.estimatedVatCents)}</span>
+                </li>
+              )}
               <li className="flex justify-between gap-3">
                 <span className="text-ink">IVA por confirmar</span>
                 <span className="tabular-nums text-ink">{euros(expenses.pendingVatCents)}</span>
@@ -223,9 +269,18 @@ function SidePanel({ report }: { report: DreReport }) {
 /** DRE do mês pela conciliação bancária (Mapa de rentabilidade → Mapa). */
 export function DreView({ year, month }: { year: number; month: number }) {
   const { report, loading, error, future } = useDre(year, month);
+  const [paramsOpen, setParamsOpen] = useState(false);
 
   return (
     <div className={`${PAGE_BG} mx-auto w-full max-w-6xl space-y-5 p-4 sm:p-6`}>
+      {!future && (
+        <div className="flex justify-end">
+          <Button size="sm" onClick={() => setParamsOpen(true)}>
+            Parâmetros do mês
+          </Button>
+          <DreParametersDrawer year={year} month={month} open={paramsOpen} onClose={() => setParamsOpen(false)} />
+        </div>
+      )}
       {future ? (
         <EmptyState title="Este mês ainda não começou" description="Escolha um mês até ao atual." />
       ) : error ? (
@@ -254,7 +309,7 @@ export function DreView({ year, month }: { year: number; month: number }) {
             </div>
             {[
               { label: "Receita", value: report.revenue.totalNetCents },
-              { label: "Gastos", value: report.expenses.totalNetCents },
+              { label: "Gastos", value: report.expenses.totalNetCents + report.platformCosts.totalNetCents },
               { label: "Ajustes manuais", value: report.manualAdjustments.totalCents },
             ].map((k) => (
               <div key={k.label} className="self-end">

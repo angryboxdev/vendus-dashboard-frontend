@@ -7,6 +7,7 @@ import { CustosVariaveisPage } from "./pages/dre/CustosVariaveisPage";
 import { DemonstrativoPage } from "./pages/dre/DemonstrativoPage";
 import { DreLayout } from "./pages/dre/DreLayout";
 import { FluxoCaixaPage } from "./pages/dre/FluxoCaixaPage";
+import { ConferenciaVendasPage } from "./pages/dre/ConferenciaVendasPage";
 import { ReceitaBrutaPage } from "./pages/dre/ReceitaBrutaPage";
 import { MovimentacoesPage } from "./pages/stock/MovimentacoesPage";
 import { FichasTecnicasPage } from "./pages/stock/FichasTecnicasPage";
@@ -201,6 +202,7 @@ export default function App() {
                 <Route element={<DreLayout />}>
                   <Route path="/dre/demonstrativo" element={<DemonstrativoPage />} />
                   <Route path="/dre/fluxo-caixa" element={<FluxoCaixaPage />} />
+                  <Route path="/dre/conferencia-vendas" element={<ConferenciaVendasPage />} />
                   <Route path="/dre/receita-bruta" element={<ReceitaBrutaPage />} />
                   <Route path="/dre/custos-fixos" element={<CustosFixosPage />} />
                   <Route

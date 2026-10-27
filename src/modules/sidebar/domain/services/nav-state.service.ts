@@ -64,6 +64,7 @@ const FINANCIAL_ITEMS: NavItem[] = [
   { kind: "item", path: "/financial/recurrences", label: "Recorrências" },
   { kind: "item", path: "/financial/bank-statements", label: "Conciliação bancária" },
   { kind: "item", path: "/dre/fluxo-caixa", label: "Fluxo de caixa" },
+  { kind: "item", path: "/dre/conferencia-vendas", label: "Conferência de vendas" },
   { kind: "item", path: "/financial/accounting", label: "Contabilidade" },
 ];
 

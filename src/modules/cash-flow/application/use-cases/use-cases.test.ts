@@ -4,6 +4,7 @@ import { GetCashFlowToHandleUseCase } from "./get-cash-flow-to-handle.use-case.t
 import type { CashFlowApiPort } from "../../domain/ports/out/cash-flow-api.port.ts";
 import { sampleReport } from "../../domain/services/fixtures.ts";
 import { sampleDre } from "../../domain/services/dre-fixtures.ts";
+import { sampleParameters, sampleReconciliation } from "../../domain/services/sales-reconciliation-fixtures.ts";
 import { GetDreUseCase } from "./get-dre.use-case.ts";
 
 function fakeApi(calls: [number, number][] = []): CashFlowApiPort {
@@ -14,6 +15,9 @@ function fakeApi(calls: [number, number][] = []): CashFlowApiPort {
     },
     getToHandle: async () => ({ payables: { dueCents: 100, overdueCents: 40 }, invoicesToReview: 2 }),
     getDre: async () => sampleDre(),
+    getSalesReconciliation: async () => sampleReconciliation(),
+    getDreParameters: async () => sampleParameters(),
+    saveDreParameters: async () => sampleParameters(),
   };
 }
 
@@ -37,6 +41,6 @@ describe("GetCashFlowToHandleUseCase", () => {
 
 describe("GetDreUseCase", () => {
   it("pede a DRE do mês à API", async () => {
-    await expect(new GetDreUseCase(fakeApi()).execute(2026, 3)).resolves.toMatchObject({ resultCents: 355_000 });
+    await expect(new GetDreUseCase(fakeApi()).execute(2026, 3)).resolves.toMatchObject({ resultCents: 341_957 });
   });
 });

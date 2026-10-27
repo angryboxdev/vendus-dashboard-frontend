@@ -3,23 +3,54 @@
  * `cash-flow`). Tudo sem IVA, em cêntimos.
  */
 
+export type DeliveryPlatformKey = "uber_eats" | "glovo" | "bolt_food";
+
+/** Parâmetros mensais da DRE — contrato de `GET|PUT /api/reports/dre/parametros`. Percentagens (15 = 15%). */
+export interface DreParameters {
+  deliverySalesVatPct: number;
+  platformCommissionPct: number;
+  platformCommissionVatPct: number;
+  /** A comissão incide sobre a venda com IVA (true) ou sem IVA (false). */
+  commissionOnGross: boolean;
+  marketingVatPct: number;
+  cardFeePct: number;
+  /** IVA teórico dos gastos classificados sem fatura nem histórico. */
+  expenseDefaultVatPct: number;
+  /** Marketing das plataformas no mês, sem IVA. */
+  marketingNetCents: Record<DeliveryPlatformKey, number>;
+}
+
+export interface ResolvedDreParameters extends DreParameters {
+  /** month = do próprio mês; inherited = herdados do último mês com valores; default = de omissão. */
+  source: "month" | "inherited" | "default";
+}
+
+/** Plataforma: o que liquidou no banco e a venda reconstituída em bruto. */
 export interface DrePlatformRevenue {
   /** uber_eats | glovo | bolt_food */
   platform: string;
-  /** Liquidado no banco (com IVA, já sem comissão). */
+  /** Liquidado no banco (já sem comissão nem marketing). */
   receivedCents: number;
+  marketingNetCents: number;
+  /** Venda reconstituída, com IVA. */
+  grossCents: number;
+  /** Venda sem IVA (receita). */
   netCents: number;
+  salesVatCents: number;
+  commissionNetCents: number;
+  commissionVatCents: number;
+  marketingVatCents: number;
+  /** Venda sem IVA − comissão − marketing. */
+  contributionCents: number;
+  contributionPct: number | null;
 }
 
 export interface DreRevenue {
   restaurantNetCents: number;
+  restaurantByPayment: { cardNetCents: number; cashNetCents: number; otherNetCents: number };
+  platformsGrossCents: number;
   platformsNetCents: number;
   platformsReceivedCents: number;
-  platformsSoldNetCents: number;
-  /** Vendido sem IVA − recebido sem IVA (comissões e acertos, estimativa). */
-  platformsCommissionEstimateCents: number;
-  /** false: sem vendas do AirMenu para tirar o IVA — as liquidações contam pelo total. */
-  platformsVatKnown: boolean;
   byPlatform: DrePlatformRevenue[];
   totalNetCents: number;
 }
@@ -42,6 +73,8 @@ export interface DreExpenseCategory {
   movementKind: string | null;
   netCents: number;
   vatCents: number;
+  /** Parte do IVA estimada (média das faturas da categoria ou IVA teórico). */
+  estimatedVatCents: number;
   /** Parte contada pelo valor total por não se saber o IVA. */
   pendingVatCents: number;
   children: DreExpenseChild[];
@@ -49,7 +82,9 @@ export interface DreExpenseCategory {
 
 export interface DreExpenses {
   totalNetCents: number;
+  /** IVA dedutível (real + estimado). */
   vatCents: number;
+  estimatedVatCents: number;
   pendingVatCents: number;
   unclassifiedCents: number;
   categories: DreExpenseCategory[];
@@ -57,10 +92,13 @@ export interface DreExpenses {
 
 export interface DreReport {
   period: { year: number; month: number; from: string; to: string; isCurrentMonth: boolean };
+  parameters: ResolvedDreParameters;
   revenue: DreRevenue;
+  /** Comissões e marketing das plataformas, sem IVA. */
+  platformCosts: { commissionNetCents: number; marketingNetCents: number; totalNetCents: number };
   expenses: DreExpenses;
   manualAdjustments: { fixedCents: number; variableCents: number; totalCents: number };
   resultCents: number;
   marginPct: number | null;
-  vat: { salesCents: number; purchasesCents: number; balanceCents: number };
+  vat: { salesCents: number; purchasesCents: number; purchasesEstimatedCents: number; balanceCents: number };
 }

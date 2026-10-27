@@ -38,7 +38,7 @@ describe("buildTree", () => {
     };
     expect(group("stock")).toContain("Fichas técnicas");
     expect(tree.some((e) => e.kind === "item" && e.label === "Fichas técnicas")).toBe(false);
-    expect(group("financial")).toEqual(["Categorias", "Fornecedores", "Faturas", "Recorrências", "Conciliação bancária", "Fluxo de caixa", "Contabilidade"]);
+    expect(group("financial")).toEqual(["Categorias", "Fornecedores", "Faturas", "Recorrências", "Conciliação bancária", "Fluxo de caixa", "Conferência de vendas", "Contabilidade"]);
     expect(group("operations")).toEqual(["Fechos de Caixa", "Declaração de Vendas", "Air Menu", "Vendus"]);
     const paths = tree.flatMap((e) => (e.kind === "item" ? [e.path] : e.items.map((i) => i.path)));
     expect(paths).not.toContain("/dre/receita-bruta");
@@ -61,6 +61,7 @@ describe("resolveActiveGroup", () => {
 
   it.each([
     ["/dre/fluxo-caixa", "financial"],
+    ["/dre/conferencia-vendas", "financial"],
     ["/financial/sales-declaration", "operations"],
     ["/cash-closings", "operations"],
     ["/stock/fichas-tecnicas", "stock"],
