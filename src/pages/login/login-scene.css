@@ -584,7 +584,7 @@
 .ls-panel--orders { --h: 236; }
 .ls-panel--finance { --h: 284; }
 .ls-panel--stock { --h: 222; }
-.ls-panel--rh { --h: 154; }
+.ls-panel--rh { --h: 157; }
 .ls-panel--delivery { --h: 162; }
 .ls-panel__body > :last-child {
   margin-top: auto;

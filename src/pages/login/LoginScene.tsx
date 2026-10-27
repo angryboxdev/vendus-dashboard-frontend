@@ -69,11 +69,20 @@ type LinkId = "overview" | "orders" | "finance" | "stock" | "rh" | "delivery";
 const LINKS: Record<LinkId, { d: string; node: [number, number]; box: [number, number, number, number] }> = {
   overview: { d: "M590 152 C628 152 626 200 630 240 C634 278 660 292 712 292", node: [590, 152], box: [574, 136, 724, 304] },
   orders: { d: "M530 418 C572 418 590 455 620 482 C650 508 690 515 772 515", node: [530, 418], box: [514, 402, 784, 527] },
-  finance: { d: "M1181 163 C1150 163 1148 200 1146 245 C1144 295 1120 320 1040 322", node: [1181, 163], box: [1028, 147, 1197, 334] },
-  stock: { d: "M1245 416 C1200 416 1180 450 1150 476 C1120 500 1090 500 1040 500", node: [1245, 416], box: [1028, 400, 1261, 512] },
-  rh: { d: "M1216 632 C1170 630 1135 645 1115 662 C1095 676 1060 668 1048 640 L1046 420", node: [1216, 632], box: [1030, 408, 1232, 684] },
-  delivery: { d: "M1197 790 C1160 790 1160 730 1145 700 C1130 672 1100 667 1062 664", node: [1197, 790], box: [1050, 652, 1213, 806] },
+  // Coluna da direita: painéis com a mesma largura, centrados, à mesma distância uns dos outros (RIGHT_COLUMN).
+  finance: { d: "M1188 145 C1157 145 1150 190 1146 245 C1144 295 1120 320 1040 322", node: [1188, 145], box: [1028, 129, 1204, 334] },
+  stock: { d: "M1188 396 C1160 396 1165 440 1150 476 C1120 500 1090 500 1040 500", node: [1188, 396], box: [1028, 380, 1204, 512] },
+  rh: { d: "M1188 618 C1150 618 1135 645 1115 662 C1095 676 1060 668 1048 640 L1046 420", node: [1188, 618], box: [1030, 408, 1204, 684] },
+  delivery: { d: "M1188 793 C1160 793 1160 730 1145 700 C1130 672 1100 667 1062 664", node: [1188, 793], box: [1050, 652, 1204, 809] },
 };
+
+/**
+ * Coluna da direita (pedido do utilizador: centrada e com distâncias iguais): mesma largura, centro em
+ * x = 1406 (meio da zona desfocada do fundo), 16 px de intervalo e o conjunto centrado na vertical.
+ * Alturas = as dos painéis (`--h` no CSS): 284 + 222 + 157 + 162 + 3 × 16 = 873 → topo 34.
+ * Os pontos de ligação ficam 22 px à esquerda de cada painel.
+ */
+const RIGHT_COLUMN = { x: 1210, width: 392, tops: { finance: 34, stock: 334, rh: 572, delivery: 745 } } as const;
 
 function LinkDefs() {
   return (
@@ -191,7 +200,7 @@ function Panels() {
 
       <Panel
         id="finance"
-        style={at(1202, 52, 398)}
+        style={at(RIGHT_COLUMN.x, RIGHT_COLUMN.tops.finance, RIGHT_COLUMN.width)}
         iconTone="brand"
         title="Controle financeiro com AI"
         icon={<Ico><path d="M5 20V13M10 20V9M15 20V5M20 20V11" /></Ico>}
@@ -233,7 +242,7 @@ function Panels() {
 
       <Panel
         id="stock"
-        style={at(1268, 354, 344)}
+        style={at(RIGHT_COLUMN.x, RIGHT_COLUMN.tops.stock, RIGHT_COLUMN.width)}
         iconTone="navy"
         title="Stock inteligente com AI"
         icon={<Ico><path d="M12 3l8 4.5v9L12 21l-8-4.5v-9L12 3zM4 7.5l8 4.5 8-4.5M12 12v9" /></Ico>}
@@ -259,7 +268,7 @@ function Panels() {
 
       <Panel
         id="rh"
-        style={at(1240, 586, 332)}
+        style={at(RIGHT_COLUMN.x, RIGHT_COLUMN.tops.rh, RIGHT_COLUMN.width)}
         iconTone="brand"
         title="RH"
         icon={<Ico><path d="M9 11a3 3 0 100-6 3 3 0 000 6zM3 19c0-3 2.7-5 6-5s6 2 6 5M16 5.5a2.5 2.5 0 010 5M17.5 14c2 .6 3.5 2.2 3.5 5" /></Ico>}
@@ -284,7 +293,7 @@ function Panels() {
 
       <Panel
         id="delivery"
-        style={at(1220, 742, 384)}
+        style={at(RIGHT_COLUMN.x, RIGHT_COLUMN.tops.delivery, RIGHT_COLUMN.width)}
         iconTone="brand"
         title="Delivery"
         icon={<Ico><path d="M3 7h9v8H3zM12 10h4l3 3v2h-7M6.5 18.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3zM16.5 18.5a1.5 1.5 0 100-3 1.5 1.5 0 000 3z" /></Ico>}
