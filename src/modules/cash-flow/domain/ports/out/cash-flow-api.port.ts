@@ -6,7 +6,8 @@ export interface CashFlowApiPort {
   getCashFlow(year: number, month: number): Promise<CashFlowReport>;
   /** null sem permissão (403). */
   getToHandle(): Promise<CashFlowToHandle | null>;
-  getDre(year: number, month: number): Promise<DreReport>;
+  /** `withRestaurantSales: false` → rápido, sem as vendas do Vendus (`?restaurante=0`). */
+  getDre(year: number, month: number, withRestaurantSales?: boolean): Promise<DreReport>;
   getSalesReconciliation(year: number, month: number): Promise<SalesReconciliation>;
   getDreParameters(year: number, month: number): Promise<ResolvedDreParameters>;
   saveDreParameters(year: number, month: number, parameters: DreParameters): Promise<ResolvedDreParameters>;

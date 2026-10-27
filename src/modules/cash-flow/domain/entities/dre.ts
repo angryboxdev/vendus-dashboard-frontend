@@ -92,13 +92,15 @@ export interface DreExpenses {
 
 export interface DreReport {
   period: { year: number; month: number; from: string; to: string; isCurrentMonth: boolean };
+  /** false = pedido rápido sem as vendas do restaurante (Vendus): resultado e margem a null. */
+  restaurantSalesLoaded: boolean;
   parameters: ResolvedDreParameters;
   revenue: DreRevenue;
   /** Comissões e marketing das plataformas, sem IVA. */
   platformCosts: { commissionNetCents: number; marketingNetCents: number; totalNetCents: number };
   expenses: DreExpenses;
   manualAdjustments: { fixedCents: number; variableCents: number; totalCents: number };
-  resultCents: number;
+  resultCents: number | null;
   marginPct: number | null;
   vat: { salesCents: number; purchasesCents: number; purchasesEstimatedCents: number; balanceCents: number };
 }

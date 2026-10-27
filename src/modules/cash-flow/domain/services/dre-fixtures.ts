@@ -4,6 +4,7 @@ import type { DreReport } from "../entities/dre.ts";
 export function sampleDre(): DreReport {
   return {
     period: { year: 2026, month: 3, from: "2026-03-01", to: "2026-03-31", isCurrentMonth: false },
+    restaurantSalesLoaded: true,
     parameters: {
       deliverySalesVatPct: 15,
       platformCommissionPct: 30,

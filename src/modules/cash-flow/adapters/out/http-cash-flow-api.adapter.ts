@@ -9,8 +9,8 @@ export class HttpCashFlowApiAdapter implements CashFlowApiPort {
     return apiGet<CashFlowReport>(`/api/reports/dre/fluxo-caixa?year=${year}&month=${month}`);
   }
 
-  getDre(year: number, month: number): Promise<DreReport> {
-    return apiGet<DreReport>(`/api/reports/dre/resultado?year=${year}&month=${month}`);
+  getDre(year: number, month: number, withRestaurantSales = true): Promise<DreReport> {
+    return apiGet<DreReport>(`/api/reports/dre/resultado?year=${year}&month=${month}${withRestaurantSales ? "" : "&restaurante=0"}`);
   }
 
   getSalesReconciliation(year: number, month: number): Promise<SalesReconciliation> {

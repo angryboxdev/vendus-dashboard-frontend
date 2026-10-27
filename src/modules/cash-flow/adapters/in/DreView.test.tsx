@@ -63,4 +63,23 @@ describe("DreView", () => {
     expect(screen.getByText("Este mês ainda não começou")).toBeInTheDocument();
     expect(called).toBe(false);
   });
+
+  it("mostra logo os custos e avisa que as vendas estão a carregar; completa quando chegam", async () => {
+    let release!: () => void;
+    const salesArrive = new Promise<void>((r) => (release = r));
+    const quick = { ...sampleDre(), restaurantSalesLoaded: false, resultCents: null, marginPct: null };
+    renderView({
+      ...fakeModule(),
+      getDre: { execute: async (_y, _m, withSales = true) => (withSales ? (await salesArrive, sampleDre()) : quick) },
+    });
+    expect(await screen.findByText("As vendas do restaurante estão a carregar")).toBeInTheDocument();
+    expect(screen.getByText(/primeira vez que abre este mês/)).toBeInTheDocument();
+    expect(screen.getByText("A carregar as vendas do Vendus…")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Pessoal/ })).toBeInTheDocument();
+    expect(screen.queryByText(/3419,57/)).toBeNull();
+
+    release();
+    expect((await screen.findAllByText(/3419,57/)).length).toBeGreaterThan(0);
+    expect(screen.queryByText("As vendas do restaurante estão a carregar")).toBeNull();
+  });
 });

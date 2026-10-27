@@ -113,8 +113,18 @@ function Statement({ report }: { report: DreReport }) {
         <div>
           <Line label="Receita" amount={revenue.totalNetCents} strong />
           <div className="pl-3">
-            <Line label="Restaurante" amount={revenue.restaurantNetCents} hint="Vendas do Vendus" />
-            {[
+            {report.restaurantSalesLoaded ? (
+              <Line label="Restaurante" amount={revenue.restaurantNetCents} hint="Vendas do Vendus" />
+            ) : (
+              <div className={ROW}>
+                <span className="text-sm text-ink">
+                  Restaurante
+                  <span className="block text-xs text-ink-secondary">A carregar as vendas do Vendus…</span>
+                </span>
+                <Skeleton className="h-4 w-20" />
+              </div>
+            )}
+            {report.restaurantSalesLoaded && [
               { label: "Venda restaurante cartão", value: byPayment.cardNetCents },
               { label: "Venda restaurante dinheiro", value: byPayment.cashNetCents },
               { label: "Outros (Eatz, MB Way…)", value: byPayment.otherNetCents },
@@ -186,9 +196,13 @@ function Statement({ report }: { report: DreReport }) {
 
         <div className={`${ROW} pt-4`}>
           <span className="text-base font-semibold text-navy-900">Resultado</span>
-          <span className={`text-base font-semibold tabular-nums ${report.resultCents < 0 ? "text-rose-600" : "text-navy-900"}`}>
-            {euros(report.resultCents)}
-          </span>
+          {report.resultCents === null ? (
+            <Skeleton className="h-5 w-24" />
+          ) : (
+            <span className={`text-base font-semibold tabular-nums ${report.resultCents < 0 ? "text-rose-600" : "text-navy-900"}`}>
+              {euros(report.resultCents)}
+            </span>
+          )}
         </div>
       </div>
     </section>
@@ -205,7 +219,7 @@ function SidePanel({ report }: { report: DreReport }) {
           IVA do mês
         </h2>
         <div className="mt-2 divide-y divide-line-subtle">
-          <Line label="IVA das vendas" amount={vat.salesCents} />
+          <Line label="IVA das vendas" amount={vat.salesCents} hint={report.restaurantSalesLoaded ? undefined : "Sem o restaurante (a carregar)"} />
           <Line
             label="IVA das compras"
             amount={vat.purchasesCents}
@@ -268,7 +282,7 @@ function SidePanel({ report }: { report: DreReport }) {
 
 /** DRE do mês pela conciliação bancária (Mapa de rentabilidade → Mapa). */
 export function DreView({ year, month }: { year: number; month: number }) {
-  const { report, loading, error, future } = useDre(year, month);
+  const { report, loading, salesLoading, salesError, error, future } = useDre(year, month);
   const [paramsOpen, setParamsOpen] = useState(false);
 
   return (
@@ -289,18 +303,33 @@ export function DreView({ year, month }: { year: number; month: number }) {
         </AlertBanner>
       ) : loading || !report ? (
         <div className="grid gap-5 lg:grid-cols-3" aria-busy="true">
-          <p className="text-sm text-ink-secondary lg:col-span-3">A ler as vendas do Vendus e o banco — na primeira abertura de um mês pode demorar cerca de um minuto.</p>
+          <p className="text-sm text-ink-secondary lg:col-span-3">A ler o banco e os custos do mês…</p>
           <Skeleton className="h-40 lg:col-span-3" />
           <Skeleton className="h-[28rem] lg:col-span-2" />
           <Skeleton className="h-[28rem]" />
         </div>
       ) : (
         <>
+          {salesLoading && (
+            <AlertBanner tone="info" title="As vendas do restaurante estão a carregar">
+              Os custos já estão à vista; a receita, o resultado e a margem completam-se quando chegarem as vendas do Vendus. Se for a
+              primeira vez que abre este mês, demora um pouco mais do que o normal (até cerca de um minuto).
+            </AlertBanner>
+          )}
+          {salesError && (
+            <AlertBanner tone="warning" title="Não foi possível carregar as vendas do restaurante">
+              {salesError} — os custos abaixo estão certos; a receita do restaurante, o resultado e a margem ficam por mostrar.
+            </AlertBanner>
+          )}
           <section className={`${SURFACE} grid gap-6 p-6 sm:grid-cols-4`}>
             <div className="sm:col-span-1">
               <h2 className={`${SECTION_TITLE} first-letter:uppercase`}>{monthName(report.period.month)}</h2>
               <p className="mt-3 text-sm text-ink-secondary">Resultado</p>
-              <p className={`text-4xl font-bold tracking-tight tabular-nums ${report.resultCents < 0 ? "text-rose-600" : "text-navy-900"}`}>{euros(report.resultCents)}</p>
+              {report.resultCents === null ? (
+                <Skeleton className="mt-1 h-10 w-40" />
+              ) : (
+                <p className={`text-4xl font-bold tracking-tight tabular-nums ${report.resultCents < 0 ? "text-rose-600" : "text-navy-900"}`}>{euros(report.resultCents)}</p>
+              )}
               {report.marginPct !== null && (
                 <p className="mt-1 text-xs text-ink-secondary">
                   Margem <span className="font-semibold tabular-nums text-navy-900">{Math.round(report.marginPct)}%</span>
@@ -309,13 +338,17 @@ export function DreView({ year, month }: { year: number; month: number }) {
               )}
             </div>
             {[
-              { label: "Receita", value: report.revenue.totalNetCents },
+              { label: "Receita", value: report.restaurantSalesLoaded ? report.revenue.totalNetCents : null },
               { label: "Gastos", value: report.expenses.totalNetCents + report.platformCosts.totalNetCents },
               { label: "Ajustes manuais", value: report.manualAdjustments.totalCents },
             ].map((k) => (
               <div key={k.label} className="self-end">
                 <p className="text-xs text-ink-secondary">{k.label}</p>
-                <p className="text-lg font-semibold tabular-nums text-navy-900">{euros(k.value)}</p>
+                {k.value === null ? (
+                  <Skeleton className="mt-1 h-6 w-24" />
+                ) : (
+                  <p className="text-lg font-semibold tabular-nums text-navy-900">{euros(k.value)}</p>
+                )}
               </div>
             ))}
           </section>
