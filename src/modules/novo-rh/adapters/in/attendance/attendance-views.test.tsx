@@ -103,6 +103,35 @@ describe("Assiduidade — gestão", () => {
     expect(m.attendance.revise).toHaveBeenCalledWith("e1", { operation: "update", targetEventId: "ev2", occurredAt: "2026-10-07T17:00:00.000Z", segmentType: null, reason: "Saiu às 18h" });
   });
 
+  it("atraso: «Cumpriu horário» recua a entrada e «Atrasou» confirma o incidente, com motivo pré-preenchido", async () => {
+    const m = mod();
+    const late: AttendanceDays = {
+      ...DAYS,
+      days: [{ ...DAY, incidents: ["late"], plannedStart: "07:00", plannedEnd: "15:00" }],
+      incidents: [{ id: "i9", employeeId: "e1", workDate: "2026-10-07", type: "late", source: "engine", status: "open", comment: null, resolvedBy: null, resolvedAt: null }],
+    };
+    m.attendance.days = vi.fn(async () => late);
+    m.attendance.revise = vi.fn(async () => ({}) as never);
+    m.attendance.resolveIncident = vi.fn(async () => ({}) as never);
+    renderWith(m);
+    const user = userEvent.setup();
+    await user.click(screen.getByRole("tab", { name: "Dias" }));
+    await screen.findByRole("option", { name: "Ana Teste" });
+    await user.selectOptions(screen.getByLabelText("Colaborador"), "e1");
+    await user.click(await screen.findByRole("button", { name: "2026-10-07" }));
+    const box = screen.getByRole("region", { name: "Ações rápidas do dia" });
+    expect(within(box).getByText("15 min de atraso — previsto 07:00, entrou 07:15.")).toBeInTheDocument();
+    await user.click(within(box).getByRole("button", { name: "Cumpriu horário" }));
+    expect(within(box).getByText(/A entrada passa de 07:15 para 07:00/)).toBeInTheDocument();
+    await user.click(within(box).getByRole("button", { name: "Confirmar" }));
+    expect(m.attendance.revise).toHaveBeenCalledWith("e1", { operation: "update", targetEventId: "ev1", occurredAt: "2026-10-07T06:00:00.000Z", segmentType: null, reason: "Cumpriu o horário — esqueceu-se de marcar a entrada às 07:00." });
+    await user.click(within(box).getByRole("button", { name: "Atrasou" }));
+    await user.click(within(box).getByRole("button", { name: "Confirmar" }));
+    expect(m.attendance.resolveIncident).toHaveBeenCalledWith("i9", "dismiss", "Atraso de 15 min confirmado.");
+    await user.click(within(box).getByRole("button", { name: "Justificar" }));
+    expect(within(box).getByRole("button", { name: "Confirmar" })).toBeDisabled();
+  });
+
   it("validar incidente exige comentário (D8)", async () => {
     const m = mod();
     m.attendance.incidents = vi.fn(async () => [
