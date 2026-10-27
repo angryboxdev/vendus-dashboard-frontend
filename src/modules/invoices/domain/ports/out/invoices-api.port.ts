@@ -1,3 +1,4 @@
+import type { EmailIntakeDTO, EmailIntakeDestination } from "../../entities/email-intake.ts";
 import type {
   InvoiceDTO,
   InvoiceLineDTO,
@@ -63,6 +64,11 @@ export interface InvoicesApiPort {
   linkObligation(invoiceId: string, file: File): Promise<InvoiceDTO>;
   confirmImportedInvoice(id: string, payload: ConfirmImportedInvoicePayload): Promise<InvoiceDTO>;
   getInvoiceAlerts(): Promise<InvoiceAlertsDTO>;
+  /** Faturas por email: endereço, destino e o que chegou. */
+  getEmailIntake(): Promise<EmailIntakeDTO>;
+  /** Gera o primeiro endereço ou substitui o atual (o anterior deixa de ser aceite). */
+  generateEmailIntakeAddress(reason?: string | null): Promise<{ email: string; createdAt: string }>;
+  setEmailIntakeDestination(destination: EmailIntakeDestination): Promise<void>;
   suggestLineClassification(supplierId: string, description?: string): Promise<SuggestClassificationResult | null>;
   // F2 v1.2
   getStockRoutingSuggestion(input: { supplierId: string | null; locationId: string | null; categoryIds: string[] }): Promise<StockRoutingSuggestion>;

@@ -26,6 +26,9 @@ import type {
   AccountPreviewDTO,
 } from "../../../bank-accounts/domain/entities/bank-account.ts";
 import { ImportInvoiceModal } from "./ImportInvoiceModal.tsx";
+import { EmailIntakeDrawer } from "./EmailIntakePanel.tsx";
+import { isPendingReview } from "../../domain/services/email-intake.ts";
+import { DropdownMenu, IconSettings } from "../../../../components/ui/index.ts";
 import { ImportQueuePanel } from "./ImportQueuePanel.tsx";
 import { ReviewImportedInvoiceDrawer } from "./ReviewImportedInvoiceDrawer.tsx";
 import { PayablesSummaryBar } from "./PayablesSummaryBar.tsx";
@@ -3039,7 +3042,7 @@ export function InvoicesView() {
     invoices: InvoiceDTO[];
   } | null>(null);
   const [activeTab, setActiveTab] = useState<
-    "por_pagar" | "aguardando_conciliacao" | "concluidas" | "todas"
+    "por_rever" | "por_pagar" | "aguardando_conciliacao" | "concluidas" | "todas"
   >("por_pagar");
   const [accountFilter, setAccountFilter] = useState<string>("");
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -3087,6 +3090,8 @@ export function InvoicesView() {
     setPage(1);
   }
   const [showImport, setShowImport] = useState(false);
+  // Faturas por email (Opções): endereço da empresa, destino e o que chegou.
+  const [showEmailIntake, setShowEmailIntake] = useState(false);
   const [importResult, setImportResult] =
     useState<InvoiceImportResultDTO | null>(null);
   // Documento de pagamento com várias faturas (ex.: águas + resíduos): as que faltam rever, por ordem.
@@ -3436,6 +3441,8 @@ export function InvoicesView() {
   // Tab counts
   const tabCounts = useMemo(
     () => ({
+      // Rascunhos lidos (import manual ou por email) e faturas marcadas para rever — também contam em «Por pagar».
+      por_rever: filtered.filter(isPendingReview).length,
       por_pagar: filtered.filter(
         (i) =>
           [
@@ -3462,6 +3469,8 @@ export function InvoicesView() {
 
   const tabFiltered = useMemo(() => {
     switch (activeTab) {
+      case "por_rever":
+        return filtered.filter(isPendingReview);
       case "por_pagar":
         return filtered.filter(
           (i) =>
@@ -3589,6 +3598,21 @@ export function InvoicesView() {
               </svg>
               <span className="hidden sm:inline">Importar faturas</span>
             </button>
+
+            <DropdownMenu
+              label="Opções das faturas"
+              items={[{ label: "Faturas por email", hint: "Receber faturas dos fornecedores por email", onSelect: () => setShowEmailIntake(true) }]}
+              trigger={({ toggle }) => (
+                <button
+                  type="button"
+                  onClick={toggle}
+                  className="flex items-center gap-2 rounded-md border border-stone-300 bg-white px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50"
+                >
+                  <IconSettings className="h-4 w-4 shrink-0" />
+                  <span className="hidden sm:inline">Opções</span>
+                </button>
+              )}
+            />
           </div>
         </div>
       </div>
@@ -4089,6 +4113,7 @@ export function InvoicesView() {
             {/* Tabs */}
             <div className="flex border-b border-stone-200 px-2 overflow-x-auto">
               {[
+                { key: "por_rever" as const, label: "Por rever" },
                 { key: "por_pagar" as const, label: "Por pagar" },
                 {
                   key: "aguardando_conciliacao" as const,
@@ -4325,6 +4350,14 @@ export function InvoicesView() {
                                   className="rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-sky-100 text-sky-700"
                                 >
                                   Do Stock
+                                </span>
+                              )}
+                              {inv.intakeSource === "email" && (
+                                <span
+                                  title="Recebida por email (Faturas por email)"
+                                  className="rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-violet-100 text-violet-700"
+                                >
+                                  Email
                                 </span>
                               )}
                               {inv.isDuplicate && (
@@ -4649,6 +4682,17 @@ export function InvoicesView() {
         />
 
         {/* Drawers */}
+        <EmailIntakeDrawer
+          open={showEmailIntake}
+          onClose={() => setShowEmailIntake(false)}
+          onOpenInvoice={(id) => {
+            setShowEmailIntake(false);
+            void api
+              .getInvoice(id)
+              .then((inv) => (inv.status === "draft_ai" || inv.status === "pending_review" ? handleRowReview(inv) : setDetail(inv)))
+              .catch(() => setImportNotice("Não foi possível abrir a fatura."));
+          }}
+        />
         {showImport && (
           <ImportInvoiceModal
             onClose={() => setShowImport(false)}

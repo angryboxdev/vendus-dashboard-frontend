@@ -7,26 +7,34 @@ import {
 import { chunkBySubgroup } from "./nav-state.service.ts";
 
 describe("buildTree", () => {
-  it("returns 9 entries for a non-admin user (includes Empresa & Estrutura)", () => {
+  const settings = (role: string) => {
+    const g = buildTree({ email: "a@b.com", role }).find((e) => e.kind === "group" && e.id === "settings");
+    return g && g.kind === "group" ? g.items : [];
+  };
+
+  it("Configurações é o último grupo (junto ao utilizador) com Empresa & Estrutura e Integrações", () => {
     const tree = buildTree({ email: "a@b.com", role: "manager" });
     expect(tree).toHaveLength(9);
+    const last = tree[tree.length - 1];
+    expect(last?.kind === "group" && last.id).toBe("settings");
+    expect(settings("manager").map((i) => i.label)).toEqual(["Empresa & Estrutura", "Faturas por email"]);
   });
 
-  it("returns 11 entries for admin (includes Utilizadores + Tokens de dispositivo)", () => {
-    const tree = buildTree({ email: "a@b.com", role: "admin" });
-    expect(tree).toHaveLength(11);
-    const last = tree[tree.length - 1];
-    expect(last?.kind).toBe("item");
-    expect(last?.kind === "item" && last.path).toBe("/admin/location-tokens");
+  it("para o Admin inclui Utilizadores e permissões e Tokens de dispositivo (em Integrações)", () => {
+    const items = settings("admin");
+    expect(items.map((i) => [i.label, i.subgroup ?? null])).toEqual([
+      ["Empresa & Estrutura", null],
+      ["Utilizadores e permissões", null],
+      ["Faturas por email", "Integrações"],
+      ["Tokens de dispositivo", "Integrações"],
+    ]);
   });
 
   it("admin entries are not present for non-admin roles", () => {
     for (const role of ["manager", "hr_viewer"]) {
-      const tree = buildTree({ email: "a@b.com", role });
-      const hasAdmin = tree.some(
-        (e) => e.kind === "item" && (e.path === "/admin/users" || e.path === "/admin/location-tokens"),
-      );
-      expect(hasAdmin).toBe(false);
+      const paths = settings(role).map((i) => i.path);
+      expect(paths).not.toContain("/admin/users");
+      expect(paths).not.toContain("/admin/location-tokens");
     }
   });
 });
@@ -47,6 +55,13 @@ describe("resolveActiveGroup", () => {
     ["/financial/invoices", "financial"],
     ["/financial/payable-entries", "financial"],
   ])("path %s → group %s", (path, expected) => {
+    expect(resolveActiveGroup(tree, path)).toBe(expected);
+  });
+
+  it.each([
+    ["/empresa/locais", "settings"],
+    ["/configuracoes/integracoes/faturas-por-email", "settings"],
+  ])("Configurações: %s → %s", (path, expected) => {
     expect(resolveActiveGroup(tree, path)).toBe(expected);
   });
 
@@ -86,6 +101,7 @@ describe("buildTree com acesso efetivo (Utilizadores & Perfis 2.0)", () => {
       access: { isAdmin: false, portalOnly: false, permissions: { "hr.employees": "MANAGE", "hr.schedules": "READ" } },
     });
     const paths = tree.flatMap((e) => (e.kind === "item" ? [e.path] : e.items.map((i) => i.path)));
+    expect(paths).not.toContain("/configuracoes/integracoes/faturas-por-email");
     // RH: o Novo RH abre a quem tem permissões de RH, cada área pela sua (2026-10-20); o RH antigo saiu do menu (2026-10-22).
     expect(paths).not.toContain("/hr/antigo");
     expect(paths).toContain("/hr/novo/pessoas");
@@ -97,7 +113,7 @@ describe("buildTree com acesso efetivo (Utilizadores & Perfis 2.0)", () => {
     expect(paths).toContain("/empresa");
 
     const admin = buildTree({ email: "a@example.com", role: "admin", access: { isAdmin: true, portalOnly: false, permissions: {} } });
-    expect(admin.some((e) => e.kind === "item" && e.path === "/admin/users")).toBe(true);
+    expect(admin.some((e) => e.kind === "group" && e.items.some((i) => i.path === "/admin/users"))).toBe(true);
     const hr = admin.find((e) => e.kind === "group" && e.id === "hr");
     expect(hr && hr.kind === "group" ? hr.items.map((i) => i.label) : []).toEqual(["Visão geral", "Colaboradores", "Escalas", "Assiduidade", "Ausências", "Mais"]);
     const noHr = buildTree({ email: "x@example.com", role: "manager", access: { isAdmin: false, portalOnly: false, permissions: { "crm.customers": "READ" } } });
