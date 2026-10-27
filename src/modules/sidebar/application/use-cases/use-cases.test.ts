@@ -44,7 +44,7 @@ describe("GetNavStateUseCase", () => {
     );
     const { tree } = uc.execute("/");
     expect(
-      tree.some((e) => e.kind === "item" && e.path === "/admin/users"),
+      tree.some((e) => e.kind === "group" && e.items.some((i) => i.path === "/admin/users")),
     ).toBe(false);
   });
 
@@ -54,7 +54,7 @@ describe("GetNavStateUseCase", () => {
     );
     const { tree } = uc.execute("/");
     expect(
-      tree.some((e) => e.kind === "item" && e.path === "/admin/users"),
+      tree.some((e) => e.kind === "group" && e.id === "settings" && e.items.some((i) => i.path === "/admin/users")),
     ).toBe(true);
   });
 

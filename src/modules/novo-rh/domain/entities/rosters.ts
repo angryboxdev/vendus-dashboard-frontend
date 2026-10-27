@@ -129,6 +129,14 @@ export interface Violation {
   overlap?: string;
 }
 
+/** Resultado de copiar a semana para a seguinte (`POST /rosters/:id/copy-week`). */
+export interface CopyWeekResult {
+  created: number;
+  /** `existing`: dias já preenchidos na semana seguinte; `overlap`: sobreposição noutra escala. */
+  skipped: { existing: number; outOfScope: number; overlap: Violation[] };
+  warnings: Violation[];
+}
+
 /** Seletor «Adicionar colaboradores» (`GET /rosters/:id/candidates`). */
 export interface RosterCandidates {
   roster: { id: string; targetType: "location" | "group"; targetId: string };

@@ -62,6 +62,17 @@ const FINANCIAL_ITEMS: NavItem[] = [
   { kind: "item", path: "/financial/sales-declaration", label: "Declaração de Vendas" },
 ];
 
+/**
+ * Configurações (fim do menu, junto ao bloco do utilizador): as entradas que já existiam — mesmas rotas e
+ * permissões — e as integrações técnicas. Sem página «Integrações» vazia: o subgrupo leva aos ecrãs reais.
+ */
+const SETTINGS_ITEMS: NavItem[] = [
+  { kind: "item", path: "/empresa", label: "Empresa & Estrutura" },
+  { kind: "item", path: "/admin/users", label: "Utilizadores e permissões", match: ["/admin/access-profiles"] },
+  { kind: "item", path: "/configuracoes/integracoes/faturas-por-email", label: "Faturas por email", subgroup: "Integrações" },
+  { kind: "item", path: "/admin/location-tokens", label: "Tokens de dispositivo", subgroup: "Integrações" },
+];
+
 export function buildTree(user: SidebarUser): SidebarNavEntry[] {
   const entries: SidebarNavEntry[] = [
     {
@@ -107,12 +118,15 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
     { kind: "item", path: "/cash-closings", label: "Fechos de Caixa", icon: "cashClosings" },
     { kind: "item", path: "/air-menu", label: "Air Menu", icon: "airMenu" },
     { kind: "item", path: "/vendus", label: "Vendus", icon: "vendus" },
-    // Base Organizacional — fora de RH; abas internas (Empresa | …) na própria página.
-    { kind: "item", path: "/empresa", label: "Empresa & Estrutura", icon: "company" },
+    {
+      kind: "group",
+      id: "settings",
+      label: "Configurações",
+      icon: "settings",
+      basePath: "/configuracoes",
+      items: SETTINGS_ITEMS,
+    },
   ];
-
-  entries.push({ kind: "item", path: "/admin/users", label: "Utilizadores", icon: "users" });
-  entries.push({ kind: "item", path: "/admin/location-tokens", label: "Tokens de dispositivo", icon: "deviceTokens" });
 
   const access = user.access;
   // Sem acesso efetivo carregado: comportamento antigo (itens de administração só para admin).
@@ -132,6 +146,12 @@ export function resolveActiveGroup(
 ): string | null {
   for (const entry of tree) {
     if (entry.kind === "group" && currentPath.startsWith(entry.basePath)) {
+      return entry.id;
+    }
+  }
+  // Grupos com ecrãs de outros caminhos (Configurações: /empresa, /admin/…).
+  for (const entry of tree) {
+    if (entry.kind === "group" && entry.items.some((i) => [i.path, ...(i.match ?? [])].some((p) => isItemActive(p, currentPath)))) {
       return entry.id;
     }
   }

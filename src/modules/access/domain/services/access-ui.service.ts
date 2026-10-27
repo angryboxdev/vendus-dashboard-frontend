@@ -113,6 +113,8 @@ type PathPermission = string | string[] | "admin" | null;
 const PATH_PERMISSIONS: Array<[RegExp, PathPermission]> = [
   [/^\/admin\/(users|access-profiles)/, "admin"],
   [/^\/admin\/location-tokens/, "company.devices"],
+  // Configurações → Integrações → Faturas por email (o mesmo ecrã de Faturas → Opções).
+  [/^\/configuracoes\/integracoes\/faturas-por-email/, "finance.invoices"],
   [/^\/(vendus|analytics)/, "sales.dashboard"],
   [/^\/cash-closings/, "sales.cash_closings"],
   [/^\/air-menu/, "sales.air_menu"],

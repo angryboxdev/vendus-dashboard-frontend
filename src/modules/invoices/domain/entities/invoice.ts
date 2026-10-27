@@ -183,6 +183,8 @@ export interface InvoiceDTO {
   obligation?: InvoiceObligationDTO | null;
   /** F3c: `stock` = importada no Stock; enquanto rascunho, aguarda lançamento no Financeiro. */
   importOrigin?: "stock" | null;
+  /** Faturas por email: `email` = recebida por email (selo «Email»). Opcional até o backend novo. */
+  intakeSource?: "email" | null;
   /** Documento de pagamento com várias faturas fiscais (ex.: águas + resíduos) — as do mesmo documento partilham o id. */
   paymentGroupId?: string | null;
 }
