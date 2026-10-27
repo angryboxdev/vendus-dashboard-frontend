@@ -289,6 +289,7 @@ export function DreView({ year, month }: { year: number; month: number }) {
         </AlertBanner>
       ) : loading || !report ? (
         <div className="grid gap-5 lg:grid-cols-3" aria-busy="true">
+          <p className="text-sm text-ink-secondary lg:col-span-3">A ler as vendas do Vendus e o banco — na primeira abertura de um mês pode demorar cerca de um minuto.</p>
           <Skeleton className="h-40 lg:col-span-3" />
           <Skeleton className="h-[28rem] lg:col-span-2" />
           <Skeleton className="h-[28rem]" />
