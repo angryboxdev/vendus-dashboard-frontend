@@ -56,6 +56,19 @@ describe("Barra lateral recolhida (72 px, só ícones)", () => {
     expect(hr).toHaveFocus();
   });
 
+  it("Configurações fica no fundo da barra (fora da lista dos módulos), junto ao Sair", () => {
+    const settings: SidebarNavEntry = { kind: "group", id: "settings", label: "Configurações", icon: "settings", basePath: "/configuracoes", items: [{ kind: "item", path: "/empresa", label: "Empresa e Estrutura" }] };
+    render(
+      <MemoryRouter initialEntries={["/vendus"]}>
+        <CollapsedSidebarBody tree={[...TREE, settings]} isGroupActive={() => false} badges={{}} onExpand={vi.fn()} onSignOut={vi.fn()} />
+      </MemoryRouter>,
+    );
+    const main = screen.getByRole("navigation", { name: "Navegação principal" });
+    const bottom = screen.getByRole("navigation", { name: "Configurações" });
+    expect(within(main).queryByRole("button", { name: "Configurações" })).not.toBeInTheDocument();
+    expect(within(bottom).getByRole("button", { name: "Configurações" })).toBeInTheDocument();
+  });
+
   it("expandir e sair são botões acessíveis", async () => {
     const props = renderAt("/vendus");
     const user = userEvent.setup();

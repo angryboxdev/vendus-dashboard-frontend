@@ -26,7 +26,6 @@ import type {
   AccountPreviewDTO,
 } from "../../../bank-accounts/domain/entities/bank-account.ts";
 import { ImportInvoiceModal } from "./ImportInvoiceModal.tsx";
-import { EmailIntakeDrawer } from "./EmailIntakePanel.tsx";
 import { isPendingReview } from "../../domain/services/email-intake.ts";
 import { AppIcon, Button, Dialog, DropdownMenu, IconSettings } from "../../../../components/ui/index.ts";
 import { ImportQueuePanel } from "./ImportQueuePanel.tsx";
@@ -3090,8 +3089,6 @@ export function InvoicesView() {
     setPage(1);
   }
   const [showImport, setShowImport] = useState(false);
-  // Faturas por email (Opções): endereço da empresa, destino e o que chegou.
-  const [showEmailIntake, setShowEmailIntake] = useState(false);
   const [importResult, setImportResult] =
     useState<InvoiceImportResultDTO | null>(null);
   // Documento de pagamento com várias faturas (ex.: águas + resíduos): as que faltam rever, por ordem.
@@ -3246,13 +3243,11 @@ export function InvoicesView() {
       .getInvoice(openParam)
       .then((inv) => {
         if (cancelled) return;
-        setShowEmailIntake(false);
         if (inv.status === "draft_ai" || inv.status === "pending_review") void handleRowReview(inv);
         else setDetail(inv);
       })
       .catch((e: unknown) => {
         if (cancelled) return;
-        setShowEmailIntake(false);
         if (e instanceof ApiError && e.status === 404) setDeletedInvoiceOpen(true);
         else setImportNotice("Não foi possível abrir a fatura.");
       });
@@ -3620,7 +3615,7 @@ export function InvoicesView() {
 
             <DropdownMenu
               label="Opções das faturas"
-              items={[{ label: "Faturas por email", hint: "Receber faturas dos fornecedores por email", onSelect: () => setShowEmailIntake(true) }]}
+              items={[{ label: "Faturas por email", hint: "Receber faturas dos fornecedores por email", onSelect: () => navigate("/configuracoes/integracoes/faturas-por-email") }]}
               trigger={({ toggle }) => (
                 <button
                   type="button"
@@ -4701,7 +4696,6 @@ export function InvoicesView() {
         />
 
         {/* Drawers */}
-        <EmailIntakeDrawer open={showEmailIntake} onClose={() => setShowEmailIntake(false)} />
         <Dialog
           open={deletedInvoiceOpen}
           title={

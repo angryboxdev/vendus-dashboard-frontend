@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AlertBanner, Button, Drawer, FIELD, LABEL, SECTION_TITLE, Skeleton, SlideSwitch } from "../../../../components/ui/index.ts";
-import { useAuth } from "../../../../contexts/AuthContext";
+import { useOptionalAuth } from "../../../../contexts/AuthContext";
 import { hasLevel } from "../../../access/domain/services/access-ui.service.ts";
 import { parseEuroToCents } from "../../../bank-statements/domain/services/recurring-rules-overview.ts";
 import { useCashFlowModule } from "../../cash-flow.module.tsx";
@@ -11,7 +11,7 @@ import { monthName } from "../../domain/services/cash-flow-view.ts";
 
 /** Pode gravar: Admin ou «Mapa» com gestão. */
 function useCanManage(): boolean {
-  const { user } = useAuth();
+  const user = useOptionalAuth()?.user;
   const access = user?.access;
   return !!access && !access.portalOnly && (access.isAdmin || hasLevel(access.permissions, "dre.statement", "MANAGE"));
 }

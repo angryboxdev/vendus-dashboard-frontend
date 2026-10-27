@@ -11,7 +11,7 @@ import { DreParametersDrawer } from "./DreParametersDrawer.tsx";
 
 const auth = vi.hoisted(() => ({ level: "MANAGE" as "READ" | "MANAGE" }));
 vi.mock("../../../../contexts/AuthContext", () => ({
-  useAuth: () => ({ user: { access: { portalOnly: false, isAdmin: false, permissions: { "dre.statement": auth.level } } } }),
+  useOptionalAuth: () => ({ user: { access: { portalOnly: false, isAdmin: false, permissions: { "dre.statement": auth.level } } } }),
 }));
 
 function renderDrawer(saved: [number, number, DreParameters][], onClose = () => {}) {

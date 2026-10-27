@@ -10,7 +10,7 @@ import { sampleReport } from "../../domain/services/fixtures.ts";
 import { DreView } from "./DreView.tsx";
 
 vi.mock("../../../../contexts/AuthContext", () => ({
-  useAuth: () => ({ user: { access: { portalOnly: false, isAdmin: false, permissions: { "dre.statement": "MANAGE" } } } }),
+  useOptionalAuth: () => ({ user: { access: { portalOnly: false, isAdmin: false, permissions: { "dre.statement": "MANAGE" } } } }),
 }));
 
 function renderView(mod: CashFlowModule, year = 2026, month = 3) {

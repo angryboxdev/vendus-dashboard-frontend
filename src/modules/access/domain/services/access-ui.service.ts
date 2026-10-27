@@ -115,6 +115,8 @@ const PATH_PERMISSIONS: Array<[RegExp, PathPermission]> = [
   [/^\/admin\/location-tokens/, "company.devices"],
   // Configurações → Integrações → Faturas por email (o mesmo ecrã de Faturas → Opções).
   [/^\/configuracoes\/integracoes\/faturas-por-email/, "finance.invoices"],
+  // Página Integrações (Menu V1): vê-a quem pode abrir pelo menos uma das integrações que lista.
+  [/^\/configuracoes\/integracoes\/?$/, ["finance.invoices", "company.devices"]],
   [/^\/(vendus|analytics)/, "sales.dashboard"],
   [/^\/cash-closings/, "sales.cash_closings"],
   [/^\/air-menu/, "sales.air_menu"],
