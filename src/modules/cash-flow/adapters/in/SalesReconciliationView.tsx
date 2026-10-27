@@ -150,6 +150,7 @@ export function SalesReconciliationView({ year, month }: { year: number; month: 
         </AlertBanner>
       ) : loading || !report ? (
         <div className="space-y-5" aria-busy="true">
+          <p className="text-sm text-ink-secondary">A ler os documentos do Vendus — na primeira abertura de um mês pode demorar cerca de um minuto.</p>
           <Skeleton className="h-64" />
           <Skeleton className="h-48" />
         </div>
