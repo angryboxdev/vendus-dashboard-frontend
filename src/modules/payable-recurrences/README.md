@@ -49,6 +49,8 @@ Não há use cases formais; a lógica de UI é orquestrada diretamente nos adapt
 
 ## Decisões de design
 
+- **«Cada pagamento refere-se ao» mês do pagamento ou ao anterior (2026-10-27)** — `paymentPeriodOffset` (0 / -1) no formulário; numa recorrência nova de salários fica «mês anterior» até o utilizador escolher (valor derivado, sem efeito). Usado pela conciliação bancária automática no backend.
+
 - **Fatura ↔ recorrência (2026-10-26):** `RecurrencesApiPort` ganhou `getInvoiceRecurrenceStatus`, `linkInvoiceToRecurrence` e `unlinkInvoiceFromOccurrence`; `OccurrenceDTO` traz `invoiceDeviationPercent`/`invoiceDeviationWarning` (aviso «⚠ +30 % face ao previsto» na coluna da fatura) e o menu da ocorrência tem «Desassociar fatura». `formatDeviation` testado.
 
 - **D1**: RecurrenceDetailView é uma página roteada (não um drawer), pois o volume de informação (resumo + ocorrências + documentos + próximos pagamentos) justifica o espaço de ecrã completo.

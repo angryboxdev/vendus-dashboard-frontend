@@ -9,6 +9,7 @@ import {
   type GroupedEntityLinkInput,
   type MonthlyEntityMatchSuggestionDTO,
   type RepeatJustificationSuggestionDTO,
+  type MonthlyOccurrenceMatchSuggestionDTO,
   type ReconciliationStatus,
   JUSTIFICATION_TYPE_LABELS,
   RECONCILIATION_STATUS_LABELS,
@@ -21,7 +22,7 @@ import { MOVEMENT_KIND_LABELS } from "../../domain/services/movement-kind.ts";
 import { rowStatus, visibleMonthDays, type MonthChip, type MonthSort, type MonthTab, type RowStatus } from "../../domain/services/month-movements.ts";
 import { maskIban } from "../../domain/services/statement-account.ts";
 import { buildRecurringRulePayload, type RecurringRuleDraft } from "../../domain/services/recurring-rule.ts";
-import { bulkReconcileItems, type BulkReconcileItem } from "../../domain/services/suggestions.ts";
+import { bulkReconcileItems, occurrenceClassification, type BulkReconcileItem } from "../../domain/services/suggestions.ts";
 import { KpiCard } from "./BankUi.tsx";
 import {
   AppIcon,
@@ -225,7 +226,12 @@ export function MonthDetailView() {
 
   // Movimentos com sugestão (faturas/contas a pagar que batem, ou classificação repetida).
   const suggestedIds = useMemo(
-    () => new Set([...(suggestions?.entityMatches ?? []).map((s) => s.movementId), ...(suggestions?.repeatJustifications ?? []).map((s) => s.movementId)]),
+    () =>
+      new Set([
+        ...(suggestions?.entityMatches ?? []).map((s) => s.movementId),
+        ...(suggestions?.occurrenceMatches ?? []).map((s) => s.movementId),
+        ...(suggestions?.repeatJustifications ?? []).map((s) => s.movementId),
+      ]),
     [suggestions],
   );
   const visibleDays = useMemo(
@@ -233,8 +239,9 @@ export function MonthDetailView() {
     [days, viewTab, chip, search, sort, suggestedIds],
   );
 
+  const occurrenceMatches = suggestions?.occurrenceMatches ?? [];
   const suggestionsCount =
-    (suggestions?.entityMatches.length ?? 0) + (suggestions?.repeatJustifications.length ?? 0);
+    (suggestions?.entityMatches.length ?? 0) + occurrenceMatches.length + (suggestions?.repeatJustifications.length ?? 0);
 
   const importMut = useMutation({
     mutationFn: (fd: FormData) => api.importStatement(fd),
@@ -266,13 +273,18 @@ export function MonthDetailView() {
       payload: ClassifyMovementPayload;
       recurring?: RecurringRuleDraft | null;
     }) => {
-      await api.classifyMovement(args.movement.id, args.payload);
+      // Regra ligada a uma recorrência sem ocorrência escolhida: é a própria regra (aplicada já) que liga este
+      // movimento à ocorrência do mês certo e a deixa paga — não se classifica antes.
+      const ruleOnly = !!accountId && !!args.recurring?.recurrenceId && !args.payload.matchedEntityId;
+      if (!ruleOnly) await api.classifyMovement(args.movement.id, args.payload);
       if (!args.recurring || !accountId) return { rule: null };
       // «Classificar sempre assim»: a classificação já está gravada; se a regra falhar, avisa sem a perder.
       try {
-        const rule = await api.createRule(buildRecurringRulePayload(args.movement, accountId, args.payload, args.recurring));
-        return { rule };
+        const draft = ruleOnly ? { ...args.recurring, applyToExisting: true } : args.recurring;
+        const rule = await api.createRule(buildRecurringRulePayload(args.movement, accountId, args.payload, draft));
+        return { rule, ruleOnly };
       } catch (e) {
+        if (ruleOnly) throw e;
         return { rule: null, ruleError: e instanceof Error ? e.message : "erro desconhecido" };
       }
     },
@@ -291,6 +303,11 @@ export function MonthDetailView() {
       setClassifyingSuggestion(null);
       if ("ruleError" in result && result.ruleError) {
         showToast(`Movimento classificado, mas o movimento recorrente não foi criado: ${result.ruleError}`, "error");
+      } else if (result.rule && "ruleOnly" in result && result.ruleOnly && result.rule.appliedCount === 0) {
+        showToast(
+          `Movimento recorrente «${result.rule.name}» criado, mas este movimento ficou por conciliar: o mês a que se refere já está pago ou não tem ocorrência em aberto.`,
+          "error",
+        );
       } else if (result.rule) {
         const n = result.rule.appliedCount;
         showToast(
@@ -335,6 +352,33 @@ export function MonthDetailView() {
   // «Conciliar todas» (sugestões de faturas/contas a pagar): a mesma conciliação do painel, uma a uma; se
   // alguma falhar (ex.: a fatura entretanto foi paga), as outras seguem e o aviso diz quantas ficaram.
   const [confirmBulk, setConfirmBulk] = useState<BulkReconcileItem[] | null>(null);
+  // «Conciliar todas» das recorrências (salários, rendas…): classifica cada movimento como Contrato /
+  // Recorrência ligado à ocorrência sugerida — o backend deixa cada ocorrência paga.
+  const [confirmOccBulk, setConfirmOccBulk] = useState<MonthlyOccurrenceMatchSuggestionDTO[] | null>(null);
+  const occBulkMut = useMutation({
+    mutationFn: async (list: MonthlyOccurrenceMatchSuggestionDTO[]) => {
+      let ok = 0;
+      const failed: string[] = [];
+      for (const s of list) {
+        try {
+          await api.classifyMovement(s.movementId, occurrenceClassification(s));
+          ok += 1;
+        } catch (e) {
+          failed.push(e instanceof Error ? e.message : "erro");
+        }
+      }
+      return { ok, failed };
+    },
+    onSuccess: ({ ok, failed }) => {
+      void qc.invalidateQueries({ queryKey: ["bank-month", accountId, year, month] });
+      void qc.invalidateQueries({ queryKey: ["bank-calendar", accountId, year] });
+      void qc.invalidateQueries({ queryKey: ["bank-month-suggestions", accountId, year, month] });
+      setConfirmOccBulk(null);
+      if (failed.length === 0) showToast(`${ok} pagamento${ok === 1 ? "" : "s"} de recorrência${ok === 1 ? "" : "s"} conciliado${ok === 1 ? "" : "s"} — ficam pagos`);
+      else showToast(`${ok} conciliado${ok === 1 ? "" : "s"}, ${failed.length} não: ${failed[0]}`, "error");
+    },
+    onError: (e: Error) => showToast(e.message, "error"),
+  });
   const bulkMut = useMutation({
     mutationFn: async (items: BulkReconcileItem[]) => {
       let ok = 0;
@@ -402,6 +446,23 @@ export function MonthDetailView() {
       supplierId: s.supplierId,
       amountCents: s.amountCents,
       openBalanceCents: s.openBalanceCents,
+    });
+  }
+
+  function openOccurrenceSuggestion(s: MonthlyOccurrenceMatchSuggestionDTO) {
+    const movement = movementsById.get(s.movementId);
+    if (!movement) return;
+    setClassifying(movement);
+    setClassifyingSuggestion({
+      kind: "occurrence_match",
+      occurrenceId: s.occurrenceId,
+      justificationType: "contrato_recorrencia",
+      costCenterGroupId: s.costCenterGroupId,
+      costCenterCategoryId: s.costCenterCategoryId,
+      supplierId: s.supplierId,
+      notes: null,
+      vatRate: s.vatRate,
+      vatIncluded: s.vatIncluded,
     });
   }
 
@@ -596,6 +657,51 @@ export function MonthDetailView() {
                         <p className="mt-0.5 truncate text-xs text-stone-500">
                           Corresponde a <span className="font-medium text-stone-700">{s.entityLabel}</span>
                           {movement && <> — {fromCents(movement.amount)}</>}
+                        </p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
+                        {Math.round(s.confidence * 100)}% confiança
+                      </span>
+                      <svg className="h-4 w-4 shrink-0 text-stone-300" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clipRule="evenodd" />
+                      </svg>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {occurrenceMatches.length > 0 && (
+            <div>
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-stone-400">
+                  Recorrências — salários, rendas… ({occurrenceMatches.length})
+                </h3>
+                <Button
+                  size="sm"
+                  variant="primary"
+                  icon={<IconCheck size={14} />}
+                  disabled={occBulkMut.isPending}
+                  onClick={() => setConfirmOccBulk(occurrenceMatches.filter((s) => movementsById.has(s.movementId)))}
+                >
+                  Conciliar todas ({occurrenceMatches.length})
+                </Button>
+              </div>
+              <div className="space-y-2">
+                {occurrenceMatches.map((s) => {
+                  const movement = movementsById.get(s.movementId);
+                  return (
+                    <button
+                      key={`${s.movementId}-${s.occurrenceId}`}
+                      onClick={() => openOccurrenceSuggestion(s)}
+                      className="w-full flex items-center gap-3 rounded-lg border border-stone-200 bg-white px-4 py-3 text-left transition-colors hover:border-[#ED5C32]/30 hover:bg-[#FDF8F5]"
+                    >
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-medium text-stone-800">{movement?.description ?? s.supplierName}</p>
+                        <p className="mt-0.5 truncate text-xs text-stone-500">
+                          Paga <span className="font-medium text-stone-700">{s.recurrenceName}</span> ({s.period}) — previsto {fromCents(s.amountCents)}
+                          {movement && movement.amount !== s.amountCents && <>, movimento {fromCents(movement.amount)}</>}
                         </p>
                       </div>
                       <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[10px] font-semibold text-blue-600">
@@ -820,6 +926,27 @@ export function MonthDetailView() {
           <>
             <Button onClick={() => setConfirmBulk(null)} disabled={bulkMut.isPending}>Cancelar</Button>
             <Button variant="primary" loading={bulkMut.isPending} onClick={() => confirmBulk && bulkMut.mutate(confirmBulk)}>
+              Conciliar todas
+            </Button>
+          </>
+        }
+      />
+      <Dialog
+        open={!!confirmOccBulk}
+        title={`Conciliar ${confirmOccBulk?.length ?? 0} pagamento${confirmOccBulk?.length === 1 ? "" : "s"} de recorrência?`}
+        description={
+          confirmOccBulk && (
+            <>
+              Cada movimento fica ligado à ocorrência sugerida (Contrato / Recorrência) e a ocorrência passa a paga com a data do
+              movimento. Se o valor for diferente do previsto, a recorrência mostra a diferença. Podes anular qualquer uma depois.
+            </>
+          )
+        }
+        onClose={() => !occBulkMut.isPending && setConfirmOccBulk(null)}
+        actions={
+          <>
+            <Button onClick={() => setConfirmOccBulk(null)} disabled={occBulkMut.isPending}>Cancelar</Button>
+            <Button variant="primary" loading={occBulkMut.isPending} onClick={() => confirmOccBulk && occBulkMut.mutate(confirmOccBulk)}>
               Conciliar todas
             </Button>
           </>

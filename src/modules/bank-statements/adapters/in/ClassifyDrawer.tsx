@@ -14,6 +14,7 @@ import { useBankStatementsModule } from "../../bank-statements.module.tsx";
 import { useFinancialBaseModule } from "../../../financial-base/financial-base.module.tsx";
 import { useInvoicesModule } from "../../../invoices/invoices.module.tsx";
 import { usePayableRecurrencesModule } from "../../../payable-recurrences/payable-recurrences.module.tsx";
+import { useRuleRecurrences, paymentPeriodHint } from "./useRuleRecurrences.ts";
 import { ApiError } from "../../../../lib/api.ts";
 import type {
   CostCenterGroup,
@@ -88,7 +89,6 @@ type VatMode = "included" | "excluded" | "exempt";
 type ClassifyTab = "sistema" | "justificar";
 
 /** Só para decidir se vale a pena perguntar "total ou parcial" — diferenças de arredondamento não geram a pergunta. Não é mais usado para decidir Pago vs Pago parcialmente (isso agora é sempre uma escolha explícita do utilizador). */
-const OCCURRENCE_AMOUNT_MATCH_TOLERANCE_CENTS = 100;
 
 /** Extrai {year, month} de uma data YYYY-MM-DD sem passar por `new Date(string)` (evita o parsing UTC-meia-noite desfasar o mês em fusos negativos). */
 function yearMonthFromDateString(s: string): { year: number; month: number } {
@@ -208,6 +208,18 @@ export type ClassifyDrawerSuggestion =
       notes: string | null;
       vatRate: number | null;
       vatIncluded: boolean | null;
+    }
+  | {
+      /** Recorrência sem fatura (salário, renda…): «Contrato / Recorrência» com a ocorrência já escolhida. */
+      kind: "occurrence_match";
+      occurrenceId: string;
+      justificationType: JustificationType;
+      costCenterGroupId: string | null;
+      costCenterCategoryId: string | null;
+      supplierId: string | null;
+      notes: string | null;
+      vatRate: number | null;
+      vatIncluded: boolean | null;
     };
 
 interface AllocationEntry {
@@ -294,7 +306,7 @@ export function ClassifyDrawer({
 
   // Which tab to open when entering edit mode
   const defaultTab: ClassifyTab =
-    suggestion?.kind === "repeat_justification" ? "justificar"
+    (suggestion?.kind === "repeat_justification" || suggestion?.kind === "occurrence_match") ? "justificar"
     : suggestion?.kind === "entity_match" ? "sistema"
     : movement.entityLinks.length > 0 ? "sistema"
     : movement.justificationType && movement.justificationType !== "fatura" ? "justificar"
@@ -386,44 +398,49 @@ export function ClassifyDrawer({
   });
 
   const [subType, setSubType] = useState<JustificationType>(
-    suggestion?.kind === "repeat_justification" ? suggestion.justificationType
+    (suggestion?.kind === "repeat_justification" || suggestion?.kind === "occurrence_match") ? suggestion.justificationType
     : movement.justificationType && movement.justificationType !== "fatura" ? movement.justificationType
     : "recibo_comprovativo",
   );
   const [notes, setNotes] = useState(
-    suggestion?.kind === "repeat_justification" ? (suggestion.notes ?? "") : (movement.notes ?? ""),
+    (suggestion?.kind === "repeat_justification" || suggestion?.kind === "occurrence_match") ? (suggestion.notes ?? "") : (movement.notes ?? ""),
   );
   const [transferTarget, setTransferTarget] = useState("");
   const [groupId, setGroupId] = useState<string>(
-    (suggestion?.kind === "repeat_justification" ? suggestion.costCenterGroupId : movement.costCenterGroupId) ?? "",
+    ((suggestion?.kind === "repeat_justification" || suggestion?.kind === "occurrence_match") ? suggestion.costCenterGroupId : movement.costCenterGroupId) ?? "",
   );
   const [categoryId, setCategoryId] = useState<string>(
-    (suggestion?.kind === "repeat_justification" ? suggestion.costCenterCategoryId : movement.costCenterCategoryId) ?? "",
+    ((suggestion?.kind === "repeat_justification" || suggestion?.kind === "occurrence_match") ? suggestion.costCenterCategoryId : movement.costCenterCategoryId) ?? "",
   );
   const [supplierId, setSupplierId] = useState<string>(
-    (suggestion?.kind === "repeat_justification" ? suggestion.supplierId : movement.supplierId) ?? "",
+    ((suggestion?.kind === "repeat_justification" || suggestion?.kind === "occurrence_match") ? suggestion.supplierId : movement.supplierId) ?? "",
   );
   const [supplierSearch, setSupplierSearch] = useState("");
   const [supplierOpen, setSupplierOpen] = useState(false);
   const [occurrenceId, setOccurrenceId] = useState<string>(
-    movement.matchedEntityType === "recurrence_occurrence" ? (movement.matchedEntityId ?? "") : ""
+    suggestion?.kind === "occurrence_match" ? suggestion.occurrenceId
+    : movement.matchedEntityType === "recurrence_occurrence" ? (movement.matchedEntityId ?? "") : ""
   );
   const [occurrenceSearch, setOccurrenceSearch] = useState("");
   const [occurrenceOpen, setOccurrenceOpen] = useState(false);
   const [vatMode, setVatMode] = useState<VatMode>(
-    suggestion?.kind === "repeat_justification" && suggestion.vatRate != null
+    (suggestion?.kind === "repeat_justification" || suggestion?.kind === "occurrence_match") && suggestion.vatRate != null
       ? (suggestion.vatIncluded ? "included" : "excluded")
       : "exempt",
   );
   const [vatRate, setVatRate] = useState<number>(
-    suggestion?.kind === "repeat_justification" && suggestion.vatRate != null ? suggestion.vatRate : 23,
+    (suggestion?.kind === "repeat_justification" || suggestion?.kind === "occurrence_match") && suggestion.vatRate != null ? suggestion.vatRate : 23,
   );
   // «Movimento recorrente»: guardar esta classificação como regra para os próximos meses.
   const [recurringOn, setRecurringOn] = useState(false);
   const [recurringName, setRecurringName] = useState(() => suggestedRuleName(movement));
   const [recurringFixed, setRecurringFixed] = useState(false);
   const [recurringApply, setRecurringApply] = useState(true);
-  const recurringAvailable = canBeRecurring(subType);
+  // «Contrato / Recorrência» também pode virar regra: liga cada pagamento futuro à recorrência (fica paga).
+  const recurringAvailable = canBeRecurring(subType) || subType === "contrato_recorrencia";
+  const recurringForRecurrence = subType === "contrato_recorrencia";
+  const [ruleRecurrenceId, setRuleRecurrenceId] = useState("");
+  const { recurrences: ruleRecurrences } = useRuleRecurrences(recurringForRecurrence && recurringOn);
   const { data: rules = [] } = useQuery({
     queryKey: ["bank-rules"],
     queryFn: () => api.listRules(),
@@ -465,6 +482,11 @@ export function ClassifyDrawer({
   });
 
   const selectedOccurrence = occurrenceCandidates.find((o) => o.id === occurrenceId) ?? null;
+  // Por defeito, a recorrência da ocorrência escolhida (se não exigir fatura).
+  const effectiveRuleRecurrenceId =
+    ruleRecurrenceId ||
+    (selectedOccurrence && ruleRecurrences.some((r) => r.id === selectedOccurrence.recurrenceId) ? selectedOccurrence.recurrenceId : "");
+  const ruleRecurrence = ruleRecurrences.find((r) => r.id === effectiveRuleRecurrenceId);
 
   const selectedSupplier = suppliers.find((s) => s.id === supplierId) ?? null;
 
@@ -696,27 +718,6 @@ export function ClassifyDrawer({
     setStaleConflict(null);
   }
 
-  const [pendingOccurrencePayload, setPendingOccurrencePayload] = useState<ClassifyMovementPayload | null>(null);
-  const [markingOccurrencePaid, setMarkingOccurrencePaid] = useState(false);
-
-  async function handleConfirmFullPayment() {
-    if (!pendingOccurrencePayload || !occurrenceId) return;
-    setMarkingOccurrencePaid(true);
-    try {
-      await recurrencesApi.markOccurrenceAsPaid(occurrenceId, { paidAt: movement.bookingDate });
-      onSave(pendingOccurrencePayload);
-      setPendingOccurrencePayload(null);
-    } finally {
-      setMarkingOccurrencePaid(false);
-    }
-  }
-
-  function handleConfirmPartialPayment() {
-    if (!pendingOccurrencePayload) return;
-    onSave(pendingOccurrencePayload);
-    setPendingOccurrencePayload(null);
-  }
-
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (activeTab === "sistema") {
@@ -755,22 +756,18 @@ export function ClassifyDrawer({
     if (showsTransferTarget(subType) && transferTarget)
       payload.notes = transferTarget + (notes ? `\n${notes}` : "");
 
-    // Valor não bate certo com o previsto da recorrência — pergunta se é o
-    // pagamento total (aceite mesmo sendo menor) ou só parcial, em vez de
-    // adivinhar por uma tolerância (spec: "se não for o valor correto, deve
-    // perguntar se é o pagamento total ou parcial").
-    if (showsOccurrence(subType) && occurrenceId && selectedOccurrence) {
-      const diff = Math.abs(movement.amount - selectedOccurrence.effectiveAmountCents);
-      if (diff > OCCURRENCE_AMOUNT_MATCH_TOLERANCE_CENTS) {
-        setPendingOccurrencePayload(payload);
-        return;
-      }
-    }
+    // Ligado a uma ocorrência, o backend deixa-a paga mesmo com valor diferente do previsto (decisão do
+    // utilizador); a recorrência mostra a diferença real vs previsto pelos movimentos ligados.
 
     onSave(
       payload,
       recurringOn && recurringAvailable
-        ? { name: recurringName, fixedAmount: recurringFixed, applyToExisting: recurringApply }
+        ? {
+            name: recurringName,
+            fixedAmount: recurringFixed,
+            applyToExisting: recurringApply,
+            ...(recurringForRecurrence && effectiveRuleRecurrenceId && { recurrenceId: effectiveRuleRecurrenceId }),
+          }
         : null,
     );
   }
@@ -785,7 +782,10 @@ export function ClassifyDrawer({
   const needsCategory = requiresCostCenter(subType) && !!groupId && !(categoriesFetched && categories.length === 0);
   /** O que falta para poder classificar no separador «Justificar despesa» (mostrado junto ao botão). */
   const missingB = [
-    requiresSupplier(subType) && !supplierId ? "fornecedor" : null,
+    // Com a ocorrência escolhida o fornecedor é dispensável: a recorrência já diz quem recebe (ex.: salários).
+    // Idem com «Classificar sempre assim» ligado a uma recorrência (a regra paga a ocorrência do mês certo).
+    requiresSupplier(subType) && !supplierId && !occurrenceId && !(recurringOn && recurringForRecurrence && effectiveRuleRecurrenceId) ? "fornecedor" : null,
+    recurringOn && recurringForRecurrence && !effectiveRuleRecurrenceId ? "recorrência a pagar (em «Classificar sempre assim»)" : null,
     requiresCostCenter(subType) && !groupId ? "categoria" : null,
     needsCategory && !categoryId ? "subcategoria" : null,
     requiresNotes(subType) && !notes.trim() ? "notas (motivo)" : null,
@@ -1311,7 +1311,7 @@ export function ClassifyDrawer({
 
                 {showsSupplier(subType) && (
                   <div className="relative">
-                    <label className={labelCls}>Fornecedor{requiresSupplier(subType) ? " *" : " (opcional)"}</label>
+                    <label className={labelCls}>Fornecedor{requiresSupplier(subType) && !occurrenceId ? " *" : " (opcional)"}</label>
                     <input type="text"
                       value={supplierId ? (selectedSupplier?.name ?? supplierId) : supplierSearch}
                       onChange={(e) => { setSupplierId(""); setSupplierSearch(e.target.value); setSupplierOpen(true); }}
@@ -1465,7 +1465,9 @@ export function ClassifyDrawer({
                       <span>
                         <span className="block text-sm font-semibold text-stone-800">Classificar sempre assim</span>
                         <span className="block text-xs text-stone-500">
-                          Movimento recorrente: os próximos iguais nesta conta ficam conciliados sozinhos ao importar.
+                          {recurringForRecurrence
+                            ? "Os próximos pagamentos iguais nesta conta ficam conciliados sozinhos e a recorrência fica paga."
+                            : "Movimento recorrente: os próximos iguais nesta conta ficam conciliados sozinhos ao importar."}
                         </span>
                       </span>
                     </label>
@@ -1477,6 +1479,20 @@ export function ClassifyDrawer({
                           <input type="text" value={recurringName} onChange={(e) => setRecurringName(e.target.value)}
                             maxLength={120} className={inputCls} placeholder="Ex.: Taxa TPA" />
                         </div>
+                        {recurringForRecurrence && (
+                          <div>
+                            <label className={labelCls}>Recorrência a pagar *</label>
+                            <select value={effectiveRuleRecurrenceId} onChange={(e) => setRuleRecurrenceId(e.target.value)} className={inputCls}>
+                              <option value="">Escolhe a recorrência…</option>
+                              {ruleRecurrences.map((r) => (
+                                <option key={r.id} value={r.id}>{r.name}</option>
+                              ))}
+                            </select>
+                            <p className="mt-1 text-[11px] text-stone-400">
+                              {ruleRecurrence ? paymentPeriodHint(ruleRecurrence) + " Muda isto na ficha da recorrência." : "Só recorrências sem fatura obrigatória (as com fatura concilia-se pela fatura)."}
+                            </p>
+                          </div>
+                        )}
                         <div>
                           <p className={labelCls}>Reconhece movimentos com</p>
                           <p className="rounded-md bg-white px-3 py-2 text-xs font-medium text-stone-700 ring-1 ring-stone-200">
@@ -1530,41 +1546,6 @@ export function ClassifyDrawer({
       </aside>
   );
 
-  const fullOrPartialModal = pendingOccurrencePayload && selectedOccurrence && createPortal(
-    <div className="fixed inset-0 z-[70] flex items-center justify-center p-4" aria-modal="true">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setPendingOccurrencePayload(null)} />
-      <div className="relative w-full max-w-sm rounded-xl bg-white shadow-2xl">
-        <div className="px-6 pt-5 pb-4">
-          <h3 className="text-base font-bold text-stone-900">Valor diferente do previsto</h3>
-          <p className="mt-2 text-sm text-stone-600">
-            O movimento é de <strong>{fromCents(movement.amount)}</strong>, mas o previsto para{" "}
-            <strong>{selectedOccurrence.recurrenceName}</strong> é {fromCents(selectedOccurrence.effectiveAmountCents)}.
-            Isto é o pagamento total ou parcial?
-          </p>
-        </div>
-        <div className="px-6 pt-3 pb-5 flex gap-3">
-          <button
-            type="button"
-            onClick={handleConfirmPartialPayment}
-            disabled={markingOccurrencePaid}
-            className="flex-1 rounded-md border border-stone-300 py-2 text-sm font-medium text-stone-600 hover:bg-stone-50 disabled:opacity-50"
-          >
-            É parcial
-          </button>
-          <button
-            type="button"
-            onClick={() => { void handleConfirmFullPayment(); }}
-            disabled={markingOccurrencePaid}
-            className="flex-1 rounded-md bg-gradient-to-r from-[#ED5C32] to-[#EF8935] py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            {markingOccurrencePaid ? "…" : "É o pagamento total"}
-          </button>
-        </div>
-      </div>
-    </div>,
-    document.body,
-  );
-
   const staleConflictModal = staleConflict && createPortal(
     <StaleDocumentsModal
       onCancel={() => setStaleConflict(null)}
@@ -1574,7 +1555,7 @@ export function ClassifyDrawer({
     document.body,
   );
 
-  if (inline) return <>{panel}{fullOrPartialModal}{staleConflictModal}</>;
+  if (inline) return <>{panel}{staleConflictModal}</>;
 
   return createPortal(
     <>
@@ -1582,7 +1563,6 @@ export function ClassifyDrawer({
         <div className="flex-1 bg-black/30 backdrop-blur-sm" onClick={onClose} />
         {panel}
       </div>
-      {fullOrPartialModal}
       {staleConflictModal}
     </>,
     document.body,

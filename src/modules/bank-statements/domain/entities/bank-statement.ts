@@ -224,6 +224,8 @@ export interface ReconciliationRuleDTO {
   supplierId: string | null;
   vatRate: number | null;
   vatIncluded: boolean | null;
+  /** Recorrência sem fatura que a regra paga (renda, salário). Opcional até o backend novo. */
+  recurrenceId?: string | null;
   justificationType: JustificationType;
   requiresDocument: boolean;
   riskLevel: RiskLevel;
@@ -366,8 +368,26 @@ export interface RepeatJustificationSuggestionDTO {
   vatIncluded: boolean | null;
 }
 
+/** Ocorrência de recorrência sem fatura (salário, renda…) que bate com o movimento; conciliar deixa-a paga. */
+export interface MonthlyOccurrenceMatchSuggestionDTO {
+  movementId: string;
+  occurrenceId: string;
+  recurrenceName: string;
+  supplierName: string;
+  period: string;
+  amountCents: number;
+  confidence: number;
+  supplierId: string | null;
+  costCenterGroupId: string | null;
+  costCenterCategoryId: string | null;
+  vatRate: number | null;
+  vatIncluded: boolean | null;
+}
+
 export interface MonthlySuggestionsDTO {
   entityMatches: MonthlyEntityMatchSuggestionDTO[];
+  /** Opcional até o backend novo estar em produção. */
+  occurrenceMatches?: MonthlyOccurrenceMatchSuggestionDTO[];
   repeatJustifications: RepeatJustificationSuggestionDTO[];
 }
 
@@ -394,6 +414,8 @@ export interface CreateRulePayload {
   supplierId?: string | null;
   vatRate?: number | null;
   vatIncluded?: boolean | null;
+  /** Liga a regra a uma recorrência sem fatura: cada movimento paga a ocorrência do mês (exige «Contrato / Recorrência»). */
+  recurrenceId?: string | null;
   /** Aplica já aos movimentos por classificar desta conta nos meses importados. */
   applyToExisting?: boolean;
 }
@@ -408,6 +430,8 @@ export interface UpdateRulePayload {
   supplierId?: string | null;
   vatRate?: number | null;
   vatIncluded?: boolean | null;
+  /** Liga a regra a uma recorrência sem fatura: cada movimento paga a ocorrência do mês (exige «Contrato / Recorrência»). */
+  recurrenceId?: string | null;
   justificationType?: JustificationType;
   isActive?: boolean;
   applyToExisting?: boolean;

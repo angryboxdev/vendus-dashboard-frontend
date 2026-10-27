@@ -22,8 +22,9 @@ nem por autenticação — apenas consome essas dependências via ports.
 `user.role === 'admin'`.
 
 **Expansão de grupos:** um grupo expande-se automaticamente quando o caminho atual
-começa com o seu `basePath`. O utilizador pode colapsar grupos ativos ou expandir
-grupos inactivos manualmente; esse estado local é gerido no hook `useSidebar`.
+começa com o seu `basePath`. Funciona em acordeão: só um grupo aberto de cada vez —
+abrir outro fecha o anterior (incluindo o ativo). A escolha manual vale até mudar de
+ecrã; esse estado local é gerido no hook `useSidebar`.
 
 ## Ports
 

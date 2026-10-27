@@ -9,8 +9,7 @@ import type {
   RecurrenceFrequency,
   PaymentMethod,
   CreateRecurrencePayload,
-  UpdateRecurrencePayload,
-} from "../../domain/entities/recurrence.ts";
+  UpdateRecurrencePayload, PaymentPeriodOffset } from "../../domain/entities/recurrence.ts";
 import type { CostCenterCategory } from "../../../financial-base/domain/entities/cost-center.ts";
 import {
   RECURRENCE_TYPE_LABELS,
@@ -116,6 +115,10 @@ export function RecurrenceDrawer({
   const [endDate, setEndDate] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("transfer");
   const [requireInvoice, setRequireInvoice] = useState(false);
+  // A que mês se refere o pagamento (conciliação automática). Novo salário → mês anterior, até o utilizador mexer.
+  const [paymentPeriodOffset, setPaymentPeriodOffset] = useState<PaymentPeriodOffset>(0);
+  const [offsetTouched, setOffsetTouched] = useState(false);
+  const effectiveOffset: PaymentPeriodOffset = offsetTouched ? paymentPeriodOffset : type === "payroll" ? -1 : 0;
   const [notes, setNotes] = useState("");
   const [docFile, setDocFile] = useState<File | null>(null);
   const [vatMode, setVatMode] = useState<VatMode>("exempt");
@@ -182,6 +185,8 @@ export function RecurrenceDrawer({
       setEndDate(editing.endDate ?? "");
       setPaymentMethod(editing.paymentMethod);
       setRequireInvoice(editing.requireInvoice);
+      setPaymentPeriodOffset(editing.paymentPeriodOffset ?? 0);
+      setOffsetTouched(true);
       setNotes(editing.notes ?? "");
       setDocFile(null);
       if (editing.vatRate != null) {
@@ -207,6 +212,8 @@ export function RecurrenceDrawer({
       setEndDate("");
       setPaymentMethod("transfer");
       setRequireInvoice(false);
+      setPaymentPeriodOffset(0);
+      setOffsetTouched(false);
       setNotes("");
       setDocFile(null);
       setVatMode("exempt");
@@ -246,6 +253,7 @@ export function RecurrenceDrawer({
         endDate: endDate || null,
         paymentMethod,
         requireInvoice,
+        paymentPeriodOffset: effectiveOffset,
         notes: notes || null,
         vatRate: vatMode === "exempt" ? null : vatRate,
         vatIncluded: vatMode === "exempt" ? null : vatMode === "included",
@@ -268,6 +276,7 @@ export function RecurrenceDrawer({
         endDate: endDate || null,
         paymentMethod,
         requireInvoice,
+        paymentPeriodOffset: effectiveOffset,
         notes: notes || null,
       };
       onCreate(payload, docFile);
@@ -598,6 +607,28 @@ export function RecurrenceDrawer({
                 )}
               </div>
             )}
+
+            {/* A que mês se refere o pagamento (conciliação bancária automática) */}
+            <div>
+              <label className={labelCls}>Cada pagamento refere-se ao</label>
+              <div className="flex gap-2">
+                {([0, -1] as PaymentPeriodOffset[]).map((o) => (
+                  <button
+                    key={o}
+                    type="button"
+                    onClick={() => { setPaymentPeriodOffset(o); setOffsetTouched(true); }}
+                    className={`flex-1 rounded-md border px-2 py-1.5 text-xs font-medium transition-colors ${effectiveOffset === o ? "border-[#ED5C32] bg-white text-[#ED5C32]" : "border-stone-200 text-stone-500 hover:border-stone-300"}`}
+                  >
+                    {o === 0 ? "Mês do pagamento" : "Mês anterior (ex.: salários)"}
+                  </button>
+                ))}
+              </div>
+              <p className="mt-1 text-[11px] text-stone-400">
+                {effectiveOffset === -1
+                  ? "Na conciliação bancária, o pagamento de outubro paga a ocorrência de setembro."
+                  : "Na conciliação bancária, o pagamento de setembro paga a ocorrência de setembro."}
+              </p>
+            </div>
 
             {/* Toggles */}
             <div className="rounded-lg border border-stone-100 bg-stone-50 p-4">

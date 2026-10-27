@@ -33,6 +33,8 @@ export interface RecurringRuleDraft {
   fixedAmount: boolean;
   /** Aplica já aos movimentos por classificar desta conta nos meses importados. */
   applyToExisting: boolean;
+  /** «Contrato / Recorrência»: a recorrência (sem fatura) que cada pagamento futuro paga. */
+  recurrenceId?: string | null;
 }
 
 /** Nome sugerido: a descrição legível (F4) quando existe, senão a do banco. */
@@ -71,7 +73,8 @@ export function buildRecurringRulePayload(
     descriptionContains: movement.description,
     movementType: movement.movementType,
     bankAccountId,
-    justificationType: classification.justificationType,
+    justificationType: draft.recurrenceId ? "contrato_recorrencia" : classification.justificationType,
+    ...(draft.recurrenceId && { recurrenceId: draft.recurrenceId }),
     amountCents: draft.fixedAmount ? movement.amount : null,
     costCenterGroupId: classification.costCenterGroupId ?? null,
     costCenterCategoryId: classification.costCenterCategoryId ?? null,
