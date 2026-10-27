@@ -1,70 +1,67 @@
-import { useState, type ReactNode } from "react";
+import { useState } from "react";
 import { Link } from "react-router-dom";
-import {
-  AlertBanner,
-  Button,
-  EmptyState,
-  IconChevronDown,
-  PAGE_BG,
-  SECTION_TITLE,
-  SURFACE,
-  Skeleton,
-  StatusBadge,
-} from "../../../../components/ui/index.ts";
-import type { DreExpenseCategory, DreReport } from "../../domain/entities/dre.ts";
+import { AlertBanner, Button, EmptyState, IconChevronDown, PAGE_BG, SECTION_TITLE, SURFACE, Skeleton } from "../../../../components/ui/index.ts";
+import type { DreReport } from "../../domain/entities/dre.ts";
 import { monthName } from "../../domain/services/cash-flow-view.ts";
+import { composeDreStatement, type DreStatement, type StatementLine } from "../../domain/services/dre-statement.ts";
 import { dreConfidencePct, platformLabel } from "../../domain/services/dre-view.ts";
 import { euros, kindLabel } from "./cash-flow-format.ts";
 import { useDre } from "./use-dre.ts";
 import { DreParametersDrawer } from "./DreParametersDrawer.tsx";
-import { useOptionalAuth } from "../../../../contexts/AuthContext";
-import { canOpenPath } from "../../../access/domain/services/access-ui.service.ts";
 
 const ROW = "flex items-baseline justify-between gap-4 py-2.5";
 const AMOUNT = "shrink-0 text-sm tabular-nums";
 
-function Line({ label, amount, strong = false, negative = false, hint }: { label: ReactNode; amount: number; strong?: boolean; negative?: boolean; hint?: ReactNode }) {
-  return (
-    <div className={ROW}>
-      <span className={`min-w-0 ${strong ? "text-sm font-semibold text-navy-900" : "text-sm text-ink"}`}>
-        {label}
-        {hint && <span className="block text-xs font-normal text-ink-secondary">{hint}</span>}
-      </span>
-      <span className={`${AMOUNT} ${strong ? "font-semibold text-navy-900" : "text-ink"}`}>{negative && amount !== 0 ? `− ${euros(amount)}` : euros(amount)}</span>
-    </div>
-  );
-}
+const Pending = ({ className = "h-4 w-20" }: { className?: string }) => <Skeleton className={className} />;
 
-const categoryName = (c: DreExpenseCategory) => (c.type === "group" ? (c.name ?? "Sem nome") : kindLabel(c.movementKind));
+const pctText = (pct: number | null) => (pct === null ? "" : `${pct.toLocaleString("pt-PT", { maximumFractionDigits: 1 })}%`);
 
-function ExpenseRow({ category }: { category: DreExpenseCategory }) {
+/** Uma linha da DRE: valores com «−» nos custos, subtotais a negrito, detalhe abrível. */
+function StatementRow({ line }: { line: StatementLine }) {
   const [open, setOpen] = useState(false);
-  const expandable = category.children.length > 0;
+  const expandable = line.children.length > 0;
+  const isCost = line.kind === "cost" || line.kind === "info";
+  const strong = line.kind === "subtotal" || line.kind === "result";
+  const value =
+    line.amountCents === null ? null : isCost && line.amountCents !== 0 ? `− ${euros(line.amountCents)}` : euros(line.amountCents);
+  const negative = !isCost && line.amountCents !== null && line.amountCents < 0;
   return (
-    <li>
+    <li className={line.kind === "result" ? "border-t-2 border-navy-900/20" : line.kind === "subtotal" ? "bg-surface-soft/60" : line.kind === "info" ? "opacity-75" : ""}>
       <button
         type="button"
-        className={`${ROW} w-full text-left disabled:cursor-default`}
+        className={`${ROW} w-full px-3 text-left disabled:cursor-default`}
         onClick={() => setOpen(!open)}
         disabled={!expandable}
         aria-expanded={expandable ? open : undefined}
       >
-        <span className="flex min-w-0 flex-wrap items-center gap-2 pl-3 text-sm text-ink">
-          <span>{categoryName(category)}</span>
-          {category.type === "unclassified" && <StatusBadge tone="warning">Por classificar</StatusBadge>}
-          {category.type === "group" && category.pendingVatCents > 0 && (
-            <StatusBadge tone="neutral">IVA por confirmar {euros(category.pendingVatCents)}</StatusBadge>
-          )}
+        <span className={`flex min-w-0 items-center gap-2 ${strong ? "text-sm font-semibold text-navy-900" : `text-sm text-ink ${line.kind === "cost" ? "pl-3" : ""}`}`}>
+          <span>
+            {line.kind === "cost" ? "(−) " : line.kind === "subtotal" || line.kind === "result" ? "= " : ""}
+            {line.label}
+            {line.hint && <span className="block text-xs font-normal text-ink-secondary">{line.hint}</span>}
+          </span>
           {expandable && <IconChevronDown size={14} className={`text-ink-muted transition-transform ${open ? "rotate-180" : ""}`} />}
         </span>
-        <span className={`${AMOUNT} text-ink`}>− {euros(category.netCents)}</span>
+        <span className="flex shrink-0 items-baseline gap-3">
+          {value === null ? (
+            <Pending />
+          ) : (
+            <span className={`${AMOUNT} ${strong ? "font-semibold" : ""} ${negative ? "text-rose-600" : strong ? "text-navy-900" : "text-ink"} ${line.kind === "result" ? "text-base" : ""}`}>
+              {value}
+            </span>
+          )}
+          <span className="w-12 text-right text-xs tabular-nums text-ink-secondary">{pctText(line.pctOfNet)}</span>
+        </span>
       </button>
       {open && (
-        <ul className="mb-2 ml-6 space-y-1.5 border-l border-line-subtle pl-3">
-          {category.children.map((ch) => (
+        <ul className="mb-2 ml-9 mr-16 space-y-1.5 border-l border-line-subtle pl-3">
+          {line.children.map((ch) => (
             <li key={ch.key} className="flex items-baseline justify-between gap-3 text-xs">
-              <span className="text-ink-secondary">{ch.name ?? "Sem subcategoria"}</span>
-              <span className="tabular-nums text-ink">− {euros(ch.netCents)}</span>
+              <span className="text-ink-secondary">
+                {ch.label}
+                {ch.hint && <span className="block">{ch.hint}</span>}
+              </span>
+              <span className="tabular-nums text-ink">{euros(ch.amountCents)}</span>
             </li>
           ))}
         </ul>
@@ -73,145 +70,48 @@ function ExpenseRow({ category }: { category: DreExpenseCategory }) {
   );
 }
 
-const SUB_ROW = "flex items-baseline justify-between gap-4 py-1 pl-3 text-xs text-ink-secondary";
-
-/** Onde se lançam os ajustes manuais (páginas que saíram do menu); só as que a pessoa pode abrir. */
-function AdjustmentLinks() {
-  const user = useOptionalAuth()?.user;
-  const access = user?.access;
-  const links = [
-    { to: "/dre/custos-fixos", label: "Custos fixos" },
-    { to: "/dre/custos-variaveis", label: "Custos variáveis" },
-  ].filter((l) => !access || canOpenPath({ isAdmin: access.isAdmin, portalOnly: access.portalOnly, permissions: { ...access.permissions } }, l.to));
-  return (
-    <>
-      Custos lançados à mão
-      {links.length > 0 && " · lançar: "}
-      {links.map((l, i) => (
-        <span key={l.to}>
-          {i > 0 && " · "}
-          <Link to={l.to} className="font-medium text-ink-secondary underline-offset-2 hover:text-navy-900 hover:underline">
-            {l.label}
-          </Link>
-        </span>
-      ))}
-    </>
-  );
-}
-
-/** Demonstração de resultados: receita, custos das plataformas, gastos por categoria, ajustes manuais e resultado. */
-function Statement({ report }: { report: DreReport }) {
-  const { revenue, platformCosts, expenses, manualAdjustments, parameters } = report;
-  const byPayment = revenue.restaurantByPayment;
+/** Demonstração de resultados em cascata, até ao lucro líquido da operação. */
+function Statement({ statement, costs }: { statement: DreStatement; costs: DreReport | null }) {
+  const p = costs?.parameters;
   return (
     <section className={`${SURFACE} p-6`} aria-labelledby="dre-statement">
-      <h2 id="dre-statement" className={SECTION_TITLE}>
-        Demonstração de resultados <span className="font-normal text-ink-secondary">· sem IVA</span>
-      </h2>
-
-      <div className="mt-3 divide-y divide-line-subtle">
-        <div>
-          <Line label="Receita" amount={revenue.totalNetCents} strong />
-          <div className="pl-3">
-            {report.restaurantSalesLoaded ? (
-              <Line label="Restaurante" amount={revenue.restaurantNetCents} hint="Vendas do Vendus" />
-            ) : (
-              <div className={ROW}>
-                <span className="text-sm text-ink">
-                  Restaurante
-                  <span className="block text-xs text-ink-secondary">A carregar as vendas do Vendus…</span>
-                </span>
-                <Skeleton className="h-4 w-20" />
-              </div>
-            )}
-            {report.restaurantSalesLoaded && [
-              { label: "Venda restaurante cartão", value: byPayment.cardNetCents },
-              { label: "Venda restaurante dinheiro", value: byPayment.cashNetCents },
-              { label: "Outros (Eatz, MB Way…)", value: byPayment.otherNetCents },
-            ]
-              .filter((r) => r.value !== 0)
-              .map((r) => (
-                <div key={r.label} className={SUB_ROW}>
-                  <span>{r.label}</span>
-                  <span className="tabular-nums">{euros(r.value)}</span>
-                </div>
-              ))}
-            <Line
-              label="Plataformas de entrega"
-              amount={revenue.platformsNetCents}
-              hint={`Venda reconstituída do recebido no banco (${euros(revenue.platformsReceivedCents)}) · bruto com IVA ${euros(revenue.platformsGrossCents)}`}
-            />
-            {revenue.byPlatform.map((p) => (
-              <div key={p.platform} className={SUB_ROW}>
-                <span>
-                  Venda plataforma {platformLabel(p.platform)}
-                  <span className="block">
-                    Recebido {euros(p.receivedCents)} · margem {euros(p.contributionCents)}
-                    {p.contributionPct !== null && ` (${Math.round(p.contributionPct)}%)`}
-                  </span>
-                </span>
-                <span className="tabular-nums">{euros(p.netCents)}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {platformCosts.totalNetCents !== 0 && (
-          <div>
-            <Line
-              label="Custos das plataformas"
-              amount={platformCosts.totalNetCents}
-              strong
-              negative
-              hint={`Comissão ${parameters.platformCommissionPct}% + IVA ${parameters.platformCommissionVatPct}% · IVA das vendas ${parameters.deliverySalesVatPct}%${parameters.source === "month" ? "" : parameters.source === "inherited" ? " (herdados do mês anterior)" : " (valores de omissão)"}`}
-            />
-            <div className="pl-3">
-              <Line label="Comissões" amount={platformCosts.commissionNetCents} negative />
-              {platformCosts.marketingNetCents !== 0 && <Line label="Marketing" amount={platformCosts.marketingNetCents} negative />}
-            </div>
-          </div>
-        )}
-
-        <div>
-          <Line label="Gastos" amount={expenses.totalNetCents} strong negative />
-          {expenses.categories.length === 0 ? (
-            <p className="pb-2.5 pl-3 text-sm text-ink-secondary">Sem saídas no banco neste período.</p>
-          ) : (
-            <ul>
-              {expenses.categories.map((c) => (
-                <ExpenseRow key={c.key} category={c} />
-              ))}
-            </ul>
-          )}
-        </div>
-
-        {/* Menu V1: Custos fixos e variáveis saíram do menu — lançam-se a partir daqui. */}
-        <div>
-          <Line label="Ajustes manuais" amount={manualAdjustments.totalCents} strong negative hint={<AdjustmentLinks />} />
-          <div className="pl-3">
-            {manualAdjustments.fixedCents !== 0 && <Line label="Custos fixos" amount={manualAdjustments.fixedCents} negative />}
-            {manualAdjustments.variableCents !== 0 && <Line label="Custos variáveis" amount={manualAdjustments.variableCents} negative />}
-          </div>
-        </div>
-
-        <div className={`${ROW} pt-4`}>
-          <span className="text-base font-semibold text-navy-900">Resultado</span>
-          {report.resultCents === null ? (
-            <Skeleton className="h-5 w-24" />
-          ) : (
-            <span className={`text-base font-semibold tabular-nums ${report.resultCents < 0 ? "text-rose-600" : "text-navy-900"}`}>
-              {euros(report.resultCents)}
-            </span>
-          )}
-        </div>
+      <div className="flex items-baseline justify-between gap-4">
+        <h2 id="dre-statement" className={SECTION_TITLE}>
+          Demonstração de resultados <span className="font-normal text-ink-secondary">· sem IVA</span>
+        </h2>
+        <span className="text-xs text-ink-secondary">% da receita líquida</span>
       </div>
+      <ul className="mt-3 divide-y divide-line-subtle">
+        {statement.lines.map((line) => (
+          <StatementRow key={line.key} line={line} />
+        ))}
+      </ul>
+      {p && (
+        <p className="mt-4 text-xs text-ink-secondary">
+          Plataformas: comissão {p.platformCommissionPct}% + IVA {p.platformCommissionVatPct}% · IVA das vendas {p.deliverySalesVatPct}%
+          {p.source === "inherited" ? " (herdados do mês anterior)" : p.source === "default" ? " (valores de omissão)" : ""}. Gastos pelo extrato
+          bancário: com fatura conciliada, a categoria da fatura; sem fatura, a classificação do extrato.
+        </p>
+      )}
     </section>
   );
 }
 
-function SidePanel({ report }: { report: DreReport }) {
-  const { vat, expenses } = report;
-  const confidence = dreConfidencePct(report);
+function VatLine({ label, amount, hint }: { label: string; amount: number | null; hint?: string }) {
+  return (
+    <div className={ROW}>
+      <span className="min-w-0 text-sm text-ink">
+        {label}
+        {hint && <span className="block text-xs text-ink-secondary">{hint}</span>}
+      </span>
+      {amount === null ? <Pending /> : <span className={`${AMOUNT} text-ink`}>{euros(amount)}</span>}
+    </div>
+  );
+}
+
+function SidePanel({ statement, costs }: { statement: DreStatement; costs: DreReport | null }) {
+  const confidence = costs ? dreConfidencePct(costs) : null;
+  const expenses = costs?.expenses;
   return (
     <aside className={`${SURFACE} flex flex-col gap-5 p-6`}>
       <section aria-labelledby="dre-vat">
@@ -219,16 +119,17 @@ function SidePanel({ report }: { report: DreReport }) {
           IVA do mês
         </h2>
         <div className="mt-2 divide-y divide-line-subtle">
-          <Line label="IVA das vendas" amount={vat.salesCents} hint={report.restaurantSalesLoaded ? undefined : "Sem o restaurante (a carregar)"} />
-          <Line
+          <VatLine label="IVA das vendas" amount={statement.vatSalesCents} />
+          <VatLine
             label="IVA das compras"
-            amount={vat.purchasesCents}
-            negative
-            hint={vat.purchasesEstimatedCents > 0 ? `Dedutível · ${euros(vat.purchasesEstimatedCents)} estimado` : "Dedutível conhecido"}
+            amount={costs ? costs.vat.purchasesCents : null}
+            hint={costs && costs.vat.purchasesEstimatedCents > 0 ? `Dedutível · ${euros(costs.vat.purchasesEstimatedCents)} estimado` : "Dedutível conhecido"}
           />
           <div className={ROW}>
-            <span className="text-sm font-semibold text-navy-900">{vat.balanceCents >= 0 ? "A entregar (estimativa)" : "A recuperar (estimativa)"}</span>
-            <span className="text-sm font-semibold tabular-nums text-navy-900">{euros(Math.abs(vat.balanceCents))}</span>
+            <span className="text-sm font-semibold text-navy-900">
+              {statement.vatBalanceCents !== null && statement.vatBalanceCents < 0 ? "A recuperar (estimativa)" : "A entregar (estimativa)"}
+            </span>
+            {statement.vatBalanceCents === null ? <Pending /> : <span className="text-sm font-semibold tabular-nums text-navy-900">{euros(Math.abs(statement.vatBalanceCents))}</span>}
           </div>
         </div>
       </section>
@@ -239,7 +140,9 @@ function SidePanel({ report }: { report: DreReport }) {
         <h2 id="dre-confidence" className={SECTION_TITLE}>
           Confiança dos gastos
         </h2>
-        {confidence === null ? (
+        {!expenses ? (
+          <Pending className="mt-2 h-24 w-full" />
+        ) : confidence === null ? (
           <p className="mt-2 text-sm text-ink-secondary">Sem gastos neste período.</p>
         ) : (
           <>
@@ -260,7 +163,7 @@ function SidePanel({ report }: { report: DreReport }) {
                 <span className="tabular-nums text-ink">{euros(expenses.pendingVatCents)}</span>
               </li>
               <li className="flex justify-between gap-3">
-                <span className="text-ink">Por classificar</span>
+                <span className="text-ink">Sem fatura (classificação do extrato)</span>
                 <span className="tabular-nums text-ink">{euros(expenses.unclassifiedCents)}</span>
               </li>
             </ul>
@@ -280,10 +183,25 @@ function SidePanel({ report }: { report: DreReport }) {
   );
 }
 
+function Kpi({ label, value }: { label: string; value: number | null }) {
+  return (
+    <div className="self-end">
+      <p className="text-xs text-ink-secondary">{label}</p>
+      {value === null ? (
+        <Pending className="mt-1 h-6 w-24" />
+      ) : (
+        <p className={`text-lg font-semibold tabular-nums ${value < 0 ? "text-rose-600" : "text-navy-900"}`}>{euros(value)}</p>
+      )}
+    </div>
+  );
+}
+
 /** DRE do mês pela conciliação bancária (Mapa de rentabilidade → Mapa). */
 export function DreView({ year, month }: { year: number; month: number }) {
-  const { report, loading, salesLoading, salesError, error, future } = useDre(year, month);
+  const { costs, sales, costsLoading, salesLoading, costsError, salesError, future } = useDre(year, month);
   const [paramsOpen, setParamsOpen] = useState(false);
+  const statement = composeDreStatement(costs, sales, { platform: platformLabel, movementKind: kindLabel, euros });
+  const period = costs?.period ?? sales?.period ?? null;
 
   return (
     <div className={`${PAGE_BG} mx-auto w-full max-w-6xl space-y-5 p-4 sm:p-6`}>
@@ -297,66 +215,52 @@ export function DreView({ year, month }: { year: number; month: number }) {
       )}
       {future ? (
         <EmptyState title="Este mês ainda não começou" description="Escolha um mês até ao atual." />
-      ) : error ? (
-        <AlertBanner tone="danger" title="Não foi possível carregar a DRE">
-          {error}
-        </AlertBanner>
-      ) : loading || !report ? (
-        <div className="grid gap-5 lg:grid-cols-3" aria-busy="true">
-          <p className="text-sm text-ink-secondary lg:col-span-3">A ler o banco e os custos do mês…</p>
-          <Skeleton className="h-40 lg:col-span-3" />
-          <Skeleton className="h-[28rem] lg:col-span-2" />
-          <Skeleton className="h-[28rem]" />
-        </div>
       ) : (
         <>
           {salesLoading && (
             <AlertBanner tone="info" title="As vendas do restaurante estão a carregar">
-              Os custos já estão à vista; a receita, o resultado e a margem completam-se quando chegarem as vendas do Vendus. Se for a
-              primeira vez que abre este mês, demora um pouco mais do que o normal (até cerca de um minuto).
+              O resto da DRE já aparece à medida que chega; as vendas do Vendus completam a receita e o resultado. Se for a primeira vez
+              que abre este mês, demora um pouco mais do que o normal (até cerca de um minuto).
             </AlertBanner>
           )}
+          {costsLoading && <AlertBanner tone="info" title="Os custos do banco estão a carregar">Aparecem dentro de segundos.</AlertBanner>}
           {salesError && (
             <AlertBanner tone="warning" title="Não foi possível carregar as vendas do restaurante">
-              {salesError} — os custos abaixo estão certos; a receita do restaurante, o resultado e a margem ficam por mostrar.
+              {salesError}
+            </AlertBanner>
+          )}
+          {costsError && (
+            <AlertBanner tone="danger" title="Não foi possível carregar os custos do banco">
+              {costsError}
             </AlertBanner>
           )}
           <section className={`${SURFACE} grid gap-6 p-6 sm:grid-cols-4`}>
             <div className="sm:col-span-1">
-              <h2 className={`${SECTION_TITLE} first-letter:uppercase`}>{monthName(report.period.month)}</h2>
-              <p className="mt-3 text-sm text-ink-secondary">Resultado</p>
-              {report.resultCents === null ? (
-                <Skeleton className="mt-1 h-10 w-40" />
+              <h2 className={`${SECTION_TITLE} first-letter:uppercase`}>{monthName(month)}</h2>
+              <p className="mt-3 text-sm text-ink-secondary">Lucro líquido da operação</p>
+              {statement.netResultCents === null ? (
+                <Pending className="mt-1 h-10 w-40" />
               ) : (
-                <p className={`text-4xl font-bold tracking-tight tabular-nums ${report.resultCents < 0 ? "text-rose-600" : "text-navy-900"}`}>{euros(report.resultCents)}</p>
+                <p className={`text-4xl font-bold tracking-tight tabular-nums ${statement.netResultCents < 0 ? "text-rose-600" : "text-navy-900"}`}>
+                  {euros(statement.netResultCents)}
+                </p>
               )}
-              {report.marginPct !== null && (
+              {statement.netMarginPct !== null && (
                 <p className="mt-1 text-xs text-ink-secondary">
-                  Margem <span className="font-semibold tabular-nums text-navy-900">{Math.round(report.marginPct)}%</span>
-                  {report.period.isCurrentMonth && <span> · até hoje</span>}
+                  Margem <span className="font-semibold tabular-nums text-navy-900">{Math.round(statement.netMarginPct)}%</span>
+                  {period?.isCurrentMonth && <span> · até hoje</span>}
                 </p>
               )}
             </div>
-            {[
-              { label: "Receita", value: report.restaurantSalesLoaded ? report.revenue.totalNetCents : null },
-              { label: "Gastos", value: report.expenses.totalNetCents + report.platformCosts.totalNetCents },
-              { label: "Ajustes manuais", value: report.manualAdjustments.totalCents },
-            ].map((k) => (
-              <div key={k.label} className="self-end">
-                <p className="text-xs text-ink-secondary">{k.label}</p>
-                {k.value === null ? (
-                  <Skeleton className="mt-1 h-6 w-24" />
-                ) : (
-                  <p className="text-lg font-semibold tabular-nums text-navy-900">{euros(k.value)}</p>
-                )}
-              </div>
-            ))}
+            <Kpi label="Receita líquida" value={statement.netRevenueCents} />
+            <Kpi label="Lucro bruto" value={statement.grossProfitCents} />
+            <Kpi label="Resultado operacional" value={statement.operatingResultCents} />
           </section>
           <div className="grid gap-5 lg:grid-cols-3">
             <div className="lg:col-span-2">
-              <Statement report={report} />
+              <Statement statement={statement} costs={costs} />
             </div>
-            <SidePanel report={report} />
+            <SidePanel statement={statement} costs={costs} />
           </div>
         </>
       )}

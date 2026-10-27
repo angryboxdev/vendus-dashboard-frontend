@@ -88,6 +88,10 @@ export interface DreExpenses {
   pendingVatCents: number;
   unclassifiedCents: number;
   categories: DreExpenseCategory[];
+  /** Os mesmos gastos pelas linhas da DRE (só as com valor, pela ordem da DRE). */
+  sections: DreExpenseSection[];
+  /** Investimentos (CAPEX): incluídos em `totalNetCents`, mas fora do resultado. */
+  capexNetCents: number;
 }
 
 export interface DreReport {
@@ -99,8 +103,44 @@ export interface DreReport {
   /** Comissões e marketing das plataformas, sem IVA. */
   platformCosts: { commissionNetCents: number; marketingNetCents: number; totalNetCents: number };
   expenses: DreExpenses;
-  manualAdjustments: { fixedCents: number; variableCents: number; totalCents: number };
   resultCents: number | null;
   marginPct: number | null;
   vat: { salesCents: number; purchasesCents: number; purchasesEstimatedCents: number; balanceCents: number };
+}
+
+/** Linha da DRE de um gasto (tipo financeiro da categoria; sem fatura, o tipo genérico do extrato). */
+export type DreSectionKey =
+  | "cmv"
+  | "variable"
+  | "personnel"
+  | "structure"
+  | "administrative"
+  | "marketing"
+  | "financial"
+  | "capex"
+  | "other"
+  | "unclassified";
+
+export interface DreSectionItem {
+  key: string;
+  categoryId: string | null;
+  code: string | null;
+  name: string | null;
+  /** Tipo genérico do banco, quando a saída não tem categoria. */
+  movementKind: string | null;
+  netCents: number;
+}
+
+export interface DreExpenseSection {
+  key: DreSectionKey;
+  netCents: number;
+  items: DreSectionItem[];
+}
+
+/** Só as vendas do restaurante do mês — contrato de `GET /api/reports/dre/vendas-restaurante`. */
+export interface DreRestaurantSales {
+  period: DreReport["period"];
+  netCents: number;
+  vatCents: number;
+  byPayment: DreRevenue["restaurantByPayment"];
 }

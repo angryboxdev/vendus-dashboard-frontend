@@ -1,6 +1,6 @@
 import { ApiError, apiGet, apiPut } from "../../../../lib/api.ts";
 import type { CashFlowReport, CashFlowToHandle } from "../../domain/entities/cash-flow.ts";
-import type { DreParameters, DreReport, ResolvedDreParameters } from "../../domain/entities/dre.ts";
+import type { DreParameters, DreReport, DreRestaurantSales, ResolvedDreParameters } from "../../domain/entities/dre.ts";
 import type { SalesReconciliation } from "../../domain/entities/sales-reconciliation.ts";
 import type { CashFlowApiPort } from "../../domain/ports/out/cash-flow-api.port.ts";
 
@@ -11,6 +11,10 @@ export class HttpCashFlowApiAdapter implements CashFlowApiPort {
 
   getDre(year: number, month: number, withRestaurantSales = true): Promise<DreReport> {
     return apiGet<DreReport>(`/api/reports/dre/resultado?year=${year}&month=${month}${withRestaurantSales ? "" : "&restaurante=0"}`);
+  }
+
+  getDreRestaurantSales(year: number, month: number): Promise<DreRestaurantSales> {
+    return apiGet<DreRestaurantSales>(`/api/reports/dre/vendas-restaurante?year=${year}&month=${month}`);
   }
 
   getSalesReconciliation(year: number, month: number): Promise<SalesReconciliation> {
