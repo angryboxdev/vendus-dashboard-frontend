@@ -28,7 +28,7 @@ import type {
 import { ImportInvoiceModal } from "./ImportInvoiceModal.tsx";
 import { EmailIntakeDrawer } from "./EmailIntakePanel.tsx";
 import { isPendingReview } from "../../domain/services/email-intake.ts";
-import { DropdownMenu, IconSettings } from "../../../../components/ui/index.ts";
+import { AppIcon, Button, Dialog, DropdownMenu, IconSettings } from "../../../../components/ui/index.ts";
 import { ImportQueuePanel } from "./ImportQueuePanel.tsx";
 import { ReviewImportedInvoiceDrawer } from "./ReviewImportedInvoiceDrawer.tsx";
 import { PayablesSummaryBar } from "./PayablesSummaryBar.tsx";
@@ -3233,16 +3233,35 @@ export function InvoicesView() {
     return invoicesByDueDate.get(selectedCalendarDay.dateStr) ?? null;
   }, [selectedCalendarDay, invoicesByDueDate]);
 
-  // Auto-open drawer when navigated with ?open=<invoiceId>
+  // ?open=<invoiceId> (links de outros ecrãs e «Abrir fatura» das Faturas por email): abre EXATAMENTE essa fatura,
+  // mesmo que não esteja na lista carregada (outro mês, filtros) — rascunho → revisão, as outras → detalhe.
+  // Já eliminada (404) → aviso «Fatura eliminada».
+  const [deletedInvoiceOpen, setDeletedInvoiceOpen] = useState(false);
+  const openParam = searchParams.get("open");
   useEffect(() => {
-    const openId = searchParams.get("open");
-    if (!openId || invoices.length === 0) return;
-    const target = invoices.find((inv) => inv.id === openId);
-    if (target) {
-      setDetail(target);
-      navigate("/financial/invoices", { replace: true });
-    }
-  }, [searchParams, invoices, navigate]);
+    if (!openParam) return;
+    navigate("/financial/invoices", { replace: true });
+    let cancelled = false;
+    api
+      .getInvoice(openParam)
+      .then((inv) => {
+        if (cancelled) return;
+        setShowEmailIntake(false);
+        if (inv.status === "draft_ai" || inv.status === "pending_review") void handleRowReview(inv);
+        else setDetail(inv);
+      })
+      .catch((e: unknown) => {
+        if (cancelled) return;
+        setShowEmailIntake(false);
+        if (e instanceof ApiError && e.status === 404) setDeletedInvoiceOpen(true);
+        else setImportNotice("Não foi possível abrir a fatura.");
+      });
+    return () => {
+      cancelled = true;
+    };
+    // handleRowReview só usa o api e setters estáveis.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openParam, api, navigate]);
 
   const deleteMutation = useMutation({
     // `confirmRemoveStockReview` chega como variável do `mutate(...)`, nunca
@@ -4682,16 +4701,18 @@ export function InvoicesView() {
         />
 
         {/* Drawers */}
-        <EmailIntakeDrawer
-          open={showEmailIntake}
-          onClose={() => setShowEmailIntake(false)}
-          onOpenInvoice={(id) => {
-            setShowEmailIntake(false);
-            void api
-              .getInvoice(id)
-              .then((inv) => (inv.status === "draft_ai" || inv.status === "pending_review" ? handleRowReview(inv) : setDetail(inv)))
-              .catch(() => setImportNotice("Não foi possível abrir a fatura."));
-          }}
+        <EmailIntakeDrawer open={showEmailIntake} onClose={() => setShowEmailIntake(false)} />
+        <Dialog
+          open={deletedInvoiceOpen}
+          title={
+            <span className="inline-flex items-center gap-2">
+              <AppIcon name="lock" size={18} aria-hidden="true" />
+              Fatura eliminada
+            </span>
+          }
+          description="Esta fatura foi eliminada no Mezza e já não pode ser aberta. O registo de quando foi recebida continua no histórico."
+          onClose={() => setDeletedInvoiceOpen(false)}
+          actions={<Button onClick={() => setDeletedInvoiceOpen(false)}>Fechar</Button>}
         />
         {showImport && (
           <ImportInvoiceModal

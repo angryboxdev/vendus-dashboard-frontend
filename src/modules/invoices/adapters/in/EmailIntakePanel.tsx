@@ -1,10 +1,11 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useInvoicesModule } from "../../invoices.module.tsx";
 import { useAuth } from "../../../../contexts/AuthContext";
 import { hasLevel } from "../../../access/domain/services/access-ui.service.ts";
 import { formatIsoDatePt } from "../../../../lib/format.ts";
-import { AlertBanner, Button, Dialog, Drawer, FIELD, IconCopy, IconCheck, IconInbox, LABEL, SegmentedControl, Skeleton, StatusBadge } from "../../../../components/ui/index.ts";
+import { AlertBanner, AppIcon, Button, Dialog, Drawer, FIELD, IconCopy, IconCheck, IconInbox, LABEL, SegmentedControl, Skeleton, StatusBadge } from "../../../../components/ui/index.ts";
 import type { EmailIntakeDTO, EmailIntakeDestination } from "../../domain/entities/email-intake.ts";
 import { emailIntakeStatus } from "../../domain/services/email-intake.ts";
 
@@ -21,7 +22,7 @@ function useCanManage(): boolean {
  * «Faturas por email»: endereço da empresa (copiar / gerar novo), destino, como partilhar com os fornecedores e
  * o que chegou nos últimos 30 dias. A chave, o webhook e o segredo da Resend nunca aparecem aqui (são do servidor).
  */
-export function EmailIntakePanel({ onOpenInvoice }: { onOpenInvoice?: (invoiceId: string) => void }) {
+export function EmailIntakePanel() {
   const { api } = useInvoicesModule();
   const qc = useQueryClient();
   const canManage = useCanManage();
@@ -104,7 +105,7 @@ export function EmailIntakePanel({ onOpenInvoice }: { onOpenInvoice?: (invoiceId
             </ul>
           </section>
 
-          <ActivityBlock data={data} onOpenInvoice={onOpenInvoice} />
+          <ActivityBlock data={data} />
 
           {data.previousAddresses.length > 0 && (
             <details className="text-xs text-ink-muted">
@@ -212,7 +213,12 @@ function AddressBlock({
   );
 }
 
-function ActivityBlock({ data, onOpenInvoice }: { data: EmailIntakeDTO; onOpenInvoice?: (invoiceId: string) => void }) {
+/** Link para a própria fatura (`?open=` abre exatamente essa; rascunho → revisão) — ou o aviso de eliminada. */
+function invoiceLink(invoiceId: string): string {
+  return `/financial/invoices?open=${encodeURIComponent(invoiceId)}`;
+}
+
+function ActivityBlock({ data }: { data: EmailIntakeDTO }) {
   const c = data.counts;
   const stats: [string, number][] = [
     ["Por rever", c.imported],
@@ -251,11 +257,17 @@ function ActivityBlock({ data, onOpenInvoice }: { data: EmailIntakeDTO; onOpenIn
                 </div>
                 <div className="flex shrink-0 flex-col items-end gap-1">
                   <StatusBadge tone={s.tone}>{s.label}</StatusBadge>
-                  {a.invoiceId && onOpenInvoice && (
-                    <button type="button" className="text-xs font-medium text-ink-secondary hover:text-navy-900 hover:underline" onClick={() => onOpenInvoice(a.invoiceId!)}>
-                      Abrir fatura
-                    </button>
-                  )}
+                  {a.invoiceId &&
+                    (a.invoiceDeleted ? (
+                      <span className="inline-flex items-center gap-1 text-xs text-ink-muted" title="Esta fatura foi eliminada no Mezza.">
+                        <AppIcon name="lock" size={12} aria-hidden="true" />
+                        Fatura eliminada
+                      </span>
+                    ) : (
+                      <Link to={invoiceLink(a.invoiceId)} className="text-xs font-medium text-ink-secondary hover:text-navy-900 hover:underline">
+                        Abrir fatura
+                      </Link>
+                    ))}
                 </div>
               </li>
             );
@@ -267,10 +279,10 @@ function ActivityBlock({ data, onOpenInvoice }: { data: EmailIntakeDTO; onOpenIn
 }
 
 /** Gaveta aberta a partir de Faturas → Opções. */
-export function EmailIntakeDrawer({ open, onClose, onOpenInvoice }: { open: boolean; onClose: () => void; onOpenInvoice?: (invoiceId: string) => void }) {
+export function EmailIntakeDrawer({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <Drawer open={open} title="Faturas por email" description="Os fornecedores enviam as faturas para o endereço da empresa e elas entram para rever." onClose={onClose} width="max-w-lg">
-      {open && <EmailIntakePanel onOpenInvoice={onOpenInvoice} />}
+      {open && <EmailIntakePanel />}
     </Drawer>
   );
 }
