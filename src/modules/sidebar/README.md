@@ -49,6 +49,8 @@ ecrã; esse estado local é gerido no hook `useSidebar`.
 - `ReactAuthAdapter` — implementa `AuthPort` com getter functions fechadas sobre um ref atualizado a cada render, garantindo que o use case (criado uma única vez) lê sempre os valores de auth mais recentes.
 
 ## Decisões de design (ADR resumido)
+
+- **Grupo «Configurações» (2026-10-27)** — último grupo do menu (junto ao bloco do utilizador): Empresa & Estrutura, Utilizadores e permissões (também ativo em `/admin/access-profiles`) e o subgrupo «Integrações» (Faturas por email, Tokens de dispositivo). Mesmas rotas e permissões de antes; sem página «Integrações» vazia. `resolveActiveGroup` passa a reconhecer também os caminhos dos itens (os do grupo não partilham o `basePath`).
 - **Contador** (`badgeKey`, 2026-10-07): itens podem mostrar um número (ex.: Caixa de pedidos); `BadgeCountsPort` → `HttpBadgeCountsAdapter` (`GET /api/hr/requests`), só pedido quando o item está visível, a cada 60 s.
 - **Recursos Humanos** (2026-10-14): as áreas do Novo RH são os itens principais (Visão geral, Colaboradores, Escalas, Assiduidade, Ausências, Documentos); os ecrãs antigos ficam em **RH antigo** (`/hr/antigo`, item com `match` = `LEGACY_HR_PATHS` para ficar ativo em qualquer ecrã antigo; separadores lado a lado em `pages/hr/HrLayout`). `/hr` abre o Novo RH a quem o pode abrir; senão o primeiro ecrã antigo permitido.
 - 2026-10-14 (visual): largura 240 px; item ativo navy mais claro com detalhe cobre. "RH antigo" continua no menu (pedido do utilizador: manter para consulta).

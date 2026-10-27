@@ -1,7 +1,9 @@
+import type { EmailIntakeDTO, EmailIntakeDestination } from "../../domain/entities/email-intake.ts";
 import {
   apiGet,
   apiPost,
   apiPatch,
+  apiPatchNoContent,
   apiDeleteNoContent,
   apiPostFormData,
   apiPut,
@@ -148,6 +150,18 @@ export class HttpInvoicesApiAdapter implements InvoicesApiPort {
 
   async getInvoiceAlerts(): Promise<InvoiceAlertsDTO> {
     return apiGet(`${BASE}/alerts`);
+  }
+
+  async getEmailIntake(): Promise<EmailIntakeDTO> {
+    return apiGet(`${BASE}/email-intake`);
+  }
+
+  async generateEmailIntakeAddress(reason?: string | null): Promise<{ email: string; createdAt: string }> {
+    return apiPost(`${BASE}/email-intake/address`, { reason: reason ?? null });
+  }
+
+  async setEmailIntakeDestination(destination: EmailIntakeDestination): Promise<void> {
+    await apiPatchNoContent(`${BASE}/email-intake/settings`, { destination });
   }
 
   async suggestLineClassification(supplierId: string, description?: string): Promise<SuggestClassificationResult | null> {
