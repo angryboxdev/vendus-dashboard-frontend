@@ -366,8 +366,26 @@ export interface RepeatJustificationSuggestionDTO {
   vatIncluded: boolean | null;
 }
 
+/** Ocorrência de recorrência sem fatura (salário, renda…) que bate com o movimento; conciliar deixa-a paga. */
+export interface MonthlyOccurrenceMatchSuggestionDTO {
+  movementId: string;
+  occurrenceId: string;
+  recurrenceName: string;
+  supplierName: string;
+  period: string;
+  amountCents: number;
+  confidence: number;
+  supplierId: string | null;
+  costCenterGroupId: string | null;
+  costCenterCategoryId: string | null;
+  vatRate: number | null;
+  vatIncluded: boolean | null;
+}
+
 export interface MonthlySuggestionsDTO {
   entityMatches: MonthlyEntityMatchSuggestionDTO[];
+  /** Opcional até o backend novo estar em produção. */
+  occurrenceMatches?: MonthlyOccurrenceMatchSuggestionDTO[];
   repeatJustifications: RepeatJustificationSuggestionDTO[];
 }
 

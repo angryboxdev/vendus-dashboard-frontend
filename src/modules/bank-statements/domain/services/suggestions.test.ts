@@ -31,3 +31,15 @@ describe("bulkReconcileItems", () => {
     ]);
   });
 });
+
+describe("occurrenceClassification", () => {
+  it("liga à ocorrência como Contrato/Recorrência e herda a categoria", async () => {
+    const { occurrenceClassification } = await import("./suggestions.ts");
+    expect(
+      occurrenceClassification({
+        movementId: "m1", occurrenceId: "occ-9", recurrenceName: "Salário — Colaborador Exemplo", supplierName: "Colaborador Exemplo", period: "2026-09",
+        amountCents: 135_000, confidence: 0.95, supplierId: null, costCenterGroupId: "g", costCenterCategoryId: "c", vatRate: null, vatIncluded: null,
+      }),
+    ).toEqual({ justificationType: "contrato_recorrencia", matchedEntityType: "recurrence_occurrence", matchedEntityId: "occ-9", costCenterGroupId: "g", costCenterCategoryId: "c" });
+  });
+});
