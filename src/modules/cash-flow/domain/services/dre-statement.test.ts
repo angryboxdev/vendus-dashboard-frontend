@@ -16,6 +16,11 @@ describe("composeDreStatement", () => {
     expect(amount(s, "operating")).toBe(353_002);
     expect(s.operatingExpensesCents).toBe(483_002 - 353_002);
     expect(s.operatingExpensesPct).toBe(23.5);
+    // Saldo acumulado: cada subtotal é o saldo nesse ponto.
+    for (const ln of s.lines.filter((x) => x.kind === "subtotal" || x.kind === "result")) expect(ln.runningCents).toBe(ln.amountCents);
+    expect(s.lines.find((x) => x.key === "restaurant")!.runningCents).toBe(500_000);
+    expect(s.lines.find((x) => x.key === "platforms")!.runningCents).toBe(586_957);
+    expect(s.lines.find((x) => x.key === "commissions")!.runningCents).toBe(556_957);
     expect(amount(s, "net-result")).toBe(353_002);
     expect(s.netMarginPct).toBe(63.8);
     expect(s.lines.find((x) => x.key === "cmv")!.pctOfNet).toBe(12.7);

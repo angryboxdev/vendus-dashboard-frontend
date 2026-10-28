@@ -23,6 +23,11 @@ export interface StatementLine {
   amountCents: number | null;
   /** % da receita líquida (1 casa); null sem ela. */
   pctOfNet: number | null;
+  /**
+   * Saldo acumulado até esta linha (receitas somam, custos e o que fica fora da operação subtraem); nos
+   * subtotais é o próprio subtotal. null nos títulos ou enquanto falta algum valor anterior.
+   */
+  runningCents?: number | null;
   children: StatementChild[];
   hint?: string;
   /** Linha com pagamentos para conferir (`DreEntry.section`); só nas rubricas de gastos do banco. */
@@ -186,7 +191,7 @@ export function composeDreStatement(costs: DreReport | null, sales: DreRestauran
   ].filter((ln) => !(ln.kind === "cost" || ln.kind === "info") || ln.amountCents !== 0);
   // Sem nada fora da operação, o bloco não aparece.
   const hasOff = lines.some((ln) => ln.key === "capex" || ln.key === "off-operation");
-  const shown = hasOff ? lines : lines.filter((ln) => ln.key !== "off-heading" && ln.key !== "after-off-operation");
+  const shown = withRunningBalance(hasOff ? lines : lines.filter((ln) => ln.key !== "off-heading" && ln.key !== "after-off-operation"));
 
   const vatSales = sales && costs ? sales.vatCents + costs.vat.salesCents : null;
   return {
@@ -202,4 +207,22 @@ export function composeDreStatement(costs: DreReport | null, sales: DreRestauran
     vatSalesCents: vatSales,
     vatBalanceCents: vatSales === null || !costs ? null : vatSales - costs.vat.purchasesCents,
   };
+}
+
+/**
+ * Saldo acumulado linha a linha, de cima para baixo: receita soma, custo e «fora da operação» subtraem,
+ * subtotais e resultado mostram o saldo nesse ponto (igual ao próprio subtotal). Falta um valor → null daí
+ * para baixo.
+ */
+export function withRunningBalance(lines: StatementLine[]): StatementLine[] {
+  let running: number | null = 0;
+  return lines.map((ln) => {
+    if (ln.kind === "heading") return { ...ln, runningCents: null };
+    if (running !== null) {
+      if (ln.amountCents === null) running = null;
+      else if (ln.kind === "revenue") running += ln.amountCents;
+      else if (ln.kind === "cost" || ln.kind === "info") running -= ln.amountCents;
+    }
+    return { ...ln, runningCents: running };
+  });
 }

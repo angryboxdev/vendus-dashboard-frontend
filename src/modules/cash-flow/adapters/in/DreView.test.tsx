@@ -1,5 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -86,11 +86,20 @@ describe("DreView", () => {
     const costs = deferred(sampleDre());
     renderView(fakeModule(costs.run));
     expect(await screen.findByText("Os custos do banco estão a carregar")).toBeInTheDocument();
-    expect(await screen.findByText(/5000,00/)).toBeInTheDocument(); // vendas do restaurante
+    expect((await screen.findAllByText(/5000,00/)).length).toBeGreaterThan(0); // vendas do restaurante (e o saldo acumulado)
     expect(screen.queryByText(/3530,02/)).toBeNull();
 
     costs.release();
     expect((await screen.findAllByText(/3530,02/)).length).toBeGreaterThan(0);
+  });
+
+  it("saldo acumulado: coluna visível por omissão, recolhe e volta a mostrar com um clique", async () => {
+    renderView(fakeModule());
+    expect(await screen.findByLabelText(/Saldo acumulado 5000,00/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Recolher saldo acumulado" }));
+    expect(screen.queryByLabelText(/Saldo acumulado 5000,00/)).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Mostrar saldo acumulado" }));
+    expect(screen.getByLabelText(/Saldo acumulado 5000,00/)).toBeInTheDocument();
   });
 
   it("mês futuro: não pede nada", () => {
