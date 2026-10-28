@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import { ImportPlatformDocumentsUseCase } from "../../application/use-cases/import-platform-documents.use-case.ts";
 import type { DeliveryPlatformsApiPort } from "../ports/out/delivery-platforms-api.port.ts";
 import { crossesMonth, periodLabel, totalsByPlatform, validatePlatformFiles } from "./platform-statements-view.ts";
-import { sampleBoltAndSaft, sampleMarginReport, samplePayouts, sampleStatements } from "./fixtures.ts";
+import { sampleBoltAndSaft, sampleFoodCost, sampleMarginReport, samplePayouts, sampleStatements } from "./fixtures.ts";
+import { changeFor, packagingChange, targetValue } from "./food-cost-view.ts";
 
 describe("platform-statements-view", () => {
   it("valida a seleção: vazia, demasiados ficheiros, formato", () => {
@@ -39,6 +40,8 @@ describe("ImportPlatformDocumentsUseCase", () => {
     getMarginReport: async () => sampleMarginReport(),
     exportMarginReport: async () => ({ fileName: "f.pdf", content: new Blob() }),
     getPayoutReconciliation: async () => samplePayouts(),
+    getFoodCost: async () => sampleFoodCost(),
+    saveProductMappings: async () => undefined,
   });
 
   it("envia uma seleção válida", async () => {
@@ -53,5 +56,17 @@ describe("ImportPlatformDocumentsUseCase", () => {
       /Só PDF, CSV ou XML/,
     );
     expect(calls).toEqual([]);
+  });
+});
+
+describe("food-cost-view", () => {
+  it("escolha do select ↔ correção a gravar", () => {
+    const [pizza, water] = sampleFoodCost().lines;
+    expect(targetValue(pizza!.target)).toBe("auto");
+    expect(targetValue({ ...pizza!.target!, source: "manual" })).toBe("dish:p1:small");
+    expect(changeFor(water!, "item:i9")).toEqual({ productKey: "agua mineral 51cl", productCode: "W2", productDescription: "Agua mineral 51cl", targetType: "item", stockItemId: "i9" });
+    expect(changeFor(pizza!, "dish:p1:large")).toMatchObject({ targetType: "dish", pizzaId: "p1", size: "large" });
+    expect(changeFor(pizza!, "auto")).toMatchObject({ targetType: null });
+    expect(packagingChange({ key: "@box_small", label: "Caixa" }, "b1")).toEqual({ productKey: "@box_small", productCode: null, productDescription: "Caixa", targetType: "item", stockItemId: "b1" });
   });
 });

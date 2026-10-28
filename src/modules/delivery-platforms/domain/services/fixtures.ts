@@ -1,5 +1,6 @@
 import type { MarginReport, PlatformMargin } from "../entities/margin-report.ts";
 import type { PayoutReconciliation } from "../entities/payout-reconciliation.ts";
+import type { FoodCost } from "../entities/food-cost.ts";
 import type { PlatformStatementSummary } from "../entities/platform-statement.ts";
 
 const base = (over: Partial<PlatformStatementSummary>): PlatformStatementSummary => ({
@@ -109,6 +110,7 @@ export const sampleMarginReport = (): MarginReport => ({
   salesVatRate: 0.1325,
   salesVatRateSource: "saft",
   foodCostPct: 30,
+  foodCostSource: "estimate",
   platforms: [margin("uber_eats")],
   total: margin("total"),
   saft: { invoicedCents: 20000, platformsPaidCents: 10170, differenceCents: 9830 },
@@ -134,4 +136,29 @@ export const samplePayouts = (): PayoutReconciliation => ({
   ],
   unmatchedCredits: [{ id: "c", platform: "glovo", date: "2026-09-03", amountCents: 22_000 }],
   warnings: ["Banco importado só até 2026-09-30: as transferências devidas depois aparecem como por receber."],
+});
+
+/** Custo da comida fictício: uma pizza sugerida pelo nome, uma água sem correspondência, embalagem sem custo da caixa. */
+export const sampleFoodCost = (): FoodCost => ({
+  period: { year: 2026, month: 9, from: "2026-09-01", to: "2026-09-30" },
+  hasProducts: true,
+  ordersCount: 10,
+  revenueNetCents: 20_000,
+  costedRevenueNetCents: 19_000,
+  productsCostCents: 4_000,
+  extrapolatedCostCents: 211,
+  packagingCostCents: 280,
+  totalCostCents: 4_491,
+  foodCostPct: 22.5,
+  complete: false,
+  lines: [
+    { productKey: "honey pepperoni", code: "W1", description: "Honey Pepperoni", quantity: 20, netCents: 19_000, target: { targetType: "dish", pizzaId: "p1", size: "small", stockItemId: null, label: "Honey Peperoni (Pequena)", source: "auto" }, unitCostCents: 200, costCents: 4_000, complete: true },
+    { productKey: "agua mineral 51cl", code: "W2", description: "Agua mineral 51cl", quantity: 5, netCents: 1_000, target: null, unitCostCents: null, costCents: null, complete: false },
+  ],
+  packaging: [
+    { key: "@box_small", label: "Caixa por pizza pequena", item: { stockItemId: "b1", name: "Caixa S", source: "auto" }, quantity: 20, unitCostCents: null, costCents: null },
+    { key: "@bag", label: "Saco por pedido", item: { stockItemId: "b3", name: "Sacolas Delivery", source: "auto" }, quantity: 10, unitCostCents: 28, costCents: 280 },
+  ],
+  targets: { dishes: [{ pizzaId: "p1", name: "Honey Peperoni" }], items: [{ stockItemId: "i9", name: "Água Monchique 51cl" }, { stockItemId: "b1", name: "Caixa S" }] },
+  warnings: ["Caixa por pizza pequena: «Caixa S» sem custo — preencha o custo no Stock."],
 });
