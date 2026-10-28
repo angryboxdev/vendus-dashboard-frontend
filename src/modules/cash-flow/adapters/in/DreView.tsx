@@ -249,7 +249,7 @@ export function DreView({ year, month }: { year: number; month: number }) {
           <Button size="sm" onClick={() => setParamsOpen(true)}>
             Parâmetros do mês
           </Button>
-          <DreParametersDrawer year={year} month={month} open={paramsOpen} onClose={() => setParamsOpen(false)} />
+          <DreParametersDrawer year={year} month={month} open={paramsOpen} onClose={() => setParamsOpen(false)} costs={costs} />
         </div>
       )}
       {future ? (

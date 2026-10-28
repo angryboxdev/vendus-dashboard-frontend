@@ -5,7 +5,9 @@ import { useOptionalAuth } from "../../../../contexts/AuthContext";
 import { hasLevel } from "../../../access/domain/services/access-ui.service.ts";
 import { parseEuroToCents } from "../../../bank-statements/domain/services/recurring-rules-overview.ts";
 import { useCashFlowModule } from "../../cash-flow.module.tsx";
-import { platformLabel } from "../../domain/services/dre-view.ts";
+import { DELIVERY_RATE_KEYS, deliveryParametersUse, platformLabel } from "../../domain/services/dre-view.ts";
+import type { DreReport } from "../../domain/entities/dre.ts";
+import { euros } from "./cash-flow-format.ts";
 import { fromForm, PCT_FIELDS, toForm, type DreParametersForm } from "../../domain/services/sales-reconciliation-view.ts";
 import { monthName } from "../../domain/services/cash-flow-view.ts";
 
@@ -25,12 +27,33 @@ const SOURCE_TEXT = {
 /**
  * Parâmetros da DRE do mês: taxas para reconstituir o delivery em bruto, taxa do TPA, IVA teórico dos
  * gastos e marketing das plataformas (sem IVA). Gravar recalcula o Mapa e a conferência de vendas.
+ * Plataformas com extratos importados no mês (`costs`, a DRE já carregada) usam os valores reais: o
+ * marketing aparece só para leitura e as taxas de delivery dizem a que plataformas ainda se aplicam.
  */
-export function DreParametersDrawer({ year, month, open, onClose }: { year: number; month: number; open: boolean; onClose: () => void }) {
+export function DreParametersDrawer({
+  year,
+  month,
+  open,
+  onClose,
+  costs = null,
+}: {
+  year: number;
+  month: number;
+  open: boolean;
+  onClose: () => void;
+  costs?: DreReport | null;
+}) {
+  const delivery = deliveryParametersUse(costs);
+  const fromStatements = new Map(delivery.fromStatements.map((p) => [p.platform, p.marketingNetCents]));
   const { getDreParameters, saveDreParameters } = useCashFlowModule();
   const qc = useQueryClient();
   const canManage = useCanManage();
-  const query = useQuery({ queryKey: ["dre-parameters", year, month], queryFn: () => getDreParameters.execute(year, month), enabled: open, retry: false });
+  const query = useQuery({
+    queryKey: ["dre-parameters", year, month],
+    queryFn: () => getDreParameters.execute(year, month),
+    enabled: open,
+    retry: false,
+  });
   // O que o utilizador já alterou; sem alterações, o formulário mostra os valores carregados.
   const [edited, setForm] = useState<DreParametersForm | null>(null);
   const [invalid, setInvalid] = useState<string[]>([]);
@@ -107,6 +130,12 @@ export function DreParametersDrawer({ year, month, open, onClose }: { year: numb
 
           <section className="space-y-3">
             <h3 className={SECTION_TITLE}>Taxas (%)</h3>
+            {delivery.ratesNote && (
+              <AlertBanner tone="info" title="Delivery pelos extratos importados">
+                {delivery.ratesNote} As taxas de IVA das vendas, comissão, IVA da comissão e IVA do marketing só servem para as plataformas
+                sem extratos.
+              </AlertBanner>
+            )}
             {PCT_FIELDS.map((f) => (
               <label key={f.key} className="block">
                 <span className={LABEL}>{f.label}</span>
@@ -117,7 +146,10 @@ export function DreParametersDrawer({ year, month, open, onClose }: { year: numb
                   onChange={(e) => setForm({ ...form, pct: { ...form.pct, [f.key]: e.target.value } })}
                   aria-invalid={invalid.includes(f.key)}
                 />
-                <span className="mt-1 block text-xs text-ink-secondary">{f.hint}</span>
+                <span className="mt-1 block text-xs text-ink-secondary">
+                  {f.hint}
+                  {delivery.ratesNote && DELIVERY_RATE_KEYS.has(f.key) ? " · só plataformas sem extratos" : ""}
+                </span>
               </label>
             ))}
             <div>
@@ -137,18 +169,28 @@ export function DreParametersDrawer({ year, month, open, onClose }: { year: numb
 
           <section className="space-y-3">
             <h3 className={SECTION_TITLE}>Marketing das plataformas (€, sem IVA)</h3>
-            {(["uber_eats", "glovo", "bolt_food"] as const).map((k) => (
-              <label key={k} className="block">
-                <span className={LABEL}>{platformLabel(k)}</span>
-                <input
-                  className={fieldCls(`marketing.${k}`)}
-                  inputMode="decimal"
-                  value={form.marketing[k]}
-                  onChange={(e) => setForm({ ...form, marketing: { ...form.marketing, [k]: e.target.value } })}
-                  aria-invalid={invalid.includes(`marketing.${k}`)}
-                />
-              </label>
-            ))}
+            {(["uber_eats", "glovo", "bolt_food"] as const).map((k) =>
+              fromStatements.has(k) ? (
+                <div key={k}>
+                  <span className={LABEL}>{platformLabel(k)}</span>
+                  <p className="text-sm font-medium tabular-nums text-ink">{euros(fromStatements.get(k)!)}</p>
+                  <span className="mt-1 block text-xs text-ink-secondary">
+                    Pelos extratos importados (Plataformas de delivery) — o valor manual não conta.
+                  </span>
+                </div>
+              ) : (
+                <label key={k} className="block">
+                  <span className={LABEL}>{platformLabel(k)}</span>
+                  <input
+                    className={fieldCls(`marketing.${k}`)}
+                    inputMode="decimal"
+                    value={form.marketing[k]}
+                    onChange={(e) => setForm({ ...form, marketing: { ...form.marketing, [k]: e.target.value } })}
+                    aria-invalid={invalid.includes(`marketing.${k}`)}
+                  />
+                </label>
+              ),
+            )}
             <p className="text-xs text-ink-secondary">Descontado na liquidação: aumenta a venda bruta e entra como custo da plataforma.</p>
           </section>
         </fieldset>
