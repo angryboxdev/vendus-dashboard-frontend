@@ -3,12 +3,14 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DeliveryPlatformsProvider, type DeliveryPlatformsModule } from "../../delivery-platforms.module.tsx";
 import type { ImportPlatformDocumentsResult } from "../../domain/entities/platform-statement.ts";
-import { sampleBoltAndSaft, sampleStatements } from "../../domain/services/fixtures.ts";
+import { sampleBoltAndSaft, sampleMarginReport, sampleStatements } from "../../domain/services/fixtures.ts";
 import { DeliveryPlatformsView } from "./DeliveryPlatformsView.tsx";
 
 const fakeModule = (over: Partial<DeliveryPlatformsModule> = {}): DeliveryPlatformsModule => ({
   importDocuments: { execute: async () => ({ imported: [], rejected: [] }) },
   listStatements: { execute: async () => sampleStatements() },
+  getMarginReport: { execute: async () => sampleMarginReport() },
+  exportMarginReport: { execute: async () => undefined },
   ...over,
 });
 
@@ -32,13 +34,25 @@ describe("DeliveryPlatformsView", () => {
     expect(screen.getByText(/pagos em dinheiro ao estafeta/)).toBeInTheDocument();
   });
 
-  it("Bolt calculada e conferência com o SAF-T", async () => {
+  it("Bolt calculada; o SAF-T não aparece como plataforma", async () => {
     renderView(fakeModule({ listStatements: { execute: async () => [...sampleStatements(), ...sampleBoltAndSaft()] } }));
-    expect(await screen.findByText(/Conferência com o SAF-T/)).toBeInTheDocument();
-    expect(screen.getByText("Verificar")).toBeInTheDocument();
-    expect(screen.getByText("Líquido (calculado)")).toBeInTheDocument();
+    expect(await screen.findByText("Líquido (calculado)")).toBeInTheDocument();
     expect(screen.getByText(/o líquido é a diferença/)).toBeInTheDocument();
     expect(screen.queryByText("SAFT-2026-09-01-2026-09-30")).not.toBeInTheDocument();
+  });
+
+  it("margem por plataforma: a conta, a conferência com o SAF-T, os documentos repartidos e a exportação", async () => {
+    const exported: string[] = [];
+    renderView(fakeModule({ exportMarginReport: { execute: async (_y, _m, format) => void exported.push(format) } }));
+    expect(await screen.findByText("Margem por plataforma")).toBeInTheDocument();
+    expect(screen.getByText("= Margem bruta")).toBeInTheDocument();
+    expect(screen.getAllByText("74,0%")).toHaveLength(2);
+    expect(screen.getByText(/IVA das vendas 13,25% \(pelo SAF-T do mês\)/)).toBeInTheDocument();
+    expect(screen.getByText("Verificar")).toBeInTheDocument();
+    expect(screen.getByText(/Glovo 25\/08 – 07\/09 — 75%, pelo faturado diário do SAF-T/)).toBeInTheDocument();
+    expect(screen.getByText(/fichas técnicas/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "PDF" }));
+    await waitFor(() => expect(exported).toEqual(["pdf"]));
   });
 
   it("sem extratos: estado vazio", async () => {

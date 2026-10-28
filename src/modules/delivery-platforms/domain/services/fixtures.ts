@@ -1,3 +1,4 @@
+import type { MarginReport, PlatformMargin } from "../entities/margin-report.ts";
 import type { PlatformStatementSummary } from "../entities/platform-statement.ts";
 
 const base = (over: Partial<PlatformStatementSummary>): PlatformStatementSummary => ({
@@ -71,3 +72,47 @@ export const sampleBoltAndSaft = (): PlatformStatementSummary[] => [
   base({ id: "b2", platform: "bolt_food", documentKind: "bolt_weekly_invoice", documentNumber: "PT9999-000001", periodFrom: "2026-09-21", periodTo: "2026-09-27", ordersCount: null, commissionCents: 2000, marketingCents: -1000, refundsCents: 500, netPayoutCents: -1500 }),
   base({ id: "s1", platform: "airmenu", documentKind: "airmenu_saft", documentNumber: "SAFT-2026-09-01-2026-09-30", ordersCount: 120, salesCents: 343000, salesVatCents: 39700, refundsCents: 0, netPayoutCents: 343000 }),
 ];
+
+const margin = (platform: PlatformMargin["platform"], over: Partial<PlatformMargin> = {}): PlatformMargin => ({
+  platform,
+  documents: 1,
+  ordersCount: 10,
+  salesGrossCents: 11300,
+  promotionsGrossCents: 1130,
+  paidByCustomersCents: 10170,
+  platformFeesGrossCents: 1945,
+  feesVatCents: 345,
+  cashCents: 0,
+  netPayoutCents: 8225,
+  salesNetCents: 10000,
+  promotionsNetCents: 1000,
+  invoicedNetCents: 9000,
+  salesVatCents: 1170,
+  commissionNetCents: 1000,
+  marketingNetCents: 500,
+  otherNetCents: 100,
+  grossMarginCents: 7400,
+  grossMarginPct: 74,
+  foodCostCents: 2700,
+  netMarginCents: 4700,
+  netMarginPct: 47,
+  netMarginPerOrderCents: 470,
+  vatToPayCents: 825,
+  ...over,
+});
+
+/** Relatório fictício: só a Uber, SAF-T do mês que não bate e uma quinzena da Glovo repartida pelo SAF-T. */
+export const sampleMarginReport = (): MarginReport => ({
+  period: { year: 2026, month: 9, from: "2026-09-01", to: "2026-09-30" },
+  salesVatRate: 0.1325,
+  salesVatRateSource: "saft",
+  foodCostPct: 30,
+  platforms: [margin("uber_eats")],
+  total: margin("total"),
+  saft: { invoicedCents: 20000, platformsPaidCents: 10170, differenceCents: 9830 },
+  documents: [
+    { platform: "uber_eats", documentKind: "uber_monthly_statement", documentNumber: "UBERTEST01", periodFrom: "2026-09-01", periodTo: "2026-09-30", share: 1, basis: "month" },
+    { platform: "glovo", documentKind: "glovo_statement", documentNumber: "GLOVOTEST01", periodFrom: "2026-08-25", periodTo: "2026-09-07", share: 0.75, basis: "saft" },
+  ],
+  warnings: ["Comida e embalagem estimadas em 30% do faturado sem IVA — o custo real virá das fichas técnicas."],
+});

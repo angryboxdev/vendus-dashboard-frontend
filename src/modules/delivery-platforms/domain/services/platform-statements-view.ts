@@ -77,27 +77,3 @@ export function totalsByPlatform(statements: PlatformStatementSummary[]): Platfo
     .filter((t) => t.statements > 0);
 }
 
-export interface SaftCheck {
-  /** Faturado no SAF-T, com IVA, líquido de notas de crédito. */
-  saftCents: number;
-  /** Vendas − promoções das plataformas (o que os clientes pagaram), com IVA. */
-  platformsCents: number;
-  differenceCents: number;
-  /** IVA médio das vendas pelo SAF-T (ex.: 0,1325), ou null sem vendas. */
-  vatRate: number | null;
-}
-
-/** Conferência: o SAF-T do AirMenu contra o que os extratos dizem que os clientes pagaram. null sem SAF-T. */
-export function saftCheck(statements: PlatformStatementSummary[]): SaftCheck | null {
-  const saft = statements.filter((s) => s.platform === "airmenu");
-  if (saft.length === 0) return null;
-  const sum = (list: PlatformStatementSummary[], f: (s: PlatformStatementSummary) => number) => list.reduce((a, s) => a + f(s), 0);
-  const saftCents = sum(saft, (s) => s.salesCents - s.refundsCents);
-  const vat = sum(saft, (s) => s.salesVatCents);
-  const gross = sum(saft, (s) => s.salesCents);
-  const platformsCents = sum(
-    statements.filter((s) => s.platform !== "airmenu"),
-    (s) => s.salesCents - s.promotionsCents,
-  );
-  return { saftCents, platformsCents, differenceCents: saftCents - platformsCents, vatRate: gross > vat ? vat / (gross - vat) : null };
-}

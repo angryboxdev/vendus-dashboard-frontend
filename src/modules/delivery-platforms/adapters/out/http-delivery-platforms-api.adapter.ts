@@ -1,4 +1,5 @@
-import { apiGet, apiPostFormData } from "../../../../lib/api.ts";
+import { apiGet, apiGetBlob, apiPostFormData } from "../../../../lib/api.ts";
+import type { DownloadedFile, MarginReport, MarginReportFormat } from "../../domain/entities/margin-report.ts";
 import type { ImportPlatformDocumentsResult, PlatformDocumentUpload, PlatformStatementSummary } from "../../domain/entities/platform-statement.ts";
 import type { DeliveryPlatformsApiPort } from "../../domain/ports/out/delivery-platforms-api.port.ts";
 
@@ -11,5 +12,14 @@ export class HttpDeliveryPlatformsApiAdapter implements DeliveryPlatformsApiPort
 
   listStatements(year: number, month: number): Promise<PlatformStatementSummary[]> {
     return apiGet<PlatformStatementSummary[]>(`/api/delivery-platforms/statements?year=${year}&month=${month}`);
+  }
+
+  getMarginReport(year: number, month: number): Promise<MarginReport> {
+    return apiGet<MarginReport>(`/api/delivery-platforms/report?year=${year}&month=${month}`);
+  }
+
+  async exportMarginReport(year: number, month: number, format: MarginReportFormat): Promise<DownloadedFile> {
+    const content = await apiGetBlob(`/api/delivery-platforms/report/export?year=${year}&month=${month}&format=${format}`);
+    return { fileName: `margem-delivery-${year}-${String(month).padStart(2, "0")}.${format}`, content };
   }
 }

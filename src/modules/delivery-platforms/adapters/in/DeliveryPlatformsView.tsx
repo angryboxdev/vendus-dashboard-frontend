@@ -22,10 +22,9 @@ import {
   periodLabel,
   PLATFORM_LABELS,
   platformCostsCents,
-  saftCheck,
-  type SaftCheck,
   totalsByPlatform,
 } from "../../domain/services/platform-statements-view.ts";
+import { MarginReportCard } from "./MarginReportCard.tsx";
 import { useDeliveryPlatforms } from "./use-delivery-platforms.ts";
 
 const euros = (cents: number) => formatEUR(cents / 100);
@@ -118,43 +117,14 @@ function StatementsTable({ statements, year, month }: { statements: PlatformStat
   );
 }
 
-const pct = (rate: number) => `${(rate * 100).toLocaleString("pt-PT", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
-
-/** SAF-T do AirMenu × o que os extratos dizem que os clientes pagaram (vendas − promoções). */
-function SaftSection({ check }: { check: SaftCheck }) {
-  const tolerance = Math.max(500, Math.round(Math.abs(check.saftCents) * 0.01));
-  const ok = Math.abs(check.differenceCents) <= tolerance;
-  return (
-    <section className={`${SURFACE} p-6`} aria-labelledby="dp-saft">
-      <h2 id="dp-saft" className={SECTION_TITLE}>
-        Conferência com o SAF-T <span className="font-normal text-ink-secondary">· AirMenu, as três plataformas juntas</span>
-      </h2>
-      <div className="mt-4 grid gap-4 sm:grid-cols-4">
-        <Kpi label="Faturado (SAF-T)" value={euros(check.saftCents)} hint="Com IVA, menos notas de crédito" />
-        <Kpi label="Clientes pagaram (extratos)" value={euros(check.platformsCents)} hint="Vendas − promoções, com IVA" />
-        <div>
-          <p className="text-xs text-ink-secondary">Diferença</p>
-          <p className={`text-lg font-semibold tabular-nums ${ok ? "text-navy-900" : "text-amber-600"}`}>{euros(check.differenceCents)}</p>
-          <StatusBadge tone={ok ? "success" : "warning"}>{ok ? "Bate" : "Verificar"}</StatusBadge>
-        </div>
-        <Kpi label="IVA médio das vendas" value={check.vatRate === null ? "—" : pct(check.vatRate)} hint="Exato, pelo SAF-T" />
-      </div>
-      <p className="mt-3 text-xs text-ink-secondary">
-        Uma diferença costuma vir de extratos em falta (ex.: a Bolt ou uma quinzena da Glovo) ou de extratos que atravessam o mês.
-      </p>
-    </section>
-  );
-}
-
 /**
- * Mapa de rentabilidade → Plataformas de delivery: importar os extratos (Uber, Glovo) e ver os do mês.
- * Valores com IVA, tal como vêm nos extratos; o relatório de margem (sem IVA) é a fase seguinte.
+ * Mapa de rentabilidade → Plataformas de delivery: importar os documentos (Uber, Glovo, Bolt, SAF-T), a
+ * margem por plataforma do mês (com exportação) e os documentos do mês (com IVA, como vêm).
  */
 export function DeliveryPlatformsView({ year, month }: { year: number; month: number }) {
   const v = useDeliveryPlatforms(year, month);
   const platformStatements = v.statements.filter((s) => s.platform !== "airmenu");
   const totals = totalsByPlatform(v.statements);
-  const check = saftCheck(v.statements);
 
   return (
     <div className={`${PAGE_BG} mx-auto w-full max-w-6xl space-y-5 p-4 sm:p-6`}>
@@ -222,7 +192,7 @@ export function DeliveryPlatformsView({ year, month }: { year: number; month: nu
         <EmptyState title="Sem extratos neste mês" description="Importe os extratos da Uber, da Glovo e da Bolt para ver o mês." />
       ) : (
         <>
-          {check && <SaftSection check={check} />}
+          <MarginReportCard year={year} month={month} />
           {platformStatements.length > 0 && (
             <section className={`${SURFACE} p-6`} aria-labelledby="dp-month">
               <h2 id="dp-month" className={SECTION_TITLE}>

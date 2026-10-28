@@ -28,8 +28,9 @@ Gestor                                   Sistema
 - **Extrato** — documento da plataforma para um período (Uber: mês; Glovo: quinzena).
 - **Atravessa o mês** — o período do extrato tem dias de outro mês; aparece nos dois meses.
 - **Bolt** — o relatório de pedidos traz as vendas e as faturas semanais as taxas; o «líquido» é calculado (vendas − faturas).
-- **Conferência com o SAF-T** — o faturado no SAF-T do AirMenu (as três plataformas juntas) contra vendas − promoções dos extratos; dá também o IVA médio exato das vendas.
-- Valores **com IVA**, como nos extratos. A margem sem IVA é o relatório da fase seguinte.
+- **Margem por plataforma** — da venda com IVA à margem bruta (depois da plataforma) e à margem líquida (depois da comida, estimada em 30%), com IVA a entregar; exporta em Excel e PDF. Documentos que atravessam o mês contam só a parte do mês (pelo SAF-T diário).
+- **Conferência com o SAF-T** — o faturado no SAF-T do AirMenu (as três plataformas juntas) contra vendas − promoções dos extratos, já só com a parte do mês.
+- A lista dos documentos mostra os valores **com IVA**, como vêm.
 
 ---
 
@@ -41,7 +42,7 @@ UI de importação e consulta sobre `POST /api/delivery-platforms/import` e `GET
 
 - `PlatformStatementSummary` — contrato da listagem (cêntimos).
 - `ImportPlatformDocumentsResult` — `imported` / `rejected` com motivo.
-- Regras da vista (`platform-statements-view.ts`, puras): seleção válida (1–20 ficheiros, PDF, CSV ou XML), período «01/09 – 15/09», «atravessa o mês», totais por plataforma (sem o SAF-T), `saftCheck` (faturado × vendas − promoções, IVA médio).
+- Regras da vista (`platform-statements-view.ts`, puras): seleção válida (1–20 ficheiros, PDF, CSV ou XML), período «01/09 – 15/09», «atravessa o mês», totais por plataforma (sem o SAF-T); `margin-report-view.ts` — linhas do quadro da margem (as mesmas do PDF/Excel). O cálculo da margem e a repartição pelo mês são do backend (`MarginReport`).
 
 ## Portas
 
@@ -49,10 +50,12 @@ UI de importação e consulta sobre `POST /api/delivery-platforms/import` e `GET
 
 - `ImportPlatformDocumentsPort` — valida a seleção e envia.
 - `ListPlatformStatementsPort` — extratos do mês.
+- `GetPlatformMarginReportPort` / `ExportPlatformMarginReportPort` — margem do mês; descarregar em Excel/PDF.
 
 ### Saída (dependências do domínio)
 
-- `DeliveryPlatformsApiPort` — `importDocuments`, `listStatements`.
+- `DeliveryPlatformsApiPort` — `importDocuments`, `listStatements`, `getMarginReport`, `exportMarginReport`.
+- `FileDownloaderPort` — entrega o ficheiro exportado (`BrowserFileDownloaderAdapter`).
 
 ## Adapters
 
@@ -75,5 +78,5 @@ UI de importação e consulta sobre `POST /api/delivery-platforms/import` e `GET
 
 ## Lacunas conhecidas / dívida
 
-- A conferência usa os documentos que tocam o mês inteiros (quinzenas/semanas que atravessam o mês distorcem a diferença) — a repartição por dia entra no relatório (F3).
-- Relatório de margem por plataforma e exportação Excel/PDF: F3.
+- Os cartões e a tabela dos documentos mostram os documentos inteiros (com IVA); só o quadro da margem reparte pelo mês.
+- A DRE ainda não usa este relatório (F3b).
