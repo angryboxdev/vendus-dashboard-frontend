@@ -94,6 +94,8 @@ export interface DreExpenses {
   capexNetCents: number;
   /** Fora da operação (retiradas de sócios, capital de empréstimos, cauções): fora do resultado. */
   offOperation: { totalCents: number; items: DreSectionItem[] };
+  /** Faturas do mês ainda por pagar incluídas nos gastos (quantas e quanto, sem IVA). */
+  unpaidInvoices: { count: number; netCents: number };
 }
 
 /** De onde vem o valor sem IVA de um pagamento. */
@@ -105,8 +107,8 @@ export interface DreEntry {
   /** `DreSectionItem.key` da rubrica. */
   itemKey: string;
   movementId: string;
-  /** Data do pagamento no banco. */
-  paidOn: string;
+  /** Data do pagamento no banco; null = fatura ainda por pagar. */
+  paidOn: string | null;
   /** Data que decide o mês: a do documento conciliado, senão a do pagamento. */
   competenceDate: string;
   description: string | null;

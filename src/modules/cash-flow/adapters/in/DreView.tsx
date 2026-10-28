@@ -187,6 +187,15 @@ function SidePanel({ statement, costs }: { statement: DreStatement; costs: DreRe
                 <span className="text-ink">IVA por confirmar</span>
                 <span className="tabular-nums text-ink">{euros(expenses.pendingVatCents)}</span>
               </li>
+              {expenses.unpaidInvoices.count > 0 && (
+                <li className="flex justify-between gap-3">
+                  <span className="text-ink">
+                    Faturas por pagar incluídas ({expenses.unpaidInvoices.count})
+                    <span className="block text-xs text-ink-secondary">Se já foram pagas, concilie o pagamento para não contarem duas vezes.</span>
+                  </span>
+                  <span className="tabular-nums text-ink">{euros(expenses.unpaidInvoices.netCents)}</span>
+                </li>
+              )}
               <li className="flex justify-between gap-3">
                 <span className="text-ink">Sem fatura (classificação do extrato)</span>
                 <span className="tabular-nums text-ink">{euros(expenses.unclassifiedCents)}</span>

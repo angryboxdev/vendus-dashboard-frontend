@@ -113,6 +113,15 @@ describe("DreView", () => {
     auth.permissions = { "dre.statement": "MANAGE" };
   });
 
+  it("faturas por pagar aparecem na lista da rubrica, sem data de pagamento", async () => {
+    auth.permissions = { "dre.statement": "READ", "finance.banking": "READ" };
+    renderView(fakeModule());
+    await userEvent.click(await screen.findByRole("button", { name: /Ver pagamentos — CMV/ }));
+    expect(await screen.findByText("Fornecedor Teste · FT 9")).toBeInTheDocument();
+    expect(screen.getByText(/Por pagar · fatura de 28\/03\/2026/)).toBeInTheDocument();
+    auth.permissions = { "dre.statement": "MANAGE" };
+  });
+
   it("sem Bancos: não há botão de pagamentos", async () => {
     renderView(fakeModule());
     expect((await screen.findAllByText(/Pessoal/)).length).toBeGreaterThan(0);
