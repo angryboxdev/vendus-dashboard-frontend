@@ -217,7 +217,7 @@ function SidePanel({ statement, costs }: { statement: DreStatement; costs: DreRe
   );
 }
 
-function Kpi({ label, value }: { label: string; value: number | null }) {
+function Kpi({ label, value, hint }: { label: string; value: number | null; hint?: string | null }) {
   return (
     <div className="self-end">
       <p className="text-xs text-ink-secondary">{label}</p>
@@ -226,6 +226,7 @@ function Kpi({ label, value }: { label: string; value: number | null }) {
       ) : (
         <p className={`text-lg font-semibold tabular-nums ${value < 0 ? "text-rose-600" : "text-navy-900"}`}>{euros(value)}</p>
       )}
+      {hint && <p className="text-xs text-ink-secondary">{hint}</p>}
     </div>
   );
 }
@@ -272,7 +273,7 @@ export function DreView({ year, month }: { year: number; month: number }) {
               {costsError}
             </AlertBanner>
           )}
-          <section className={`${SURFACE} grid gap-6 p-6 sm:grid-cols-4`}>
+          <section className={`${SURFACE} grid gap-6 p-6 sm:grid-cols-5`}>
             <div className="sm:col-span-1">
               <h2 className={`${SECTION_TITLE} first-letter:uppercase`}>{monthName(month)}</h2>
               <p className="mt-3 text-sm text-ink-secondary">Lucro líquido da operação</p>
@@ -292,6 +293,11 @@ export function DreView({ year, month }: { year: number; month: number }) {
             </div>
             <Kpi label="Receita líquida" value={statement.netRevenueCents} />
             <Kpi label="Lucro bruto" value={statement.grossProfitCents} />
+            <Kpi
+              label="Despesas operacionais"
+              value={statement.operatingExpensesCents}
+              hint={statement.operatingExpensesPct === null ? null : `${Math.round(statement.operatingExpensesPct)}% da receita líquida`}
+            />
             <Kpi label="Resultado operacional" value={statement.operatingResultCents} />
           </section>
           <div className="grid gap-5 lg:grid-cols-3">

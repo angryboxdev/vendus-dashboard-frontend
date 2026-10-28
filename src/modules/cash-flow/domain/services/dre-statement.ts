@@ -33,6 +33,10 @@ export interface DreStatement {
   lines: StatementLine[];
   netRevenueCents: number | null;
   grossProfitCents: number | null;
+  /** Do lucro bruto ao resultado operacional: custos variáveis + despesas operacionais (pessoal, estrutura, administrativos, marketing, outros). */
+  operatingExpensesCents: number | null;
+  /** Despesas operacionais ÷ receita líquida, %. */
+  operatingExpensesPct: number | null;
   operatingResultCents: number | null;
   netResultCents: number | null;
   /** Lucro líquido − investimentos (CAPEX) − fora da operação: o que sobra do mês. */
@@ -189,6 +193,8 @@ export function composeDreStatement(costs: DreReport | null, sales: DreRestauran
     lines: shown,
     netRevenueCents: netRevenue,
     grossProfitCents: grossProfit,
+    operatingExpensesCents: grossProfit === null || operating === null ? null : grossProfit - operating,
+    operatingExpensesPct: grossProfit === null || operating === null ? null : pct(grossProfit - operating),
     operatingResultCents: operating,
     netResultCents: netResult,
     afterOffOperationCents: hasOff ? afterOff : netResult,
