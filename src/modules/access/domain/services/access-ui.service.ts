@@ -120,7 +120,7 @@ const PATH_PERMISSIONS: Array<[RegExp, PathPermission]> = [
   [/^\/(vendus|analytics)/, "sales.dashboard"],
   [/^\/cash-closings/, "sales.cash_closings"],
   [/^\/air-menu/, "sales.air_menu"],
-  [/^\/dre\/(demonstrativo|receita-bruta|fluxo-caixa|conferencia-vendas)/, "dre.statement"],
+  [/^\/dre\/(demonstrativo|receita-bruta|fluxo-caixa|conferencia-vendas|plataformas)/, "dre.statement"],
   [/^\/dre\/custos-fixos/, "dre.fixed_costs"],
   [/^\/dre\/custos-variaveis/, "dre.variable_costs"],
   [/^\/stock\/(movimentacoes|historico-movimentos)/, "stock.movements"],
