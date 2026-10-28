@@ -26,7 +26,7 @@ export const PCT_FIELDS = [
   { key: "platformCommissionPct", label: "Comissão das plataformas", hint: "Sobre a venda" },
   { key: "platformCommissionVatPct", label: "IVA da comissão", hint: "Cobrado pela plataforma" },
   { key: "marketingVatPct", label: "IVA do marketing", hint: "Cobrado pela plataforma" },
-  { key: "cardFeePct", label: "Taxa do TPA", hint: "Usada na conferência de vendas" },
+  { key: "cardFeePct", label: "Taxa do TPA", hint: "Comissões do TPA na DRE e conferência de vendas" },
   { key: "expenseDefaultVatPct", label: "IVA teórico dos gastos", hint: "Gastos com categoria sem faturas (ex.: serviços)" },
 ] as const;
 

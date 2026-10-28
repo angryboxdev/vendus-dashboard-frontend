@@ -75,7 +75,9 @@ export function composeDreStatement(costs: DreReport | null, sales: DreRestauran
   const platforms = costs ? costs.revenue.platformsNetCents : null;
   const grossRevenue = add(restaurant, platforms);
   const commissions = costs ? costs.platformCosts.commissionNetCents : null;
-  const netRevenue = grossRevenue === null || commissions === null ? null : grossRevenue - commissions;
+  // Comissão do TPA: o banco liquida o cartão já sem ela; vem com as vendas do restaurante.
+  const cardFees = sales ? sales.cardFees.netCents : null;
+  const netRevenue = grossRevenue === null || commissions === null || cardFees === null ? null : grossRevenue - commissions - cardFees;
   const pct = (v: number | null) => (v === null || netRevenue === null || netRevenue <= 0 ? null : Math.round((v / netRevenue) * 1000) / 10);
 
   const cmv = sectionAmount("cmv");
@@ -125,6 +127,7 @@ export function composeDreStatement(costs: DreReport | null, sales: DreRestauran
     line("platforms", "Vendas das plataformas", "revenue", platforms, platformChildren, "Reconstituídas do recebido no banco, sem IVA"),
     line("gross-revenue", "Receita bruta", "subtotal", grossRevenue),
     line("commissions", "Comissões das plataformas", "cost", commissions),
+    line("card-fees", "Comissões do TPA", "cost", cardFees, [], sales ? `${sales.cardFees.ratePct.toLocaleString("pt-PT")}% de ${l.euros(sales.cardFees.cardGrossCents)} vendidos em cartão` : undefined),
     line("net-revenue", "Receita líquida", "subtotal", netRevenue),
     costLine("cmv"),
     line("gross-profit", "Lucro bruto", "subtotal", grossProfit),
@@ -138,7 +141,7 @@ export function composeDreStatement(costs: DreReport | null, sales: DreRestauran
     costLine("unclassified"),
     line("operating", "Resultado operacional", "subtotal", operating),
     costLine("financial"),
-    line("net-result", "Lucro líquido da operação", "result", netResult),
+    line("net-result", "Lucro líquido da operação", "result", netResult, [], "Antes de amortizações e IRC"),
     line("capex", SECTION_LABELS.capex, "info", sectionAmount("capex"), sectionChildren("capex")),
   ].filter((ln) => !(ln.kind === "cost" || ln.kind === "info") || ln.amountCents !== 0);
 

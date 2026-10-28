@@ -40,6 +40,7 @@ export function sampleDre(): DreReport {
       totalNetCents: 86_957,
     },
     platformCosts: { commissionNetCents: 30_000, marketingNetCents: 0, totalNetCents: 30_000 },
+    cardFees: { cardGrossCents: 0, ratePct: 1, netCents: 0 },
     expenses: {
       totalNetCents: 200_000,
       vatCents: 23_000,
@@ -74,5 +75,6 @@ export function sampleRestaurantSales(): DreRestaurantSales {
     netCents: 500_000,
     vatCents: 65_000,
     byPayment: { cardNetCents: 350_000, cashNetCents: 120_000, otherNetCents: 30_000 },
+    cardFees: { cardGrossCents: 395_500, ratePct: 1, netCents: 3_955 },
   };
 }

@@ -49,11 +49,11 @@ describe("DreView", () => {
   it("DRE em cascata até ao lucro líquido, com % da receita líquida e IVA", async () => {
     renderView(fakeModule());
     expect((await screen.findAllByText(/Lucro líquido da operação/)).length).toBeGreaterThan(1);
-    for (const label of ["Receita bruta", "Receita líquida", "CMV", "Lucro bruto", "Margem de contribuição", "Pessoal", "Resultado operacional"]) {
+    for (const label of ["Receita bruta", "Comissões do TPA", "Receita líquida", "CMV", "Lucro bruto", "Margem de contribuição", "Pessoal", "Resultado operacional"]) {
       expect(screen.getAllByText(new RegExp(label)).length).toBeGreaterThan(0);
     }
     expect(screen.getByText("Outros gastos pelo extrato", { exact: false })).toBeInTheDocument();
-    expect((await screen.findAllByText(/3569,57/)).length).toBeGreaterThan(0); // lucro líquido
+    expect((await screen.findAllByText(/3530,02/)).length).toBeGreaterThan(0); // lucro líquido
     expect(screen.getByText("Margem")).toBeInTheDocument();
     expect(screen.getByText(/481,43/)).toBeInTheDocument(); // IVA a entregar
     expect(screen.getByText("90%")).toBeInTheDocument();
@@ -73,10 +73,10 @@ describe("DreView", () => {
     expect(await screen.findByText("As vendas do restaurante estão a carregar")).toBeInTheDocument();
     expect(screen.getByText(/primeira vez que abre este mês/)).toBeInTheDocument();
     expect(await screen.findByText(/1200,00/)).toBeInTheDocument(); // Pessoal já à vista
-    expect(screen.queryByText(/3569,57/)).toBeNull();
+    expect(screen.queryByText(/3530,02/)).toBeNull();
 
     sales.release();
-    expect((await screen.findAllByText(/3569,57/)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/3530,02/)).length).toBeGreaterThan(0);
     expect(screen.queryByText("As vendas do restaurante estão a carregar")).toBeNull();
   });
 
@@ -85,10 +85,10 @@ describe("DreView", () => {
     renderView(fakeModule(costs.run));
     expect(await screen.findByText("Os custos do banco estão a carregar")).toBeInTheDocument();
     expect(await screen.findByText(/5000,00/)).toBeInTheDocument(); // vendas do restaurante
-    expect(screen.queryByText(/3569,57/)).toBeNull();
+    expect(screen.queryByText(/3530,02/)).toBeNull();
 
     costs.release();
-    expect((await screen.findAllByText(/3569,57/)).length).toBeGreaterThan(0);
+    expect((await screen.findAllByText(/3530,02/)).length).toBeGreaterThan(0);
   });
 
   it("mês futuro: não pede nada", () => {
