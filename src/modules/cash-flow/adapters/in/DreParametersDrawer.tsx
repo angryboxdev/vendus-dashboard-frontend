@@ -193,6 +193,46 @@ export function DreParametersDrawer({
             )}
             <p className="text-xs text-ink-secondary">Descontado na liquidação: aumenta a venda bruta e entra como custo da plataforma.</p>
           </section>
+
+          <section className="space-y-3">
+            <h3 className={SECTION_TITLE}>Controle geral</h3>
+            <label className="block">
+              <span className={LABEL}>Despesa de empréstimos (DE), €</span>
+              <input
+                className={fieldCls("loanExpense")}
+                inputMode="decimal"
+                value={form.loanExpense}
+                onChange={(e) => setForm({ ...form, loanExpense: e.target.value })}
+                aria-invalid={invalid.includes("loanExpense")}
+              />
+              <span className="mt-1 block text-xs text-ink-secondary">
+                Prestações de empréstimos fora da operação que não passam pelo banco. Só no Controle geral (não entra na DRE); herda-se para os meses seguintes.
+              </span>
+            </label>
+            <div className="grid grid-cols-2 gap-3">
+              <label className="block">
+                <span className={LABEL}>Renda variável: acima de (€)</span>
+                <input
+                  className={fieldCls("rentThreshold")}
+                  inputMode="decimal"
+                  value={form.rentThreshold}
+                  onChange={(e) => setForm({ ...form, rentThreshold: e.target.value })}
+                  aria-invalid={invalid.includes("rentThreshold")}
+                />
+              </label>
+              <label className="block">
+                <span className={LABEL}>% sobre o excedente</span>
+                <input
+                  className={fieldCls("rentVariablePct")}
+                  inputMode="decimal"
+                  value={form.rentVariablePct}
+                  onChange={(e) => setForm({ ...form, rentVariablePct: e.target.value })}
+                  aria-invalid={invalid.includes("rentVariablePct")}
+                />
+              </label>
+            </div>
+            <span className="block text-xs text-ink-secondary">Ex.: 8% da faturação acima de 19 000 €. 0% = sem renda variável. Só no Controle geral; herda-se.</span>
+          </section>
         </fieldset>
       )}
     </Drawer>

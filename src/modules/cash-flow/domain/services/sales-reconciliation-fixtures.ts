@@ -41,6 +41,9 @@ export function sampleParameters(): ResolvedDreParameters {
     cardFeePct: 1,
     expenseDefaultVatPct: 23,
     marketingNetCents: { uber_eats: 0, glovo: 0, bolt_food: 0 },
+    loanExpenseCents: 0,
+    rentThresholdCents: 0,
+    rentVariablePct: 0,
     source: "default",
   };
 }

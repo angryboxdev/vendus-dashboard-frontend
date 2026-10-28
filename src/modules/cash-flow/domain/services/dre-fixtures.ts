@@ -14,6 +14,9 @@ export function sampleDre(): DreReport {
       cardFeePct: 1,
       expenseDefaultVatPct: 23,
       marketingNetCents: { uber_eats: 0, glovo: 0, bolt_food: 0 },
+      loanExpenseCents: 0,
+      rentThresholdCents: 0,
+      rentVariablePct: 0,
       source: "default",
     },
     revenue: {
@@ -52,16 +55,17 @@ export function sampleDre(): DreReport {
       unclassifiedCents: 10_000,
       categories: [],
       sections: [
-        { key: "cmv", netCents: 70_000, items: [{ key: "c-ing", categoryId: "c-ing", code: "OPD.01", name: "Ingredientes", movementKind: null, netCents: 70_000 }] },
+        { key: "cmv", netCents: 70_000, vatCents: 0, items: [{ key: "c-ing", categoryId: "c-ing", code: "OPD.01", name: "Ingredientes", movementKind: null, netCents: 70_000 }] },
         {
           key: "personnel",
           netCents: 120_000,
+          vatCents: 0,
           items: [
             { key: "c-sal", categoryId: "c-sal", code: "PES.01", name: "Salários", movementKind: null, netCents: 100_000 },
             { key: "c-enc", categoryId: "c-enc", code: "PES.02", name: "Encargos", movementKind: null, netCents: 20_000 },
           ],
         },
-        { key: "unclassified", netCents: 10_000, items: [{ key: "kind:card_purchase", categoryId: null, code: null, name: null, movementKind: "card_purchase", netCents: 10_000 }] },
+        { key: "unclassified", netCents: 10_000, vatCents: 0, items: [{ key: "kind:card_purchase", categoryId: null, code: null, name: null, movementKind: "card_purchase", netCents: 10_000 }] },
       ],
       capexNetCents: 0,
       offOperation: { totalCents: 0, items: [] },

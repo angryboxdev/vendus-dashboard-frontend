@@ -18,6 +18,11 @@ export interface DreParameters {
   expenseDefaultVatPct: number;
   /** Marketing das plataformas no mês, sem IVA. */
   marketingNetCents: Record<DeliveryPlatformKey, number>;
+  /** Despesa de empréstimos do mês (DE do «Controle geral»), lançada à mão; não entra na DRE. */
+  loanExpenseCents: number;
+  /** Renda variável: `rentVariablePct`% da faturação acima de `rentThresholdCents` (0% = sem renda variável). */
+  rentThresholdCents: number;
+  rentVariablePct: number;
 }
 
 export interface ResolvedDreParameters extends DreParameters {
@@ -180,6 +185,8 @@ export interface DreSectionItem {
 export interface DreExpenseSection {
   key: DreSectionKey;
   netCents: number;
+  /** IVA dedutível dos gastos desta linha (real + estimado). */
+  vatCents: number;
   items: DreSectionItem[];
 }
 
