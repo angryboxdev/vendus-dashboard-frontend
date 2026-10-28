@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { ImportPlatformDocumentsUseCase } from "../../application/use-cases/import-platform-documents.use-case.ts";
 import type { DeliveryPlatformsApiPort } from "../ports/out/delivery-platforms-api.port.ts";
-import { crossesMonth, periodLabel, saftCheck, totalsByPlatform, validatePlatformFiles } from "./platform-statements-view.ts";
-import { sampleBoltAndSaft, sampleStatements } from "./fixtures.ts";
+import { crossesMonth, periodLabel, totalsByPlatform, validatePlatformFiles } from "./platform-statements-view.ts";
+import { sampleBoltAndSaft, sampleMarginReport, sampleStatements } from "./fixtures.ts";
 
 describe("platform-statements-view", () => {
   it("valida a seleção: vazia, demasiados ficheiros, formato", () => {
@@ -30,21 +30,14 @@ describe("platform-statements-view", () => {
     expect(totals.map((t) => t.platform)).toEqual(["uber_eats", "glovo", "bolt_food"]);
     expect(totals[2]).toMatchObject({ statements: 2, ordersCount: 6, salesCents: 13000, platformCostsCents: 1500, netPayoutCents: 11500 });
   });
-
-  it("conferência com o SAF-T: faturado × vendas − promoções; IVA médio", () => {
-    expect(saftCheck(sampleStatements())).toBeNull();
-    const check = saftCheck([...sampleStatements(), ...sampleBoltAndSaft()])!;
-    expect(check.platformsCents).toBe(200000 - 10000 + 60000 + 90000 + 13000);
-    expect(check.saftCents).toBe(343000);
-    expect(check.differenceCents).toBe(343000 - 353000);
-    expect(check.vatRate).toBeCloseTo(39700 / 303300, 6);
-  });
 });
 
 describe("ImportPlatformDocumentsUseCase", () => {
   const api = (calls: string[][]): DeliveryPlatformsApiPort => ({
     importDocuments: async (files) => (calls.push(files.map((f) => f.name)), { imported: [], rejected: [] }),
     listStatements: async () => [],
+    getMarginReport: async () => sampleMarginReport(),
+    exportMarginReport: async () => ({ fileName: "f.pdf", content: new Blob() }),
   });
 
   it("envia uma seleção válida", async () => {

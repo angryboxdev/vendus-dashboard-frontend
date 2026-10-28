@@ -4,7 +4,7 @@ import type { ImportPlatformDocumentsResult, PlatformStatementSummary } from "..
 import { validatePlatformFiles } from "../../domain/services/platform-statements-view.ts";
 import { useDeliveryPlatformsModule } from "../../delivery-platforms.module.tsx";
 
-const STATEMENTS_KEY = "delivery-platform-statements";
+export const STATEMENTS_KEY = "delivery-platform-statements";
 
 const message = (err: unknown, fallback: string) => (err instanceof Error ? err.message : fallback);
 
