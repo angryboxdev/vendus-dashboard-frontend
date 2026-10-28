@@ -38,7 +38,7 @@ export function groupDreEntries(entries: DreEntry[], section: DreSectionKey | "o
     groups.set(e.itemKey, g);
   }
   return [...groups.values()]
-    .map((g) => ({ ...g, entries: [...g.entries].sort((a, b) => a.competenceDate.localeCompare(b.competenceDate) || a.paidOn.localeCompare(b.paidOn)) }))
+    .map((g) => ({ ...g, entries: [...g.entries].sort((a, b) => a.competenceDate.localeCompare(b.competenceDate) || (a.paidOn ?? "").localeCompare(b.paidOn ?? "")) }))
     .sort((a, b) => b.netCents - a.netCents);
 }
 

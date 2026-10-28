@@ -36,7 +36,7 @@ export function DrePaymentsDrawer({ year, month, target, onClose }: { year: numb
       onClose={onClose}
       width="max-w-2xl"
       title={target?.title ?? "Pagamentos"}
-      description={`${monthName(month)} ${year} · pelo mês da fatura (sem fatura, pela data do pagamento)`}
+      description={`${monthName(month)} ${year} · pelo mês da fatura (sem fatura, pela data do pagamento); inclui as faturas do mês ainda por pagar`}
     >
       {query.error ? (
         <AlertBanner tone="danger" title="Não foi possível carregar os pagamentos">
@@ -71,8 +71,14 @@ export function DrePaymentsDrawer({ year, month, target, onClose }: { year: numb
                       <p className="truncate text-ink">{e.document ?? e.description ?? "Pagamento"}</p>
                       {e.document && e.description && <p className="truncate text-xs text-ink-secondary">{e.description}</p>}
                       <p className="mt-0.5 text-xs text-ink-secondary">
-                        Pago a {shortDate(e.paidOn)}
-                        {e.competenceDate !== e.paidOn && <> · fatura de {shortDate(e.competenceDate)}</>}
+                        {e.paidOn === null ? (
+                          <>Por pagar · fatura de {shortDate(e.competenceDate)}</>
+                        ) : (
+                          <>
+                            Pago a {shortDate(e.paidOn)}
+                            {e.competenceDate !== e.paidOn && <> · fatura de {shortDate(e.competenceDate)}</>}
+                          </>
+                        )}
                         {" · "}
                         {ENTRY_BASIS_LABELS[e.basis]}
                       </p>

@@ -62,6 +62,7 @@ export function sampleDre(): DreReport {
       ],
       capexNetCents: 0,
       offOperation: { totalCents: 0, items: [] },
+      unpaidInvoices: { count: 0, netCents: 0 },
     },
     resultCents: null,
     marginPct: null,
@@ -89,6 +90,7 @@ export function sampleDreEntries(): DreEntries {
       { ...base, itemKey: "c-sal", movementId: "m1", paidOn: "2026-04-02", competenceDate: "2026-03-31", document: "Salários · março", grossCents: 60_000, netCents: 60_000 },
       { ...base, itemKey: "c-sal", movementId: "m2", paidOn: "2026-03-15", competenceDate: "2026-03-15", document: null, grossCents: 40_000, netCents: 40_000 },
       { ...base, itemKey: "c-enc", movementId: "m3", paidOn: "2026-04-20", competenceDate: "2026-03-31", document: "Segurança Social · março", grossCents: 20_000, netCents: 20_000 },
+      { ...base, section: "cmv", itemKey: "c-ing", movementId: "fatura-por-pagar:f9", paidOn: null, competenceDate: "2026-03-28", document: "Fornecedor Teste · FT 9", grossCents: 12_300, netCents: 10_000, vatBasis: "real" },
       { ...base, section: "cmv", itemKey: "c-ing", movementId: "m4", paidOn: "2026-03-10", competenceDate: "2026-03-08", document: "Fornecedor Teste · FT 1", grossCents: 86_100, netCents: 70_000, vatBasis: "real" },
     ],
   };
