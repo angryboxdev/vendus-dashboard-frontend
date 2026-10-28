@@ -26,6 +26,8 @@ export interface PlatformMargin {
   paidByCustomersCents: number;
   platformFeesGrossCents: number;
   feesVatCents: number;
+  /** Parte de `feesVatCents` que é IVA da comissão. */
+  commissionVatCents: number;
   cashCents: number;
   netPayoutCents: number;
   salesNetCents: number;

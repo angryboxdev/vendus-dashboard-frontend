@@ -37,6 +37,7 @@ Página **Mapa de rentabilidade → Fluxo de caixa** (`/dre/fluxo-caixa`), só a
 
 ## Decisões de design
 
+- **Plataformas pelos extratos (F3b, 2026-10-28):** cada plataforma da DRE traz `source` (`statements` = extratos importados em «Plataformas de delivery»; `bank` = reconstituída do recebido). Com extratos, as promoções e os reembolsos/outras taxas entram numa linha própria, «Promoções e reembolsos das plataformas», que deduz à receita como as comissões; a dica das vendas diz a origem.
 - **Ajustes manuais no Mapa (Menu V1, 2026-10-27)** — Custos Fixos e Custos Variáveis saíram do menu; a linha «Ajustes manuais» da DRE tem ligações para essas páginas (só as que a pessoa pode abrir; `useOptionalAuth`, para funcionar sem sessão nos testes).
 
 - **Só o banco** (decisão do utilizador, 2026-10-26): as vendas do Vendus ficam para a DRE.

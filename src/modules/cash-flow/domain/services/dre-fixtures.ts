@@ -25,10 +25,13 @@ export function sampleDre(): DreReport {
       byPlatform: [
         {
           platform: "uber_eats",
+          source: "bank",
           receivedCents: 63_100,
           marketingNetCents: 0,
           grossCents: 100_000,
           netCents: 86_957,
+          promotionsNetCents: 0,
+          otherFeesNetCents: 0,
           salesVatCents: 13_043,
           commissionNetCents: 30_000,
           commissionVatCents: 6_900,
@@ -39,7 +42,7 @@ export function sampleDre(): DreReport {
       ],
       totalNetCents: 86_957,
     },
-    platformCosts: { commissionNetCents: 30_000, marketingNetCents: 0, totalNetCents: 30_000 },
+    platformCosts: { commissionNetCents: 30_000, marketingNetCents: 0, promotionsNetCents: 0, otherFeesNetCents: 0, totalNetCents: 30_000 },
     cardFees: { cardGrossCents: 0, ratePct: 1, netCents: 0 },
     expenses: {
       totalNetCents: 200_000,

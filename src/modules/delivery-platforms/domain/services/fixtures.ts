@@ -82,6 +82,7 @@ const margin = (platform: PlatformMargin["platform"], over: Partial<PlatformMarg
   paidByCustomersCents: 10170,
   platformFeesGrossCents: 1945,
   feesVatCents: 345,
+  commissionVatCents: 230,
   cashCents: 0,
   netPayoutCents: 8225,
   salesNetCents: 10000,
