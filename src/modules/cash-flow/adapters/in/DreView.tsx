@@ -26,7 +26,7 @@ const Pending = ({ className = "h-4 w-20" }: { className?: string }) => <Skeleto
 const pctText = (pct: number | null) => (pct === null ? "" : `${pct.toLocaleString("pt-PT", { maximumFractionDigits: 1 })}%`);
 
 /** Uma linha da DRE: valores com «−» nos custos, subtotais a negrito, detalhe abrível e, nas rubricas do banco, os pagamentos. */
-function StatementRow({ line, onPayments }: { line: StatementLine; onPayments?: (line: StatementLine) => void }) {
+function StatementRow({ line, onPayments, showRunning }: { line: StatementLine; onPayments?: (line: StatementLine) => void; showRunning: boolean }) {
   const [open, setOpen] = useState(false);
   if (line.kind === "heading") {
     return <li className="px-3 pb-1 pt-5 text-xs font-semibold uppercase tracking-wide text-ink-secondary">{line.label}</li>;
@@ -65,6 +65,14 @@ function StatementRow({ line, onPayments }: { line: StatementLine; onPayments?: 
             </span>
           )}
           <span className="w-12 text-right text-xs tabular-nums text-ink-secondary">{pctText(line.pctOfNet)}</span>
+          {showRunning && (
+            <span
+              className={`w-28 border-l border-line-subtle pl-3 text-right text-xs tabular-nums ${line.runningCents != null && line.runningCents < 0 ? "text-rose-600" : "text-ink-secondary"} ${strong ? "font-semibold" : ""}`}
+              aria-label={line.runningCents == null ? undefined : `Saldo acumulado ${euros(line.runningCents)}`}
+            >
+              {line.runningCents == null ? "" : euros(line.runningCents)}
+            </span>
+          )}
         </span>
       </button>
       {onPayments && (
@@ -94,20 +102,49 @@ function StatementRow({ line, onPayments }: { line: StatementLine; onPayments?: 
   );
 }
 
+const RUNNING_STORAGE_KEY = "dre.showRunningBalance";
+
+/** Mostrar a coluna do saldo acumulado (lembrada neste browser; por omissão, visível). */
+function useRunningColumn(): [boolean, () => void] {
+  const [show, setShow] = useState(() => {
+    try {
+      return localStorage.getItem(RUNNING_STORAGE_KEY) !== "hidden";
+    } catch {
+      return true;
+    }
+  });
+  const toggle = () => {
+    const next = !show;
+    setShow(next);
+    try {
+      localStorage.setItem(RUNNING_STORAGE_KEY, next ? "shown" : "hidden");
+    } catch {
+      // localStorage indisponível (ex.: modo privado) — a preferência simplesmente não persiste.
+    }
+  };
+  return [show, toggle];
+}
+
 /** Demonstração de resultados em cascata, até ao lucro líquido da operação. */
 function Statement({ statement, costs, onPayments }: { statement: DreStatement; costs: DreReport | null; onPayments?: (line: StatementLine) => void }) {
   const p = costs?.parameters;
+  const [showRunning, toggleRunning] = useRunningColumn();
   return (
     <section className={`${SURFACE} p-6`} aria-labelledby="dre-statement">
       <div className="flex items-baseline justify-between gap-4">
         <h2 id="dre-statement" className={SECTION_TITLE}>
           Demonstração de resultados <span className="font-normal text-ink-secondary">· sem IVA</span>
         </h2>
-        <span className="text-xs text-ink-secondary">% da receita líquida</span>
+        <span className="flex items-baseline gap-3 text-xs text-ink-secondary">
+          % da receita líquida
+          <Button size="sm" variant="tertiary" onClick={toggleRunning} aria-pressed={showRunning}>
+            {showRunning ? "Recolher saldo acumulado" : "Mostrar saldo acumulado"}
+          </Button>
+        </span>
       </div>
       <ul className="mt-3 divide-y divide-line-subtle">
         {statement.lines.map((line) => (
-          <StatementRow key={line.key} line={line} onPayments={onPayments} />
+          <StatementRow key={line.key} line={line} onPayments={onPayments} showRunning={showRunning} />
         ))}
       </ul>
       {p && (
