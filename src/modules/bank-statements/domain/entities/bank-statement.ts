@@ -122,6 +122,7 @@ export type MovementKind =
   | "insurance"
   | "utilities"
   | "card_purchase"
+  | "merchandise"
   | "internal_transfer"
   | "reversal"
   | "to_review";
