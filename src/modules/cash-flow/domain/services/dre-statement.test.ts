@@ -14,6 +14,8 @@ describe("composeDreStatement", () => {
     expect(amount(s, "gross-profit")).toBe(483_002);
     expect(amount(s, "contribution")).toBe(483_002);
     expect(amount(s, "operating")).toBe(353_002);
+    expect(s.operatingExpensesCents).toBe(483_002 - 353_002);
+    expect(s.operatingExpensesPct).toBe(23.5);
     expect(amount(s, "net-result")).toBe(353_002);
     expect(s.netMarginPct).toBe(63.8);
     expect(s.lines.find((x) => x.key === "cmv")!.pctOfNet).toBe(12.7);

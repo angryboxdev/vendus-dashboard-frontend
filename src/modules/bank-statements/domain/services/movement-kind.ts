@@ -13,6 +13,7 @@ export const MOVEMENT_KIND_LABELS: Record<MovementKind, string> = {
   insurance: "Seguros",
   utilities: "Energia, água e comunicações",
   card_purchase: "Compra com cartão",
+  merchandise: "Mercadoria / ingrediente (CMV)",
   internal_transfer: "Transferência interna",
   reversal: "Devolução / estorno",
   to_review: "Por rever",
