@@ -1,5 +1,6 @@
 import type { DreReport } from "../../entities/dre.ts";
 
 export interface GetDrePort {
-  execute(year: number, month: number): Promise<DreReport>;
+  /** `withRestaurantSales: false` → rápido, sem as vendas do Vendus. */
+  execute(year: number, month: number, withRestaurantSales?: boolean): Promise<DreReport>;
 }

@@ -9,7 +9,7 @@ export class GetDreUseCase implements GetDrePort {
     this.api = api;
   }
 
-  execute(year: number, month: number): Promise<DreReport> {
-    return this.api.getDre(year, month);
+  execute(year: number, month: number, withRestaurantSales = true): Promise<DreReport> {
+    return this.api.getDre(year, month, withRestaurantSales);
   }
 }

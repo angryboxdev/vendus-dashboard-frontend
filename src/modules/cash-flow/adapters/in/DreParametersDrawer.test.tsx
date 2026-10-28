@@ -4,7 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { CashFlowProvider, type CashFlowModule } from "../../cash-flow.module.tsx";
 import type { DreParameters } from "../../domain/entities/dre.ts";
-import { sampleDre } from "../../domain/services/dre-fixtures.ts";
+import { sampleDre, sampleRestaurantSales } from "../../domain/services/dre-fixtures.ts";
 import { sampleReport } from "../../domain/services/fixtures.ts";
 import { sampleParameters, sampleReconciliation } from "../../domain/services/sales-reconciliation-fixtures.ts";
 import { DreParametersDrawer } from "./DreParametersDrawer.tsx";
@@ -19,6 +19,8 @@ function renderDrawer(saved: [number, number, DreParameters][], onClose = () => 
     getCashFlow: { execute: async () => sampleReport() },
     getToHandle: { execute: async () => null },
     getDre: { execute: async () => sampleDre() },
+    getDreRestaurantSales: { execute: async () => sampleRestaurantSales() },
+    getDreEntries: { execute: async () => null },
     getSalesReconciliation: { execute: async () => sampleReconciliation() },
     getDreParameters: { execute: async () => sampleParameters() },
     saveDreParameters: { execute: async (y, m, p) => (saved.push([y, m, p]), { ...p, source: "month" as const }) },

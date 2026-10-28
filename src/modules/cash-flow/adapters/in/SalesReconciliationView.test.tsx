@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import { CashFlowProvider, type CashFlowModule } from "../../cash-flow.module.tsx";
-import { sampleDre } from "../../domain/services/dre-fixtures.ts";
+import { sampleDre, sampleRestaurantSales } from "../../domain/services/dre-fixtures.ts";
 import { sampleReport } from "../../domain/services/fixtures.ts";
 import { sampleParameters, sampleReconciliation } from "../../domain/services/sales-reconciliation-fixtures.ts";
 import { SalesReconciliationView } from "./SalesReconciliationView.tsx";
@@ -12,6 +12,8 @@ const fakeModule = (): CashFlowModule => ({
   getCashFlow: { execute: async () => sampleReport() },
   getToHandle: { execute: async () => null },
   getDre: { execute: async () => sampleDre() },
+  getDreRestaurantSales: { execute: async () => sampleRestaurantSales() },
+  getDreEntries: { execute: async () => null },
   getSalesReconciliation: { execute: async () => sampleReconciliation() },
   getDreParameters: { execute: async () => sampleParameters() },
   saveDreParameters: { execute: async () => sampleParameters() },

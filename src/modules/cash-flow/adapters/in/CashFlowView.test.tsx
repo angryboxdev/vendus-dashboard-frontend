@@ -5,7 +5,7 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeAll, describe, expect, it } from "vitest";
 import { CashFlowProvider, type CashFlowModule } from "../../cash-flow.module.tsx";
 import { sampleReport } from "../../domain/services/fixtures.ts";
-import { sampleDre } from "../../domain/services/dre-fixtures.ts";
+import { sampleDre, sampleRestaurantSales } from "../../domain/services/dre-fixtures.ts";
 import { sampleParameters, sampleReconciliation } from "../../domain/services/sales-reconciliation-fixtures.ts";
 import { CashFlowView } from "./CashFlowView.tsx";
 
@@ -36,6 +36,8 @@ const fakeModule = (handle: typeof toHandle | null = toHandle): CashFlowModule =
   getCashFlow: { execute: async () => sampleReport() },
   getToHandle: { execute: async () => handle },
   getDre: { execute: async () => sampleDre() },
+  getDreRestaurantSales: { execute: async () => sampleRestaurantSales() },
+  getDreEntries: { execute: async () => null },
   getSalesReconciliation: { execute: async () => sampleReconciliation() },
   getDreParameters: { execute: async () => sampleParameters() },
   saveDreParameters: { execute: async () => sampleParameters() },
