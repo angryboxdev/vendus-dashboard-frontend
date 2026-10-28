@@ -27,10 +27,15 @@ export const ENTRY_BASIS_LABELS: Record<DreEntry["basis"], string> = {
  * para o menor; dentro de cada rubrica, por data de competência. `labels`: nome de cada rubrica (os
  * filhos da linha da DRE), para os grupos terem o mesmo nome que a DRE mostra.
  */
-export function groupDreEntries(entries: DreEntry[], section: DreSectionKey | "off_operation", labels: Map<string, string>): DreEntryGroup[] {
+export function groupDreEntries(
+  entries: DreEntry[],
+  section: DreSectionKey | "off_operation" | (DreSectionKey | "off_operation")[],
+  labels: Map<string, string>,
+): DreEntryGroup[] {
+  const wanted = new Set<string>(Array.isArray(section) ? section : [section]);
   const groups = new Map<string, DreEntryGroup>();
   for (const e of entries) {
-    if (e.section !== section) continue;
+    if (!wanted.has(e.section)) continue;
     const g = groups.get(e.itemKey) ?? { key: e.itemKey, label: labels.get(e.itemKey) ?? "Sem categoria", netCents: 0, grossCents: 0, entries: [] };
     g.netCents += e.netCents;
     g.grossCents += e.grossCents;

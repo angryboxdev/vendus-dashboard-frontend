@@ -78,7 +78,7 @@ describe("composeDreStatement", () => {
 
   it("CAPEX fora do resultado e marketing das plataformas na linha de marketing", () => {
     const costs = sampleDre();
-    costs.expenses.sections.push({ key: "capex", netCents: 50_000, items: [] });
+    costs.expenses.sections.push({ key: "capex", netCents: 50_000, vatCents: 0, items: [] });
     costs.platformCosts.marketingNetCents = 10_000;
     costs.revenue.byPlatform[0]!.marketingNetCents = 10_000;
     const s = composeDreStatement(costs, sampleRestaurantSales(), l);
@@ -89,7 +89,7 @@ describe("composeDreStatement", () => {
 
   it("fora da operação: CAPEX e retiradas/empréstimos abaixo do lucro, com o saldo depois deles; sem nada, o bloco não aparece", () => {
     const costs = sampleDre();
-    costs.expenses.sections.push({ key: "capex", netCents: 50_000, items: [] });
+    costs.expenses.sections.push({ key: "capex", netCents: 50_000, vatCents: 0, items: [] });
     costs.expenses.offOperation = {
       totalCents: 30_000,
       items: [{ key: "c-ret", categoryId: "c-ret", code: "FDR.01", name: "Retirada de sócios", movementKind: null, netCents: 30_000 }],

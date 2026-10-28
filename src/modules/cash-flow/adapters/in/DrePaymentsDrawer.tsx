@@ -9,7 +9,8 @@ import { euros } from "./cash-flow-format.ts";
 const VAT_TONE: Record<DreVatBasis, StatusTone> = { exempt: "neutral", real: "success", estimated: "neutral", pending: "warning" };
 
 export interface DrePaymentsTarget {
-  section: DreSectionKey | "off_operation";
+  /** Uma linha da DRE, ou várias (um grupo do «Controle geral»). */
+  section: DreSectionKey | "off_operation" | (DreSectionKey | "off_operation")[];
   title: string;
   /** Nome de cada rubrica da linha (`itemKey` → nome). */
   labels: Map<string, string>;

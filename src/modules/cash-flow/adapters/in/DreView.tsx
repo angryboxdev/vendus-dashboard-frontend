@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertBanner, Button, EmptyState, IconButton, IconChevronDown, IconReceipt, PAGE_BG, SECTION_TITLE, SURFACE, Skeleton } from "../../../../components/ui/index.ts";
+import { AlertBanner, Button, EmptyState, IconButton, IconChevronDown, IconReceipt, PAGE_BG, SECTION_TITLE, SURFACE, Skeleton, buttonClass } from "../../../../components/ui/index.ts";
 import { useOptionalAuth } from "../../../../contexts/AuthContext";
 import { hasLevel } from "../../../access/domain/services/access-ui.service.ts";
 import type { DreReport } from "../../domain/entities/dre.ts";
@@ -282,7 +282,10 @@ export function DreView({ year, month }: { year: number; month: number }) {
   return (
     <div className={`${PAGE_BG} mx-auto w-full max-w-6xl space-y-5 p-4 sm:p-6`}>
       {!future && (
-        <div className="flex justify-end">
+        <div className="flex justify-end gap-2">
+          <Link to="/dre/controle-geral" className={buttonClass("secondary", "sm")}>
+            Controle geral
+          </Link>
           <Button size="sm" onClick={() => setParamsOpen(true)}>
             Parâmetros do mês
           </Button>

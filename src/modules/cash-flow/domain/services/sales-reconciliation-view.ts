@@ -37,6 +37,8 @@ export interface DreParametersForm {
   pct: Record<PctFieldKey, string>;
   commissionOnGross: boolean;
   marketing: Record<DeliveryPlatformKey, string>;
+  /** Despesa de empréstimos do mês (DE), em euros. */
+  loanExpense: string;
 }
 
 const num = (n: number) => n.toLocaleString("pt-PT", { maximumFractionDigits: 2, useGrouping: false });
@@ -50,6 +52,7 @@ export function toForm(p: DreParameters): DreParametersForm {
       glovo: num(p.marketingNetCents.glovo / 100),
       bolt_food: num(p.marketingNetCents.bolt_food / 100),
     },
+    loanExpense: num((p.loanExpenseCents ?? 0) / 100),
   };
 }
 
@@ -82,7 +85,9 @@ export function fromForm(
     if (v === null) invalid.push(`marketing.${k}`);
     else marketing[k] = v;
   }
+  const loanExpense = form.loanExpense.trim() === "" ? 0 : parseEuro(form.loanExpense);
+  if (loanExpense === null) invalid.push("loanExpense");
   if (invalid.length === 0 && (pct.platformCommissionPct / 100) * (1 + pct.platformCommissionVatPct / 100) >= 1) invalid.push("platformCommissionPct");
   if (invalid.length > 0) return { ok: false, invalid };
-  return { ok: true, value: { ...pct, commissionOnGross: form.commissionOnGross, marketingNetCents: marketing } };
+  return { ok: true, value: { ...pct, commissionOnGross: form.commissionOnGross, marketingNetCents: marketing, loanExpenseCents: loanExpense ?? 0 } };
 }

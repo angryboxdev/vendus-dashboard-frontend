@@ -193,6 +193,23 @@ export function DreParametersDrawer({
             )}
             <p className="text-xs text-ink-secondary">Descontado na liquidação: aumenta a venda bruta e entra como custo da plataforma.</p>
           </section>
+
+          <section className="space-y-3">
+            <h3 className={SECTION_TITLE}>Controle geral</h3>
+            <label className="block">
+              <span className={LABEL}>Despesa de empréstimos (DE), €</span>
+              <input
+                className={fieldCls("loanExpense")}
+                inputMode="decimal"
+                value={form.loanExpense}
+                onChange={(e) => setForm({ ...form, loanExpense: e.target.value })}
+                aria-invalid={invalid.includes("loanExpense")}
+              />
+              <span className="mt-1 block text-xs text-ink-secondary">
+                Prestações de empréstimos fora da operação que não passam pelo banco. Só no Controle geral (não entra na DRE); herda-se para os meses seguintes.
+              </span>
+            </label>
+          </section>
         </fieldset>
       )}
     </Drawer>
