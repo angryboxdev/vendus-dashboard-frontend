@@ -1,5 +1,6 @@
 import type { DownloadedFile, MarginReport, MarginReportFormat } from "../../entities/margin-report.ts";
 import type { PayoutReconciliation } from "../../entities/payout-reconciliation.ts";
+import type { FoodCost, ProductMappingChange } from "../../entities/food-cost.ts";
 import type { ImportPlatformDocumentsResult, PlatformDocumentUpload, PlatformStatementSummary } from "../../entities/platform-statement.ts";
 
 export interface DeliveryPlatformsApiPort {
@@ -8,4 +9,6 @@ export interface DeliveryPlatformsApiPort {
   getMarginReport(year: number, month: number): Promise<MarginReport>;
   exportMarginReport(year: number, month: number, format: MarginReportFormat): Promise<DownloadedFile>;
   getPayoutReconciliation(year: number, month: number): Promise<PayoutReconciliation>;
+  getFoodCost(year: number, month: number): Promise<FoodCost>;
+  saveProductMappings(changes: ProductMappingChange[]): Promise<void>;
 }

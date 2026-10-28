@@ -26,6 +26,7 @@ import {
 } from "../../domain/services/platform-statements-view.ts";
 import { MarginReportCard } from "./MarginReportCard.tsx";
 import { PayoutsCard } from "./PayoutsCard.tsx";
+import { FoodCostCard } from "./FoodCostCard.tsx";
 import { useDeliveryPlatforms } from "./use-delivery-platforms.ts";
 
 const euros = (cents: number) => formatEUR(cents / 100);
@@ -194,6 +195,7 @@ export function DeliveryPlatformsView({ year, month }: { year: number; month: nu
       ) : (
         <>
           <MarginReportCard year={year} month={month} />
+          <FoodCostCard year={year} month={month} />
           <PayoutsCard year={year} month={month} />
           {platformStatements.length > 0 && (
             <section className={`${SURFACE} p-6`} aria-labelledby="dp-month">

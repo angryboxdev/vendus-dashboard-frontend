@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DeliveryPlatformsProvider, type DeliveryPlatformsModule } from "../../delivery-platforms.module.tsx";
 import type { ImportPlatformDocumentsResult } from "../../domain/entities/platform-statement.ts";
-import { sampleBoltAndSaft, sampleMarginReport, samplePayouts, sampleStatements } from "../../domain/services/fixtures.ts";
+import { sampleBoltAndSaft, sampleFoodCost, sampleMarginReport, samplePayouts, sampleStatements } from "../../domain/services/fixtures.ts";
 import { DeliveryPlatformsView } from "./DeliveryPlatformsView.tsx";
 
 const fakeModule = (over: Partial<DeliveryPlatformsModule> = {}): DeliveryPlatformsModule => ({
@@ -12,6 +12,8 @@ const fakeModule = (over: Partial<DeliveryPlatformsModule> = {}): DeliveryPlatfo
   getMarginReport: { execute: async () => sampleMarginReport() },
   exportMarginReport: { execute: async () => undefined },
   getPayoutReconciliation: { execute: async () => samplePayouts() },
+  getFoodCost: { execute: async () => sampleFoodCost() },
+  saveProductMappings: { execute: async () => undefined },
   ...over,
 });
 
@@ -51,7 +53,7 @@ describe("DeliveryPlatformsView", () => {
     expect(screen.getByText(/IVA das vendas 13,25% \(pelo SAF-T do mês\)/)).toBeInTheDocument();
     expect(screen.getByText("Verificar")).toBeInTheDocument();
     expect(screen.getByText(/Glovo 25\/08 – 07\/09 — 75%, pelo faturado diário do SAF-T/)).toBeInTheDocument();
-    expect(screen.getByText(/fichas técnicas/)).toBeInTheDocument();
+    expect(screen.getByText(/o custo real virá das fichas técnicas/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "PDF" }));
     await waitFor(() => expect(exported).toEqual(["pdf"]));
   });
@@ -64,6 +66,17 @@ describe("DeliveryPlatformsView", () => {
     expect(screen.getByText("até 21/10")).toBeInTheDocument();
     expect(screen.getByText(/Glovo 03\/09/)).toBeInTheDocument();
     expect(screen.getByText(/Banco importado só até 2026-09-30/)).toBeInTheDocument();
+  });
+
+  it("custo da comida: estado, produtos e correção de um produto sem correspondência", async () => {
+    const saved: unknown[] = [];
+    renderView(fakeModule({ saveProductMappings: { execute: async (c) => void saved.push(...c) } }));
+    expect(await screen.findByText("Incompleto — a margem usa 30%")).toBeInTheDocument();
+    expect(screen.getByText("22,5%")).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "Sugestão: Honey Peperoni (Pequena)" })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Corresponde a — Agua mineral 51cl"), { target: { value: "item:i9" } });
+    await waitFor(() => expect(saved).toEqual([expect.objectContaining({ productKey: "agua mineral 51cl", targetType: "item", stockItemId: "i9" })]));
+    expect(screen.getByText(/«Caixa S» sem custo/)).toBeInTheDocument();
   });
 
   it("sem extratos: estado vazio", async () => {

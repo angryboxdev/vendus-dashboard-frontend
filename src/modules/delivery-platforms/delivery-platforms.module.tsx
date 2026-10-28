@@ -6,6 +6,8 @@ import { ExportPlatformMarginReportUseCase, GetPlatformMarginReportUseCase } fro
 import { BrowserFileDownloaderAdapter } from "./adapters/out/browser-file-downloader.adapter.ts";
 import { GetPayoutReconciliationUseCase } from "./application/use-cases/payout-reconciliation.use-case.ts";
 import type { GetPayoutReconciliationPort } from "./domain/ports/in/payout-reconciliation.port.ts";
+import { GetFoodCostUseCase, SaveProductMappingsUseCase } from "./application/use-cases/food-cost.use-case.ts";
+import type { GetFoodCostPort, SaveProductMappingsPort } from "./domain/ports/in/food-cost.port.ts";
 import type { ExportPlatformMarginReportPort, GetPlatformMarginReportPort } from "./domain/ports/in/platform-margin-report.port.ts";
 import type { ImportPlatformDocumentsPort } from "./domain/ports/in/import-platform-documents.port.ts";
 import type { ListPlatformStatementsPort } from "./domain/ports/in/list-platform-statements.port.ts";
@@ -16,6 +18,8 @@ export interface DeliveryPlatformsModule {
   getMarginReport: GetPlatformMarginReportPort;
   exportMarginReport: ExportPlatformMarginReportPort;
   getPayoutReconciliation: GetPayoutReconciliationPort;
+  getFoodCost: GetFoodCostPort;
+  saveProductMappings: SaveProductMappingsPort;
 }
 
 /** Composition root: liga o adapter HTTP aos casos de uso. */
@@ -27,6 +31,8 @@ function buildModule(): DeliveryPlatformsModule {
     getMarginReport: new GetPlatformMarginReportUseCase(api),
     exportMarginReport: new ExportPlatformMarginReportUseCase(api, new BrowserFileDownloaderAdapter()),
     getPayoutReconciliation: new GetPayoutReconciliationUseCase(api),
+    getFoodCost: new GetFoodCostUseCase(api),
+    saveProductMappings: new SaveProductMappingsUseCase(api),
   };
 }
 

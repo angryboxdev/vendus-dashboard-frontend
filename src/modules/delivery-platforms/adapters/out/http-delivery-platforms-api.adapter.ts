@@ -1,4 +1,5 @@
-import { apiGet, apiGetBlob, apiPostFormData } from "../../../../lib/api.ts";
+import { apiGet, apiGetBlob, apiPostFormData, apiPut } from "../../../../lib/api.ts";
+import type { FoodCost, ProductMappingChange } from "../../domain/entities/food-cost.ts";
 import type { DownloadedFile, MarginReport, MarginReportFormat } from "../../domain/entities/margin-report.ts";
 import type { PayoutReconciliation } from "../../domain/entities/payout-reconciliation.ts";
 import type { ImportPlatformDocumentsResult, PlatformDocumentUpload, PlatformStatementSummary } from "../../domain/entities/platform-statement.ts";
@@ -21,6 +22,14 @@ export class HttpDeliveryPlatformsApiAdapter implements DeliveryPlatformsApiPort
 
   getPayoutReconciliation(year: number, month: number): Promise<PayoutReconciliation> {
     return apiGet<PayoutReconciliation>(`/api/delivery-platforms/payouts?year=${year}&month=${month}`);
+  }
+
+  getFoodCost(year: number, month: number): Promise<FoodCost> {
+    return apiGet<FoodCost>(`/api/delivery-platforms/food-cost?year=${year}&month=${month}`);
+  }
+
+  async saveProductMappings(changes: ProductMappingChange[]): Promise<void> {
+    await apiPut<unknown>("/api/delivery-platforms/product-mappings", { changes });
   }
 
   async exportMarginReport(year: number, month: number, format: MarginReportFormat): Promise<DownloadedFile> {

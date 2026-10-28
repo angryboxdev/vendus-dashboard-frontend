@@ -31,6 +31,7 @@ Gestor                                   Sistema
 - **Margem por plataforma** — da venda com IVA à margem bruta (depois da plataforma) e à margem líquida (depois da comida, estimada em 30%), com IVA a entregar; exporta em Excel e PDF. Documentos que atravessam o mês contam só a parte do mês (pelo SAF-T diário).
 - **Conferência com o SAF-T** — o faturado no SAF-T do AirMenu (as três plataformas juntas) contra vendas − promoções dos extratos, já só com a parte do mês.
 - **Transferências** — cada transferência que paga vendas do mês (semana da Uber, quinzena da Glovo, semana da Bolt) contra o crédito que entrou no banco: bate, diferença, por receber ou em falta; créditos sem documento à parte.
+- **Custo da comida e embalagem** — os produtos do SAF-T ligados às fichas técnicas (Pequena; upgrade = Grande − Pequena) e aos artigos de stock, com a sugestão pelo nome corrigível produto a produto; embalagem por pizza e por pedido. Só quando está completo é que a margem usa a % real (senão 30%).
 - A lista dos documentos mostra os valores **com IVA**, como vêm.
 
 ---
@@ -52,11 +53,12 @@ UI de importação e consulta sobre `POST /api/delivery-platforms/import` e `GET
 - `ImportPlatformDocumentsPort` — valida a seleção e envia.
 - `ListPlatformStatementsPort` — extratos do mês.
 - `GetPayoutReconciliationPort` — conferência das transferências do mês (`PayoutsCard`).
+- `GetFoodCostPort` / `SaveProductMappingsPort` — custo da comida do mês e correções (`FoodCostCard`; `food-cost-view.ts` traduz a escolha do select na correção).
 - `GetPlatformMarginReportPort` / `ExportPlatformMarginReportPort` — margem do mês; descarregar em Excel/PDF.
 
 ### Saída (dependências do domínio)
 
-- `DeliveryPlatformsApiPort` — `importDocuments`, `listStatements`, `getMarginReport`, `exportMarginReport`, `getPayoutReconciliation`.
+- `DeliveryPlatformsApiPort` — `importDocuments`, `listStatements`, `getMarginReport`, `exportMarginReport`, `getPayoutReconciliation`, `getFoodCost`, `saveProductMappings`.
 - `FileDownloaderPort` — entrega o ficheiro exportado (`BrowserFileDownloaderAdapter`).
 
 ## Adapters

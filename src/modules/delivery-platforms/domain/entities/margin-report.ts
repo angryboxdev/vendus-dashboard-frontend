@@ -51,6 +51,8 @@ export interface MarginReport {
   salesVatRate: number;
   salesVatRateSource: "saft" | "default";
   foodCostPct: number;
+  /** `real` = pelas fichas técnicas e o SAF-T do mês; `estimate` = 30%. */
+  foodCostSource: "real" | "estimate";
   platforms: PlatformMargin[];
   total: PlatformMargin;
   saft: { invoicedCents: number; platformsPaidCents: number; differenceCents: number } | null;
