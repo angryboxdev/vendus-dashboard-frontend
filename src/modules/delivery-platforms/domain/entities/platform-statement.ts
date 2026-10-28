@@ -2,18 +2,25 @@
  * Extratos das plataformas de delivery — contrato de `POST /api/delivery-platforms/import` e
  * `GET /api/delivery-platforms/statements` (módulo backend `delivery-platforms`). Valores em cêntimos, com IVA.
  */
-export type DeliveryPlatform = "uber_eats" | "glovo" | "bolt_food";
+
+/** Origem do documento: uma plataforma, ou `airmenu` — o SAF-T de vendas das três juntas (conferência). */
+export type DeliveryPlatform = "uber_eats" | "glovo" | "bolt_food" | "airmenu";
+
+export type PlatformDocumentKind = "uber_monthly_statement" | "glovo_statement" | "bolt_orders_report" | "bolt_weekly_invoice" | "airmenu_saft";
 
 /** Extrato importado, com os totais por natureza (reduções positivas). */
 export interface PlatformStatementSummary {
   id: string;
   platform: DeliveryPlatform;
+  documentKind: PlatformDocumentKind;
   documentNumber: string;
   periodFrom: string;
   periodTo: string;
   issuedOn: string | null;
   ordersCount: number | null;
   salesCents: number;
+  /** IVA incluído nas vendas, quando o documento o diz (SAF-T). */
+  salesVatCents: number;
   promotionsCents: number;
   commissionCents: number;
   marketingCents: number;
@@ -21,8 +28,14 @@ export interface PlatformStatementSummary {
   refundsCents: number;
   /** Pago pelos clientes em dinheiro ao estafeta (não passa pela transferência). */
   cashCents: number;
+  /** Acertos que mexem na transferência mas não são custo do período. */
+  adjustmentsCents: number;
   /** IVA contido nas comissões, marketing e outras taxas. */
   feesVatCents: number;
+  /**
+   * O que o documento soma à transferência: o total a transferir (Uber, Glovo); as vendas (pedidos da
+   * Bolt) ou − o total da fatura (faturas da Bolt); no SAF-T, o faturado líquido de notas de crédito.
+   */
   netPayoutCents: number;
   fileName: string;
   importedAt: string;

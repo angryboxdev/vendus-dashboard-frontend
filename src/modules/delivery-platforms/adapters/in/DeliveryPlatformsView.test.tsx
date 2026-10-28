@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DeliveryPlatformsProvider, type DeliveryPlatformsModule } from "../../delivery-platforms.module.tsx";
 import type { ImportPlatformDocumentsResult } from "../../domain/entities/platform-statement.ts";
-import { sampleStatements } from "../../domain/services/fixtures.ts";
+import { sampleBoltAndSaft, sampleStatements } from "../../domain/services/fixtures.ts";
 import { DeliveryPlatformsView } from "./DeliveryPlatformsView.tsx";
 
 const fakeModule = (over: Partial<DeliveryPlatformsModule> = {}): DeliveryPlatformsModule => ({
@@ -32,6 +32,15 @@ describe("DeliveryPlatformsView", () => {
     expect(screen.getByText(/pagos em dinheiro ao estafeta/)).toBeInTheDocument();
   });
 
+  it("Bolt calculada e conferência com o SAF-T", async () => {
+    renderView(fakeModule({ listStatements: { execute: async () => [...sampleStatements(), ...sampleBoltAndSaft()] } }));
+    expect(await screen.findByText(/Conferência com o SAF-T/)).toBeInTheDocument();
+    expect(screen.getByText("Verificar")).toBeInTheDocument();
+    expect(screen.getByText("Líquido (calculado)")).toBeInTheDocument();
+    expect(screen.getByText(/o líquido é a diferença/)).toBeInTheDocument();
+    expect(screen.queryByText("SAFT-2026-09-01-2026-09-30")).not.toBeInTheDocument();
+  });
+
   it("sem extratos: estado vazio", async () => {
     renderView(fakeModule({ listStatements: { execute: async () => [] } }));
     expect(await screen.findByText("Sem extratos neste mês")).toBeInTheDocument();
@@ -58,7 +67,7 @@ describe("DeliveryPlatformsView", () => {
   it("formato errado: avisa e não deixa importar", async () => {
     renderView(fakeModule());
     fireEvent.change(screen.getByLabelText("Ficheiros"), { target: { files: [new File(["x"], "folha.xlsx")] } });
-    await waitFor(() => expect(screen.getByText("Só PDF ou CSV: folha.xlsx.")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText("Só PDF, CSV ou XML: folha.xlsx.")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: "Importar" })).toBeDisabled();
   });
 });

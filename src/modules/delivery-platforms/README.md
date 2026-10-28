@@ -7,7 +7,7 @@
 
 ## O que é e para que serve (perspetiva do negócio)
 
-Página **Mapa de rentabilidade → Plataformas de delivery** (`/dre/plataformas`, menu Financeiro): o gestor envia os extratos da Uber Eats e da Glovo e vê, para o mês do seletor do Mapa, quanto se vendeu em cada plataforma, quanto ela ficou e quanto transferiu.
+Página **Mapa de rentabilidade → Plataformas de delivery** (`/dre/plataformas`, menu Financeiro): o gestor envia os documentos da Uber Eats, da Glovo e da Bolt Food (e, opcionalmente, o SAF-T do AirMenu) e vê, para o mês do seletor do Mapa, quanto se vendeu em cada plataforma, quanto ela ficou e quanto transferiu.
 
 **O problema que resolve:**
 Sem os extratos só se vê o que chega ao banco; não se sabe quanto custaram promoções, comissões e anúncios.
@@ -27,6 +27,8 @@ Gestor                                   Sistema
 
 - **Extrato** — documento da plataforma para um período (Uber: mês; Glovo: quinzena).
 - **Atravessa o mês** — o período do extrato tem dias de outro mês; aparece nos dois meses.
+- **Bolt** — o relatório de pedidos traz as vendas e as faturas semanais as taxas; o «líquido» é calculado (vendas − faturas).
+- **Conferência com o SAF-T** — o faturado no SAF-T do AirMenu (as três plataformas juntas) contra vendas − promoções dos extratos; dá também o IVA médio exato das vendas.
 - Valores **com IVA**, como nos extratos. A margem sem IVA é o relatório da fase seguinte.
 
 ---
@@ -39,7 +41,7 @@ UI de importação e consulta sobre `POST /api/delivery-platforms/import` e `GET
 
 - `PlatformStatementSummary` — contrato da listagem (cêntimos).
 - `ImportPlatformDocumentsResult` — `imported` / `rejected` com motivo.
-- Regras da vista (`platform-statements-view.ts`, puras): seleção válida (1–20 ficheiros, PDF ou CSV), período «01/09 – 15/09», «atravessa o mês», totais por plataforma.
+- Regras da vista (`platform-statements-view.ts`, puras): seleção válida (1–20 ficheiros, PDF, CSV ou XML), período «01/09 – 15/09», «atravessa o mês», totais por plataforma (sem o SAF-T), `saftCheck` (faturado × vendas − promoções, IVA médio).
 
 ## Portas
 
@@ -73,5 +75,5 @@ UI de importação e consulta sobre `POST /api/delivery-platforms/import` e `GET
 
 ## Lacunas conhecidas / dívida
 
-- Bolt Food e SAF-T ainda não são lidos pelo backend (F2): são rejeitados como «não reconhecido».
+- A conferência usa os documentos que tocam o mês inteiros (quinzenas/semanas que atravessam o mês distorcem a diferença) — a repartição por dia entra no relatório (F3).
 - Relatório de margem por plataforma e exportação Excel/PDF: F3.
