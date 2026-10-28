@@ -25,22 +25,27 @@ export interface ResolvedDreParameters extends DreParameters {
   source: "month" | "inherited" | "default";
 }
 
-/** Plataforma: o que liquidou no banco e a venda reconstituída em bruto. */
+/** Plataforma: pelos extratos importados (`statements`) ou reconstituída do que liquidou no banco (`bank`). */
 export interface DrePlatformRevenue {
   /** uber_eats | glovo | bolt_food */
   platform: string;
+  source: "statements" | "bank";
   /** Liquidado no banco (já sem comissão nem marketing). */
   receivedCents: number;
   marketingNetCents: number;
-  /** Venda reconstituída, com IVA. */
+  /** Venda com IVA (preço de tabela nos extratos; reconstituída pelo banco). */
   grossCents: number;
   /** Venda sem IVA (receita). */
   netCents: number;
+  /** Promoções pagas pelo restaurante, sem IVA (só pelos extratos). */
+  promotionsNetCents: number;
+  /** Outras taxas e reembolsos, sem IVA (só pelos extratos). */
+  otherFeesNetCents: number;
   salesVatCents: number;
   commissionNetCents: number;
   commissionVatCents: number;
   marketingVatCents: number;
-  /** Venda sem IVA − comissão − marketing. */
+  /** Venda sem IVA − promoções − comissão − marketing − outras taxas. */
   contributionCents: number;
   contributionPct: number | null;
 }
@@ -139,8 +144,8 @@ export interface DreReport {
   restaurantSalesLoaded: boolean;
   parameters: ResolvedDreParameters;
   revenue: DreRevenue;
-  /** Comissões e marketing das plataformas, sem IVA. */
-  platformCosts: { commissionNetCents: number; marketingNetCents: number; totalNetCents: number };
+  /** Custos das plataformas, sem IVA (promoções e outras taxas só pelos extratos). */
+  platformCosts: { commissionNetCents: number; marketingNetCents: number; promotionsNetCents: number; otherFeesNetCents: number; totalNetCents: number };
   /** Zero no pedido rápido (sem as vendas do restaurante). */
   cardFees: DreCardFees;
   expenses: DreExpenses;

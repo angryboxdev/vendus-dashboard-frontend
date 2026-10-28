@@ -24,6 +24,28 @@ describe("composeDreStatement", () => {
     expect(s.lines.find((x) => x.key === "unclassified")!.children[0]!.label).toBe("tipo:card_purchase");
   });
 
+  it("plataforma pelos extratos: promoções e reembolsos deduzem à receita; origem no detalhe", () => {
+    const dre = sampleDre();
+    dre.revenue.byPlatform = [{ ...dre.revenue.byPlatform[0]!, source: "statements", promotionsNetCents: 5_000, otherFeesNetCents: 1_000 }];
+    dre.platformCosts = { ...dre.platformCosts, promotionsNetCents: 5_000, otherFeesNetCents: 1_000, totalNetCents: 36_000 };
+    const s = composeDreStatement(dre, sampleRestaurantSales(), l);
+    expect(amount(s, "platform-deductions")).toBe(6_000);
+    expect(amount(s, "net-revenue")).toBe(556_957 - 6_000 - 3_955);
+    const platforms = s.lines.find((x) => x.key === "platforms")!;
+    expect(platforms.hint).toBe("Pelos extratos importados (preço de tabela), sem IVA");
+    expect(platforms.children[0]!.hint).toMatch(/^Pelos extratos · recebido/);
+    expect(s.lines.find((x) => x.key === "platform-deductions")!.children.map((c) => c.label)).toEqual([
+      "Promoções uber_eats",
+      "Reembolsos e outras taxas uber_eats",
+    ]);
+  });
+
+  it("só pelo banco: sem a linha de promoções e reembolsos", () => {
+    const s = composeDreStatement(sampleDre(), sampleRestaurantSales(), l);
+    expect(s.lines.map((x) => x.key)).not.toContain("platform-deductions");
+    expect(s.lines.find((x) => x.key === "platforms")!.hint).toBe("Reconstituídas do recebido no banco, sem IVA");
+  });
+
   it("só os custos: vendas do restaurante e totais a null; custos e plataformas com valor", () => {
     const s = composeDreStatement(sampleDre(), null, l);
     expect(amount(s, "restaurant")).toBeNull();
