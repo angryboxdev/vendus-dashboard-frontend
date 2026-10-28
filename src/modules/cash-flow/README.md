@@ -37,6 +37,7 @@ Página **Mapa de rentabilidade → Fluxo de caixa** (`/dre/fluxo-caixa`), só a
 
 ## Decisões de design
 
+- **Parâmetros do mês × extratos (2026-10-28):** nas plataformas com extratos no mês (`source: "statements"`), o marketing aparece só para leitura (o dos extratos; o manual não conta) e as taxas de delivery (IVA das vendas, comissão, IVA da comissão, IVA do marketing) dizem a que plataformas ainda se aplicam (`deliveryParametersUse`); nada se conta duas vezes porque a DRE só usa os parâmetros nas plataformas reconstituídas pelo banco.
 - **Plataformas pelos extratos (F3b, 2026-10-28):** cada plataforma da DRE traz `source` (`statements` = extratos importados em «Plataformas de delivery»; `bank` = reconstituída do recebido). Com extratos, as promoções e os reembolsos/outras taxas entram numa linha própria, «Promoções e reembolsos das plataformas», que deduz à receita como as comissões; a dica das vendas diz a origem.
 - **Ajustes manuais no Mapa (Menu V1, 2026-10-27)** — Custos Fixos e Custos Variáveis saíram do menu; a linha «Ajustes manuais» da DRE tem ligações para essas páginas (só as que a pessoa pode abrir; `useOptionalAuth`, para funcionar sem sessão nos testes).
 

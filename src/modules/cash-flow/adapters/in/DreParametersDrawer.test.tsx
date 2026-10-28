@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 import { CashFlowProvider, type CashFlowModule } from "../../cash-flow.module.tsx";
-import type { DreParameters } from "../../domain/entities/dre.ts";
+import type { DreParameters, DreReport } from "../../domain/entities/dre.ts";
 import { sampleDre, sampleRestaurantSales } from "../../domain/services/dre-fixtures.ts";
 import { sampleReport } from "../../domain/services/fixtures.ts";
 import { sampleParameters, sampleReconciliation } from "../../domain/services/sales-reconciliation-fixtures.ts";
@@ -14,7 +14,7 @@ vi.mock("../../../../contexts/AuthContext", () => ({
   useOptionalAuth: () => ({ user: { access: { portalOnly: false, isAdmin: false, permissions: { "dre.statement": auth.level } } } }),
 }));
 
-function renderDrawer(saved: [number, number, DreParameters][], onClose = () => {}) {
+function renderDrawer(saved: [number, number, DreParameters][], onClose = () => {}, costs: DreReport | null = null) {
   const mod: CashFlowModule = {
     getCashFlow: { execute: async () => sampleReport() },
     getToHandle: { execute: async () => null },
@@ -29,13 +29,25 @@ function renderDrawer(saved: [number, number, DreParameters][], onClose = () => 
   return render(
     <QueryClientProvider client={client}>
       <CashFlowProvider module={mod}>
-        <DreParametersDrawer year={2026} month={9} open onClose={onClose} />
+        <DreParametersDrawer year={2026} month={9} open onClose={onClose} costs={costs} />
       </CashFlowProvider>
     </QueryClientProvider>,
   );
 }
 
 describe("DreParametersDrawer", () => {
+  it("plataforma com extratos: marketing só para leitura (pelos extratos) e aviso das taxas", async () => {
+    auth.level = "MANAGE";
+    const dre = sampleDre();
+    dre.revenue.byPlatform = [{ ...dre.revenue.byPlatform[0]!, source: "statements", marketingNetCents: 41_659 }];
+    renderDrawer([], () => {}, dre);
+    expect(await screen.findByText(/Todas as plataformas deste mês têm extratos importados/)).toBeInTheDocument();
+    expect(screen.queryByLabelText("Uber Eats")).not.toBeInTheDocument();
+    expect(screen.getAllByText(/Pelos extratos importados \(Plataformas de delivery\)/)).toHaveLength(1);
+    expect(screen.getByLabelText("Glovo")).toBeInTheDocument();
+    expect(screen.getAllByText(/só plataformas sem extratos/)).toHaveLength(4);
+  });
+
   it("grava as taxas e o marketing (euros → cêntimos) e fecha", async () => {
     auth.level = "MANAGE";
     const saved: [number, number, DreParameters][] = [];
