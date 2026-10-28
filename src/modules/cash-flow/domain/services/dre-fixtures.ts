@@ -1,4 +1,4 @@
-import type { DreReport, DreRestaurantSales } from "../entities/dre.ts";
+import type { DreEntries, DreReport, DreRestaurantSales } from "../entities/dre.ts";
 
 /** DRE rápida fictícia (março, mês fechado): custos do banco e plataformas, sem o restaurante. */
 export function sampleDre(): DreReport {
@@ -61,6 +61,7 @@ export function sampleDre(): DreReport {
         { key: "unclassified", netCents: 10_000, items: [{ key: "kind:card_purchase", categoryId: null, code: null, name: null, movementKind: "card_purchase", netCents: 10_000 }] },
       ],
       capexNetCents: 0,
+      offOperation: { totalCents: 0, items: [] },
     },
     resultCents: null,
     marginPct: null,
@@ -76,5 +77,19 @@ export function sampleRestaurantSales(): DreRestaurantSales {
     vatCents: 65_000,
     byPayment: { cardNetCents: 350_000, cashNetCents: 120_000, otherNetCents: 30_000 },
     cardFees: { cardGrossCents: 395_500, ratePct: 1, netCents: 3_955 },
+  };
+}
+
+/** Pagamentos fictícios da DRE de março (pessoal: salários com 2 pagamentos, encargos com 1). */
+export function sampleDreEntries(): DreEntries {
+  const base = { section: "personnel" as const, basis: "document" as const, vatBasis: "exempt" as const, description: "Transferência enviada" };
+  return {
+    period: { year: 2026, month: 3, from: "2026-03-01", to: "2026-03-31", isCurrentMonth: false },
+    entries: [
+      { ...base, itemKey: "c-sal", movementId: "m1", paidOn: "2026-04-02", competenceDate: "2026-03-31", document: "Salários · março", grossCents: 60_000, netCents: 60_000 },
+      { ...base, itemKey: "c-sal", movementId: "m2", paidOn: "2026-03-15", competenceDate: "2026-03-15", document: null, grossCents: 40_000, netCents: 40_000 },
+      { ...base, itemKey: "c-enc", movementId: "m3", paidOn: "2026-04-20", competenceDate: "2026-03-31", document: "Segurança Social · março", grossCents: 20_000, netCents: 20_000 },
+      { ...base, section: "cmv", itemKey: "c-ing", movementId: "m4", paidOn: "2026-03-10", competenceDate: "2026-03-08", document: "Fornecedor Teste · FT 1", grossCents: 86_100, netCents: 70_000, vatBasis: "real" },
+    ],
   };
 }

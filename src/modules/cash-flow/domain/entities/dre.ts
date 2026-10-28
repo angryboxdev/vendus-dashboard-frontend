@@ -92,6 +92,36 @@ export interface DreExpenses {
   sections: DreExpenseSection[];
   /** Investimentos (CAPEX): incluídos em `totalNetCents`, mas fora do resultado. */
   capexNetCents: number;
+  /** Fora da operação (retiradas de sócios, capital de empréstimos, cauções): fora do resultado. */
+  offOperation: { totalCents: number; items: DreSectionItem[] };
+}
+
+/** De onde vem o valor sem IVA de um pagamento. */
+export type DreVatBasis = "exempt" | "real" | "estimated" | "pending";
+
+/** Um pagamento (ou parte dele) por trás de uma rubrica da DRE — contrato de `GET /api/reports/dre/pagamentos`. */
+export interface DreEntry {
+  section: DreSectionKey | "off_operation";
+  /** `DreSectionItem.key` da rubrica. */
+  itemKey: string;
+  movementId: string;
+  /** Data do pagamento no banco. */
+  paidOn: string;
+  /** Data que decide o mês: a do documento conciliado, senão a do pagamento. */
+  competenceDate: string;
+  description: string | null;
+  /** Fornecedor e número da fatura (ou nome do contrato recorrente). */
+  document: string | null;
+  /** De onde vem a categoria: o próprio movimento, o documento conciliado ou só o tipo do extrato. */
+  basis: "movement" | "document" | "extract";
+  grossCents: number;
+  netCents: number;
+  vatBasis: DreVatBasis;
+}
+
+export interface DreEntries {
+  period: DreReport["period"];
+  entries: DreEntry[];
 }
 
 /** Comissão do TPA: taxa do mês sobre o vendido em cartão (o banco liquida já sem ela). */

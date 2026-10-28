@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { AlertBanner, Button, EmptyState, IconChevronDown, PAGE_BG, SECTION_TITLE, SURFACE, Skeleton } from "../../../../components/ui/index.ts";
+import { AlertBanner, Button, EmptyState, IconButton, IconChevronDown, IconReceipt, PAGE_BG, SECTION_TITLE, SURFACE, Skeleton } from "../../../../components/ui/index.ts";
+import { useOptionalAuth } from "../../../../contexts/AuthContext";
+import { hasLevel } from "../../../access/domain/services/access-ui.service.ts";
 import type { DreReport } from "../../domain/entities/dre.ts";
 import { monthName } from "../../domain/services/cash-flow-view.ts";
 import { composeDreStatement, type DreStatement, type StatementLine } from "../../domain/services/dre-statement.ts";
@@ -8,6 +10,13 @@ import { dreConfidencePct, platformLabel } from "../../domain/services/dre-view.
 import { euros, kindLabel } from "./cash-flow-format.ts";
 import { useDre } from "./use-dre.ts";
 import { DreParametersDrawer } from "./DreParametersDrawer.tsx";
+import { DrePaymentsDrawer, type DrePaymentsTarget } from "./DrePaymentsDrawer.tsx";
+
+/** Vê os pagamentos de cada rubrica: mostram o descritivo do extrato — Admin ou «Bancos & conciliação». */
+function useCanSeePayments(): boolean {
+  const access = useOptionalAuth()?.user?.access;
+  return !!access && !access.portalOnly && (access.isAdmin || hasLevel(access.permissions, "finance.banking", "READ"));
+}
 
 const ROW = "flex items-baseline justify-between gap-4 py-2.5";
 const AMOUNT = "shrink-0 text-sm tabular-nums";
@@ -16,9 +25,13 @@ const Pending = ({ className = "h-4 w-20" }: { className?: string }) => <Skeleto
 
 const pctText = (pct: number | null) => (pct === null ? "" : `${pct.toLocaleString("pt-PT", { maximumFractionDigits: 1 })}%`);
 
-/** Uma linha da DRE: valores com «−» nos custos, subtotais a negrito, detalhe abrível. */
-function StatementRow({ line }: { line: StatementLine }) {
+/** Uma linha da DRE: valores com «−» nos custos, subtotais a negrito, detalhe abrível e, nas rubricas do banco, os pagamentos. */
+function StatementRow({ line, onPayments }: { line: StatementLine; onPayments?: (line: StatementLine) => void }) {
   const [open, setOpen] = useState(false);
+  if (line.kind === "heading") {
+    return <li className="px-3 pb-1 pt-5 text-xs font-semibold uppercase tracking-wide text-ink-secondary">{line.label}</li>;
+  }
+  const canOpenPayments = !!onPayments && !!line.entriesSection && line.amountCents !== null && line.amountCents !== 0;
   const expandable = line.children.length > 0;
   const isCost = line.kind === "cost" || line.kind === "info";
   const strong = line.kind === "subtotal" || line.kind === "result";
@@ -27,9 +40,10 @@ function StatementRow({ line }: { line: StatementLine }) {
   const negative = !isCost && line.amountCents !== null && line.amountCents < 0;
   return (
     <li className={line.kind === "result" ? "border-t-2 border-navy-900/20" : line.kind === "subtotal" ? "bg-surface-soft/60" : line.kind === "info" ? "opacity-75" : ""}>
+      <div className="flex items-center">
       <button
         type="button"
-        className={`${ROW} w-full px-3 text-left disabled:cursor-default`}
+        className={`${ROW} min-w-0 flex-1 px-3 text-left disabled:cursor-default`}
         onClick={() => setOpen(!open)}
         disabled={!expandable}
         aria-expanded={expandable ? open : undefined}
@@ -53,6 +67,16 @@ function StatementRow({ line }: { line: StatementLine }) {
           <span className="w-12 text-right text-xs tabular-nums text-ink-secondary">{pctText(line.pctOfNet)}</span>
         </span>
       </button>
+      {onPayments && (
+        <span className="w-9 shrink-0">
+          {canOpenPayments && (
+            <IconButton size="sm" label={`Ver pagamentos — ${line.label}`} onClick={() => onPayments(line)}>
+              <IconReceipt size={14} />
+            </IconButton>
+          )}
+        </span>
+      )}
+      </div>
       {open && (
         <ul className="mb-2 ml-9 mr-16 space-y-1.5 border-l border-line-subtle pl-3">
           {line.children.map((ch) => (
@@ -71,7 +95,7 @@ function StatementRow({ line }: { line: StatementLine }) {
 }
 
 /** Demonstração de resultados em cascata, até ao lucro líquido da operação. */
-function Statement({ statement, costs }: { statement: DreStatement; costs: DreReport | null }) {
+function Statement({ statement, costs, onPayments }: { statement: DreStatement; costs: DreReport | null; onPayments?: (line: StatementLine) => void }) {
   const p = costs?.parameters;
   return (
     <section className={`${SURFACE} p-6`} aria-labelledby="dre-statement">
@@ -83,14 +107,15 @@ function Statement({ statement, costs }: { statement: DreStatement; costs: DreRe
       </div>
       <ul className="mt-3 divide-y divide-line-subtle">
         {statement.lines.map((line) => (
-          <StatementRow key={line.key} line={line} />
+          <StatementRow key={line.key} line={line} onPayments={onPayments} />
         ))}
       </ul>
       {p && (
         <p className="mt-4 text-xs text-ink-secondary">
           Plataformas: comissão {p.platformCommissionPct}% + IVA {p.platformCommissionVatPct}% · IVA das vendas {p.deliverySalesVatPct}%
           {p.source === "inherited" ? " (herdados do mês anterior)" : p.source === "default" ? " (valores de omissão)" : ""}. Gastos pelo extrato
-          bancário: com fatura conciliada, a categoria da fatura; sem fatura, a classificação do extrato.
+          bancário, no mês da fatura: com fatura conciliada, a categoria e a data da fatura; sem fatura, a classificação do extrato e a
+          data do pagamento.
         </p>
       )}
     </section>
@@ -200,6 +225,10 @@ function Kpi({ label, value }: { label: string; value: number | null }) {
 export function DreView({ year, month }: { year: number; month: number }) {
   const { costs, sales, costsLoading, salesLoading, costsError, salesError, future } = useDre(year, month);
   const [paramsOpen, setParamsOpen] = useState(false);
+  const [payments, setPayments] = useState<DrePaymentsTarget | null>(null);
+  const canSeePayments = useCanSeePayments();
+  const openPayments = (line: StatementLine) =>
+    line.entriesSection && setPayments({ section: line.entriesSection, title: line.label, labels: new Map(line.children.map((c) => [c.key, c.label])) });
   const statement = composeDreStatement(costs, sales, { platform: platformLabel, movementKind: kindLabel, euros });
   const period = costs?.period ?? sales?.period ?? null;
 
@@ -258,7 +287,8 @@ export function DreView({ year, month }: { year: number; month: number }) {
           </section>
           <div className="grid gap-5 lg:grid-cols-3">
             <div className="lg:col-span-2">
-              <Statement statement={statement} costs={costs} />
+              <Statement statement={statement} costs={costs} onPayments={canSeePayments ? openPayments : undefined} />
+              <DrePaymentsDrawer year={year} month={month} target={payments} onClose={() => setPayments(null)} />
             </div>
             <SidePanel statement={statement} costs={costs} />
           </div>

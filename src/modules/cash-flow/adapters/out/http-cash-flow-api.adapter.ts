@@ -1,6 +1,6 @@
 import { ApiError, apiGet, apiPut } from "../../../../lib/api.ts";
 import type { CashFlowReport, CashFlowToHandle } from "../../domain/entities/cash-flow.ts";
-import type { DreParameters, DreReport, DreRestaurantSales, ResolvedDreParameters } from "../../domain/entities/dre.ts";
+import type { DreEntries, DreParameters, DreReport, DreRestaurantSales, ResolvedDreParameters } from "../../domain/entities/dre.ts";
 import type { SalesReconciliation } from "../../domain/entities/sales-reconciliation.ts";
 import type { CashFlowApiPort } from "../../domain/ports/out/cash-flow-api.port.ts";
 
@@ -27,6 +27,16 @@ export class HttpCashFlowApiAdapter implements CashFlowApiPort {
 
   saveDreParameters(year: number, month: number, parameters: DreParameters): Promise<ResolvedDreParameters> {
     return apiPut<ResolvedDreParameters>(`/api/reports/dre/parametros?year=${year}&month=${month}`, parameters);
+  }
+
+  async getDreEntries(year: number, month: number): Promise<DreEntries | null> {
+    try {
+      return await apiGet<DreEntries>(`/api/reports/dre/pagamentos?year=${year}&month=${month}`);
+    } catch (err) {
+      // Sem permissão de Bancos: os pagamentos não se mostram.
+      if (err instanceof ApiError && err.status === 403) return null;
+      throw err;
+    }
   }
 
   async getToHandle(): Promise<CashFlowToHandle | null> {

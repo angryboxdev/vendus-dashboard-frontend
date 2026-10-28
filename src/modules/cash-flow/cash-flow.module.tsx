@@ -4,12 +4,14 @@ import { GetCashFlowUseCase } from "./application/use-cases/get-cash-flow.use-ca
 import { GetCashFlowToHandleUseCase } from "./application/use-cases/get-cash-flow-to-handle.use-case.ts";
 import { GetDreUseCase } from "./application/use-cases/get-dre.use-case.ts";
 import { GetDreRestaurantSalesUseCase } from "./application/use-cases/get-dre-restaurant-sales.use-case.ts";
+import { GetDreEntriesUseCase } from "./application/use-cases/get-dre-entries.use-case.ts";
 import { GetSalesReconciliationUseCase } from "./application/use-cases/sales-reconciliation.use-case.ts";
 import { GetDreParametersUseCase, SaveDreParametersUseCase } from "./application/use-cases/dre-parameters.use-case.ts";
 import type { GetCashFlowPort } from "./domain/ports/in/get-cash-flow.port.ts";
 import type { GetCashFlowToHandlePort } from "./domain/ports/in/get-cash-flow-to-handle.port.ts";
 import type { GetDrePort } from "./domain/ports/in/get-dre.port.ts";
 import type { GetDreRestaurantSalesPort } from "./domain/ports/in/get-dre-restaurant-sales.port.ts";
+import type { GetDreEntriesPort } from "./domain/ports/in/get-dre-entries.port.ts";
 import type { GetSalesReconciliationPort } from "./domain/ports/in/sales-reconciliation.port.ts";
 import type { GetDreParametersPort, SaveDreParametersPort } from "./domain/ports/in/dre-parameters.port.ts";
 
@@ -18,6 +20,7 @@ export interface CashFlowModule {
   getToHandle: GetCashFlowToHandlePort;
   getDre: GetDrePort;
   getDreRestaurantSales: GetDreRestaurantSalesPort;
+  getDreEntries: GetDreEntriesPort;
   getSalesReconciliation: GetSalesReconciliationPort;
   getDreParameters: GetDreParametersPort;
   saveDreParameters: SaveDreParametersPort;
@@ -31,6 +34,7 @@ function buildModule(): CashFlowModule {
     getToHandle: new GetCashFlowToHandleUseCase(api),
     getDre: new GetDreUseCase(api),
     getDreRestaurantSales: new GetDreRestaurantSalesUseCase(api),
+    getDreEntries: new GetDreEntriesUseCase(api),
     getSalesReconciliation: new GetSalesReconciliationUseCase(api),
     getDreParameters: new GetDreParametersUseCase(api),
     saveDreParameters: new SaveDreParametersUseCase(api),

@@ -5,13 +5,14 @@ import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { CashFlowProvider, type CashFlowModule } from "../../cash-flow.module.tsx";
 import type { DreReport, DreRestaurantSales } from "../../domain/entities/dre.ts";
-import { sampleDre, sampleRestaurantSales } from "../../domain/services/dre-fixtures.ts";
+import { sampleDre, sampleRestaurantSales, sampleDreEntries } from "../../domain/services/dre-fixtures.ts";
 import { sampleParameters, sampleReconciliation } from "../../domain/services/sales-reconciliation-fixtures.ts";
 import { sampleReport } from "../../domain/services/fixtures.ts";
 import { DreView } from "./DreView.tsx";
 
+const auth = vi.hoisted(() => ({ permissions: { "dre.statement": "MANAGE" } as Record<string, string> }));
 vi.mock("../../../../contexts/AuthContext", () => ({
-  useOptionalAuth: () => ({ user: { access: { portalOnly: false, isAdmin: false, permissions: { "dre.statement": "MANAGE" } } } }),
+  useOptionalAuth: () => ({ user: { access: { portalOnly: false, isAdmin: false, permissions: auth.permissions } } }),
 }));
 
 function renderView(mod: CashFlowModule, year = 2026, month = 3) {
@@ -33,6 +34,7 @@ function fakeModule(costs: () => Promise<DreReport> = async () => sampleDre(), s
     getToHandle: { execute: async () => null },
     getDre: { execute: costs },
     getDreRestaurantSales: { execute: sales },
+    getDreEntries: { execute: async () => sampleDreEntries() },
     getSalesReconciliation: { execute: async () => sampleReconciliation() },
     getDreParameters: { execute: async () => sampleParameters() },
     saveDreParameters: { execute: async () => sampleParameters() },
@@ -96,5 +98,24 @@ describe("DreView", () => {
     renderView(fakeModule(async () => ((called = true), sampleDre())), 2099, 1);
     expect(screen.getByText("Este mês ainda não começou")).toBeInTheDocument();
     expect(called).toBe(false);
+  });
+
+  it("com Bancos: cada rubrica abre a lista dos seus pagamentos, por categoria, com a data da fatura", async () => {
+    auth.permissions = { "dre.statement": "READ", "finance.banking": "READ" };
+    renderView(fakeModule());
+    await userEvent.click(await screen.findByRole("button", { name: "Ver pagamentos — Pessoal" }));
+    expect(await screen.findByRole("region", { name: "Salários" })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Encargos" })).toBeInTheDocument();
+    expect(screen.getByText("Salários · março")).toBeInTheDocument();
+    expect(screen.getByText(/Pago a 02\/04\/2026 · fatura de 31\/03\/2026/)).toBeInTheDocument();
+    // só os pagamentos desta linha (o CMV não aparece)
+    expect(screen.queryByText("Fornecedor Teste · FT 1")).toBeNull();
+    auth.permissions = { "dre.statement": "MANAGE" };
+  });
+
+  it("sem Bancos: não há botão de pagamentos", async () => {
+    renderView(fakeModule());
+    expect((await screen.findAllByText(/Pessoal/)).length).toBeGreaterThan(0);
+    expect(screen.queryByRole("button", { name: /Ver pagamentos/ })).toBeNull();
   });
 });

@@ -17,14 +17,16 @@ export interface StatementChild {
 export interface StatementLine {
   key: string;
   label: string;
-  /** revenue/cost = linha com valor; subtotal = «=»; result = lucro líquido; info = fora do resultado. */
-  kind: "revenue" | "cost" | "subtotal" | "result" | "info";
+  /** revenue/cost = linha com valor; subtotal = «=»; result = lucro líquido; info = fora do resultado; heading = título de bloco. */
+  kind: "revenue" | "cost" | "subtotal" | "result" | "info" | "heading";
   /** null = ainda a carregar. Custos em positivo (a vista mostra «−»). */
   amountCents: number | null;
   /** % da receita líquida (1 casa); null sem ela. */
   pctOfNet: number | null;
   children: StatementChild[];
   hint?: string;
+  /** Linha com pagamentos para conferir (`DreEntry.section`); só nas rubricas de gastos do banco. */
+  entriesSection?: DreSectionKey | "off_operation";
 }
 
 export interface DreStatement {
@@ -33,6 +35,8 @@ export interface DreStatement {
   grossProfitCents: number | null;
   operatingResultCents: number | null;
   netResultCents: number | null;
+  /** Lucro líquido − investimentos (CAPEX) − fora da operação: o que sobra do mês. */
+  afterOffOperationCents: number | null;
   /** Lucro líquido ÷ receita líquida, %. */
   netMarginPct: number | null;
   /** IVA das vendas (restaurante + plataformas) − IVA dedutível; null sem as duas partes. */
@@ -56,8 +60,11 @@ const SECTION_LABELS: Record<DreSectionKey, string> = {
   other: "Outros gastos",
   unclassified: "Outros gastos pelo extrato",
   financial: "Resultado financeiro",
-  capex: "Investimentos (CAPEX) — fora do resultado",
+  capex: "Investimentos (CAPEX)",
 };
+
+/** Rubricas de gastos do banco: cada uma abre os pagamentos que a compõem. */
+const ENTRY_SECTIONS = new Set<DreSectionKey>(["cmv", "variable", "personnel", "structure", "administrative", "marketing", "other", "unclassified", "financial", "capex"]);
 
 const add = (...xs: (number | null)[]) => (xs.some((x) => x === null) ? null : xs.reduce<number>((a, x) => a + (x as number), 0));
 
@@ -116,11 +123,19 @@ export function composeDreStatement(costs: DreReport | null, sales: DreRestauran
     label,
     kind,
     amountCents,
-    pctOfNet: kind === "info" ? null : pct(amountCents),
+    pctOfNet: kind === "info" || kind === "heading" ? null : pct(amountCents),
     children,
     ...(hint ? { hint } : {}),
+    ...(ENTRY_SECTIONS.has(key as DreSectionKey) ? { entriesSection: key as DreSectionKey } : {}),
   });
   const costLine = (k: DreSectionKey) => line(k, SECTION_LABELS[k], "cost", sectionAmount(k), sectionChildren(k));
+
+  // Fora da operação: investimentos e o grupo «Fora da DRE» (retiradas de sócios, capital de empréstimos…).
+  const capex = sectionAmount("capex");
+  const off = costs ? costs.expenses.offOperation : null;
+  const offChildren: StatementChild[] = (off?.items ?? []).map((i) => ({ key: i.key, label: i.name ?? l.movementKind(i.movementKind), amountCents: i.netCents }));
+  const afterOff = netResult === null || capex === null || off === null ? null : netResult - capex - off.totalCents;
+  const offLine: StatementLine = { ...line("off-operation", "Retiradas, empréstimos e outros", "info", off ? off.totalCents : null, offChildren, "Pelo valor pago"), entriesSection: "off_operation" };
 
   const lines: StatementLine[] = [
     line("restaurant", "Vendas do restaurante", "revenue", restaurant, restaurantChildren, "Vendus, sem IVA"),
@@ -142,16 +157,23 @@ export function composeDreStatement(costs: DreReport | null, sales: DreRestauran
     line("operating", "Resultado operacional", "subtotal", operating),
     costLine("financial"),
     line("net-result", "Lucro líquido da operação", "result", netResult, [], "Antes de amortizações e IRC"),
-    line("capex", SECTION_LABELS.capex, "info", sectionAmount("capex"), sectionChildren("capex")),
+    line("off-heading", "Fora da operação — não conta no lucro", "heading", null),
+    line("capex", SECTION_LABELS.capex, "info", capex, sectionChildren("capex")),
+    offLine,
+    line("after-off-operation", "Saldo depois de investimentos e retiradas", "subtotal", afterOff),
   ].filter((ln) => !(ln.kind === "cost" || ln.kind === "info") || ln.amountCents !== 0);
+  // Sem nada fora da operação, o bloco não aparece.
+  const hasOff = lines.some((ln) => ln.key === "capex" || ln.key === "off-operation");
+  const shown = hasOff ? lines : lines.filter((ln) => ln.key !== "off-heading" && ln.key !== "after-off-operation");
 
   const vatSales = sales && costs ? sales.vatCents + costs.vat.salesCents : null;
   return {
-    lines,
+    lines: shown,
     netRevenueCents: netRevenue,
     grossProfitCents: grossProfit,
     operatingResultCents: operating,
     netResultCents: netResult,
+    afterOffOperationCents: hasOff ? afterOff : netResult,
     netMarginPct: pct(netResult),
     vatSalesCents: vatSales,
     vatBalanceCents: vatSales === null || !costs ? null : vatSales - costs.vat.purchasesCents,

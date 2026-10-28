@@ -13,6 +13,7 @@ const fakeModule = (): CashFlowModule => ({
   getToHandle: { execute: async () => null },
   getDre: { execute: async () => sampleDre() },
   getDreRestaurantSales: { execute: async () => sampleRestaurantSales() },
+  getDreEntries: { execute: async () => null },
   getSalesReconciliation: { execute: async () => sampleReconciliation() },
   getDreParameters: { execute: async () => sampleParameters() },
   saveDreParameters: { execute: async () => sampleParameters() },

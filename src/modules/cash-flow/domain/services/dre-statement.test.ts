@@ -57,4 +57,27 @@ describe("composeDreStatement", () => {
     expect(amount(s, "marketing")).toBe(10_000);
     expect(amount(s, "net-result")).toBe(353_002 - 10_000);
   });
+
+  it("fora da operação: CAPEX e retiradas/empréstimos abaixo do lucro, com o saldo depois deles; sem nada, o bloco não aparece", () => {
+    const costs = sampleDre();
+    costs.expenses.sections.push({ key: "capex", netCents: 50_000, items: [] });
+    costs.expenses.offOperation = {
+      totalCents: 30_000,
+      items: [{ key: "c-ret", categoryId: "c-ret", code: "FDR.01", name: "Retirada de sócios", movementKind: null, netCents: 30_000 }],
+    };
+    const s = composeDreStatement(costs, sampleRestaurantSales(), l);
+    expect(s.lines.slice(-4).map((x) => x.key)).toEqual(["off-heading", "capex", "off-operation", "after-off-operation"]);
+    expect(amount(s, "off-operation")).toBe(30_000);
+    expect(s.lines.find((x) => x.key === "off-operation")!.children[0]!.label).toBe("Retirada de sócios");
+    expect(s.afterOffOperationCents).toBe(353_002 - 50_000 - 30_000);
+    expect(amount(s, "after-off-operation")).toBe(353_002 - 50_000 - 30_000);
+    // as rubricas do banco abrem os pagamentos
+    expect(s.lines.find((x) => x.key === "personnel")!.entriesSection).toBe("personnel");
+    expect(s.lines.find((x) => x.key === "off-operation")!.entriesSection).toBe("off_operation");
+    expect(s.lines.find((x) => x.key === "net-revenue")!.entriesSection).toBeUndefined();
+
+    const none = composeDreStatement(sampleDre(), sampleRestaurantSales(), l);
+    expect(none.lines.map((x) => x.key)).not.toContain("off-heading");
+    expect(none.afterOffOperationCents).toBe(none.netResultCents);
+  });
 });

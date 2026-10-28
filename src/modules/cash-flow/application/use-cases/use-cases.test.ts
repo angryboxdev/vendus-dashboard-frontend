@@ -3,7 +3,7 @@ import { GetCashFlowUseCase } from "./get-cash-flow.use-case.ts";
 import { GetCashFlowToHandleUseCase } from "./get-cash-flow-to-handle.use-case.ts";
 import type { CashFlowApiPort } from "../../domain/ports/out/cash-flow-api.port.ts";
 import { sampleReport } from "../../domain/services/fixtures.ts";
-import { sampleDre, sampleRestaurantSales } from "../../domain/services/dre-fixtures.ts";
+import { sampleDre, sampleRestaurantSales, sampleDreEntries } from "../../domain/services/dre-fixtures.ts";
 import { sampleParameters, sampleReconciliation } from "../../domain/services/sales-reconciliation-fixtures.ts";
 import { GetDreUseCase } from "./get-dre.use-case.ts";
 
@@ -16,6 +16,7 @@ function fakeApi(calls: [number, number][] = []): CashFlowApiPort {
     getToHandle: async () => ({ payables: { dueCents: 100, overdueCents: 40 }, invoicesToReview: 2 }),
     getDre: async () => sampleDre(),
     getDreRestaurantSales: async () => sampleRestaurantSales(),
+    getDreEntries: async () => sampleDreEntries(),
     getSalesReconciliation: async () => sampleReconciliation(),
     getDreParameters: async () => sampleParameters(),
     saveDreParameters: async () => sampleParameters(),

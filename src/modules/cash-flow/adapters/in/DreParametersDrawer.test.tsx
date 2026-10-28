@@ -20,6 +20,7 @@ function renderDrawer(saved: [number, number, DreParameters][], onClose = () => 
     getToHandle: { execute: async () => null },
     getDre: { execute: async () => sampleDre() },
     getDreRestaurantSales: { execute: async () => sampleRestaurantSales() },
+    getDreEntries: { execute: async () => null },
     getSalesReconciliation: { execute: async () => sampleReconciliation() },
     getDreParameters: { execute: async () => sampleParameters() },
     saveDreParameters: { execute: async (y, m, p) => (saved.push([y, m, p]), { ...p, source: "month" as const }) },
