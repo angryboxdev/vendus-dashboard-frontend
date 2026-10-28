@@ -39,6 +39,9 @@ export interface DreParametersForm {
   marketing: Record<DeliveryPlatformKey, string>;
   /** Despesa de empréstimos do mês (DE), em euros. */
   loanExpense: string;
+  /** Renda variável: limite (€) e % sobre o excedente. */
+  rentThreshold: string;
+  rentVariablePct: string;
 }
 
 const num = (n: number) => n.toLocaleString("pt-PT", { maximumFractionDigits: 2, useGrouping: false });
@@ -53,6 +56,8 @@ export function toForm(p: DreParameters): DreParametersForm {
       bolt_food: num(p.marketingNetCents.bolt_food / 100),
     },
     loanExpense: num((p.loanExpenseCents ?? 0) / 100),
+    rentThreshold: num((p.rentThresholdCents ?? 0) / 100),
+    rentVariablePct: num(p.rentVariablePct ?? 0),
   };
 }
 
@@ -87,7 +92,11 @@ export function fromForm(
   }
   const loanExpense = form.loanExpense.trim() === "" ? 0 : parseEuro(form.loanExpense);
   if (loanExpense === null) invalid.push("loanExpense");
+  const rentThreshold = form.rentThreshold.trim() === "" ? 0 : parseEuro(form.rentThreshold);
+  if (rentThreshold === null) invalid.push("rentThreshold");
+  const rentVariablePct = form.rentVariablePct.trim() === "" ? 0 : parsePct(form.rentVariablePct);
+  if (rentVariablePct === null) invalid.push("rentVariablePct");
   if (invalid.length === 0 && (pct.platformCommissionPct / 100) * (1 + pct.platformCommissionVatPct / 100) >= 1) invalid.push("platformCommissionPct");
   if (invalid.length > 0) return { ok: false, invalid };
-  return { ok: true, value: { ...pct, commissionOnGross: form.commissionOnGross, marketingNetCents: marketing, loanExpenseCents: loanExpense ?? 0 } };
+  return { ok: true, value: { ...pct, commissionOnGross: form.commissionOnGross, marketingNetCents: marketing, loanExpenseCents: loanExpense ?? 0, rentThresholdCents: rentThreshold ?? 0, rentVariablePct: rentVariablePct ?? 0 } };
 }

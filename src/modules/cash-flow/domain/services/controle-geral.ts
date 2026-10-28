@@ -2,9 +2,10 @@ import type { DreReport, DreRestaurantSales, DreSectionKey } from "../entities/d
 
 /**
  * «Controle geral» do mês (modelo da folha do utilizador): despesas por grupo, IVA e resumo, a partir
- * da DRE já calculada. Valores **com IVA** — faturação com IVA, despesas com o IVA pago e DIVA = IVA a
- * entregar ao Estado — para o saldo bater com o lucro da DRE menos os empréstimos. Agrupamento proposto
- * (2026-10-28, a rever com o utilizador): ver `GROUPS`.
+ * da DRE já calculada. Como na folha: faturação com IVA; despesas com o IVA pago; DIVA = todo o IVA das
+ * vendas (IVA a reduzir + IVA a pagar); «despesas totais − IVA a reduzir» tira o IVA contado duas vezes;
+ * saldo = faturação − (despesas − IVA a reduzir) − renda variável (≈ lucro da DRE − empréstimos − renda
+ * variável). Agrupamento proposto (2026-10-28, a rever com o utilizador): ver `GROUP_SECTIONS`.
  */
 export type ExpenseGroupKey = "DC" | "DF" | "DV" | "DP" | "DI" | "DIVA" | "DE";
 
@@ -29,12 +30,14 @@ export interface ExpenseGroup {
 export interface ControleGeral {
   groups: ExpenseGroup[];
   totalCents: number | null;
-  /** Despesas sem a DE (só a operação). */
-  operationTotalCents: number | null;
+  /** Despesas totais − IVA a reduzir (o IVA dedutível já está no DIVA). */
+  totalLessDeductibleCents: number | null;
+  /** % da faturação acima do limite (parâmetros do mês); 0 sem renda variável. */
+  variableRent: { cents: number | null; thresholdCents: number; pct: number };
   /** Vendas do restaurante e das plataformas, com IVA. */
   invoicingCents: number | null;
   vat: { salesCents: number | null; deductibleCents: number | null; payableCents: number | null };
-  /** Faturação − despesas. */
+  /** Faturação − (despesas − IVA a reduzir) − renda variável. */
   balanceCents: number | null;
   /** Saldo ÷ faturação, %. */
   marginPct: number | null;
@@ -81,7 +84,8 @@ export function composeControleGeral(costs: DreReport | null, sales: DreRestaura
   const empty: ControleGeral = {
     groups: KEYS.map((key) => ({ key, name: NAMES[key], amountCents: null, pctOfTotal: null, sections: GROUP_SECTIONS[key], parts: [] })),
     totalCents: null,
-    operationTotalCents: null,
+    totalLessDeductibleCents: null,
+    variableRent: { cents: null, thresholdCents: costs?.parameters.rentThresholdCents ?? 0, pct: costs?.parameters.rentVariablePct ?? 0 },
     invoicingCents: null,
     vat: { salesCents: null, deductibleCents: null, payableCents: null },
     balanceCents: null,
@@ -111,8 +115,14 @@ export function composeControleGeral(costs: DreReport | null, sales: DreRestaura
       : null,
     DP: [...sectionParts("DP"), { label: "Marketing das plataformas", amountCents: sum((p) => p.marketingNetCents + p.marketingVatCents) }],
     DI: sectionParts("DI"),
-    // Um crédito de IVA (dedutível maior do que o das vendas) não é despesa: fica a 0.
-    DIVA: vatPayable === null ? null : [{ label: "IVA a entregar ao Estado", amountCents: Math.max(0, vatPayable) }],
+    // Todo o IVA das vendas: o dedutível (a reduzir) e o que fica a pagar.
+    DIVA:
+      vatPayable === null
+        ? null
+        : [
+            { label: "IVA a reduzir (dedutível)", amountCents: costs.vat.purchasesCents },
+            { label: "IVA a pagar", amountCents: vatPayable },
+          ],
     DE: [{ label: "Prestações de empréstimos (lançadas à mão nos parâmetros do mês)", amountCents: costs.parameters.loanExpenseCents ?? 0 }],
   };
 
@@ -120,7 +130,11 @@ export function composeControleGeral(costs: DreReport | null, sales: DreRestaura
   const ready = amounts.every((a) => a !== null);
   const totalCents = ready ? amounts.reduce<number>((a, v) => a + v!, 0) : null;
   const invoicingCents = sales && vatSales !== null ? sales.netCents + costs.revenue.platformsNetCents + vatSales : null;
-  const balanceCents = totalCents === null || invoicingCents === null ? null : invoicingCents - totalCents;
+  const totalLessDeductibleCents = totalCents === null ? null : totalCents - costs.vat.purchasesCents;
+  const { rentThresholdCents = 0, rentVariablePct = 0 } = costs.parameters;
+  const variableRentCents = invoicingCents === null ? null : Math.round((Math.max(0, invoicingCents - rentThresholdCents) * rentVariablePct) / 100);
+  const balanceCents =
+    totalLessDeductibleCents === null || invoicingCents === null || variableRentCents === null ? null : invoicingCents - totalLessDeductibleCents - variableRentCents;
 
   return {
     groups: KEYS.map((key, i) => ({
@@ -132,7 +146,8 @@ export function composeControleGeral(costs: DreReport | null, sales: DreRestaura
       parts: (parts[key] ?? []).filter((p) => p.amountCents !== 0),
     })),
     totalCents,
-    operationTotalCents: totalCents === null ? null : totalCents - (amounts[KEYS.indexOf("DE")] ?? 0),
+    totalLessDeductibleCents,
+    variableRent: { cents: variableRentCents, thresholdCents: rentThresholdCents, pct: rentVariablePct },
     invoicingCents,
     vat: { salesCents: vatSales, deductibleCents: costs.vat.purchasesCents, payableCents: vatPayable },
     balanceCents,

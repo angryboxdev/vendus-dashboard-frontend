@@ -214,9 +214,17 @@ export function ControleGeralView({ year, month }: { year: number; month: number
                       pct={cg.totalCents === null || !cg.invoicingCents ? null : (cg.totalCents / cg.invoicingCents) * 100}
                     />
                     <SummaryRow
-                      label="Despesas da operação (sem DE)"
-                      cents={cg.operationTotalCents}
-                      pct={cg.operationTotalCents === null || !cg.invoicingCents ? null : (cg.operationTotalCents / cg.invoicingCents) * 100}
+                      label="Despesas totais − IVA a reduzir"
+                      cents={cg.totalLessDeductibleCents}
+                      pct={cg.totalLessDeductibleCents === null || !cg.invoicingCents ? null : (cg.totalLessDeductibleCents / cg.invoicingCents) * 100}
+                    />
+                    <SummaryRow
+                      label={
+                        cg.variableRent.pct > 0
+                          ? `Variável renda (${cg.variableRent.pct.toLocaleString("pt-PT")}% acima de ${euros(cg.variableRent.thresholdCents)})`
+                          : "Variável renda (sem renda variável nos parâmetros)"
+                      }
+                      cents={cg.variableRent.cents}
                     />
                     <SummaryRow label="Saldo" cents={cg.balanceCents} strong tone="negative-red" />
                     <tr>
@@ -229,7 +237,7 @@ export function ControleGeralView({ year, month }: { year: number; month: number
                   </tbody>
                 </table>
                 <p className="mt-2 text-xs text-ink-secondary">
-                  % sobre a faturação. Saldo = faturação − despesas (≈ lucro líquido da DRE − empréstimos). Os grupos são uma proposta, a rever.
+                  % sobre a faturação. Saldo = faturação − (despesas − IVA a reduzir) − variável renda (≈ lucro líquido da DRE − empréstimos − renda variável). Os grupos são uma proposta, a rever.
                 </p>
               </section>
             </div>

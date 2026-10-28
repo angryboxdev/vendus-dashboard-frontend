@@ -20,6 +20,9 @@ export interface DreParameters {
   marketingNetCents: Record<DeliveryPlatformKey, number>;
   /** Despesa de empréstimos do mês (DE do «Controle geral»), lançada à mão; não entra na DRE. */
   loanExpenseCents: number;
+  /** Renda variável: `rentVariablePct`% da faturação acima de `rentThresholdCents` (0% = sem renda variável). */
+  rentThresholdCents: number;
+  rentVariablePct: number;
 }
 
 export interface ResolvedDreParameters extends DreParameters {
