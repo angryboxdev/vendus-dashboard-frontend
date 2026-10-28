@@ -164,15 +164,15 @@ export function ImportModal({
               </div>
             )}
             <div>
-              <label className={labelCls}>Ficheiro do extrato (PDF, CSV ou XLSX)</label>
+              <label className={labelCls}>Ficheiro do extrato (PDF, TXT, CSV ou XLSX)</label>
               <input
                 type="file"
-                accept=".pdf,application/pdf,.csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                accept=".pdf,application/pdf,.txt,text/plain,.csv,.xlsx,.xls,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                 className="w-full text-sm text-stone-600"
                 onChange={(e) => { setSelectedFile(e.target.files?.[0] ?? null); setPreviewError(null); }}
               />
               <p className="mt-1 text-xs text-stone-400">
-                PDF do Millennium BCP («Extrato Combinado»), CSV (Millennium BCP ou genérico PT) e Excel (.xlsx / .xls).
+                PDF do Millennium BCP («Extrato Combinado»), TXT do Millennium («Relatório de movimentos» — para o mês em curso, com os saldos), CSV (Millennium BCP ou genérico PT) e Excel (.xlsx / .xls).
               </p>
             </div>
             {previewError && (
