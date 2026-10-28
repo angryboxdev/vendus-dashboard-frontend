@@ -17,10 +17,13 @@ import { formatEUR } from "../../../../lib/format.ts";
 import type { ImportPlatformDocumentsResult, PlatformStatementSummary } from "../../domain/entities/platform-statement.ts";
 import {
   crossesMonth,
+  DOCUMENT_LABELS,
   MAX_UPLOAD_FILES,
   periodLabel,
   PLATFORM_LABELS,
   platformCostsCents,
+  saftCheck,
+  type SaftCheck,
   totalsByPlatform,
 } from "../../domain/services/platform-statements-view.ts";
 import { useDeliveryPlatforms } from "./use-delivery-platforms.ts";
@@ -75,14 +78,14 @@ function StatementsTable({ statements, year, month }: { statements: PlatformStat
           <tr>
             <th className={TH}>Plataforma</th>
             <th className={TH}>Período</th>
-            <th className={TH}>Extrato</th>
+            <th className={TH}>Documento</th>
             <th className={`${TH} text-right`}>Pedidos</th>
             <th className={`${TH} text-right`}>Vendas</th>
             <th className={`${TH} text-right`}>Promoções</th>
             <th className={`${TH} text-right`}>Comissões</th>
             <th className={`${TH} text-right`}>Marketing</th>
             <th className={`${TH} text-right`}>Outras taxas</th>
-            <th className={`${TH} text-right`}>Transferido</th>
+            <th className={`${TH} text-right`}>Líquido</th>
           </tr>
         </thead>
         <tbody>
@@ -97,13 +100,15 @@ function StatementsTable({ statements, year, month }: { statements: PlatformStat
                   </span>
                 )}
               </td>
-              <td className={`${TD} text-ink-secondary`}>{s.documentNumber}</td>
+              <td className={TD}>
+                {DOCUMENT_LABELS[s.documentKind]} <span className="text-ink-secondary">{s.documentNumber}</span>
+              </td>
               <td className={`${TD} text-right tabular-nums`}>{s.ordersCount ?? "—"}</td>
               <td className={`${TD} text-right tabular-nums`}>{euros(s.salesCents)}</td>
               <td className={`${TD} text-right tabular-nums`}>{euros(s.promotionsCents)}</td>
               <td className={`${TD} text-right tabular-nums`}>{euros(s.commissionCents)}</td>
               <td className={`${TD} text-right tabular-nums`}>{euros(s.marketingCents)}</td>
-              <td className={`${TD} text-right tabular-nums`}>{euros(s.otherFeesCents + s.refundsCents)}</td>
+              <td className={`${TD} text-right tabular-nums`}>{euros(s.otherFeesCents + s.refundsCents + s.adjustmentsCents)}</td>
               <td className={`${TD} text-right font-medium tabular-nums`}>{euros(s.netPayoutCents)}</td>
             </tr>
           ))}
@@ -113,13 +118,43 @@ function StatementsTable({ statements, year, month }: { statements: PlatformStat
   );
 }
 
+const pct = (rate: number) => `${(rate * 100).toLocaleString("pt-PT", { minimumFractionDigits: 1, maximumFractionDigits: 1 })}%`;
+
+/** SAF-T do AirMenu × o que os extratos dizem que os clientes pagaram (vendas − promoções). */
+function SaftSection({ check }: { check: SaftCheck }) {
+  const tolerance = Math.max(500, Math.round(Math.abs(check.saftCents) * 0.01));
+  const ok = Math.abs(check.differenceCents) <= tolerance;
+  return (
+    <section className={`${SURFACE} p-6`} aria-labelledby="dp-saft">
+      <h2 id="dp-saft" className={SECTION_TITLE}>
+        Conferência com o SAF-T <span className="font-normal text-ink-secondary">· AirMenu, as três plataformas juntas</span>
+      </h2>
+      <div className="mt-4 grid gap-4 sm:grid-cols-4">
+        <Kpi label="Faturado (SAF-T)" value={euros(check.saftCents)} hint="Com IVA, menos notas de crédito" />
+        <Kpi label="Clientes pagaram (extratos)" value={euros(check.platformsCents)} hint="Vendas − promoções, com IVA" />
+        <div>
+          <p className="text-xs text-ink-secondary">Diferença</p>
+          <p className={`text-lg font-semibold tabular-nums ${ok ? "text-navy-900" : "text-amber-600"}`}>{euros(check.differenceCents)}</p>
+          <StatusBadge tone={ok ? "success" : "warning"}>{ok ? "Bate" : "Verificar"}</StatusBadge>
+        </div>
+        <Kpi label="IVA médio das vendas" value={check.vatRate === null ? "—" : pct(check.vatRate)} hint="Exato, pelo SAF-T" />
+      </div>
+      <p className="mt-3 text-xs text-ink-secondary">
+        Uma diferença costuma vir de extratos em falta (ex.: a Bolt ou uma quinzena da Glovo) ou de extratos que atravessam o mês.
+      </p>
+    </section>
+  );
+}
+
 /**
  * Mapa de rentabilidade → Plataformas de delivery: importar os extratos (Uber, Glovo) e ver os do mês.
  * Valores com IVA, tal como vêm nos extratos; o relatório de margem (sem IVA) é a fase seguinte.
  */
 export function DeliveryPlatformsView({ year, month }: { year: number; month: number }) {
   const v = useDeliveryPlatforms(year, month);
+  const platformStatements = v.statements.filter((s) => s.platform !== "airmenu");
   const totals = totalsByPlatform(v.statements);
+  const check = saftCheck(v.statements);
 
   return (
     <div className={`${PAGE_BG} mx-auto w-full max-w-6xl space-y-5 p-4 sm:p-6`}>
@@ -128,8 +163,9 @@ export function DeliveryPlatformsView({ year, month }: { year: number; month: nu
           Importar extratos
         </h2>
         <p className="mt-1 text-sm text-ink-secondary">
-          Extrato mensal da Uber Eats e extratos quinzenais da Glovo, em PDF (até {MAX_UPLOAD_FILES} de cada vez). Cada extrato só é
-          gravado se a conta bater com o valor transferido; reimportar o mesmo extrato substitui o anterior.
+          Uber Eats: extrato mensal (PDF). Glovo: extratos quinzenais (PDF). Bolt Food: relatório de pedidos (CSV) e faturas semanais (PDF).
+          Opcional: SAF-T de vendas do AirMenu (XML), para conferir. Até {MAX_UPLOAD_FILES} ficheiros de cada vez; cada documento só é
+          gravado se as contas baterem, e importar outra vez o mesmo documento substitui o anterior.
         </p>
         <label className="mt-4 block text-sm font-medium text-ink" htmlFor="dp-files">
           Ficheiros
@@ -137,7 +173,7 @@ export function DeliveryPlatformsView({ year, month }: { year: number; month: nu
         <input
           id="dp-files"
           type="file"
-          accept=".pdf,.csv,application/pdf,text/csv"
+          accept=".pdf,.csv,.xml,application/pdf,text/csv,text/xml,application/xml"
           multiple
           onChange={(e) => {
             v.addFiles(Array.from(e.target.files ?? []));
@@ -183,40 +219,56 @@ export function DeliveryPlatformsView({ year, month }: { year: number; month: nu
       ) : v.loading ? (
         <Skeleton className="h-48" />
       ) : v.statements.length === 0 ? (
-        <EmptyState title="Sem extratos neste mês" description="Importe os extratos da Uber e da Glovo para ver o mês." />
+        <EmptyState title="Sem extratos neste mês" description="Importe os extratos da Uber, da Glovo e da Bolt para ver o mês." />
       ) : (
-        <section className={`${SURFACE} p-6`} aria-labelledby="dp-month">
-          <h2 id="dp-month" className={SECTION_TITLE}>
-            Extratos do mês <span className="font-normal text-ink-secondary">· valores com IVA, como nos extratos</span>
-          </h2>
-          <div className="mt-4 grid gap-4 sm:grid-cols-3">
-            {totals.map((t) => (
-              <div key={t.platform} className="rounded-xl bg-surface-soft p-4">
-                <p className="text-sm font-semibold text-navy-900">{PLATFORM_LABELS[t.platform]}</p>
-                <div className="mt-2 grid grid-cols-2 gap-3">
-                  <Kpi label="Vendas" value={euros(t.salesCents)} hint={`${t.ordersCount} pedidos`} />
-                  <Kpi label="Transferido" value={euros(t.netPayoutCents)} hint={`Plataforma ficou com ${euros(t.platformCostsCents)}`} />
-                </div>
+        <>
+          {check && <SaftSection check={check} />}
+          {platformStatements.length > 0 && (
+            <section className={`${SURFACE} p-6`} aria-labelledby="dp-month">
+              <h2 id="dp-month" className={SECTION_TITLE}>
+                Extratos do mês <span className="font-normal text-ink-secondary">· valores com IVA, como nos extratos</span>
+              </h2>
+              <div className="mt-4 grid gap-4 sm:grid-cols-3">
+                {totals.map((t) => (
+                  <div key={t.platform} className="rounded-xl bg-surface-soft p-4">
+                    <p className="text-sm font-semibold text-navy-900">{PLATFORM_LABELS[t.platform]}</p>
+                    <div className="mt-2 grid grid-cols-2 gap-3">
+                      <Kpi label="Vendas" value={euros(t.salesCents)} hint={`${t.ordersCount} pedidos`} />
+                      <Kpi
+                        label={t.platform === "bolt_food" ? "Líquido (calculado)" : "Transferido"}
+                        value={euros(t.netPayoutCents)}
+                        hint={`Plataforma ficou com ${euros(t.platformCostsCents)}`}
+                      />
+                    </div>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
-          <StatementsTable statements={v.statements} year={year} month={month} />
-          {v.statements.some((s) => crossesMonth(s, year, month)) && (
-            <p className="mt-3 text-xs text-ink-secondary">
-              «Atravessa o mês»: o extrato cobre dias de outro mês e aparece nos dois; a repartição por mês entra com o relatório de margem.
-            </p>
+              <StatementsTable statements={platformStatements} year={year} month={month} />
+              {platformStatements.some((s) => s.platform === "bolt_food") && (
+                <p className="mt-3 text-xs text-ink-secondary">
+                  Bolt: o relatório de pedidos traz as vendas e as faturas semanais as taxas (IVA em autoliquidação); o líquido é a
+                  diferença. Na fatura, o «investimento na campanha» é a parte da campanha paga pela Bolt (abate ao marketing).
+                </p>
+              )}
+              {platformStatements.some((s) => crossesMonth(s, year, month)) && (
+                <p className="mt-3 text-xs text-ink-secondary">
+                  «Atravessa o mês»: o extrato cobre dias de outro mês e aparece nos dois; a repartição por mês entra com o relatório de
+                  margem.
+                </p>
+              )}
+              {platformStatements.some((s) => s.cashCents > 0) && (
+                <p className="mt-1 text-xs text-ink-secondary">
+                  Inclui pedidos pagos em dinheiro ao estafeta ({euros(platformStatements.reduce((a, s) => a + s.cashCents, 0))}
+                  ), que não entram na transferência.
+                </p>
+              )}
+              <p className="mt-1 text-xs text-ink-secondary">
+                Total que as plataformas ficaram (promoções, comissões, marketing, taxas e reembolsos):{" "}
+                {euros(platformStatements.reduce((a, s) => a + platformCostsCents(s), 0))}.
+              </p>
+            </section>
           )}
-          {v.statements.some((s) => s.cashCents > 0) && (
-            <p className="mt-1 text-xs text-ink-secondary">
-              Inclui pedidos pagos em dinheiro ao estafeta ({euros(v.statements.reduce((a, s) => a + s.cashCents, 0))}), que não entram na
-              transferência.
-            </p>
-          )}
-          <p className="mt-1 text-xs text-ink-secondary">
-            Total que as plataformas ficaram (promoções, comissões, marketing, taxas e reembolsos):{" "}
-            {euros(v.statements.reduce((a, s) => a + platformCostsCents(s), 0))}.
-          </p>
-        </section>
+        </>
       )}
     </div>
   );
