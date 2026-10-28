@@ -30,6 +30,7 @@ Gestor                                   Sistema
 - **Bolt** — o relatório de pedidos traz as vendas e as faturas semanais as taxas; o «líquido» é calculado (vendas − faturas).
 - **Margem por plataforma** — da venda com IVA à margem bruta (depois da plataforma) e à margem líquida (depois da comida, estimada em 30%), com IVA a entregar; exporta em Excel e PDF. Documentos que atravessam o mês contam só a parte do mês (pelo SAF-T diário).
 - **Conferência com o SAF-T** — o faturado no SAF-T do AirMenu (as três plataformas juntas) contra vendas − promoções dos extratos, já só com a parte do mês.
+- **Transferências** — cada transferência que paga vendas do mês (semana da Uber, quinzena da Glovo, semana da Bolt) contra o crédito que entrou no banco: bate, diferença, por receber ou em falta; créditos sem documento à parte.
 - A lista dos documentos mostra os valores **com IVA**, como vêm.
 
 ---
@@ -50,11 +51,12 @@ UI de importação e consulta sobre `POST /api/delivery-platforms/import` e `GET
 
 - `ImportPlatformDocumentsPort` — valida a seleção e envia.
 - `ListPlatformStatementsPort` — extratos do mês.
+- `GetPayoutReconciliationPort` — conferência das transferências do mês (`PayoutsCard`).
 - `GetPlatformMarginReportPort` / `ExportPlatformMarginReportPort` — margem do mês; descarregar em Excel/PDF.
 
 ### Saída (dependências do domínio)
 
-- `DeliveryPlatformsApiPort` — `importDocuments`, `listStatements`, `getMarginReport`, `exportMarginReport`.
+- `DeliveryPlatformsApiPort` — `importDocuments`, `listStatements`, `getMarginReport`, `exportMarginReport`, `getPayoutReconciliation`.
 - `FileDownloaderPort` — entrega o ficheiro exportado (`BrowserFileDownloaderAdapter`).
 
 ## Adapters

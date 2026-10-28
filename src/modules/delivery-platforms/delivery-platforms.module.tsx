@@ -4,6 +4,8 @@ import { ImportPlatformDocumentsUseCase } from "./application/use-cases/import-p
 import { ListPlatformStatementsUseCase } from "./application/use-cases/list-platform-statements.use-case.ts";
 import { ExportPlatformMarginReportUseCase, GetPlatformMarginReportUseCase } from "./application/use-cases/platform-margin-report.use-case.ts";
 import { BrowserFileDownloaderAdapter } from "./adapters/out/browser-file-downloader.adapter.ts";
+import { GetPayoutReconciliationUseCase } from "./application/use-cases/payout-reconciliation.use-case.ts";
+import type { GetPayoutReconciliationPort } from "./domain/ports/in/payout-reconciliation.port.ts";
 import type { ExportPlatformMarginReportPort, GetPlatformMarginReportPort } from "./domain/ports/in/platform-margin-report.port.ts";
 import type { ImportPlatformDocumentsPort } from "./domain/ports/in/import-platform-documents.port.ts";
 import type { ListPlatformStatementsPort } from "./domain/ports/in/list-platform-statements.port.ts";
@@ -13,6 +15,7 @@ export interface DeliveryPlatformsModule {
   listStatements: ListPlatformStatementsPort;
   getMarginReport: GetPlatformMarginReportPort;
   exportMarginReport: ExportPlatformMarginReportPort;
+  getPayoutReconciliation: GetPayoutReconciliationPort;
 }
 
 /** Composition root: liga o adapter HTTP aos casos de uso. */
@@ -23,6 +26,7 @@ function buildModule(): DeliveryPlatformsModule {
     listStatements: new ListPlatformStatementsUseCase(api),
     getMarginReport: new GetPlatformMarginReportUseCase(api),
     exportMarginReport: new ExportPlatformMarginReportUseCase(api, new BrowserFileDownloaderAdapter()),
+    getPayoutReconciliation: new GetPayoutReconciliationUseCase(api),
   };
 }
 

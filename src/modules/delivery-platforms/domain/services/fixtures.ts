@@ -1,4 +1,5 @@
 import type { MarginReport, PlatformMargin } from "../entities/margin-report.ts";
+import type { PayoutReconciliation } from "../entities/payout-reconciliation.ts";
 import type { PlatformStatementSummary } from "../entities/platform-statement.ts";
 
 const base = (over: Partial<PlatformStatementSummary>): PlatformStatementSummary => ({
@@ -116,4 +117,21 @@ export const sampleMarginReport = (): MarginReport => ({
     { platform: "glovo", documentKind: "glovo_statement", documentNumber: "GLOVOTEST01", periodFrom: "2026-08-25", periodTo: "2026-09-07", share: 0.75, basis: "saft" },
   ],
   warnings: ["Comida e embalagem estimadas em 30% do faturado sem IVA — o custo real virá das fichas técnicas."],
+});
+
+/** Conferência fictícia: uma semana da Uber que bate, uma quinzena da Glovo com diferença e outra por receber. */
+export const samplePayouts = (): PayoutReconciliation => ({
+  period: { year: 2026, month: 9, from: "2026-09-01", to: "2026-09-30" },
+  bankCoverageTo: "2026-09-30",
+  payouts: [
+    { platform: "glovo", periodFrom: "2026-09-01", periodTo: "2026-09-15", paidOn: null, expectedCents: 30_000, dueBy: "2026-10-06", received: { creditId: "d", date: "2026-09-18", amountCents: 35_000 }, differenceCents: 5_000, status: "difference" },
+    { platform: "glovo", periodFrom: "2026-09-16", periodTo: "2026-09-30", paidOn: null, expectedCents: 37_000, dueBy: "2026-10-21", received: null, differenceCents: null, status: "pending" },
+    { platform: "uber_eats", periodFrom: "2026-09-07", periodTo: "2026-09-13", paidOn: "2026-09-14", expectedCents: 20_000, dueBy: "2026-10-04", received: { creditId: "b", date: "2026-09-14", amountCents: 20_000 }, differenceCents: 0, status: "ok" },
+  ],
+  totals: [
+    { platform: "uber_eats", expectedCents: 20_000, receivedCents: 20_000, differenceCents: 0, pendingCents: 0 },
+    { platform: "glovo", expectedCents: 67_000, receivedCents: 35_000, differenceCents: 5_000, pendingCents: 37_000 },
+  ],
+  unmatchedCredits: [{ id: "c", platform: "glovo", date: "2026-09-03", amountCents: 22_000 }],
+  warnings: ["Banco importado só até 2026-09-30: as transferências devidas depois aparecem como por receber."],
 });

@@ -3,7 +3,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { DeliveryPlatformsProvider, type DeliveryPlatformsModule } from "../../delivery-platforms.module.tsx";
 import type { ImportPlatformDocumentsResult } from "../../domain/entities/platform-statement.ts";
-import { sampleBoltAndSaft, sampleMarginReport, sampleStatements } from "../../domain/services/fixtures.ts";
+import { sampleBoltAndSaft, sampleMarginReport, samplePayouts, sampleStatements } from "../../domain/services/fixtures.ts";
 import { DeliveryPlatformsView } from "./DeliveryPlatformsView.tsx";
 
 const fakeModule = (over: Partial<DeliveryPlatformsModule> = {}): DeliveryPlatformsModule => ({
@@ -11,6 +11,7 @@ const fakeModule = (over: Partial<DeliveryPlatformsModule> = {}): DeliveryPlatfo
   listStatements: { execute: async () => sampleStatements() },
   getMarginReport: { execute: async () => sampleMarginReport() },
   exportMarginReport: { execute: async () => undefined },
+  getPayoutReconciliation: { execute: async () => samplePayouts() },
   ...over,
 });
 
@@ -53,6 +54,16 @@ describe("DeliveryPlatformsView", () => {
     expect(screen.getByText(/fichas técnicas/)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "PDF" }));
     await waitFor(() => expect(exported).toEqual(["pdf"]));
+  });
+
+  it("transferências: estado de cada uma, créditos sem documento e aviso do banco", async () => {
+    renderView(fakeModule());
+    expect(await screen.findByText(/o que os documentos dizem × o que entrou no banco/)).toBeInTheDocument();
+    expect(screen.getByText("Diferença", { selector: "span" })).toBeInTheDocument();
+    expect(screen.getByText("Por receber")).toBeInTheDocument();
+    expect(screen.getByText("até 21/10")).toBeInTheDocument();
+    expect(screen.getByText(/Glovo 03\/09/)).toBeInTheDocument();
+    expect(screen.getByText(/Banco importado só até 2026-09-30/)).toBeInTheDocument();
   });
 
   it("sem extratos: estado vazio", async () => {

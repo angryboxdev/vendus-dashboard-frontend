@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ImportPlatformDocumentsUseCase } from "../../application/use-cases/import-platform-documents.use-case.ts";
 import type { DeliveryPlatformsApiPort } from "../ports/out/delivery-platforms-api.port.ts";
 import { crossesMonth, periodLabel, totalsByPlatform, validatePlatformFiles } from "./platform-statements-view.ts";
-import { sampleBoltAndSaft, sampleMarginReport, sampleStatements } from "./fixtures.ts";
+import { sampleBoltAndSaft, sampleMarginReport, samplePayouts, sampleStatements } from "./fixtures.ts";
 
 describe("platform-statements-view", () => {
   it("valida a seleção: vazia, demasiados ficheiros, formato", () => {
@@ -38,6 +38,7 @@ describe("ImportPlatformDocumentsUseCase", () => {
     listStatements: async () => [],
     getMarginReport: async () => sampleMarginReport(),
     exportMarginReport: async () => ({ fileName: "f.pdf", content: new Blob() }),
+    getPayoutReconciliation: async () => samplePayouts(),
   });
 
   it("envia uma seleção válida", async () => {
