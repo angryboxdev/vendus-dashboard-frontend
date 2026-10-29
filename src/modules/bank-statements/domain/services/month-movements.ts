@@ -5,11 +5,12 @@ export type MonthTab = "movements" | "suggestions" | "reconciled";
 export type MonthChip = MovementFilter | "pending" | "with_suggestion";
 export type MonthSort = "priority" | "date";
 
-/** Estado simplificado de uma linha do mês (mockup V2): conciliado, parcial ou por conciliar. */
-export type RowStatus = "reconciled" | "partial" | "pending";
+/** Estado simplificado de uma linha do mês (mockup V2): conciliado, parcial, só classificado (aguarda fatura) ou por conciliar. */
+export type RowStatus = "reconciled" | "partial" | "classified" | "pending";
 
 export function rowStatus(m: Pick<BankMovementDTO, "isResolved" | "reconciliationStatus">): RowStatus {
   if (m.reconciliationStatus === "conciliado_parcial") return "partial";
+  if (m.reconciliationStatus === "pendente_de_documento") return "classified";
   return m.isResolved ? "reconciled" : "pending";
 }
 

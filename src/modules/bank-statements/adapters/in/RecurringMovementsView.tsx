@@ -326,7 +326,7 @@ function RuleRow({
           {rule.movementType === "credit" ? " · entradas" : rule.movementType === "debit" ? " · saídas" : ""}
         </p>
         <p className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-ink-muted">
-          <span>{JUSTIFICATION_TYPE_LABELS[rule.justificationType]}</span>
+          <span>{rule.classifyOnly ? "Só classifica · aguarda fatura" : JUSTIFICATION_TYPE_LABELS[rule.justificationType]}</span>
           {category && <span>{category}</span>}
           <span className={NUMERIC}>{ruleAmountLabel(rule, (cents) => formatEUR(cents / 100))}</span>
           {rule.vatRate != null && <span>IVA {rule.vatRate}%{rule.vatIncluded ? " incluído" : ""}</span>}
@@ -379,6 +379,8 @@ function RuleEditDrawer({
   const [justification, setJustification] = useState<JustificationType>(
     canBeRecurring(rule.justificationType) ? rule.justificationType : "despesa_bancaria_automatica",
   );
+  // Só classifica (categoria para a DRE; o movimento fica à espera da fatura) ou justifica de vez.
+  const [classifyOnly, setClassifyOnly] = useState(rule.classifyOnly ?? false);
   const [groupId, setGroupId] = useState(rule.costCenterGroupId ?? "");
   const [categoryId, setCategoryId] = useState(rule.costCenterCategoryId ?? "");
   const [fixed, setFixed] = useState(rule.amountCents !== null);
@@ -406,6 +408,7 @@ function RuleEditDrawer({
     !preview ? "texto reconhecido (precisa de palavras sem números)" : null,
     fixed && amountCents === null ? "valor" : null,
     fixed && toleranceCents === null ? "margem" : null,
+    classifyOnly && !recurrenceId && !groupId ? "categoria (para só classificar)" : null,
   ].filter((x): x is string => x !== null);
 
   function submit(e: React.FormEvent) {
@@ -417,6 +420,7 @@ function RuleEditDrawer({
       descriptionContains: text.trim(),
       justificationType: recurrenceId ? "contrato_recorrencia" : justification,
       recurrenceId: recurrenceId || null,
+      classifyOnly: classifyOnly && !recurrenceId,
       costCenterGroupId: groupId || null,
       costCenterCategoryId: groupId ? categoryId || null : null,
       amountCents,
@@ -476,7 +480,17 @@ function RuleEditDrawer({
         {!recurrenceId && (
           <div>
             <label className={LABEL} htmlFor="rule-just">Justificação</label>
-            <select id="rule-just" className={`${FIELD} w-full`} value={justification} onChange={(e) => setJustification(e.target.value as JustificationType)}>
+            <select
+              id="rule-just"
+              className={`${FIELD} w-full`}
+              value={classifyOnly ? "__classify" : justification}
+              onChange={(e) => {
+                const v = e.target.value;
+                setClassifyOnly(v === "__classify");
+                if (v !== "__classify") setJustification(v as JustificationType);
+              }}
+            >
+              <option value="__classify">Só classificar — fica à espera da fatura</option>
               {RULE_JUSTIFICATIONS.map((j) => (
                 <option key={j} value={j}>{JUSTIFICATION_TYPE_LABELS[j]}</option>
               ))}

@@ -20,7 +20,7 @@ describe("summarizeYear", () => {
       month(10, { statementImported: true, status: "reconciled", totalMovements: 4, reconcilableMovements: 2, reconciledMovements: 2, inflowCents: 100, outflowCents: 300, openingBalanceCents: 1_300, closingBalanceCents: 1_100 }),
     ]);
     expect(s).toEqual({
-      inflowCents: 1_000, outflowCents: 900, netCents: 100, importedMonths: 2, reconciledPercent: 40,
+      inflowCents: 1_000, outflowCents: 900, netCents: 100, importedMonths: 2, reconciledPercent: 40, classifiedPercent: 40,
       reconciledMovements: 4, reconcilableMovements: 10, totalMovements: 14, openingBalanceCents: 1_000, closingBalanceCents: 1_100,
     });
   });
@@ -38,6 +38,15 @@ describe("summarizeYear", () => {
     expect(s.outflowCents).toBe(7_882_531);
     expect(s.netCents).toBe(-766_316);
     expect(s.totalMovements).toBe(502);
+  });
+
+  it("% classificado do ano soma os conciliados e os só classificados", () => {
+    const s = summarizeYear([
+      month(9, { statementImported: true, totalMovements: 10, reconcilableMovements: 8, reconciledMovements: 2, classifiedMovements: 6 }),
+      month(10, { statementImported: true, totalMovements: 2, reconcilableMovements: 2, reconciledMovements: 1 }),
+    ]);
+    expect(s.reconciledPercent).toBe(30);
+    expect(s.classifiedPercent).toBe(70); // (6 + 1) ÷ 10: sem o campo, o mês conta só os conciliados
   });
 
   it("com extrato mas sem nada para conciliar: «Não aplicável» (null), nunca 100%", () => {

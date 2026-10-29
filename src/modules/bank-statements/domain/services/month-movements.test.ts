@@ -44,5 +44,6 @@ describe("rowStatus", () => {
     expect(rowStatus({ isResolved: false, reconciliationStatus: "conciliado_parcial" })).toBe("partial");
     expect(rowStatus({ isResolved: true, reconciliationStatus: "justificado" })).toBe("reconciled");
     expect(rowStatus({ isResolved: false, reconciliationStatus: "saida_nao_justificada" })).toBe("pending");
+    expect(rowStatus({ isResolved: false, reconciliationStatus: "pendente_de_documento" })).toBe("classified");
   });
 });

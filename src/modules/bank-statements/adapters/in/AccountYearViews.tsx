@@ -80,7 +80,10 @@ export function YearMetricsStrip({ summary, year }: { summary: AccountYearSummar
             summary.reconciledPercent === null ? (none ? "Sem extratos" : "Sem movimentos conciliáveis") : (
               <span className="flex items-center gap-2">
                 <ThinBar percent={summary.reconciledPercent} label="Conciliação do ano" className="w-28" />
-                <span className={NUMERIC}>{summary.reconciledMovements} de {summary.reconcilableMovements}</span>
+                <span className={NUMERIC}>
+                  {summary.reconciledMovements} de {summary.reconcilableMovements}
+                  {summary.classifiedPercent !== null && summary.classifiedPercent > summary.reconciledPercent ? ` · ${summary.classifiedPercent}% classificado` : ""}
+                </span>
               </span>
             )
           }
@@ -106,7 +109,12 @@ function MonthReconciliationCell({ stat, compact = false }: { stat: AccountMonth
     <span className="flex items-center gap-2.5" title={`${r.reconciled} de ${r.reconcilable} movimentos conciliáveis`}>
       {compact ? null : <span className={`w-9 text-right text-sm font-medium text-navy-900 ${NUMERIC}`}>{r.percent}%</span>}
       <ThinBar percent={r.percent} label={`Conciliação de ${r.percent}%`} className={compact ? "flex-1" : "w-24"} />
-      {compact && <span className={`shrink-0 text-xs text-ink-secondary ${NUMERIC}`}>{r.percent}% conciliado</span>}
+      {compact && (
+        <span className={`shrink-0 text-xs text-ink-secondary ${NUMERIC}`}>
+          {r.percent}% conciliado
+          {stat?.classifiedPercent != null && stat.classifiedPercent > r.percent ? ` · ${stat.classifiedPercent}% classificado` : ""}
+        </span>
+      )}
     </span>
   );
 }
