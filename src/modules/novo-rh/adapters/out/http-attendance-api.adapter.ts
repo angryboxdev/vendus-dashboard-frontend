@@ -17,10 +17,76 @@ import type {
   SegmentType,
 } from "../../domain/entities/attendance.ts";
 import type { AttendanceApiPort, MyClockApiPort, PunchQueueStoragePort } from "../../domain/ports/out/attendance-api.port.ts";
+import type { ConferenceApplyInput, ConferenceResult, ReviewDay, ReviewWeek, TimeRange } from "../../domain/entities/attendance-review.ts";
 
 const M = "/api/me/clock";
 const A = "/api/novo-rh/attendance";
 const qs = (o: Record<string, string | undefined>) => new URLSearchParams(Object.entries(o).filter((e): e is [string, string] => !!e[1])).toString();
+
+/** Formato de `GET /conference` (segundos; o domínio do ecrã trabalha em minutos). */
+interface ConferenceDto {
+  from: string;
+  to: string;
+  people: { id: string; name: string; locationName: string | null }[];
+  days: {
+    employeeId: string;
+    workDate: string;
+    phase: ReviewDay["phase"];
+    state: NonNullable<ReviewDay["state"]>;
+    closed: boolean;
+    plannedRanges: TimeRange[] | null;
+    theoreticalSeconds: number;
+    workedSeconds: number;
+    validatedSeconds: number;
+    restDay: boolean;
+    holiday: boolean;
+    excused: boolean;
+    incomplete: boolean;
+    lateMinutes: number;
+    punches: ReviewDay["punches"];
+    version: number | null;
+    review: { id: string; decision: NonNullable<ReviewDay["review"]>["decision"]; validatedSeconds: number | null; reason: string; absenceType: string | null; scope: NonNullable<ReviewDay["review"]>["scope"]; createdBy: string; createdAt: string } | null;
+  }[];
+}
+
+const min = (s: number) => Math.round(s / 60);
+
+export function toReviewWeek(dto: ConferenceDto): ReviewWeek {
+  return {
+    from: dto.from,
+    to: dto.to,
+    people: dto.people.map((p) => ({ id: p.id, name: p.name, location: p.locationName ?? "Sem centro" })),
+    days: dto.days.map((d) => ({
+      employeeId: d.employeeId,
+      date: d.workDate,
+      planned: d.theoreticalSeconds > 0 || d.plannedRanges?.length ? d.plannedRanges : null,
+      dayOff: d.restDay,
+      holiday: d.holiday,
+      absence: d.excused ? "Ausência" : null,
+      punches: d.punches.map((p) => ({ at: p.at, kind: p.kind, ...(p.nextDay && { nextDay: true }) })),
+      workedMinutes: min(d.workedSeconds),
+      plannedMinutes: min(d.theoreticalSeconds),
+      phase: d.phase,
+      closed: d.closed,
+      state: d.state,
+      incomplete: d.incomplete,
+      lateMinutes: d.lateMinutes,
+      version: d.version,
+      review: d.review
+        ? {
+            id: d.review.id,
+            createdAt: d.review.createdAt,
+            decision: d.review.decision,
+            validatedMinutes: min(d.review.validatedSeconds ?? d.validatedSeconds),
+            reason: d.review.reason,
+            by: d.review.createdBy,
+            scope: d.review.scope,
+            ...(d.review.absenceType && { absenceType: d.review.absenceType }),
+          }
+        : null,
+    })),
+  };
+}
 
 export class HttpMyClockApiAdapter implements MyClockApiPort {
   status() {
@@ -98,6 +164,15 @@ export class HttpAttendanceApiAdapter implements AttendanceApiPort {
   }
   async archiveClockType(id: string) {
     await apiWrite(`${A}/clock-types/${id}/archive`, {});
+  }
+  async conference(from: string, to: string) {
+    return toReviewWeek(await apiGet<ConferenceDto>(`${A}/conference?${qs({ from, to })}`));
+  }
+  async applyConference(input: ConferenceApplyInput) {
+    return (await apiWrite<ConferenceResult>(`${A}/conference/apply`, { body: input })).data;
+  }
+  async voidConferenceReview(id: string, reason: string) {
+    await apiWrite(`${A}/conference/reviews/${id}/void`, { body: { reason } });
   }
 }
 

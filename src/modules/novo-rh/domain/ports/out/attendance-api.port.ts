@@ -15,6 +15,7 @@ import type {
   QueuedPunch,
   SegmentType,
 } from "../../entities/attendance.ts";
+import type { ConferenceApplyInput, ConferenceResult, ReviewWeek } from "../../entities/attendance-review.ts";
 
 /** O meu ponto (`/api/me/clock`). */
 export interface MyClockApiPort {
@@ -49,6 +50,12 @@ export interface AttendanceApiPort {
   createClockType(input: ClockTypeInput): Promise<ClockType>;
   updateClockType(id: string, input: ClockTypeInput, version: number, reason: string): Promise<ClockType>;
   archiveClockType(id: string): Promise<void>;
+  /** Conferência V2 (ADR-0043): semana da equipa visível — planeado, picagens, calculado e decisão por dia. */
+  conference(from: string, to: string): Promise<ReviewWeek>;
+  /** Aplica uma decisão a um ou mais dias (o servidor volta a classificar e devolve o que saltou). */
+  applyConference(input: ConferenceApplyInput): Promise<ConferenceResult>;
+  /** Anula uma decisão (fica no histórico); o dia volta ao calculado pelas picagens. */
+  voidConferenceReview(id: string, reason: string): Promise<void>;
 }
 
 /** Onde a fila offline fica guardada (no navegador). */

@@ -41,6 +41,12 @@ const DAYS: AttendanceDays = {
 const mod = () =>
   fakeNovoRhModule({ settings: { listEmployees: vi.fn(async () => [{ id: "e1", label: "Ana Teste" }]) } as unknown as NovoRhModule["settings"] });
 
+/** As vistas técnicas (Dias, Incidentes, Pedidos, Pausas) ficam em «Outras vistas» desde a Conferência V2. */
+async function openOther(user: ReturnType<typeof userEvent.setup>, name: string) {
+  await user.click(await screen.findByRole("button", { name: "Outras vistas" }));
+  await user.click(screen.getByRole("menuitem", { name }));
+}
+
 describe("Assiduidade — regras do ecrã", () => {
   it("duração truncada ao minuto, fusos e semana", () => {
     expect(formatDuration(8 * 3600 + 59 * 60 + 45)).toBe("8h 59min");
@@ -85,7 +91,7 @@ describe("Assiduidade — gestão", () => {
     m.attendance.revise = vi.fn(async () => ({}) as never);
     renderWith(m);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "Dias" }));
+    await openOther(user, "Dias");
     await screen.findByRole("option", { name: "Ana Teste" });
     await user.selectOptions(screen.getByLabelText("Colaborador"), "e1");
     expect(await screen.findByText("8h 59min")).toBeInTheDocument();
@@ -103,33 +109,72 @@ describe("Assiduidade — gestão", () => {
     expect(m.attendance.revise).toHaveBeenCalledWith("e1", { operation: "update", targetEventId: "ev2", occurredAt: "2026-10-07T17:00:00.000Z", segmentType: null, reason: "Saiu às 18h" });
   });
 
-  it("atraso: «Cumpriu horário» recua a entrada e «Atrasou» confirma o incidente, com motivo pré-preenchido", async () => {
+  it("conferência (V2): atraso 15:21 → painel único, «cumpriu» com declaração grava no servidor; só existe no painel", async () => {
     const m = mod();
-    const late: AttendanceDays = {
-      ...DAYS,
-      days: [{ ...DAY, incidents: ["late"], plannedStart: "07:00", plannedEnd: "15:00" }],
-      incidents: [{ id: "i9", employeeId: "e1", workDate: "2026-10-07", type: "late", source: "engine", status: "open", comment: null, resolvedBy: null, resolvedAt: null }],
-    };
-    m.attendance.days = vi.fn(async () => late);
-    m.attendance.revise = vi.fn(async () => ({}) as never);
-    m.attendance.resolveIncident = vi.fn(async () => ({}) as never);
+    const monday = weekOf(new Date().toISOString().slice(0, 10)).from;
+    m.attendance.conference = vi.fn(async (from: string, to: string) => ({
+      from,
+      to,
+      people: [{ id: "e1", name: "Ana Teste", location: "Loja Teste" }],
+      days: [
+        {
+          employeeId: "e1",
+          date: monday,
+          planned: [{ start: "15:00", end: "23:00" }],
+          punches: [
+            { at: "15:21", kind: "in" as const },
+            { at: "23:00", kind: "out" as const },
+          ],
+          workedMinutes: 459,
+          plannedMinutes: 480,
+          phase: "done" as const,
+          state: "late" as const,
+          lateMinutes: 21,
+          version: 3,
+        },
+      ],
+    }));
+    m.attendance.applyConference = vi.fn(async () => ({ batchId: "b1", applied: [{ employeeId: "e1", workDate: monday, reviewId: "r1" }], kept: [], skipped: [] }));
     renderWith(m);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "Dias" }));
+    const cell = await screen.findByRole("button", { name: /^Ana Teste, .*: Atraso$/ });
+    // Na grelha não há «Cumpriu»: só no painel.
+    expect(screen.queryByText(/Cumpriu/)).not.toBeInTheDocument();
+    await user.click(cell);
+    const panel = screen.getByRole("dialog", { name: "Rever marcação" });
+    expect(within(panel).getByText("Entrada 15:21 · Saída 23:00")).toBeInTheDocument();
+    await user.click(within(panel).getByLabelText(/Cumpriu o horário planeado/));
+    // Uma só vez em todo o ecrã (nem na grelha, nem no rodapé).
+    expect(screen.getAllByText("Cumpriu o horário planeado")).toHaveLength(1);
+    expect(within(panel).getByText(/7h39 →/)).toBeInTheDocument();
+    const confirm = within(panel).getByRole("button", { name: "Confirmar correção" });
+    expect(confirm).toBeDisabled();
+    await user.click(within(panel).getByLabelText("Confirmo que o horário indicado foi efetivamente cumprido."));
+    await user.click(confirm);
+    await waitFor(() =>
+      expect(m.attendance.applyConference).toHaveBeenCalledWith({
+        decision: "fulfilled",
+        scope: "day",
+        items: [{ employeeId: "e1", workDate: monday, version: 3 }],
+        reason: "Erro de picagem confirmado pelo gestor",
+        declared: true,
+        manual: null,
+        absenceType: null,
+      }),
+    );
+    expect(await within(panel).findByText("Aplicados")).toBeInTheDocument();
+  });
+
+  it("a vista técnica «Dias» já não tem ações de cumprimento (só o painel da conferência)", async () => {
+    const m = mod();
+    m.attendance.days = vi.fn(async (): Promise<AttendanceDays> => ({ ...DAYS, days: [{ ...DAY, incidents: ["late"], plannedStart: "07:00", plannedEnd: "15:00" }] }));
+    renderWith(m);
+    const user = userEvent.setup();
+    await openOther(user, "Dias");
     await screen.findByRole("option", { name: "Ana Teste" });
     await user.selectOptions(screen.getByLabelText("Colaborador"), "e1");
     await user.click(await screen.findByRole("button", { name: "2026-10-07" }));
-    const box = screen.getByRole("region", { name: "Ações rápidas do dia" });
-    expect(within(box).getByText("15 min de atraso — previsto 07:00, entrou 07:15.")).toBeInTheDocument();
-    await user.click(within(box).getByRole("button", { name: "Cumpriu horário" }));
-    expect(within(box).getByText(/A entrada passa de 07:15 para 07:00/)).toBeInTheDocument();
-    await user.click(within(box).getByRole("button", { name: "Confirmar" }));
-    expect(m.attendance.revise).toHaveBeenCalledWith("e1", { operation: "update", targetEventId: "ev1", occurredAt: "2026-10-07T06:00:00.000Z", segmentType: null, reason: "Cumpriu o horário — esqueceu-se de marcar a entrada às 07:00." });
-    await user.click(within(box).getByRole("button", { name: "Atrasou" }));
-    await user.click(within(box).getByRole("button", { name: "Confirmar" }));
-    expect(m.attendance.resolveIncident).toHaveBeenCalledWith("i9", "dismiss", "Atraso de 15 min confirmado.");
-    await user.click(within(box).getByRole("button", { name: "Justificar" }));
-    expect(within(box).getByRole("button", { name: "Confirmar" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "Cumpriu horário" })).not.toBeInTheDocument();
   });
 
   it("validar incidente exige comentário (D8)", async () => {
@@ -140,7 +185,7 @@ describe("Assiduidade — gestão", () => {
     m.attendance.resolveIncident = vi.fn(async () => ({}) as never);
     renderWith(m);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "Incidentes" }));
+    await openOther(user, "Incidentes");
     const row = (await screen.findByRole("cell", { name: "Saída esquecida" })).closest("tr")!;
     const validate = within(row).getByRole("button", { name: "Validar horas" });
     expect(validate).toBeDisabled();
@@ -157,7 +202,7 @@ describe("Assiduidade — gestão", () => {
     m.attendance.decide = vi.fn(async () => ({}) as never);
     renderWith(m);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "Pedidos de correção" }));
+    await openOther(user, "Pedidos de correção");
     const row = (await screen.findByText("Sem rede")).closest("tr")!;
     expect(within(row).getByRole("button", { name: "Recusar" })).toBeDisabled();
     await user.click(within(row).getByRole("button", { name: "Aprovar" }));
@@ -201,7 +246,7 @@ describe("Assiduidade — o meu ponto", () => {
     m.attendance.updateBreakType = vi.fn(async () => b);
     renderWith(m);
     const user = userEvent.setup();
-    await user.click(screen.getByRole("tab", { name: "Pausas" }));
+    await openOther(user, "Pausas");
     expect(await screen.findByText("Primeiros 15 min pagos")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "Nova pausa" }));
     let dialog = screen.getByRole("dialog");

@@ -9,7 +9,6 @@ import { todayIn } from "../../../domain/services/settings-format.service.ts";
 import { useNovoRh } from "../../../novo-rh.module.tsx";
 import { ReviseDrawer, type ReviseTarget } from "./ReviseDrawer.tsx";
 import { DayTimeline, TimelineLegend } from "./DayTimeline.tsx";
-import { DayQuickActions } from "./DayQuickActions.tsx";
 
 /** Dias de um colaborador: totais do motor, marcações, correções e ajustes (TK-13). */
 export function DaysPanel({ fixedEmployeeId }: { fixedEmployeeId?: string } = {}) {
@@ -136,7 +135,7 @@ function DayDetail({ data, date, onRevise }: { data: AttendanceDays; date: strin
   const segments = data.days.find((d) => d.workDate === date)?.segments ?? [];
   return (
     <div className="space-y-3">
-      <DayQuickActions data={data} date={date} />
+      {/* As decisões do dia (cumpriu, manter, ausência) fazem-se só no painel da Conferência (ADR-0043). */}
       {segments.length > 0 && (
         <div className="space-y-1">
           <DayTimeline segments={segments} date={date} timeZone={tz} label={t("att.timeline.dayLabel", { date })} />
