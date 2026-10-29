@@ -767,6 +767,7 @@ export function MonthDetailView() {
     [`${monthName} ${year}`, null],
   ];
   const pendingCount = totalMovements - resolvedMovements;
+  const classifiedCount = (days ?? []).reduce((s, d) => s + d.movements.filter((m) => rowStatus(m) === "classified").length, 0);
   const net = totalCredit - totalDebit;
 
   const header = (
@@ -807,7 +808,7 @@ export function MonthDetailView() {
       >
         <KpiCard compact tone="neutral" icon={<IconFile size={18} />} label="Movimentos do mês" value={String(totalMovements)} />
         <KpiCard compact tone="green" icon={<IconCheck size={18} />} label="Conciliados" value={String(resolvedMovements)} valueClass="text-emerald-600" />
-        <KpiCard compact tone="amber" icon={<IconClock size={18} />} label="Por conciliar" value={String(pendingCount)} valueClass={pendingCount > 0 ? "text-amber-600" : "text-navy-900"} />
+        <KpiCard compact tone="amber" icon={<IconClock size={18} />} label="Por conciliar" value={String(pendingCount)} valueClass={pendingCount > 0 ? "text-amber-600" : "text-navy-900"} hint={classifiedCount > 0 ? `${classifiedCount} classificados · aguardam fatura` : undefined} />
         <KpiCard compact tone="green" icon={<IconArrowUp size={18} />} label="Entradas" value={`+${fromCents(totalCredit)}`} valueClass="text-emerald-600" />
         <KpiCard compact tone="red" icon={<IconArrowDown size={18} />} label="Saídas" value={`−${fromCents(totalDebit)}`} valueClass="text-red-600" />
         <KpiCard compact tone={net < 0 ? "red" : "navy"} icon={<IconChart size={18} />} label="Resultado líquido" value={`${net >= 0 ? "+" : "−"}${fromCents(Math.abs(net))}`} valueClass={net < 0 ? "text-red-600" : "text-emerald-600"} />
@@ -818,13 +819,14 @@ export function MonthDetailView() {
   // Filtro dos movimentos: «Por conciliar» por defeito; ao clicar abre Todos / Entradas / Saídas / Transferências.
   const FILTERS: { key: MonthChip; label: string }[] = [
     { key: "pending", label: "Por conciliar" },
+    { key: "classified", label: "Classificados (aguardam fatura)" },
     { key: "all", label: "Todos" },
     { key: "inflows", label: "Entradas" },
     { key: "outflows", label: "Saídas" },
     { key: "transfers", label: "Transferências" },
   ];
   const activeChip: MonthChip = viewTab === "reconciled" && chip === "pending" ? "all" : chip;
-  const filterOptions = FILTERS.filter((c) => viewTab === "movements" || c.key !== "pending");
+  const filterOptions = FILTERS.filter((c) => viewTab === "movements" || (c.key !== "pending" && c.key !== "classified"));
   const activeFilterLabel = FILTERS.find((c) => c.key === activeChip)?.label ?? "Todos";
 
   // ── Render ─────────────────────────────────────────────────────────────────

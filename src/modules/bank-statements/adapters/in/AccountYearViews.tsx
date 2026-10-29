@@ -105,15 +105,17 @@ function MonthReconciliationCell({ stat, compact = false }: { stat: AccountMonth
   const r = monthReconciliation(stat);
   if (r.kind === "no_statement") return DASH;
   if (r.kind === "not_applicable") return <span className="text-xs text-ink-secondary">Não aplicável</span>;
+  const classified = stat?.classifiedPercent != null && stat.classifiedPercent > r.percent ? stat.classifiedPercent : null;
   return (
     <span className="flex items-center gap-2.5" title={`${r.reconciled} de ${r.reconcilable} movimentos conciliáveis`}>
       {compact ? null : <span className={`w-9 text-right text-sm font-medium text-navy-900 ${NUMERIC}`}>{r.percent}%</span>}
       <ThinBar percent={r.percent} label={`Conciliação de ${r.percent}%`} className={compact ? "flex-1" : "w-24"} />
-      {compact && (
+      {compact ? (
         <span className={`shrink-0 text-xs text-ink-secondary ${NUMERIC}`}>
-          {r.percent}% conciliado
-          {stat?.classifiedPercent != null && stat.classifiedPercent > r.percent ? ` · ${stat.classifiedPercent}% classificado` : ""}
+          {r.percent}% conciliado{classified !== null ? ` · ${classified}% classificado` : ""}
         </span>
+      ) : (
+        classified !== null && <span className={`shrink-0 text-xs text-sky-700 ${NUMERIC}`}>{classified}% classificado</span>
       )}
     </span>
   );
@@ -205,7 +207,16 @@ export function MonthsTable({
               <td className={`${td} text-right text-navy-900`}>{eur(summary.inflowCents)}</td>
               <td className={`${td} text-right text-navy-900`}>{eur(summary.outflowCents)}</td>
               <td className={`${td} text-right ${flowClass(summary.netCents)}`}>{signedEur(summary.netCents)}</td>
-              <td className="py-3 pl-6 pr-3 text-sm text-navy-900">{summary.reconciledPercent === null ? <span className="text-xs font-normal text-ink-secondary">Não aplicável</span> : `${summary.reconciledPercent}%`}</td>
+              <td className="py-3 pl-6 pr-3 text-sm text-navy-900">{summary.reconciledPercent === null ? (
+                  <span className="text-xs font-normal text-ink-secondary">Não aplicável</span>
+                ) : (
+                  <>
+                    {summary.reconciledPercent}%
+                    {summary.classifiedPercent !== null && summary.classifiedPercent > summary.reconciledPercent && (
+                      <span className={`ml-2 text-xs font-normal text-sky-700 ${NUMERIC}`}>{summary.classifiedPercent}% classificado</span>
+                    )}
+                  </>
+                )}</td>
               <td colSpan={2} />
             </tr>
           </tfoot>
