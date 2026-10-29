@@ -464,21 +464,42 @@ export function PlannerPanel({
   const [moveReason, setMoveReason] = useState("");
   const [clearFor, setClearFor] = useState<string | null>(null);
   const [clearing, setClearing] = useState(false);
+  const [clearReason, setClearReason] = useState("");
+  const [clearError, setClearError] = useState<string | null>(null);
+  const closeClear = () => {
+    setClearFor(null);
+    setClearReason("");
+    setClearError(null);
+  };
+  const inPeriod = (s: RosterShift, employeeId: string) => s.employeeId === employeeId && !s.deleted && s.workDate >= from && s.workDate <= to;
   /** Turnos pendentes (nunca publicados) de cada pessoa no período visível. */
-  const pendingOf = (employeeId: string) =>
-    (shifts.data?.shifts ?? []).filter(
-      (s) => s.employeeId === employeeId && !s.deleted && s.published === null && s.workDate >= from && s.workDate <= to,
-    );
+  const pendingOf = (employeeId: string) => (shifts.data?.shifts ?? []).filter((s) => inPeriod(s, employeeId) && s.published === null);
+  /** Turnos publicados de cada pessoa no período visível (retirá-los publica logo, com motivo). */
+  const publishedOf = (employeeId: string) => (shifts.data?.shifts ?? []).filter((s) => inPeriod(s, employeeId) && s.published !== null);
   const clearWeek = async () => {
     if (!clearFor || clearing) return;
+    const employeeId = clearFor;
+    const withPublished = publishedOf(employeeId).length > 0;
     setClearing(true);
+    setClearError(null);
+    const run = async (o: PublishOptions) => {
+      const r = await rosters.clearPending(rosterId, { employeeId, from, to, ...(withPublished && { includePublished: true, reason: o.reason, confirm: o.confirm }) });
+      // Com publicados houve publicação: novo ponto de partida (como «Publicar»); senão, desfaz-se.
+      if (r.publication) edits.reset();
+      else edits.record({ type: "CLEAR_EMPLOYEE_WEEK", affectedIds: r.removed.map((x) => x.id), inversePayload: { employeeId, from, to } });
+    };
     try {
-      const { removed } = await rosters.clearPending(rosterId, { employeeId: clearFor, from, to });
-      edits.record({ type: "CLEAR_EMPLOYEE_WEEK", affectedIds: removed.map((r) => r.id), inversePayload: { employeeId: clearFor, from, to } });
+      // Avisos de restrições (409) vão para o painel de problemas, com «Confirmar» para repetir.
+      if (withPublished) await guarded(run, { reason: clearReason.trim() || null, confirm: false });
+      else {
+        await run({ reason: null, confirm: false });
+        await refresh();
+      }
+      closeClear();
+    } catch (e) {
+      setClearError(message(e, t("common.error")));
     } finally {
       setClearing(false);
-      setClearFor(null);
-      await refresh();
     }
   };
 
@@ -1301,7 +1322,7 @@ export function PlannerPanel({
               areas={areaList}
               areaName={areaName}
               rowActions={{
-                pending: (id) => pendingOf(id).length,
+                pending: (id) => pendingOf(id).length + publishedOf(id).length,
                 onClearWeek: setClearFor,
                 onExportPdf: (employeeId) => setPdfFor({ employeeId }),
                 period: span === 7 ? "week" : "period",
@@ -1384,31 +1405,54 @@ export function PlannerPanel({
         version={roster?.version ?? 0}
       />
 
-      {/* Limpar os turnos pendentes da semana de uma pessoa (uma só operação; pode desfazer-se). */}
+      {/* Limpar os turnos da semana de uma pessoa (uma só operação). Pendentes: pode desfazer-se.
+          Publicados: motivo obrigatório, saem logo numa nova versão e o colaborador é avisado. */}
       <Dialog
         open={!!clearFor}
         title={span === 7 ? t("ros.clear.titleWeek") : t("ros.clear.titlePeriod")}
         description={
           clearFor &&
-          t("ros.clear.body", {
-            count: pendingOf(clearFor).length,
-            name: name(clearFor),
-            from: `${from.slice(8, 10)}/${from.slice(5, 7)}`,
-            to: `${to.slice(8, 10)}/${to.slice(5, 7)}`,
-          })
+          (publishedOf(clearFor).length
+            ? t("ros.clear.bodyPublished", {
+                count: pendingOf(clearFor).length + publishedOf(clearFor).length,
+                pending: pendingOf(clearFor).length,
+                published: publishedOf(clearFor).length,
+                name: name(clearFor),
+                from: ddmm(from),
+                to: ddmm(to),
+              })
+            : t("ros.clear.body", {
+                count: pendingOf(clearFor).length,
+                name: name(clearFor),
+                from: ddmm(from),
+                to: ddmm(to),
+              }))
         }
-        onClose={() => setClearFor(null)}
+        onClose={closeClear}
         actions={
           <>
-            <Button variant="tertiary" onClick={() => setClearFor(null)}>
+            <Button variant="tertiary" onClick={closeClear}>
               {t("common.cancel")}
             </Button>
-            <Button variant="danger" loading={clearing} disabled={clearing} onClick={() => void clearWeek()}>
+            <Button
+              variant="danger"
+              loading={clearing}
+              disabled={clearing || (!!clearFor && publishedOf(clearFor).length > 0 && !clearReason.trim())}
+              onClick={() => void clearWeek()}
+            >
               {t("ros.clear.confirm")}
             </Button>
           </>
         }
-      />
+      >
+        {clearFor && publishedOf(clearFor).length > 0 && (
+          <label className="block">
+            <span className={LABEL}>{t("ros.clear.reason")}</span>
+            <input className={`${FIELD} w-full`} value={clearReason} onChange={(e) => setClearReason(e.target.value)} />
+          </label>
+        )}
+        {clearError && <p className="mt-2 text-sm text-red-700">{clearError}</p>}
+      </Dialog>
 
       {/* Copiar a semana para a seguinte: confirma, depois mostra o que foi copiado e o que saltou. */}
       <Dialog

@@ -415,14 +415,16 @@ describe("Escalas — ecrãs", () => {
 
   it("linha da pessoa: nome é link para a ficha; menu (célula ou ⋯) limpa os pendentes da semana numa só chamada", async () => {
     const m = mod();
-    m.rosters.clearPending = vi.fn(async () => ({ removed: [{ ...PUBLISHED, id: "s2" }] }));
+    const draft = { ...PUBLISHED, id: "s2", dirty: true, published: null, publishedVersion: null };
+    m.rosters.listShifts = vi.fn(async () => ({ roster: ROSTER, pending: 1, shifts: [draft] }));
+    m.rosters.clearPending = vi.fn(async () => ({ removed: [draft] }));
     m.rosters.restoreShifts = vi.fn(async () => ({ restored: [], warnings: [] }));
     renderWith(m);
     const user = await openRoster();
     expect(within(grid()).getByRole("link", { name: "Ana Teste" })).toHaveAttribute("href", "/hr/novo/pessoas/e1");
     await user.click(within(grid()).getByRole("button", { name: "Opções de Ana Teste" }));
-    await user.click(screen.getByRole("menuitem", { name: "Limpar turnos pendentes da semana" }));
-    const box = screen.getByRole("dialog", { name: "Limpar turnos pendentes da semana?" });
+    await user.click(screen.getByRole("menuitem", { name: "Limpar turnos da semana" }));
+    const box = screen.getByRole("dialog", { name: "Limpar turnos da semana?" });
     expect(box).toHaveTextContent("Serão removidos 1 turno(s) ainda não publicados de Ana Teste");
     await user.click(within(box).getByRole("button", { name: "Limpar turnos" }));
     const sun = daysFrom(MON, 7)[6]!;
@@ -430,6 +432,27 @@ describe("Escalas — ecrãs", () => {
     expect(m.rosters.clearPending).toHaveBeenCalledWith("r1", { employeeId: "e1", from: MON, to: sun });
     await user.click(screen.getByRole("button", { name: "Desfazer" }));
     await vi.waitFor(() => expect(m.rosters.restoreShifts).toHaveBeenCalledWith("r1", ["s2"]));
+  });
+
+  it("limpar a semana com turnos publicados: pede motivo e retira-os numa só chamada", async () => {
+    const m = mod();
+    m.rosters.clearPending = vi.fn(async () => ({ removed: [], retired: [PUBLISHED], publication: null }));
+    renderWith(m);
+    const user = await openRoster();
+    await user.click(within(grid()).getByRole("button", { name: "Opções de Ana Teste" }));
+    await user.click(screen.getByRole("menuitem", { name: "Limpar turnos da semana" }));
+    const box = screen.getByRole("dialog", { name: "Limpar turnos da semana?" });
+    expect(box).toHaveTextContent("Serão removidos 2 turno(s) de Ana Teste");
+    expect(box).toHaveTextContent("1 por publicar e 1 publicado(s)");
+    const confirm = within(box).getByRole("button", { name: "Limpar turnos" });
+    expect(confirm).toBeDisabled();
+    await user.type(within(box).getByLabelText("Motivo (obrigatório para retirar turnos publicados)"), "Novo horário");
+    await user.click(confirm);
+    const sun = daysFrom(MON, 7)[6]!;
+    await vi.waitFor(() =>
+      expect(m.rosters.clearPending).toHaveBeenCalledWith("r1", { employeeId: "e1", from: MON, to: sun, includePublished: true, reason: "Novo horário", confirm: false }),
+    );
+    await vi.waitFor(() => expect(screen.queryByRole("dialog", { name: "Limpar turnos da semana?" })).not.toBeInTheDocument());
   });
 
   it("«Semana anterior» recua 7 dias e a grelha continua a carregar", async () => {
