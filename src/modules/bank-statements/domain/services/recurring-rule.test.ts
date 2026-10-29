@@ -57,6 +57,12 @@ describe("recurring-rule", () => {
     expect(payload.name).toBe("Renda");
     expect(payload.applyToExisting).toBe(false);
   });
+
+  it("«só classificar» cria uma regra que só classifica (justificação nominal)", () => {
+    const payload = buildRecurringRulePayload(movement, "acc-1", { mode: "classify" }, { name: "Makro", fixedAmount: false, applyToExisting: false });
+    expect(payload.classifyOnly).toBe(true);
+    expect(payload.justificationType).toBe("recibo_comprovativo");
+  });
 });
 
 describe("buildRecurringRulePayload — regra ligada a uma recorrência", () => {

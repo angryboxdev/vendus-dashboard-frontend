@@ -9,6 +9,8 @@ export interface AccountYearSummary {
    *  `null` sem extrato ou sem nenhum movimento conciliável («Não aplicável», nunca 100%). */
   reconciledPercent: number | null;
   reconciledMovements: number;
+  /** Conciliados ou só classificados (contam na rubrica certa da DRE); `null` como `reconciledPercent`. */
+  classifiedPercent: number | null;
   reconcilableMovements: number;
   totalMovements: number;
   /** Saldo antes do 1.º movimento do primeiro mês importado / depois do último do último mês importado. */
@@ -21,6 +23,7 @@ export function summarizeYear(months: AccountMonthStatDTO[]): AccountYearSummary
   const imported = months.filter((m) => m.statementImported).sort((a, b) => a.month - b.month);
   const reconcilable = imported.reduce((s, m) => s + m.reconcilableMovements, 0);
   const reconciled = imported.reduce((s, m) => s + m.reconciledMovements, 0);
+  const classified = imported.reduce((s, m) => s + (m.classifiedMovements ?? m.reconciledMovements), 0);
   const withBalances = imported.filter((m) => m.openingBalanceCents !== null);
   const inflowCents = imported.reduce((s, m) => s + m.inflowCents, 0);
   const outflowCents = imported.reduce((s, m) => s + m.outflowCents, 0);
@@ -31,6 +34,7 @@ export function summarizeYear(months: AccountMonthStatDTO[]): AccountYearSummary
     importedMonths: imported.length,
     reconciledPercent: reconcilable === 0 ? null : Math.round((reconciled / reconcilable) * 100),
     reconciledMovements: reconciled,
+    classifiedPercent: reconcilable === 0 ? null : Math.round((classified / reconcilable) * 100),
     reconcilableMovements: reconcilable,
     totalMovements: imported.reduce((s, m) => s + m.totalMovements, 0),
     openingBalanceCents: withBalances[0]?.openingBalanceCents ?? null,

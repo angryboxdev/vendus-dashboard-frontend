@@ -86,7 +86,9 @@ function ReconciliationBadge({ status }: { status: ReconciliationStatus }) {
 
 const VAT_RATES = [0, 6, 13, 23] as const;
 type VatMode = "included" | "excluded" | "exempt";
-type ClassifyTab = "sistema" | "justificar";
+type ClassifyTab = "classificar" | "sistema" | "justificar";
+/** Campos do formulário: os de um tipo de justificação, ou os de «Classificar» (categoria, fornecedor, IVA). */
+type FormType = JustificationType | "classificar";
 
 /** Só para decidir se vale a pena perguntar "total ou parcial" — diferenças de arredondamento não geram a pergunta. Não é mais usado para decidir Pago vs Pago parcialmente (isso agora é sempre uma escolha explícita do utilizador). */
 
@@ -105,23 +107,23 @@ const TAB_B_SUB_TYPES: JustificationType[] = [
   "sem_justificativa",
 ];
 
-function showsDocument(jt: JustificationType) {
+function showsDocument(jt: FormType) {
   return ["recibo_comprovativo", "despesa_bancaria_automatica", "contrato_recorrencia", "emprestimo_financiamento"].includes(jt);
 }
-function showsSupplier(jt: JustificationType) {
-  return ["recibo_comprovativo", "contrato_recorrencia", "emprestimo_financiamento"].includes(jt);
+function showsSupplier(jt: FormType) {
+  return ["classificar", "recibo_comprovativo", "contrato_recorrencia", "emprestimo_financiamento"].includes(jt);
 }
-function showsCostCenter(jt: JustificationType) {
-  return ["recibo_comprovativo", "despesa_bancaria_automatica", "contrato_recorrencia", "emprestimo_financiamento"].includes(jt);
+function showsCostCenter(jt: FormType) {
+  return ["classificar", "recibo_comprovativo", "despesa_bancaria_automatica", "contrato_recorrencia", "emprestimo_financiamento"].includes(jt);
 }
-function showsVat(jt: JustificationType) {
-  return ["recibo_comprovativo", "despesa_bancaria_automatica", "contrato_recorrencia", "emprestimo_financiamento"].includes(jt);
+function showsVat(jt: FormType) {
+  return ["classificar", "recibo_comprovativo", "despesa_bancaria_automatica", "contrato_recorrencia", "emprestimo_financiamento"].includes(jt);
 }
-function showsTransferTarget(jt: JustificationType) { return jt === "transferencia_interna"; }
-function showsOccurrence(jt: JustificationType) { return jt === "contrato_recorrencia"; }
-function requiresSupplier(jt: JustificationType) { return jt === "contrato_recorrencia"; }
-function requiresCostCenter(jt: JustificationType) { return showsCostCenter(jt); }
-function requiresNotes(jt: JustificationType) { return jt === "sem_justificativa"; }
+function showsTransferTarget(jt: FormType) { return jt === "transferencia_interna"; }
+function showsOccurrence(jt: FormType) { return jt === "contrato_recorrencia"; }
+function requiresSupplier(jt: FormType) { return jt === "contrato_recorrencia"; }
+function requiresCostCenter(jt: FormType) { return showsCostCenter(jt); }
+function requiresNotes(jt: FormType) { return jt === "sem_justificativa"; }
 
 // ── EntityCard / InvoiceCard ──────────────────────────────────────────────────
 
@@ -313,6 +315,8 @@ export function ClassifyDrawer({
     : "sistema";
 
   const [activeTab, setActiveTab] = useState<ClassifyTab>(defaultTab);
+  /** «Classificar» e «Justificar» partilham o formulário; os campos dependem disto. */
+  const formTab = activeTab === "classificar" || activeTab === "justificar";
 
   // Reset to summary view whenever a different movement is selected.
   // Note: the other form fields below (allocations, subType, notes, cost
@@ -437,8 +441,9 @@ export function ClassifyDrawer({
   const [recurringFixed, setRecurringFixed] = useState(false);
   const [recurringApply, setRecurringApply] = useState(true);
   // «Contrato / Recorrência» também pode virar regra: liga cada pagamento futuro à recorrência (fica paga).
-  const recurringAvailable = canBeRecurring(subType) || subType === "contrato_recorrencia";
-  const recurringForRecurrence = subType === "contrato_recorrencia";
+  const formType: FormType = activeTab === "classificar" ? "classificar" : subType;
+  const recurringAvailable = activeTab === "classificar" || canBeRecurring(subType) || subType === "contrato_recorrencia";
+  const recurringForRecurrence = activeTab !== "classificar" && subType === "contrato_recorrencia";
   const [ruleRecurrenceId, setRuleRecurrenceId] = useState("");
   const { recurrences: ruleRecurrences } = useRuleRecurrences(recurringForRecurrence && recurringOn);
   const { data: rules = [] } = useQuery({
@@ -477,7 +482,7 @@ export function ClassifyDrawer({
   const { data: occurrenceCandidates = [] } = useQuery<OccurrenceCandidateDTO[]>({
     queryKey: ["occurrence-candidates", occurrenceSearch],
     queryFn: () => api.searchOccurrenceCandidates({ q: occurrenceSearch || undefined, referenceDate: movement.bookingDate }),
-    enabled: showsOccurrence(subType),
+    enabled: showsOccurrence(formType),
     staleTime: 30_000,
   });
 
@@ -737,23 +742,22 @@ export function ClassifyDrawer({
       }
       return;
     }
-    const payload: ClassifyMovementPayload = {
-      justificationType: subType,
-      notes: notes || undefined,
-      documentUrl: documentUrl ?? undefined,
-    };
-    if (showsCostCenter(subType) && groupId) payload.costCenterGroupId = groupId;
-    if (showsCostCenter(subType) && categoryId) payload.costCenterCategoryId = categoryId;
-    if (showsSupplier(subType) && supplierId) payload.supplierId = supplierId;
-    if (showsOccurrence(subType) && occurrenceId) {
+    const payload: ClassifyMovementPayload =
+      activeTab === "classificar"
+        ? { mode: "classify", notes: notes || undefined }
+        : { justificationType: subType, notes: notes || undefined, documentUrl: documentUrl ?? undefined };
+    if (showsCostCenter(formType) && groupId) payload.costCenterGroupId = groupId;
+    if (showsCostCenter(formType) && categoryId) payload.costCenterCategoryId = categoryId;
+    if (showsSupplier(formType) && supplierId) payload.supplierId = supplierId;
+    if (showsOccurrence(formType) && occurrenceId) {
       payload.matchedEntityType = "recurrence_occurrence";
       payload.matchedEntityId = occurrenceId;
     }
-    if (showsVat(subType) && vatMode !== "exempt") {
+    if (showsVat(formType) && vatMode !== "exempt") {
       payload.vatRate = vatRate;
       payload.vatIncluded = vatMode === "included";
     }
-    if (showsTransferTarget(subType) && transferTarget)
+    if (showsTransferTarget(formType) && transferTarget)
       payload.notes = transferTarget + (notes ? `\n${notes}` : "");
 
     // Ligado a uma ocorrência, o backend deixa-a paga mesmo com valor diferente do previsto (decisão do
@@ -779,18 +783,18 @@ export function ClassifyDrawer({
     allocations.every((a) => (a.documentType === "credit_note" ? a.allocatedCents < 0 : a.allocatedCents > 0)) &&
     !groupedSettlementMut.isPending;
   // Categoria sem subcategorias ativas: basta a categoria (antes o botão ficava bloqueado sem saída).
-  const needsCategory = requiresCostCenter(subType) && !!groupId && !(categoriesFetched && categories.length === 0);
+  const needsCategory = requiresCostCenter(formType) && !!groupId && !(categoriesFetched && categories.length === 0);
   /** O que falta para poder classificar no separador «Justificar despesa» (mostrado junto ao botão). */
   const missingB = [
     // Com a ocorrência escolhida o fornecedor é dispensável: a recorrência já diz quem recebe (ex.: salários).
     // Idem com «Classificar sempre assim» ligado a uma recorrência (a regra paga a ocorrência do mês certo).
-    requiresSupplier(subType) && !supplierId && !occurrenceId && !(recurringOn && recurringForRecurrence && effectiveRuleRecurrenceId) ? "fornecedor" : null,
+    requiresSupplier(formType) && !supplierId && !occurrenceId && !(recurringOn && recurringForRecurrence && effectiveRuleRecurrenceId) ? "fornecedor" : null,
     recurringOn && recurringForRecurrence && !effectiveRuleRecurrenceId ? "recorrência a pagar (em «Classificar sempre assim»)" : null,
-    requiresCostCenter(subType) && !groupId ? "categoria" : null,
+    requiresCostCenter(formType) && !groupId ? "categoria" : null,
     needsCategory && !categoryId ? "subcategoria" : null,
-    requiresNotes(subType) && !notes.trim() ? "notas (motivo)" : null,
+    requiresNotes(formType) && !notes.trim() ? "notas (motivo)" : null,
   ].filter((x): x is string => x !== null);
-  const canSubmitB = activeTab === "justificar" && missingB.length === 0 && !uploading;
+  const canSubmitB = formTab && missingB.length === 0 && !uploading;
   const canSubmit = canSubmitA || canSubmitB;
 
   // Só as sugestões fortes (nome + valor, ≥ 90%) aparecem como «Sugestões automáticas»; as restantes
@@ -1034,7 +1038,7 @@ export function ClassifyDrawer({
         {/* Tabs */}
         <div className="flex border-b border-[#F5C992]/40 shrink-0">
           {(
-            [["sistema", "Justificar com documentos"], ["justificar", "Justificar despesa"]] as [ClassifyTab, string][]
+            [["classificar", "Classificar"], ["sistema", "Conciliar com documento"], ["justificar", "Justificar sem documento"]] as [ClassifyTab, string][]
           ).map(([tab, label]) => (
             <button key={tab} type="button" onClick={() => setActiveTab(tab)}
               className={`flex-1 py-3 text-sm font-medium border-b-2 transition-colors ${
@@ -1048,6 +1052,12 @@ export function ClassifyDrawer({
         <form onSubmit={handleSubmit} className="flex flex-1 flex-col overflow-hidden">
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-4">
             {/* ── Tab A: Conciliar com sistema ────────────────────────────── */}
+            {activeTab === "sistema" && (movement.costCenterGroupId || movement.costCenterCategoryId) && movement.reconciliationStatus === "pendente_de_documento" && (
+              <p className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                Este movimento já está classificado. Ao conciliar com a fatura, passam a valer a categoria e o IVA da fatura (se forem
+                diferentes, a classificação anterior deixa de contar).
+              </p>
+            )}
             {activeTab === "sistema" && (
               <>
                 <div className={`rounded-lg border px-4 py-3 ${overAllocated ? "border-red-200 bg-red-50" : withinTolerance && allocations.length > 0 ? "border-emerald-200 bg-emerald-50" : "border-stone-200 bg-stone-50"}`}>
@@ -1272,8 +1282,24 @@ export function ClassifyDrawer({
             )}
 
             {/* ── Tab B: Justificar ──────────────────────────────────────── */}
-            {activeTab === "justificar" && (
+            {formTab && (
               <>
+                {activeTab === "classificar" && (
+                  <div className="rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                    Dá a categoria (e o IVA) para a DRE sem conciliar: o movimento fica «Classificado · aguarda fatura» até ligar a
+                    fatura em «Conciliar com documento».
+                    {(movement.costCenterGroupId || movement.costCenterCategoryId) && (
+                      <button
+                        type="button"
+                        className="ml-1 font-medium text-red-600 hover:underline"
+                        onClick={() => onSave({ mode: "clear" }, null)}
+                      >
+                        Remover classificação
+                      </button>
+                    )}
+                  </div>
+                )}
+                {activeTab === "justificar" && (
                 <div>
                   <label className={labelCls}>Tipo de justificação *</label>
                   <select value={subType} onChange={(e) => { setSubType(e.target.value as JustificationType); setDocumentUrl(movement.documentUrl); setUploadFile(null); }} className={inputCls}>
@@ -1282,8 +1308,9 @@ export function ClassifyDrawer({
                     ))}
                   </select>
                 </div>
+                )}
 
-                {showsDocument(subType) && (
+                {showsDocument(formType) && (
                   <div>
                     <label className={labelCls}>Comprovativo{subType === "recibo_comprovativo" ? " *" : " (opcional)"}</label>
                     <div className="rounded-lg border-2 border-dashed border-stone-200 p-4 text-center cursor-pointer hover:border-[#ED5C32]/50 transition-colors"
@@ -1309,9 +1336,9 @@ export function ClassifyDrawer({
                   </div>
                 )}
 
-                {showsSupplier(subType) && (
+                {showsSupplier(formType) && (
                   <div className="relative">
-                    <label className={labelCls}>Fornecedor{requiresSupplier(subType) && !occurrenceId ? " *" : " (opcional)"}</label>
+                    <label className={labelCls}>Fornecedor{requiresSupplier(formType) && !occurrenceId ? " *" : " (opcional)"}</label>
                     <input type="text"
                       value={supplierId ? (selectedSupplier?.name ?? supplierId) : supplierSearch}
                       onChange={(e) => { setSupplierId(""); setSupplierSearch(e.target.value); setSupplierOpen(true); }}
@@ -1346,7 +1373,7 @@ export function ClassifyDrawer({
                   </div>
                 )}
 
-                {showsOccurrence(subType) && (
+                {showsOccurrence(formType) && (
                   <div className="relative">
                     <label className={labelCls}>Ocorrência de recorrência (opcional)</label>
                     {occurrenceId && selectedOccurrence ? (
@@ -1397,7 +1424,7 @@ export function ClassifyDrawer({
                   </div>
                 )}
 
-                {showsCostCenter(subType) && (
+                {showsCostCenter(formType) && (
                   <div className="space-y-2">
                     <div>
                       <label className={labelCls}>Categoria *</label>
@@ -1416,7 +1443,7 @@ export function ClassifyDrawer({
                   </div>
                 )}
 
-                {showsVat(subType) && (
+                {showsVat(formType) && (
                   <div>
                     <label className={labelCls}>IVA</label>
                     <div className="flex gap-2 mb-2">
@@ -1442,7 +1469,7 @@ export function ClassifyDrawer({
                   </div>
                 )}
 
-                {showsTransferTarget(subType) && (
+                {showsTransferTarget(formType) && (
                   <div>
                     <label className={labelCls}>Conta de destino</label>
                     <input type="text" value={transferTarget} onChange={(e) => setTransferTarget(e.target.value)}
@@ -1451,10 +1478,10 @@ export function ClassifyDrawer({
                 )}
 
                 <div>
-                  <label className={labelCls}>Notas{requiresNotes(subType) ? " *" : " (opcional)"}</label>
+                  <label className={labelCls}>Notas{requiresNotes(formType) ? " *" : " (opcional)"}</label>
                   <textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3}
-                    required={requiresNotes(subType)} className={inputCls}
-                    placeholder={requiresNotes(subType) ? "Motivo obrigatório" : "Opcional"} />
+                    required={requiresNotes(formType)} className={inputCls}
+                    placeholder={requiresNotes(formType) ? "Motivo obrigatório" : "Opcional"} />
                 </div>
 
                 {recurringAvailable && (
@@ -1525,12 +1552,12 @@ export function ClassifyDrawer({
           </div>
 
           {/* Footer */}
-          {activeTab === "justificar" && missingB.length > 0 && (
+          {formTab && missingB.length > 0 && (
             <p className="border-t border-[#F5C992]/40 px-6 pt-3 text-xs text-amber-700">
               Para classificar, falta: {missingB.join(", ")}.
             </p>
           )}
-          <div className={`flex gap-3 px-6 py-4 shrink-0 ${activeTab === "justificar" && missingB.length > 0 ? "" : "border-t border-[#F5C992]/40"}`}>
+          <div className={`flex gap-3 px-6 py-4 shrink-0 ${formTab && missingB.length > 0 ? "" : "border-t border-[#F5C992]/40"}`}>
             <button type="button" onClick={onClose}
               className="flex-1 rounded-md border border-stone-300 px-4 py-2 text-sm font-medium text-stone-700 hover:bg-stone-50">
               Cancelar

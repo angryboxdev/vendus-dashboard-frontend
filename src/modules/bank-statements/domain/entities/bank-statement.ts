@@ -39,7 +39,7 @@ export const RECONCILIATION_STATUS_LABELS: Record<ReconciliationStatus, string> 
   conciliado_sem_fatura: "Conciliado s/ Fatura",
   justificado: "Justificado",
   sugestao: "Sugestão",
-  pendente_de_documento: "Pendente de Documento",
+  pendente_de_documento: "Classificado · aguarda fatura",
   saida_nao_justificada: "Saída Não Justificada",
   transferencia_interna: "Transferência Interna",
   divergente: "Divergente",
@@ -211,6 +211,8 @@ export interface MatchSuggestionDTO {
  * Reconhece pela descrição (sem palavras com dígitos), com valor fixo opcional, só na conta de origem.
  */
 export interface ReconciliationRuleDTO {
+  /** Só classifica (categoria para a DRE); o movimento fica à espera da fatura. */
+  classifyOnly?: boolean;
   id: string;
   name: string;
   descriptionContains: string;
@@ -271,7 +273,13 @@ export interface ImportStatementPayload {
 }
 
 export interface ClassifyMovementPayload {
-  justificationType: JustificationType;
+  /**
+   * `justify` (omissão) = justificar/conciliar; `classify` = só classificar (categoria para a DRE, fica
+   * «Classificado · aguarda fatura»); `clear` = remover a classificação e a conciliação.
+   */
+  mode?: "justify" | "classify" | "clear";
+  /** Obrigatório em `justify`. */
+  justificationType?: JustificationType;
   matchedEntityType?: MatchedEntityType;
   matchedEntityId?: string;
   riskLevel?: RiskLevel;
@@ -315,6 +323,9 @@ export interface AccountMonthStatDTO {
   reconciledMovements: number;
   /** `null` sem extrato, sem movimentos ou sem movimentos conciliáveis («Não aplicável»). */
   reconciledPercent: number | null;
+  /** Conciliados ou com categoria (contam na rubrica certa da DRE); null como `reconciledPercent`. */
+  classifiedPercent?: number | null;
+  classifiedMovements?: number;
   /** Há extrato mas não cobre o mês todo (os totais são só dos dias cobertos). Opcional até o backend novo estar em produção. */
   partialPeriod?: boolean;
   inflowCents: number;
@@ -417,11 +428,15 @@ export interface CreateRulePayload {
   vatIncluded?: boolean | null;
   /** Liga a regra a uma recorrência sem fatura: cada movimento paga a ocorrência do mês (exige «Contrato / Recorrência»). */
   recurrenceId?: string | null;
+  /** Só classifica (categoria para a DRE): o movimento fica à espera da fatura. */
+  classifyOnly?: boolean;
   /** Aplica já aos movimentos por classificar desta conta nos meses importados. */
   applyToExisting?: boolean;
 }
 
 export interface UpdateRulePayload {
+  /** Só classifica (o movimento fica à espera da fatura). */
+  classifyOnly?: boolean;
   name?: string;
   descriptionContains?: string;
   amountCents?: number | null;

@@ -73,7 +73,9 @@ export function buildRecurringRulePayload(
     descriptionContains: movement.description,
     movementType: movement.movementType,
     bankAccountId,
-    justificationType: draft.recurrenceId ? "contrato_recorrencia" : classification.justificationType,
+    // Regra «só classificar»: a justificação guardada é nominal (a regra não justifica).
+    justificationType: draft.recurrenceId ? "contrato_recorrencia" : (classification.justificationType ?? "recibo_comprovativo"),
+    ...(classification.mode === "classify" && !draft.recurrenceId && { classifyOnly: true }),
     ...(draft.recurrenceId && { recurrenceId: draft.recurrenceId }),
     amountCents: draft.fixedAmount ? movement.amount : null,
     costCenterGroupId: classification.costCenterGroupId ?? null,

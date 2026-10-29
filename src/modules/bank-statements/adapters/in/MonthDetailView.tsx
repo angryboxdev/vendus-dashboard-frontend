@@ -88,6 +88,7 @@ function formatDay(dateStr: string): string {
 const ROW_STATUS: Record<RowStatus, { label: string; chip: string }> = {
   pending: { label: "Por conciliar", chip: "bg-amber-50 text-amber-700" },
   partial: { label: "Parcial", chip: "bg-amber-50 text-amber-700" },
+  classified: { label: "Classificado", chip: "bg-sky-50 text-sky-700" },
   reconciled: { label: "Conciliado", chip: "bg-emerald-50 text-emerald-700" },
 };
 
