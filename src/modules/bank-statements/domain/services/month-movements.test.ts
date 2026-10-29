@@ -46,4 +46,11 @@ describe("rowStatus", () => {
     expect(rowStatus({ isResolved: false, reconciliationStatus: "saida_nao_justificada" })).toBe("pending");
     expect(rowStatus({ isResolved: false, reconciliationStatus: "pendente_de_documento" })).toBe("classified");
   });
+
+  it("filtro «Classificados» mostra só os que aguardam fatura", () => {
+    const mv = (id: string, reconciliationStatus: string) => ({ id, isResolved: false, reconciliationStatus, description: id, normalizedDescription: null, amount: 100, movementType: "debit" }) as unknown as BankMovementDTO;
+    const days = [{ date: "2026-10-05", movements: [mv("a", "pendente_de_documento"), mv("b", "saida_nao_justificada")] }] as unknown as DaySlotDTO[];
+    const out = visibleMonthDays(days, { tab: "movements", chip: "classified", search: "", sort: "date", suggestedIds: new Set() });
+    expect(out[0]!.movements.map((m) => m.id)).toEqual(["a"]);
+  });
 });

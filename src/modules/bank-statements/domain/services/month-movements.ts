@@ -2,7 +2,7 @@ import type { BankMovementDTO, DaySlotDTO } from "../entities/bank-statement.ts"
 import { matchesMovementFilter, type MovementFilter } from "./movement-kind.ts";
 
 export type MonthTab = "movements" | "suggestions" | "reconciled";
-export type MonthChip = MovementFilter | "pending" | "with_suggestion";
+export type MonthChip = MovementFilter | "pending" | "classified" | "with_suggestion";
 export type MonthSort = "priority" | "date";
 
 /** Estado simplificado de uma linha do mês (mockup V2): conciliado, parcial, só classificado (aguarda fatura) ou por conciliar. */
@@ -18,7 +18,7 @@ const normalize = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLo
 
 /**
  * Movimentos visíveis no mês, por dia: separador (Conciliados só os resolvidos), filtro (por conciliar,
- * entradas, saídas, transferências, com sugestão), pesquisa (descrição original ou normalizada, ou valor
+ * classificados à espera da fatura, entradas, saídas, transferências, com sugestão), pesquisa (descrição original ou normalizada, ou valor
  * «42,74») e ordem dentro do dia («Mais prioritários» = por conciliar primeiro, maior valor primeiro).
  */
 export function visibleMonthDays(
@@ -29,8 +29,9 @@ export function visibleMonthDays(
   const keep = (m: BankMovementDTO) => {
     if (opts.tab === "reconciled" && !m.isResolved) return false;
     if (opts.chip === "pending" && m.isResolved) return false;
+    if (opts.chip === "classified" && rowStatus(m) !== "classified") return false;
     if (opts.chip === "with_suggestion" && !opts.suggestedIds.has(m.id)) return false;
-    if (opts.chip !== "pending" && opts.chip !== "with_suggestion" && !matchesMovementFilter(m, opts.chip)) return false;
+    if (opts.chip !== "pending" && opts.chip !== "classified" && opts.chip !== "with_suggestion" && !matchesMovementFilter(m, opts.chip)) return false;
     if (q) {
       const amount = (m.amount / 100).toFixed(2);
       const hay = normalize(`${m.description} ${m.normalizedDescription ?? ""} ${amount} ${amount.replace(".", ",")}`);
