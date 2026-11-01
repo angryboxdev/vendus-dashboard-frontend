@@ -32,6 +32,22 @@ describe("composeControleGeral", () => {
     expect(by.DF!.sections).toEqual(["structure", "administrative", "financial"]);
   });
 
+  it("embalagens (custo variável na DRE) contam nos insumos (DI), não em DV; o total não muda", () => {
+    const sales = sampleRestaurantSales();
+    const before = composeControleGeral(sampleDre(), sales);
+    const dre = sampleDre();
+    dre.expenses.categories.push({
+      key: "g-opd", type: "group", groupId: "g-opd", code: "OPD", name: "Operação Direta", movementKind: null,
+      netCents: 0, vatCents: 0, estimatedVatCents: 0, pendingVatCents: 0,
+      children: [{ key: "c-emb", categoryId: "c-emb", code: null, name: "Embalagens e descartáveis", netCents: 10_000, vatCents: 2_300 }],
+    });
+    const after = composeControleGeral(dre, sales);
+    const amount = (cg: typeof before, k: string) => cg.groups.find((g) => g.key === k)!.amountCents!;
+    expect(amount(after, "DI") - amount(before, "DI")).toBe(12_300);
+    expect(amount(before, "DV") - amount(after, "DV")).toBe(12_300);
+    expect(after.totalCents).toBe(before.totalCents);
+  });
+
   it("sem as vendas: os grupos que dependem delas e o resumo ficam por carregar; sem custos, tudo", () => {
     const cg = composeControleGeral(sampleDre(), null);
     expect(cg.groups.find((g) => g.key === "DC")!.amountCents).not.toBeNull();
