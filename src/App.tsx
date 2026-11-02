@@ -20,8 +20,6 @@ import { StockPage } from "./pages/stock/StockPage";
 import { Sidebar } from "./modules/sidebar/adapters/in/SidebarView.tsx";
 import { SidebarProvider } from "./modules/sidebar/sidebar.module.tsx";
 import { NovoRhJoinPage, NovoRhPage } from "./modules/novo-rh/novo-rh.module.tsx";
-import { KioskDisplayPage } from "./pages/kiosk/KioskDisplayPage";
-import { KioskCheckinPage } from "./pages/kiosk/KioskCheckinPage";
 import { CashClosingPage } from "./pages/cashClosing/CashClosingPage";
 import { CashClosingsProvider } from "./modules/cash-closings/cash-closings.module.tsx";
 import { CashClosingsHubView } from "./modules/cash-closings/adapters/in/CashClosingsHubView.tsx";
@@ -115,23 +113,8 @@ export default function App() {
       {/* Pedido de adesão por convite (FE-054) — público, sem sessão */}
       <Route path="/aderir/:code" element={<NovoRhJoinPage />} />
 
-      {/* Páginas standalone sem sidebar (kiosk) */}
-      <Route
-        path="/kiosk"
-        element={
-          <DevicePairingGate>
-            <KioskDisplayPage />
-          </DevicePairingGate>
-        }
-      />
-      <Route
-        path="/kiosk/checkin"
-        element={
-          <DevicePairingGate>
-            <KioskCheckinPage />
-          </DevicePairingGate>
-        }
-      />
+      {/* O quiosque do RH antigo saiu (ADR-0040, fase 5): pica-se no Portal. */}
+      <Route path="/kiosk/*" element={<Navigate to="/portal" replace />} />
 
       {/* Impressão de pedidos — standalone sem auth (uso interno cozinha) */}
       <Route path="/print-orders" element={<PrintOrdersPage />} />

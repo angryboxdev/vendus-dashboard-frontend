@@ -10,7 +10,7 @@ export const ptPT = {
   "common.planned": "Planeada",
 
   "novoRh.title": "Novo RH",
-  "novoRh.description": "Equipa, escalas, assiduidade e ausências. Os ecrãs anteriores estão em \"RH antigo\".",
+  "novoRh.description": "Equipa, escalas, assiduidade e ausências.",
   "novoRh.banner.title": "Área separada do RH atual",
   "novoRh.banner.body": "Aqui vê o que está a ser construído. Nada desta área altera os dados ou os ecrãs do RH atual. Quando estiver completo e validado, pode passar a ser o RH principal.",
   "ovw.updatedAt": "Atualizado às {time}",
