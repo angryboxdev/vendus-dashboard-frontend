@@ -29,7 +29,8 @@ export function deliveryParametersUse(report: DreReport | null): DeliveryParamet
   const fromStatements = platforms.filter((p) => p.source === "statements").map((p) => ({ platform: p.platform, marketingNetCents: p.marketingNetCents }));
   if (fromStatements.length === 0) return { fromStatements, ratesNote: null };
   const names = (list: { platform: string }[]) => list.map((p) => platformLabel(p.platform)).join(", ");
-  const byBank = platforms.filter((p) => p.source === "bank");
+  // Sem extratos (pelo banco ou pelo SAF-T), a comissão sai da taxa dos parâmetros.
+  const byBank = platforms.filter((p) => p.source !== "statements");
   return {
     fromStatements,
     ratesNote:
