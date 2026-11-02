@@ -96,8 +96,18 @@ export function composeControleGeral(costs: DreReport | null, sales: DreRestaura
   const section = (k: DreSectionKey) => costs.expenses.sections.find((s) => s.key === k);
   const sectionParts = (key: ExpenseGroupKey): ExpenseGroupPart[] =>
     GROUP_SECTIONS[key].map((k) => ({ label: SECTION_LABELS[k], amountCents: (section(k)?.netCents ?? 0) + (section(k)?.vatCents ?? 0) }));
+  // Embalagens são custo variável na DRE, mas na folha contam nos insumos (DI): saem de DV e entram em DI.
+  const packaging = costs.expenses.categories
+    .flatMap((c) => c.children)
+    .filter((ch) => /^embalage/i.test(ch.name ?? ""))
+    .reduce((a, ch) => a + ch.netCents + ch.vatCents, 0);
+  const lessPackaging = (ps: ExpenseGroupPart[]) =>
+    ps.map((p) => (p.label === SECTION_LABELS.variable ? { ...p, amountCents: p.amountCents - packaging } : p));
   const platforms = costs.revenue.byPlatform;
   const sum = (f: (p: (typeof platforms)[number]) => number) => platforms.reduce((a, p) => a + f(p), 0);
+  // O IVA das vendas das plataformas é o do que os clientes pagaram (já sem promoções); a venda com IVA é
+  // antes das promoções. A diferença é o IVA das promoções, que conta com elas em DV (tudo com IVA).
+  const promotionsVat = sum((p) => Math.max(0, p.grossCents - p.netCents - p.salesVatCents));
 
   const vatSales = sales ? sales.vatCents + costs.vat.salesCents : null;
   const vatPayable = vatSales === null ? null : vatSales - costs.vat.purchasesCents;
@@ -107,14 +117,14 @@ export function composeControleGeral(costs: DreReport | null, sales: DreRestaura
     DF: sectionParts("DF"),
     DV: sales
       ? [
-          ...sectionParts("DV"),
+          ...lessPackaging(sectionParts("DV")),
           { label: "Comissões das plataformas", amountCents: sum((p) => p.commissionNetCents + p.commissionVatCents) },
-          { label: "Promoções e reembolsos das plataformas", amountCents: costs.platformCosts.promotionsNetCents + costs.platformCosts.otherFeesNetCents },
+          { label: "Promoções e reembolsos das plataformas", amountCents: costs.platformCosts.promotionsNetCents + promotionsVat + costs.platformCosts.otherFeesNetCents },
           { label: "Comissões do TPA", amountCents: sales.cardFees.netCents },
         ]
       : null,
     DP: [...sectionParts("DP"), { label: "Marketing das plataformas", amountCents: sum((p) => p.marketingNetCents + p.marketingVatCents) }],
-    DI: sectionParts("DI"),
+    DI: [...sectionParts("DI"), { label: "Embalagens e descartáveis", amountCents: packaging }],
     // Todo o IVA das vendas: o dedutível (a reduzir) e o que fica a pagar.
     DIVA:
       vatPayable === null
@@ -129,7 +139,8 @@ export function composeControleGeral(costs: DreReport | null, sales: DreRestaura
   const amounts = KEYS.map((k) => (parts[k] === null ? null : parts[k]!.reduce((a, p) => a + p.amountCents, 0)));
   const ready = amounts.every((a) => a !== null);
   const totalCents = ready ? amounts.reduce<number>((a, v) => a + v!, 0) : null;
-  const invoicingCents = sales && vatSales !== null ? sales.netCents + costs.revenue.platformsNetCents + vatSales : null;
+  // Faturação das plataformas = venda com IVA dos extratos (antes das promoções, que são gasto em DV).
+  const invoicingCents = sales ? sales.netCents + sales.vatCents + costs.revenue.platformsGrossCents : null;
   const totalLessDeductibleCents = totalCents === null ? null : totalCents - costs.vat.purchasesCents;
   const { rentThresholdCents = 0, rentVariablePct = 0 } = costs.parameters;
   const variableRentCents = invoicingCents === null ? null : Math.round((Math.max(0, invoicingCents - rentThresholdCents) * rentVariablePct) / 100);
