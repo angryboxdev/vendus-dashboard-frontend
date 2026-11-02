@@ -34,8 +34,14 @@ export interface RostersApiPort {
   copyWeek(rosterId: string, input: { from: string }): Promise<CopyWeekResult>;
   updateShift(id: string, patch: Partial<ShiftInput>, opts: PublishOptions): Promise<{ shift: RosterShift; warnings: Violation[]; publication: Publication | null }>;
   deleteShift(id: string, opts: PublishOptions): Promise<{ publication: Publication | null }>;
-  /** Limpa numa só operação os turnos nunca publicados de um colaborador no período (opcionalmente só estes ids). */
-  clearPending(rosterId: string, input: { employeeId: string; from: string; to: string; shiftIds?: string[] }): Promise<{ removed: RosterShift[] }>;
+  /**
+   * Limpa numa só operação os turnos nunca publicados de um colaborador no período (opcionalmente só estes ids).
+   * Com `includePublished`, retira também os publicados: motivo obrigatório, nova versão logo publicada e aviso ao colaborador.
+   */
+  clearPending(
+    rosterId: string,
+    input: { employeeId: string; from: string; to: string; shiftIds?: string[]; includePublished?: boolean; reason?: string | null; confirm?: boolean },
+  ): Promise<{ removed: RosterShift[]; retired?: RosterShift[]; publication?: Publication | null }>;
   /** Repõe turnos pendentes retirados (desfazer). */
   restoreShifts(rosterId: string, shiftIds: string[]): Promise<{ restored: RosterShift[]; warnings: Violation[] }>;
   /** Com período: só os pendentes desse período (os outros continuam a contar nas regras). */

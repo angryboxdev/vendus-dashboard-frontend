@@ -135,6 +135,7 @@ function DayDetail({ data, date, onRevise }: { data: AttendanceDays; date: strin
   const segments = data.days.find((d) => d.workDate === date)?.segments ?? [];
   return (
     <div className="space-y-3">
+      {/* As decisões do dia (cumpriu, manter, ausência) fazem-se só no painel da Conferência (ADR-0043). */}
       {segments.length > 0 && (
         <div className="space-y-1">
           <DayTimeline segments={segments} date={date} timeZone={tz} label={t("att.timeline.dayLabel", { date })} />

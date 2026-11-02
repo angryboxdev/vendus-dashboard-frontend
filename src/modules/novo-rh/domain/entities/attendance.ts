@@ -24,6 +24,9 @@ export interface AttendanceDay {
   segments: Segment[];
   incidents: IncidentType[];
   version?: number | null;
+  /** Horário previsto "HH:MM" (só na vista dos dias da gestão). */
+  plannedStart?: string | null;
+  plannedEnd?: string | null;
 }
 
 export interface ClockEvent {

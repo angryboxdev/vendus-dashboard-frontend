@@ -69,8 +69,9 @@ export interface RosterBoardProps {
   summary: ReactNode;
   /** Edição direta (arrastar, selecionar dias, copiar/colar); sem ela, só cliques. */
   edit?: BoardEdit;
-  /** Menu da linha da pessoa (ver ficha, limpar pendentes do período). */
+  /** Menu da linha da pessoa (ver ficha, limpar os turnos do período). */
   rowActions?: {
+    /** Turnos da pessoa no período que se podem limpar (pendentes e publicados). */
     pending: (employeeId: string) => number;
     onClearWeek: (employeeId: string) => void;
     /** «Exportar horário em PDF» (versão individual). */
@@ -673,10 +674,10 @@ function RowMenu({ p, r }: { p: RosterBoardProps; r: RosterRow }) {
         { label: "Ver funcionário", onSelect: () => navigate(href) },
         ...(a.onExportPdf ? [{ label: "Exportar horário em PDF", onSelect: () => a.onExportPdf!(r.employeeId) }] : []),
         {
-          label: a.period === "week" ? "Limpar turnos pendentes da semana" : "Limpar turnos pendentes do período",
+          label: a.period === "week" ? "Limpar turnos da semana" : "Limpar turnos do período",
           onSelect: () => a.onClearWeek(r.employeeId),
           disabled: pending === 0,
-          hint: "Sem turnos pendentes neste período",
+          hint: "Sem turnos neste período",
           danger: true,
         },
       ]}
