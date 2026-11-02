@@ -91,21 +91,23 @@ export function composeDreStatement(costs: DreReport | null, sales: DreRestauran
   const platforms = costs ? costs.revenue.platformsNetCents : null;
   const grossRevenue = add(restaurant, platforms);
   const commissions = costs ? costs.platformCosts.commissionNetCents : null;
+  // Marketing das plataformas: retido na liquidação como a comissão, por isso sai antes da receita líquida (decisão do utilizador, 2026-11-02).
+  const platformMarketing = costs ? costs.platformCosts.marketingNetCents : null;
   // Promoções, reembolsos e outras taxas das plataformas: só existem quando há extratos importados.
   const platformDeductions = costs ? costs.platformCosts.promotionsNetCents + costs.platformCosts.otherFeesNetCents : null;
   // Comissão do TPA: o banco liquida o cartão já sem ela; vem com as vendas do restaurante.
   const cardFees = sales ? sales.cardFees.netCents : null;
   const netRevenue =
-    grossRevenue === null || commissions === null || platformDeductions === null || cardFees === null
+    grossRevenue === null || commissions === null || platformMarketing === null || platformDeductions === null || cardFees === null
       ? null
-      : grossRevenue - commissions - platformDeductions - cardFees;
+      : grossRevenue - commissions - platformMarketing - platformDeductions - cardFees;
   const pct = (v: number | null) => (v === null || netRevenue === null || netRevenue <= 0 ? null : Math.round((v / netRevenue) * 1000) / 10);
 
   const cmv = sectionAmount("cmv");
   const grossProfit = netRevenue === null || cmv === null ? null : netRevenue - cmv;
   const variable = sectionAmount("variable");
   const contribution = grossProfit === null || variable === null ? null : grossProfit - variable;
-  const marketing = costs ? (section("marketing")?.netCents ?? 0) + costs.platformCosts.marketingNetCents : null;
+  const marketing = costs ? (section("marketing")?.netCents ?? 0) : null;
   const opex: (number | null)[] = [sectionAmount("personnel"), sectionAmount("structure"), sectionAmount("administrative"), marketing, sectionAmount("other"), sectionAmount("unclassified")];
   const opexTotal = add(...opex);
   const operating = contribution === null || opexTotal === null ? null : contribution - opexTotal;
@@ -116,7 +118,7 @@ export function composeDreStatement(costs: DreReport | null, sales: DreRestauran
   const platformChildren: StatementChild[] = byPlatform.map((p) => ({
     key: p.platform,
     label: `Venda plataforma ${l.platform(p.platform)}`,
-    hint: `${p.source === "statements" ? "Pelos extratos" : p.source === "saft" ? "Pelo SAF-T do AirMenu" : "Pelo banco"} · recebido ${l.euros(p.receivedCents)} · margem ${l.euros(p.contributionCents)}`,
+    hint: `${p.source === "statements" ? "Pelos extratos" : p.source === "saft" ? "Pelo SAF-T do AirMenu" : "Pelo banco"} · − comissão ${l.euros(p.commissionNetCents)} · − marketing ${l.euros(p.marketingNetCents)}${p.promotionsNetCents + p.otherFeesNetCents !== 0 ? ` · − promoções e taxas ${l.euros(p.promotionsNetCents + p.otherFeesNetCents)}` : ""} = líquido ${l.euros(p.contributionCents)} · recebido ${l.euros(p.receivedCents)}`,
     amountCents: p.netCents,
   }));
   const fromStatements = byPlatform.filter((p) => p.source === "statements");
@@ -147,12 +149,9 @@ export function composeDreStatement(costs: DreReport | null, sales: DreRestauran
         { key: "other", label: "Outros (Eatz, MB Way…)", amountCents: sales.byPayment.otherNetCents },
       ].filter((c) => c.amountCents !== 0)
     : [];
-  const marketingChildren: StatementChild[] = [
-    ...sectionChildren("marketing"),
-    ...(costs?.revenue.byPlatform ?? [])
-      .filter((p) => p.marketingNetCents > 0)
-      .map((p) => ({ key: `mkt-${p.platform}`, label: `Marketing ${l.platform(p.platform)}`, amountCents: p.marketingNetCents })),
-  ];
+  const platformMarketingChildren: StatementChild[] = (costs?.revenue.byPlatform ?? [])
+    .filter((p) => p.marketingNetCents > 0)
+    .map((p) => ({ key: `mkt-${p.platform}`, label: `Marketing ${l.platform(p.platform)}`, amountCents: p.marketingNetCents }));
 
   const line = (key: string, label: string, kind: StatementLine["kind"], amountCents: number | null, children: StatementChild[] = [], hint?: string): StatementLine => ({
     key,
@@ -178,6 +177,7 @@ export function composeDreStatement(costs: DreReport | null, sales: DreRestauran
     line("platforms", "Vendas das plataformas", "revenue", platforms, platformChildren, platformsHint),
     line("gross-revenue", "Receita bruta", "subtotal", grossRevenue),
     line("commissions", "Comissões das plataformas", "cost", commissions),
+    line("platform-marketing", "Marketing das plataformas", "cost", platformMarketing, platformMarketingChildren),
     line("platform-deductions", "Promoções e reembolsos das plataformas", "cost", platformDeductions, deductionChildren, "Pelos extratos importados"),
     line("card-fees", "Comissões do TPA", "cost", cardFees, [], sales ? `${sales.cardFees.ratePct.toLocaleString("pt-PT")}% de ${l.euros(sales.cardFees.cardGrossCents)} vendidos em cartão` : undefined),
     line("net-revenue", "Receita líquida", "subtotal", netRevenue),
@@ -188,7 +188,7 @@ export function composeDreStatement(costs: DreReport | null, sales: DreRestauran
     costLine("personnel"),
     costLine("structure"),
     costLine("administrative"),
-    line("marketing", SECTION_LABELS.marketing, "cost", marketing, marketingChildren),
+    line("marketing", SECTION_LABELS.marketing, "cost", marketing, sectionChildren("marketing")),
     costLine("other"),
     costLine("unclassified"),
     line("operating", "Resultado operacional", "subtotal", operating),

@@ -40,7 +40,7 @@ describe("composeDreStatement", () => {
     expect(amount(s, "net-revenue")).toBe(556_957 - 6_000 - 3_955);
     const platforms = s.lines.find((x) => x.key === "platforms")!;
     expect(platforms.hint).toBe("Pelos extratos importados (preço de tabela), sem IVA");
-    expect(platforms.children[0]!.hint).toMatch(/^Pelos extratos · recebido/);
+    expect(platforms.children[0]!.hint).toMatch(/^Pelos extratos · − comissão .* = líquido .* · recebido/);
     expect(s.lines.find((x) => x.key === "platform-deductions")!.children.map((c) => c.label)).toEqual([
       "Promoções uber_eats",
       "Reembolsos e outras taxas uber_eats",
@@ -76,14 +76,17 @@ describe("composeDreStatement", () => {
     expect(s.netResultCents).toBeNull();
   });
 
-  it("CAPEX fora do resultado e marketing das plataformas na linha de marketing", () => {
+  it("CAPEX fora do resultado; marketing das plataformas antes da receita líquida (não nas despesas)", () => {
     const costs = sampleDre();
     costs.expenses.sections.push({ key: "capex", netCents: 50_000, vatCents: 0, items: [] });
     costs.platformCosts.marketingNetCents = 10_000;
     costs.revenue.byPlatform[0]!.marketingNetCents = 10_000;
     const s = composeDreStatement(costs, sampleRestaurantSales(), l);
     expect(amount(s, "capex")).toBe(50_000);
-    expect(amount(s, "marketing")).toBe(10_000);
+    expect(amount(s, "platform-marketing")).toBe(10_000);
+    expect(amount(s, "marketing") ?? 0).toBe(0); // só tinha o das plataformas: a linha a zero esconde-se
+    expect(amount(s, "net-revenue")).toBe(556_957 - 3_955 - 10_000);
+    // O lucro é o mesmo: o marketing só mudou de sítio.
     expect(amount(s, "net-result")).toBe(353_002 - 10_000);
   });
 
