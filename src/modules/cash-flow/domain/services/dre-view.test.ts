@@ -29,5 +29,8 @@ describe("deliveryParametersUse", () => {
     });
     dre.revenue.byPlatform = [{ ...uber, source: "statements" }];
     expect(deliveryParametersUse(dre).ratesNote).toMatch(/Todas as plataformas deste mês têm extratos importados \(Uber Eats\)/);
+    // Pelo SAF-T (sem extrato) a comissão ainda sai da taxa dos parâmetros.
+    dre.revenue.byPlatform = [{ ...uber, source: "statements" }, { ...uber, platform: "glovo", source: "saft" }];
+    expect(deliveryParametersUse(dre).ratesNote).toBe("Usadas só em Glovo (sem extratos). Uber Eats: pelos extratos importados.");
   });
 });

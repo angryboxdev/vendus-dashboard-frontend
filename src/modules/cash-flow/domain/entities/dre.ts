@@ -34,7 +34,8 @@ export interface ResolvedDreParameters extends DreParameters {
 export interface DrePlatformRevenue {
   /** uber_eats | glovo | bolt_food */
   platform: string;
-  source: "statements" | "bank";
+  /** `saft` = sem extrato, venda pelo SAF-T do AirMenu do mês (comissão pela taxa dos parâmetros). */
+  source: "statements" | "bank" | "saft";
   /** Liquidado no banco (já sem comissão nem marketing). */
   receivedCents: number;
   marketingNetCents: number;

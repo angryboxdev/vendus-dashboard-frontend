@@ -116,16 +116,26 @@ export function composeDreStatement(costs: DreReport | null, sales: DreRestauran
   const platformChildren: StatementChild[] = byPlatform.map((p) => ({
     key: p.platform,
     label: `Venda plataforma ${l.platform(p.platform)}`,
-    hint: `${p.source === "statements" ? "Pelos extratos" : "Pelo banco"} · recebido ${l.euros(p.receivedCents)} · margem ${l.euros(p.contributionCents)}`,
+    hint: `${p.source === "statements" ? "Pelos extratos" : p.source === "saft" ? "Pelo SAF-T do AirMenu" : "Pelo banco"} · recebido ${l.euros(p.receivedCents)} · margem ${l.euros(p.contributionCents)}`,
     amountCents: p.netCents,
   }));
   const fromStatements = byPlatform.filter((p) => p.source === "statements");
+  const fromSaft = byPlatform.filter((p) => p.source === "saft");
+  const names = (ps: typeof byPlatform) => ps.map((p) => l.platform(p.platform)).join(", ");
   const platformsHint =
-    fromStatements.length === 0
-      ? "Reconstituídas do recebido no banco, sem IVA"
-      : fromStatements.length === byPlatform.length
-        ? "Pelos extratos importados (preço de tabela), sem IVA"
-        : `Pelos extratos: ${fromStatements.map((p) => l.platform(p.platform)).join(", ")}; as outras pelo banco · sem IVA`;
+    fromStatements.length === byPlatform.length && byPlatform.length > 0
+      ? "Pelos extratos importados (preço de tabela), sem IVA"
+      : fromSaft.length === byPlatform.length && byPlatform.length > 0
+        ? "Pelo SAF-T do AirMenu (faturado do mês, repartido pelo recebido no banco), sem IVA"
+        : fromStatements.length === 0 && fromSaft.length === 0
+          ? "Reconstituídas do recebido no banco, sem IVA"
+          : [
+              fromStatements.length > 0 ? `Pelos extratos: ${names(fromStatements)}` : null,
+              fromSaft.length > 0 ? `pelo SAF-T: ${names(fromSaft)}` : null,
+              byPlatform.some((p) => p.source === "bank") ? "as outras pelo banco" : null,
+            ]
+              .filter(Boolean)
+              .join("; ") + " · sem IVA";
   const deductionChildren: StatementChild[] = fromStatements.flatMap((p) => [
     { key: `promo-${p.platform}`, label: `Promoções ${l.platform(p.platform)}`, amountCents: p.promotionsNetCents },
     { key: `other-${p.platform}`, label: `Reembolsos e outras taxas ${l.platform(p.platform)}`, amountCents: p.otherFeesNetCents },
