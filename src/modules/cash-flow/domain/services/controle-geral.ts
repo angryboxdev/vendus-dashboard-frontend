@@ -105,6 +105,9 @@ export function composeControleGeral(costs: DreReport | null, sales: DreRestaura
     ps.map((p) => (p.label === SECTION_LABELS.variable ? { ...p, amountCents: p.amountCents - packaging } : p));
   const platforms = costs.revenue.byPlatform;
   const sum = (f: (p: (typeof platforms)[number]) => number) => platforms.reduce((a, p) => a + f(p), 0);
+  // O IVA das vendas das plataformas é o do que os clientes pagaram (já sem promoções); a venda com IVA é
+  // antes das promoções. A diferença é o IVA das promoções, que conta com elas em DV (tudo com IVA).
+  const promotionsVat = sum((p) => Math.max(0, p.grossCents - p.netCents - p.salesVatCents));
 
   const vatSales = sales ? sales.vatCents + costs.vat.salesCents : null;
   const vatPayable = vatSales === null ? null : vatSales - costs.vat.purchasesCents;
@@ -116,7 +119,7 @@ export function composeControleGeral(costs: DreReport | null, sales: DreRestaura
       ? [
           ...lessPackaging(sectionParts("DV")),
           { label: "Comissões das plataformas", amountCents: sum((p) => p.commissionNetCents + p.commissionVatCents) },
-          { label: "Promoções e reembolsos das plataformas", amountCents: costs.platformCosts.promotionsNetCents + costs.platformCosts.otherFeesNetCents },
+          { label: "Promoções e reembolsos das plataformas", amountCents: costs.platformCosts.promotionsNetCents + promotionsVat + costs.platformCosts.otherFeesNetCents },
           { label: "Comissões do TPA", amountCents: sales.cardFees.netCents },
         ]
       : null,
@@ -136,7 +139,8 @@ export function composeControleGeral(costs: DreReport | null, sales: DreRestaura
   const amounts = KEYS.map((k) => (parts[k] === null ? null : parts[k]!.reduce((a, p) => a + p.amountCents, 0)));
   const ready = amounts.every((a) => a !== null);
   const totalCents = ready ? amounts.reduce<number>((a, v) => a + v!, 0) : null;
-  const invoicingCents = sales && vatSales !== null ? sales.netCents + costs.revenue.platformsNetCents + vatSales : null;
+  // Faturação das plataformas = venda com IVA dos extratos (antes das promoções, que são gasto em DV).
+  const invoicingCents = sales ? sales.netCents + sales.vatCents + costs.revenue.platformsGrossCents : null;
   const totalLessDeductibleCents = totalCents === null ? null : totalCents - costs.vat.purchasesCents;
   const { rentThresholdCents = 0, rentVariablePct = 0 } = costs.parameters;
   const variableRentCents = invoicingCents === null ? null : Math.round((Math.max(0, invoicingCents - rentThresholdCents) * rentVariablePct) / 100);
