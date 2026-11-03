@@ -239,6 +239,15 @@ export function MonthDetailView() {
     () => visibleMonthDays(days ?? [], { tab: viewTab, chip: viewTab === "reconciled" && chip === "pending" ? "all" : chip, search, sort, suggestedIds }),
     [days, viewTab, chip, search, sort, suggestedIds],
   );
+  // Total da lista visível (mesmo cálculo dos blocos por dia), mostrado por cima da lista.
+  const listTotals = useMemo(() => {
+    const movements = visibleDays.flatMap((d) => d.movements);
+    return {
+      count: movements.length,
+      inflow: movements.filter((m) => m.movementType === "credit").reduce((s, m) => s + m.amount, 0),
+      outflow: movements.filter((m) => m.movementType === "debit").reduce((s, m) => s + m.amount, 0),
+    };
+  }, [visibleDays]);
 
   const occurrenceMatches = suggestions?.occurrenceMatches ?? [];
   const suggestionsCount =
@@ -846,11 +855,26 @@ export function MonthDetailView() {
                   onChange={setViewTab}
                   items={[
                     { key: "movements", label: "Movimentos" },
-                    { key: "suggestions", label: "Sugestões", ...(suggestionsCount > 0 && { count: suggestionsCount }) },
-                    { key: "reconciled", label: "Conciliados", count: resolvedMovements },
+                    { key: "suggestions", label: "Sugestões" },
+                    { key: "reconciled", label: "Conciliados" },
                   ]}
                 />
               </div>
+              {viewTab !== "suggestions" && !isLoading && (days?.length ?? 0) > 0 && (
+                <p className="flex flex-wrap gap-x-3 gap-y-1 pt-3 text-[13px] text-ink-secondary">
+                  <span>
+                    {listTotals.count} {listTotals.count === 1 ? "movimento" : "movimentos"}
+                    {viewTab === "reconciled" && (listTotals.count === 1 ? " conciliado" : " conciliados")} · {activeFilterLabel} · {monthName} {year}
+                  </span>
+                  {listTotals.inflow > 0 && <span>· Entradas <span className={`font-semibold text-emerald-600 ${NUMERIC}`}>+{fromCents(listTotals.inflow)}</span></span>}
+                  {listTotals.outflow > 0 && <span>· Saídas <span className={`font-semibold text-red-600 ${NUMERIC}`}>−{fromCents(listTotals.outflow)}</span></span>}
+                </p>
+              )}
+              {viewTab === "suggestions" && !suggestionsLoading && suggestionsCount > 0 && (
+                <p className="py-3 text-[13px] text-ink-secondary">
+                  {suggestionsCount === 1 ? "1 sugestão" : `${suggestionsCount} sugestões`} para {monthName} {year}.
+                </p>
+              )}
               {viewTab !== "suggestions" && (
                 <div className="flex flex-wrap items-center gap-2 py-3">
                   <DropdownMenu
