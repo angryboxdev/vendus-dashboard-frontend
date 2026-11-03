@@ -93,7 +93,7 @@ describe("Fecho de período", () => {
 
   it("transferências: descarregar um ficheiro pronto", async () => {
     const m = mod();
-    m.periods.exports = vi.fn(async () => [{ id: "x1", periodId: "p1", kind: "payroll" as const, status: "done" as const, error: null, fileName: "salarios.csv", includeSensitive: false, expiresAt: "2026-11-03T10:00:00Z", createdAt: "2026-11-02T10:00:00Z" }]);
+    m.periods.exports = vi.fn(async () => [{ id: "x1", periodId: "p1", kind: "payroll" as const, status: "done" as const, error: null, fileName: "salarios.csv", includeSensitive: false, expiresAt: "2099-01-03T10:00:00Z", createdAt: "2026-11-02T10:00:00Z" }]);
     m.periods.download = vi.fn(async () => ({ blob: new Blob(["a;b"]), fileName: "salarios.csv" }));
     URL.createObjectURL = vi.fn(() => "blob:x");
     URL.revokeObjectURL = vi.fn();
@@ -101,7 +101,7 @@ describe("Fecho de período", () => {
     const user = userEvent.setup();
     await user.click(screen.getByRole("tab", { name: "Transferências" }));
     const row = (await screen.findByText("Pronta")).closest("tr")!;
-    expect(within(row).getByText("2026-11-03 10:00")).toBeInTheDocument();
+    expect(within(row).getByText("2099-01-03 10:00")).toBeInTheDocument();
     await user.click(within(row).getByRole("button", { name: "Descarregar" }));
     expect(m.periods.download).toHaveBeenCalled();
   });

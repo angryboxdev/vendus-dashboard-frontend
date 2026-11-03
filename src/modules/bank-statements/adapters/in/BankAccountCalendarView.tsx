@@ -3,7 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useBankStatementsModule } from "../../bank-statements.module.tsx";
 import { useBankAccountsModule } from "../../../bank-accounts/bank-accounts.module.tsx";
-import { shiftMonth, summarizeYear } from "../../domain/services/account-year.ts";
+import { MONTH_NAMES_PT, shiftMonth, summarizeYear } from "../../domain/services/account-year.ts";
 import { lastKnownBalance, monthStatementBalances, statementsOfMonth } from "../../domain/services/statement-overview.ts";
 import type { BankStatementSummaryDTO } from "../../domain/entities/bank-statement.ts";
 import { useToast, ToastContainer } from "../../../../components/Toast.tsx";
@@ -13,6 +13,7 @@ import {
   AppIcon,
   Button,
   Dialog,
+  DropdownMenu,
   IconChevronLeft,
   IconChevronRight,
   IconLayers,
@@ -230,6 +231,31 @@ export function BankAccountCalendarView() {
                 <p className="text-[13px] text-ink-secondary">Movimentos, fluxo bancário e conciliação de cada mês.</p>
               </div>
               <div className="flex flex-wrap items-center gap-2">
+                {/* Editar → escolher o mês → resumo do mês (onde se eliminam extratos); o clique no mês abre os movimentos. */}
+                <DropdownMenu
+                  label="Editar mês"
+                  items={MONTH_NAMES_PT.map((name, i) => {
+                    const m = i + 1;
+                    const hasStatements = accountId ? statementsOfMonth(allStatements, accountId, year, m).length > 0 : false;
+                    return {
+                      label: name,
+                      onSelect: () => setOpenMonth(m),
+                      disabled: isAfterNow(year, m),
+                      ...(!hasStatements && !isAfterNow(year, m) && { hint: "Sem extrato" }),
+                    };
+                  })}
+                  trigger={({ open, toggle }) => (
+                    <button
+                      type="button"
+                      onClick={toggle}
+                      aria-haspopup="menu"
+                      aria-expanded={open}
+                      className="inline-flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-[13px] font-medium text-ink-secondary transition-colors hover:bg-surface-soft hover:text-ink"
+                    >
+                      <AppIcon name="edit" size={14} /> Editar
+                    </button>
+                  )}
+                />
                 <SegmentedControl
                   label="Vista dos meses"
                   size="sm"
@@ -277,9 +303,9 @@ export function BankAccountCalendarView() {
               onDeleteStatement={setDeleting}
             />
           ) : layout === "table" ? (
-            <MonthsTable months={statByMonth} summary={summary} onOpen={setOpenMonth} onImport={() => setShowImport(true)} />
+            <MonthsTable months={statByMonth} summary={summary} onOpen={(m) => navigate(monthUrl(year, m))} onImport={() => setShowImport(true)} />
           ) : (
-            <MonthsBoard months={statByMonth} onOpen={setOpenMonth} onImport={() => setShowImport(true)} />
+            <MonthsBoard months={statByMonth} onOpen={(m) => navigate(monthUrl(year, m))} onImport={() => setShowImport(true)} />
           )}
         </section>
       </div>

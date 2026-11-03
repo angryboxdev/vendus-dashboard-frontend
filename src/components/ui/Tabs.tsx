@@ -22,7 +22,7 @@ export function Tabs<K extends string>({
   label?: string;
 }) {
   return (
-    <div role="tablist" aria-label={label} className="flex gap-1 overflow-x-auto">
+    <div role="tablist" aria-label={label} className="flex flex-wrap gap-1">
       {items.map((t) => (
         <button key={t.key} type="button" role="tab" aria-selected={value === t.key} onClick={() => onChange(t.key)} className={tabClass(value === t.key)}>
           {t.label}
