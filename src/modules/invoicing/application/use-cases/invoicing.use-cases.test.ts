@@ -24,11 +24,33 @@ function api(over: Partial<InvoicingApiPort> = {}): InvoicingApiPort {
     issue: vi.fn(async () => ({ documentId: "d1", documentNumber: "FS L01-2027/1", atcud: "CDF7T5HD-1" })),
     cancel: vi.fn(),
     legalEntities: vi.fn(),
+    exportSaft: vi.fn(async () => new Blob(["<AuditFile/>"])),
     ...over,
   };
 }
 
 const ids = { next: () => "chave-1" };
+
+describe("exportar SAF-T", () => {
+  const q = { legalEntityId: "22222222-2222-4222-8222-222222222222", from: "2027-03-01", to: "2027-03-31", includeTraining: true };
+
+  it("valida o período antes de chamar a API (um só ano fiscal)", async () => {
+    const port = api();
+    const uc = new InvoicingUseCases(port, ids, { save: vi.fn() });
+    expect(await uc.exportSaft({ ...q, legalEntityId: "" })).toEqual(["Escolha o emitente"]);
+    expect(await uc.exportSaft({ ...q, from: "2027-04-01" })).toEqual(["O início é depois do fim"]);
+    expect(await uc.exportSaft({ ...q, from: "2026-12-01" })).toEqual(["O SAF-T cobre um só ano — divida o período"]);
+    expect(port.exportSaft).not.toHaveBeenCalled();
+  });
+
+  it("descarrega o ficheiro com o nome do período", async () => {
+    const save = vi.fn();
+    const port = api();
+    expect(await new InvoicingUseCases(port, ids, { save }).exportSaft(q)).toEqual([]);
+    expect(port.exportSaft).toHaveBeenCalledWith(q);
+    expect(save).toHaveBeenCalledWith("SAFT_2027-03-01_2027-03-31.xml", expect.any(Blob));
+  });
+});
 
 describe("emitir pelo formulário", () => {
   it("valida antes de chamar a API", async () => {

@@ -1,4 +1,4 @@
-import type { DocumentSummary, DocumentView, InvoicingMeta, IssueResult, NewSeriesInput, Series } from "../../entities/invoicing.ts";
+import type { DocumentSummary, DocumentView, InvoicingMeta, IssueResult, NewSeriesInput, SaftQuery, Series } from "../../entities/invoicing.ts";
 import type { IssueForm } from "../../services/issue-form.service.ts";
 import type { DocumentFilter, LegalEntityOption } from "../out/invoicing-api.port.ts";
 
@@ -24,4 +24,6 @@ export interface InvoicingPort {
   newAttemptKey(): string;
   cancel(id: string, reasonCode: string, note?: string): Promise<DocumentView>;
   legalEntities(): Promise<LegalEntityOption[]>;
+  /** Valida o período e descarrega o SAF-T; devolve erros do formulário (vazio = descarregado). */
+  exportSaft(q: SaftQuery): Promise<string[]>;
 }
