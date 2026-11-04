@@ -8,9 +8,9 @@ import { toIssueInput, validateIssueForm, type IssueForm } from "../../domain/se
 export class InvoicingUseCases implements InvoicingPort {
   private readonly api: InvoicingApiPort;
   private readonly ids: IdGeneratorPort;
-  private readonly files: FileSaverPort | null;
+  private readonly files: FileSaverPort;
 
-  constructor(api: InvoicingApiPort, ids: IdGeneratorPort, files: FileSaverPort | null = null) {
+  constructor(api: InvoicingApiPort, ids: IdGeneratorPort, files: FileSaverPort) {
     this.api = api;
     this.ids = ids;
     this.files = files;
@@ -74,7 +74,7 @@ export class InvoicingUseCases implements InvoicingPort {
     if (errors.length > 0) return errors;
     try {
       const file = await this.api.exportSaft(q);
-      this.files?.save(`SAFT_${q.from}_${q.to}.xml`, file);
+      this.files.save(`SAFT_${q.from}_${q.to}.xml`, file);
       return [];
     } catch (e) {
       if (e instanceof FiscalRuleError) return [e.message];

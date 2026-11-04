@@ -20,6 +20,7 @@ export function InvoicingProvider({ children, module: mod }: { children: ReactNo
   return <InvoicingContext.Provider value={built}>{children}</InvoicingContext.Provider>;
 }
 
+// eslint-disable-next-line react-refresh/only-export-components
 export function useInvoicingModule(): InvoicingModule {
   const ctx = useContext(InvoicingContext);
   if (!ctx) throw new Error("useInvoicingModule must be used inside InvoicingProvider");

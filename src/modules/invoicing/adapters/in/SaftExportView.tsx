@@ -17,7 +17,9 @@ export function SaftExportView() {
   const { data: entities } = useLegalEntities();
   const [legalEntityId, setLegalEntityId] = useState("");
   const [{ from, to }, setPeriod] = useState(previousMonth);
-  const [training, setTraining] = useState(true);
+  // Por omissão: incluir formação só antes do certificado (até lá só há documentos de formação).
+  const [trainingChoice, setTraining] = useState<boolean | null>(null);
+  const training = trainingChoice ?? !meta?.certified;
   const [errors, setErrors] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
   const [done, setDone] = useState(false);

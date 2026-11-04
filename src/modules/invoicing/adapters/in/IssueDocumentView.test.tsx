@@ -42,7 +42,7 @@ function renderView(issue: InvoicingApiPort["issue"]) {
   } as unknown as InvoicingApiPort;
   render(
     <MemoryRouter>
-      <InvoicingProvider module={{ invoicing: new InvoicingUseCases(api, { next: () => `chave-${++n}` }) }}>
+      <InvoicingProvider module={{ invoicing: new InvoicingUseCases(api, { next: () => `chave-${++n}` }, { save: () => {} }) }}>
         <IssueDocumentView />
       </InvoicingProvider>
     </MemoryRouter>,

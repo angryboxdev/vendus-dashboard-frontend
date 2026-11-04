@@ -29,7 +29,7 @@
 ### Saída
 - `HttpInvoicingApiAdapter` → `InvoicingApiPort` com `apiGet`/`apiWrite` (`src/lib/api.ts`); traduz 409 com avisos e 400/404/409/422/503 em erros do domínio.
 - `CryptoIdGenerator` → `IdGeneratorPort` com `crypto.randomUUID()`.
-- `BrowserFileSaver` → `FileSaverPort` (descarga do SAF-T no browser).
+- `BrowserFileSaver` → `FileSaverPort` (descarga do SAF-T no browser; obrigatório nos casos de uso). O SAF-T exige `sales.invoicing` MANAGE no backend; «Incluir formação» vem ligado só antes do certificado.
 
 ## Decisões de design (ADR resumido)
 - **Nunca duas faturas por engano**: a mesma chave de idempotência num reenvio do mesmo pedido (falha de rede) devolve a mesma resposta; formulário alterado ou avisos confirmados = pedido novo, chave nova (o backend recusa a mesma chave com outro corpo).

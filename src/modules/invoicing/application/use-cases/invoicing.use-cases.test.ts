@@ -30,6 +30,7 @@ function api(over: Partial<InvoicingApiPort> = {}): InvoicingApiPort {
 }
 
 const ids = { next: () => "chave-1" };
+const files = { save: vi.fn() };
 
 describe("exportar SAF-T", () => {
   const q = { legalEntityId: "22222222-2222-4222-8222-222222222222", from: "2027-03-01", to: "2027-03-31", includeTraining: true };
@@ -55,21 +56,21 @@ describe("exportar SAF-T", () => {
 describe("emitir pelo formulário", () => {
   it("valida antes de chamar a API", async () => {
     const port = api();
-    const out = await new InvoicingUseCases(port, ids).issue({ ...form, seriesRef: "" }, { attemptKey: "k" });
+    const out = await new InvoicingUseCases(port, ids, files).issue({ ...form, seriesRef: "" }, { attemptKey: "k" });
     expect(out).toEqual({ kind: "invalid", errors: ["Escolha a série"] });
     expect(port.issue).not.toHaveBeenCalled();
   });
 
   it("emite com a chave da tentativa e pedido já convertido", async () => {
     const port = api();
-    const out = await new InvoicingUseCases(port, ids).issue(form, { attemptKey: "k-1" });
+    const out = await new InvoicingUseCases(port, ids, files).issue(form, { attemptKey: "k-1" });
     expect(out).toEqual({ kind: "issued", result: { documentId: "d1", documentNumber: "FS L01-2027/1", atcud: "CDF7T5HD-1" } });
     expect(port.issue).toHaveBeenCalledWith(expect.objectContaining({ seriesRef: form.seriesRef, customer: null }), "k-1");
   });
 
   it("409 com avisos → pede confirmação; confirmar reenvia com confirmWarnings", async () => {
     const issue = vi.fn().mockRejectedValueOnce(new IssueNeedsConfirmationError(["future-document-date"])).mockResolvedValueOnce({ documentId: "d1", documentNumber: "n", atcud: "a" });
-    const uc = new InvoicingUseCases(api({ issue }), ids);
+    const uc = new InvoicingUseCases(api({ issue }), ids, files);
 
     expect(await uc.issue(form, { attemptKey: "k-1" })).toEqual({ kind: "needs-confirmation", warnings: ["A data do documento é futura."] });
     await uc.issue(form, { attemptKey: "k-2", confirmWarnings: true });
@@ -78,7 +79,7 @@ describe("emitir pelo formulário", () => {
 
   it("regra fiscal recusada pelo servidor (422) volta como erro do formulário", async () => {
     const issue = vi.fn().mockRejectedValue(new FiscalRuleError("Fatura simplificada só até 100 € sem IVA"));
-    expect(await new InvoicingUseCases(api({ issue }), ids).issue(form, { attemptKey: "k" })).toEqual({
+    expect(await new InvoicingUseCases(api({ issue }), ids, files).issue(form, { attemptKey: "k" })).toEqual({
       kind: "invalid",
       errors: ["Fatura simplificada só até 100 € sem IVA"],
     });
