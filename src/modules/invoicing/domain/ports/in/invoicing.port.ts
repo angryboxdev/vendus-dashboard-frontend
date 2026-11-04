@@ -1,4 +1,4 @@
-import type { DocumentSummary, DocumentView, InvoicingMeta, IssueResult, NewSeriesInput, SaftQuery, Series } from "../../entities/invoicing.ts";
+import type { AtCommunication, AtCredentialsInput, AtStatus, CommunicateResult, DocumentSummary, DocumentView, InvoicingMeta, IssueResult, NewSeriesInput, SaftQuery, Series } from "../../entities/invoicing.ts";
 import type { IssueForm } from "../../services/issue-form.service.ts";
 import type { DocumentFilter, LegalEntityOption } from "../out/invoicing-api.port.ts";
 
@@ -26,4 +26,14 @@ export interface InvoicingPort {
   legalEntities(): Promise<LegalEntityOption[]>;
   /** Valida o período e descarrega o SAF-T; devolve erros do formulário (vazio = descarregado). */
   exportSaft(q: SaftQuery): Promise<string[]>;
+  atStatus(): Promise<AtStatus>;
+  /** Valida o formato e grava; devolve erros do formulário (vazio = gravado). */
+  saveAtCredentials(legalEntityId: string, credentials: AtCredentialsInput): Promise<string[]>;
+  removeAtCredentials(legalEntityId: string): Promise<void>;
+  communicateAt(force: boolean): Promise<CommunicateResult>;
+  documentAtCommunications(documentId: string): Promise<AtCommunication[]>;
+  /** Operações de séries na AT; devolvem erros do formulário (vazio = feito). */
+  registerSeriesAt(seriesRef: string, credentials: AtCredentialsInput): Promise<string[]>;
+  finalizeSeriesAt(seriesRef: string, credentials: AtCredentialsInput, justification?: string): Promise<string[]>;
+  cancelSeriesAt(seriesRef: string, credentials: AtCredentialsInput): Promise<string[]>;
 }

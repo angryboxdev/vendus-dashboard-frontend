@@ -1,4 +1,8 @@
 import type {
+  AtCommunication,
+  AtCredentialsInput,
+  AtStatus,
+  CommunicateResult,
   DocumentStatus,
   DocumentSummary,
   DocumentView,
@@ -33,6 +37,15 @@ export interface InvoicingApiPort {
   legalEntities(): Promise<LegalEntityOption[]>;
   /** Ficheiro SAF-T (PT) 1.04_01 do período. */
   exportSaft(q: SaftQuery): Promise<Blob>;
+  /** Comunicação à AT: estado, credenciais WFA por emitente, envio do que falta, histórico e séries (WSE no momento). */
+  atStatus(): Promise<AtStatus>;
+  saveAtCredentials(legalEntityId: string, credentials: AtCredentialsInput): Promise<void>;
+  removeAtCredentials(legalEntityId: string): Promise<void>;
+  communicateAt(force: boolean): Promise<CommunicateResult>;
+  documentAtCommunications(documentId: string): Promise<AtCommunication[]>;
+  registerSeriesAt(seriesRef: string, credentials: AtCredentialsInput): Promise<Series>;
+  finalizeSeriesAt(seriesRef: string, credentials: AtCredentialsInput, justification?: string): Promise<void>;
+  cancelSeriesAt(seriesRef: string, credentials: AtCredentialsInput): Promise<void>;
 }
 
 /** Entrega um ficheiro ao utilizador (descarga no browser). */

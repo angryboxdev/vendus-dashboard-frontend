@@ -1,8 +1,8 @@
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
 import { AlertBanner, Button, Drawer, FIELD, LABEL, NUMERIC, StatusBadge, TABLE, TD, TH, THEAD, TR } from "../../../../components/ui/index.ts";
-import { DOCUMENT_TYPE_LABELS, PAYMENT_MECHANISM_LABELS, STATUS_LABELS, type DocumentView } from "../../domain/entities/invoicing.ts";
-import { useDocument, useInvoicingMeta } from "./use-invoicing.ts";
+import { AT_OUTCOME_LABELS, DOCUMENT_TYPE_LABELS, PAYMENT_MECHANISM_LABELS, STATUS_LABELS, type DocumentView } from "../../domain/entities/invoicing.ts";
+import { useDocument, useDocumentAtCommunications, useInvoicingMeta } from "./use-invoicing.ts";
 
 const statusTone = (s: DocumentView["status"]) => (s === "A" ? "danger" : s === "F" ? "neutral" : "success");
 
@@ -22,6 +22,32 @@ function FiscalFooter({ doc }: { doc: DocumentView }) {
         ))}
       </ul>
     </div>
+  );
+}
+
+/** Envios deste documento ao e-Fatura (registo e mudanças de estado) e respostas da AT. */
+function AtHistory({ documentId }: { documentId: string }) {
+  const { data } = useDocumentAtCommunications(documentId);
+  return (
+    <section className="space-y-1">
+      <p className={LABEL}>Comunicação à AT</p>
+      {data.length === 0 ? (
+        <p className="text-ink-secondary">Ainda não comunicado.</p>
+      ) : (
+        <ul className="space-y-1">
+          {data.map((c) => (
+            <li key={c.createdAt + c.operation} className="flex flex-wrap items-center gap-2">
+              <StatusBadge tone={c.outcome === "accepted" ? "success" : c.outcome === "failed" ? "warning" : "danger"}>{AT_OUTCOME_LABELS[c.outcome]}</StatusBadge>
+              <span className="text-ink-secondary">
+                {new Date(c.createdAt).toLocaleString("pt-PT")} · {c.operation === "register" ? "registo" : `estado ${STATUS_LABELS[c.documentStatus]}`}
+                {c.code !== null && ` · código ${c.code}`}
+                {c.message && ` · ${c.message}`}
+              </span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   );
 }
 
@@ -124,6 +150,8 @@ export function DocumentDetail({ id, onClose, onChanged }: { id: string | null; 
           {doc.orderReferences.length > 0 && <p className="text-ink-secondary">Consultas de mesa: {doc.orderReferences.map((r) => r.documentNumber).join(", ")}</p>}
 
           <FiscalFooter doc={doc} />
+
+          <AtHistory documentId={doc.id} />
 
           {doc.status === "N" && meta && (
             <section className="space-y-2 rounded-xl border border-line p-4">

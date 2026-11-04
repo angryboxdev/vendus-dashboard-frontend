@@ -83,6 +83,7 @@ const SALES_ITEMS: NavItem[] = [
   { kind: "item", path: "/vendas/documentos", label: "Documentos" },
   { kind: "item", path: "/vendas/series", label: "Séries" },
   { kind: "item", path: "/vendas/saft", label: "SAF-T" },
+  { kind: "item", path: "/vendas/at", label: "Comunicação AT" },
 ];
 
 /**
