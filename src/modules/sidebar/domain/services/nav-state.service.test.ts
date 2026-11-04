@@ -142,6 +142,15 @@ describe("buildTree com acesso efetivo (Utilizadores & Perfis 2.0)", () => {
     const noHr = buildTree({ email: "x@example.com", role: "manager", access: { isAdmin: false, portalOnly: false, permissions: { "crm.customers": "READ" } } });
     expect(noHr.some((e) => e.kind === "group" && e.id === "hr")).toBe(false);
   });
+
+  it("Vendas (faturação certificada, testes): só com sales.invoicing — por omissão, só o Admin", () => {
+    const sales = (tree: ReturnType<typeof buildTree>) => tree.find((e) => e.kind === "group" && e.id === "sales");
+    const admin = sales(buildTree({ email: "a@example.com", role: "admin", access: { isAdmin: true, portalOnly: false, permissions: {} } }));
+    expect(admin && admin.kind === "group" ? admin.items.map((i) => i.path) : []).toEqual(["/vendas/emitir", "/vendas/documentos", "/vendas/series"]);
+    expect(sales(buildTree({ email: "m@example.com", role: "manager", access: { isAdmin: false, portalOnly: false, permissions: { "sales.dashboard": "READ" } } }))).toBeUndefined();
+    expect(sales(buildTree({ email: "m@example.com", role: "manager", access: { isAdmin: false, portalOnly: false, permissions: { "sales.invoicing": "READ" } } }))).toBeDefined();
+    expect(sales(buildTree({ email: "m@example.com", role: "manager" }))).toBeUndefined();
+  });
 });
 
 describe("menu do Stock (task Stock inteligente V4 §1)", () => {

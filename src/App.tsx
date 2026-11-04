@@ -76,6 +76,11 @@ import { CalendarView } from "./modules/calendar/adapters/in/CalendarView.tsx";
 import { CompanyDocumentsView } from "./modules/documents/adapters/in/CompanyDocumentsView.tsx";
 import { SalesDeclarationProvider } from "./modules/sales-declaration/sales-declaration.module.tsx";
 import { SalesDeclarationView } from "./modules/sales-declaration/adapters/in/SalesDeclarationView.tsx";
+import { InvoicingProvider } from "./modules/invoicing/invoicing.module.tsx";
+import { InvoicingLayout } from "./modules/invoicing/adapters/in/InvoicingLayout.tsx";
+import { IssueDocumentView } from "./modules/invoicing/adapters/in/IssueDocumentView.tsx";
+import { DocumentsView as InvoicingDocumentsView } from "./modules/invoicing/adapters/in/DocumentsView.tsx";
+import { SeriesView as InvoicingSeriesView } from "./modules/invoicing/adapters/in/SeriesView.tsx";
 import { LocationCredentialsAdminView } from "./modules/location-credentials/adapters/in/LocationCredentialsAdminView.tsx";
 import { StockPurchaseReviewProvider } from "./modules/stock-purchase-review/stock-purchase-review.module.tsx";
 import { StockPurchaseReviewsListView } from "./modules/stock-purchase-review/adapters/in/StockPurchaseReviewsListView.tsx";
@@ -383,6 +388,20 @@ export default function App() {
                     </AirMenuProvider>
                   }
                 />
+                {/* Faturação certificada AT (testes): permissão sales.invoicing, só Admin por omissão. */}
+                <Route
+                  path="/vendas"
+                  element={
+                    <InvoicingProvider>
+                      <InvoicingLayout />
+                    </InvoicingProvider>
+                  }
+                >
+                  <Route index element={<Navigate to="emitir" replace />} />
+                  <Route path="emitir" element={<IssueDocumentView />} />
+                  <Route path="documentos" element={<InvoicingDocumentsView />} />
+                  <Route path="series" element={<InvoicingSeriesView />} />
+                </Route>
                 <Route
                   path="/vendus"
                   element={
