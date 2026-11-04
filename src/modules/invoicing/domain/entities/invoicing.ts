@@ -212,3 +212,11 @@ export const AT_OUTCOME_LABELS: Record<AtOutcome, string> = {
 export const AT_USERNAME = /^\d{9}\/\d{1,4}$/;
 
 export const EMPTY_AT_CREDENTIALS: AtCredentialsInput = { username: "", password: "" };
+
+/**
+ * Comunicação à AT por webservice (F6) visível no ecrã. Desligada por decisão do
+ * utilizador (2026-11-04): modelo tradicional — o contabilista carrega o SAF-T no
+ * e-Fatura e as séries comunicam-se no Portal das Finanças. O código fica pronto;
+ * ligar = `true` aqui e repor a entrada «Comunicação AT» no menu (nav-state).
+ */
+export const AT_WEBSERVICE_ENABLED = false;

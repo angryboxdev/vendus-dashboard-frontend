@@ -1,5 +1,6 @@
 import { Outlet } from "react-router-dom";
 import { AlertBanner, PageShell, TabNav } from "../../../../components/ui/index.ts";
+import { AT_WEBSERVICE_ENABLED } from "../../domain/entities/invoicing.ts";
 import { useInvoicingMeta } from "./use-invoicing.ts";
 
 const TABS = [
@@ -7,7 +8,7 @@ const TABS = [
   { to: "/vendas/documentos", label: "Documentos" },
   { to: "/vendas/series", label: "Séries" },
   { to: "/vendas/saft", label: "SAF-T" },
-  { to: "/vendas/at", label: "Comunicação AT" },
+  ...(AT_WEBSERVICE_ENABLED ? [{ to: "/vendas/at", label: "Comunicação AT" }] : []),
 ];
 
 /** Área «Vendas» — faturação certificada AT, em testes (isolada dos outros canais). */

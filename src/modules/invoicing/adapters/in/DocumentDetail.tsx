@@ -1,7 +1,7 @@
 import { QRCodeSVG } from "qrcode.react";
 import { useState } from "react";
 import { AlertBanner, Button, Drawer, FIELD, LABEL, NUMERIC, StatusBadge, TABLE, TD, TH, THEAD, TR } from "../../../../components/ui/index.ts";
-import { AT_OUTCOME_LABELS, DOCUMENT_TYPE_LABELS, PAYMENT_MECHANISM_LABELS, STATUS_LABELS, type DocumentView } from "../../domain/entities/invoicing.ts";
+import { AT_OUTCOME_LABELS, AT_WEBSERVICE_ENABLED, DOCUMENT_TYPE_LABELS, PAYMENT_MECHANISM_LABELS, STATUS_LABELS, type DocumentView } from "../../domain/entities/invoicing.ts";
 import { useDocument, useDocumentAtCommunications, useInvoicingMeta } from "./use-invoicing.ts";
 
 const statusTone = (s: DocumentView["status"]) => (s === "A" ? "danger" : s === "F" ? "neutral" : "success");
@@ -151,7 +151,7 @@ export function DocumentDetail({ id, onClose, onChanged }: { id: string | null; 
 
           <FiscalFooter doc={doc} />
 
-          <AtHistory documentId={doc.id} />
+          {AT_WEBSERVICE_ENABLED && <AtHistory documentId={doc.id} />}
 
           {doc.status === "N" && meta && (
             <section className="space-y-2 rounded-xl border border-line p-4">

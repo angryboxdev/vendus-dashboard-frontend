@@ -40,6 +40,7 @@
 - **QR pela especificação da AT**: `qrcode.react` (já dependência do projeto), nível M, versão mínima 9, 30 × 30 mm; o conteúdo (`qrPayload`) vem do backend.
 - **Acesso**: rota `/vendas` exige `sales.invoicing` (`access-ui.service.ts`); o menu «Vendas» só aparece a quem a tem — por omissão, só o Admin; sem acesso carregado, só o papel admin.
 - **Uma instância do módulo por montagem** (`useState` no provider): os hooks dependem dela.
+- **Comunicação à AT por webservice escondida** (`AT_WEBSERVICE_ENABLED = false`, decisão do utilizador 2026-11-04): modelo tradicional — SAF-T exportado aqui e carregado no e-Fatura pelo contabilista; séries comunicadas no Portal das Finanças. Ficam escondidos o separador «Comunicação AT», as ações «na AT» das Séries e o histórico de envios da 2.ª via. Para voltar: `true` e repor a entrada no menu (`nav-state.service.ts`).
 - **Senhas da AT só em trânsito**: os campos ficam no estado do formulário e limpam-se depois de gravar; WSE nunca é guardada (nem no servidor); `autoComplete="new-password"` para o browser não a sugerir.
 - NC/ND ainda não se emitem pelo ecrã (precisam de escolher o documento retificado) — a API já as suporta.
 

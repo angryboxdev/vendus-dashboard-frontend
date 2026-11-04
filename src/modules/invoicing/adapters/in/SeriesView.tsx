@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { AlertBanner, Button, EmptyState, FIELD, LABEL, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR } from "../../../../components/ui/index.ts";
-import { DOCUMENT_TYPE_LABELS, type FiscalDocumentType, type SeriesMode } from "../../domain/entities/invoicing.ts";
+import { AT_WEBSERVICE_ENABLED, DOCUMENT_TYPE_LABELS, type FiscalDocumentType, type SeriesMode } from "../../domain/entities/invoicing.ts";
 import { AtSeriesActions } from "./AtSeriesActions.tsx";
 import { useInvoicingMeta, useLegalEntities, useSeries } from "./use-invoicing.ts";
 
@@ -111,7 +111,9 @@ export function SeriesView() {
       </form>
 
       <p className="text-sm text-ink-secondary">
-        Depois de criar, registe a série na AT — aqui («Registar na AT», com o subutilizador WSE) ou no Portal das Finanças (Faturação › Séries), copiando o código de validação. Sem código, a série não emite.
+        {AT_WEBSERVICE_ENABLED
+          ? "Depois de criar, registe a série na AT — aqui («Registar na AT», com o subutilizador WSE) ou no Portal das Finanças (Faturação › Séries), copiando o código de validação. Sem código, a série não emite."
+          : "Depois de criar, comunique a série à AT no Portal das Finanças (Faturação › Séries) e registe aqui o código de validação. Sem código, a série não emite."}
       </p>
 
       {error && <AlertBanner tone="danger" title="Não foi possível carregar as séries">{error}</AlertBanner>}
@@ -127,7 +129,7 @@ export function SeriesView() {
                 <th className={TH}>Modo</th>
                 <th className={TH}>Código de validação (ATCUD)</th>
                 <th className={TH}>Último n.º</th>
-                <th className={TH}>Na AT</th>
+                {AT_WEBSERVICE_ENABLED && <th className={TH}>Na AT</th>}
               </tr>
             </thead>
             <tbody>
@@ -138,15 +140,17 @@ export function SeriesView() {
                   <td className={TD}>{s.mode === "training" ? <StatusBadge tone="warning">Formação</StatusBadge> : <StatusBadge tone="success">Normal</StatusBadge>}</td>
                   <td className={TD}>{s.validationCode ?? <ValidationCodeForm onSave={(code) => setValidationCode(s.ref, code)} />}</td>
                   <td className={TD}>{s.lastSequence}</td>
-                  <td className={TD}>
-                    {s.status === "finalized" ? (
-                      <StatusBadge tone="neutral">Finalizada</StatusBadge>
-                    ) : s.status === "cancelled" ? (
-                      <StatusBadge tone="danger">Anulada</StatusBadge>
-                    ) : (
-                      <AtSeriesActions series={s} onDone={reload} />
-                    )}
-                  </td>
+                  {AT_WEBSERVICE_ENABLED && (
+                    <td className={TD}>
+                      {s.status === "finalized" ? (
+                        <StatusBadge tone="neutral">Finalizada</StatusBadge>
+                      ) : s.status === "cancelled" ? (
+                        <StatusBadge tone="danger">Anulada</StatusBadge>
+                      ) : (
+                        <AtSeriesActions series={s} onDone={reload} />
+                      )}
+                    </td>
+                  )}
                 </tr>
               ))}
             </tbody>
