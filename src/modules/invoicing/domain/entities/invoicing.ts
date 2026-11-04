@@ -152,6 +152,15 @@ export interface IssueResult {
   atcud: string;
 }
 
+/** Exportação SAF-T (PT): emitente e período (um só ano fiscal). */
+export interface SaftQuery {
+  legalEntityId: string;
+  from: string;
+  to: string;
+  /** Inclui os documentos de formação. */
+  includeTraining: boolean;
+}
+
 /** Avisos que o servidor pede para confirmar (data futura, relógio atrasado). */
 export const WARNING_LABELS: Record<string, string> = {
   "future-document-date": "A data do documento é futura.",

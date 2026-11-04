@@ -6,6 +6,7 @@ const TABS = [
   { to: "/vendas/emitir", label: "Emitir documento" },
   { to: "/vendas/documentos", label: "Documentos" },
   { to: "/vendas/series", label: "Séries" },
+  { to: "/vendas/saft", label: "SAF-T" },
 ];
 
 /** Área «Vendas» — faturação certificada AT, em testes (isolada dos outros canais). */

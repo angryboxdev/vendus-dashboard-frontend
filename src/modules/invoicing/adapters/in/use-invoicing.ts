@@ -34,19 +34,20 @@ export function useSeries() {
   const { invoicing } = useInvoicingModule();
   const load = useCallback(() => invoicing.listSeries(), [invoicing]);
   const res = useResource<Series[]>(load, []);
+  const { reload } = res;
   const create = useCallback(
     async (input: NewSeriesInput) => {
       await invoicing.createSeries(input);
-      await res.reload();
+      await reload();
     },
-    [invoicing, res],
+    [invoicing, reload],
   );
   const setValidationCode = useCallback(
     async (seriesRef: string, code: string) => {
       await invoicing.setValidationCode(seriesRef, code);
-      await res.reload();
+      await reload();
     },
-    [invoicing, res],
+    [invoicing, reload],
   );
   return { ...res, create, setValidationCode };
 }

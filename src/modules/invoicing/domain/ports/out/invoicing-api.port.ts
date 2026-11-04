@@ -7,6 +7,7 @@ import type {
   IssueDocumentInput,
   IssueResult,
   NewSeriesInput,
+  SaftQuery,
   Series,
 } from "../../entities/invoicing.ts";
 
@@ -30,6 +31,13 @@ export interface InvoicingApiPort {
   cancel(id: string, reasonCode: string, note: string | undefined, idempotencyKey: string): Promise<DocumentView>;
   /** Entidades legais ativas (emitentes) — `/api/novo-rh/legal-entities`. */
   legalEntities(): Promise<LegalEntityOption[]>;
+  /** Ficheiro SAF-T (PT) 1.04_01 do período. */
+  exportSaft(q: SaftQuery): Promise<Blob>;
+}
+
+/** Entrega um ficheiro ao utilizador (descarga no browser). */
+export interface FileSaverPort {
+  save(fileName: string, content: Blob): void;
 }
 
 export interface LegalEntityOption {

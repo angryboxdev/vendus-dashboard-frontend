@@ -1,7 +1,7 @@
-import { ApiError, apiGet, apiWrite } from "../../../../lib/api.ts";
-import type { DocumentSummary, DocumentView, InvoicingMeta, IssueDocumentInput, IssueResult, NewSeriesInput, Series } from "../../domain/entities/invoicing.ts";
+import { ApiError, apiGet, apiGetBlob, apiWrite } from "../../../../lib/api.ts";
+import type { DocumentSummary, DocumentView, InvoicingMeta, IssueDocumentInput, IssueResult, NewSeriesInput, SaftQuery, Series } from "../../domain/entities/invoicing.ts";
 import { FiscalRuleError, IssueNeedsConfirmationError } from "../../domain/errors.ts";
-import type { DocumentFilter, IdGeneratorPort, InvoicingApiPort, LegalEntityOption } from "../../domain/ports/out/invoicing-api.port.ts";
+import type { DocumentFilter, FileSaverPort, IdGeneratorPort, InvoicingApiPort, LegalEntityOption } from "../../domain/ports/out/invoicing-api.port.ts";
 
 const B = "/api/invoicing";
 
@@ -53,6 +53,28 @@ export class HttpInvoicingApiAdapter implements InvoicingApiPort {
   async legalEntities(): Promise<LegalEntityOption[]> {
     const list = await apiGet<Array<{ id: string; name: string; taxId: string }>>("/api/novo-rh/legal-entities");
     return list.map(({ id, name, taxId }) => ({ id, name, taxId }));
+  }
+  async exportSaft(q: SaftQuery): Promise<Blob> {
+    const params = new URLSearchParams({ legalEntityId: q.legalEntityId, from: q.from, to: q.to, ...(q.includeTraining ? { training: "1" } : {}) });
+    try {
+      return await apiGetBlob(`${B}/saft?${params}`);
+    } catch (e) {
+      translate(e);
+    }
+  }
+}
+
+/** Descarga no browser (SAF-T). */
+export class BrowserFileSaver implements FileSaverPort {
+  save(fileName: string, content: Blob) {
+    const url = URL.createObjectURL(content);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = fileName;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   }
 }
 

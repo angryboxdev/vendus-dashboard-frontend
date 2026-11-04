@@ -1,7 +1,7 @@
 # Módulo: invoicing
 
 > Status: ativo (em construção — área «Vendas» de testes da faturação certificada AT)
-> Última atualização: 2026-11-04
+> Última atualização: 2026-11-04 (F5: SAF-T)
 
 ## Propósito
 Área **Vendas** (`/vendas`): emitir documentos fiscais certificáveis pela AT (fatura, fatura simplificada, fatura-recibo, consulta de mesa), consultar a 2.ª via com ATCUD e código QR, anular com motivo, e gerir séries. Fala só com `/api/invoicing` do backend. **Não** toca em Vendus, AirMenu, DRE, custos nem stock. Enquanto o programa não tem certificado da AT, só há séries de formação e os documentos dizem «DOCUMENTO DE TESTE – SEM VALOR FISCAL».
@@ -13,7 +13,7 @@
 
 ## Ports
 ### Entrada (use cases)
-- `InvoicingPort` (`InvoicingUseCases`) — `meta`, `listSeries`, `createSeries`, `setValidationCode`, `listDocuments`, `getDocument`, `issue(form, {attemptKey, confirmWarnings})` → `issued` | `invalid` | `needs-confirmation`, `newAttemptKey`, `cancel`, `legalEntities`.
+- `InvoicingPort` (`InvoicingUseCases`) — `exportSaft` (valida o período e descarrega), `meta`, `listSeries`, `createSeries`, `setValidationCode`, `listDocuments`, `getDocument`, `issue(form, {attemptKey, confirmWarnings})` → `issued` | `invalid` | `needs-confirmation`, `newAttemptKey`, `cancel`, `legalEntities`.
 ### Saída (dependências do domínio)
 - `InvoicingApiPort` — a API `/api/invoicing` (+ entidades legais de `/api/novo-rh/legal-entities`); escrita sempre com chave de idempotência.
 - `IdGeneratorPort` — chaves de idempotência.
@@ -24,10 +24,12 @@
 - `IssueDocumentView` — formulário de emissão; diálogo para confirmar avisos.
 - `DocumentsView` + `DocumentDetail` — lista com filtros; 2.ª via numa gaveta (ATCUD imediatamente acima do QR, menções fiscais) e anulação com motivo da lista fechada.
 - `SeriesView` — criar série (formação; normal só com certificado) e registar o código de validação da AT.
+- `SaftExportView` — exportar o SAF-T (PT) 1.04_01 de um emitente e período (mês anterior por omissão; um só ano; formação opcional).
 - Hooks em `use-invoicing.ts` (`useIssueDocument` gere a chave de idempotência).
 ### Saída
 - `HttpInvoicingApiAdapter` → `InvoicingApiPort` com `apiGet`/`apiWrite` (`src/lib/api.ts`); traduz 409 com avisos e 400/404/409/422/503 em erros do domínio.
 - `CryptoIdGenerator` → `IdGeneratorPort` com `crypto.randomUUID()`.
+- `BrowserFileSaver` → `FileSaverPort` (descarga do SAF-T no browser; obrigatório nos casos de uso). O SAF-T exige `sales.invoicing` MANAGE no backend; «Incluir formação» vem ligado só antes do certificado.
 
 ## Decisões de design (ADR resumido)
 - **Nunca duas faturas por engano**: a mesma chave de idempotência num reenvio do mesmo pedido (falha de rede) devolve a mesma resposta; formulário alterado ou avisos confirmados = pedido novo, chave nova (o backend recusa a mesma chave com outro corpo).
