@@ -25,6 +25,14 @@ function api(over: Partial<InvoicingApiPort> = {}): InvoicingApiPort {
     cancel: vi.fn(),
     legalEntities: vi.fn(),
     exportSaft: vi.fn(async () => new Blob(["<AuditFile/>"])),
+    atStatus: vi.fn(),
+    saveAtCredentials: vi.fn(async () => undefined),
+    removeAtCredentials: vi.fn(),
+    communicateAt: vi.fn(),
+    documentAtCommunications: vi.fn(),
+    registerSeriesAt: vi.fn(),
+    finalizeSeriesAt: vi.fn(async () => undefined),
+    cancelSeriesAt: vi.fn(async () => undefined),
     ...over,
   };
 }
@@ -83,5 +91,35 @@ describe("emitir pelo formulário", () => {
       kind: "invalid",
       errors: ["Fatura simplificada só até 100 € sem IVA"],
     });
+  });
+});
+
+describe("comunicação à AT", () => {
+  const files = { save: vi.fn() };
+
+  it("credenciais: valida o formato NIF/n.º e a senha antes de chamar a API", async () => {
+    const port = api();
+    const uc = new InvoicingUseCases(port, ids, files);
+    expect(await uc.saveAtCredentials("", { username: "599999999/1", password: "x" })).toEqual(["Escolha o emitente"]);
+    expect(await uc.saveAtCredentials("le-1", { username: "admin", password: "" })).toEqual([
+      "Utilizador no formato NIF/n.º do subutilizador (ex.: 599999999/1)",
+      "Indique a senha do subutilizador",
+    ]);
+    expect(port.saveAtCredentials).not.toHaveBeenCalled();
+    expect(await uc.saveAtCredentials("le-1", { username: " 599999999/37 ", password: "s" })).toEqual([]);
+    expect(port.saveAtCredentials).toHaveBeenCalledWith("le-1", { username: "599999999/37", password: "s" });
+  });
+
+  it("recusa da AT numa série volta como erro do formulário", async () => {
+    const port = api({ registerSeriesAt: vi.fn().mockRejectedValue(new FiscalRuleError("A AT recusou o registo da série: Data inválida (código 4049)")) });
+    expect(await new InvoicingUseCases(port, ids, files).registerSeriesAt("s1", { username: "599999999/2", password: "x" })).toEqual([
+      "A AT recusou o registo da série: Data inválida (código 4049)",
+    ]);
+  });
+
+  it("finalizar passa a justificação sem espaços a mais", async () => {
+    const port = api();
+    await new InvoicingUseCases(port, ids, files).finalizeSeriesAt("s1", { username: "599999999/2", password: "x" }, "  Fim do ano ");
+    expect(port.finalizeSeriesAt).toHaveBeenCalledWith("s1", { username: "599999999/2", password: "x" }, "Fim do ano");
   });
 });

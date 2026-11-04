@@ -166,3 +166,49 @@ export const WARNING_LABELS: Record<string, string> = {
   "future-document-date": "A data do documento é futura.",
   "system-clock-behind": "O relógio do sistema está atrás da última emissão.",
 };
+
+/** Comunicação à AT (e-Fatura e séries) — `/api/invoicing/at`. */
+export type AtOutcome = "accepted" | "rejected" | "auth" | "failed";
+
+/** Subutilizador do Portal das Finanças: `NIF/n.º` (WFA faturas, WSE séries). */
+export interface AtCredentialsInput {
+  username: string;
+  password: string;
+}
+
+export interface AtStatus {
+  configured: boolean;
+  environment: "test" | "production";
+  credentials: Array<{ legalEntityId: string; username: string; updatedAt: string }>;
+  queue: { pending: number; blocked: number; oldestPendingDate: string | null; deadline: string | null; overdue: boolean; dueSoon: boolean };
+  problems: Array<{ documentId: string; documentNumber: string; code: number | null; message: string | null; outcome: "rejected" | "auth" }>;
+}
+
+export interface CommunicateResult {
+  attempted: number;
+  accepted: number;
+  rejected: number;
+  failed: number;
+  withoutCredentials: number;
+}
+
+export interface AtCommunication {
+  operation: "register" | "change-status";
+  documentStatus: DocumentStatus;
+  outcome: AtOutcome;
+  code: number | null;
+  message: string | null;
+  createdAt: string;
+}
+
+export const AT_OUTCOME_LABELS: Record<AtOutcome, string> = {
+  accepted: "Aceite",
+  rejected: "Recusado",
+  auth: "Credenciais recusadas",
+  failed: "Por repetir",
+};
+
+/** `NIF/n.º do subutilizador`, como no Portal das Finanças. */
+export const AT_USERNAME = /^\d{9}\/\d{1,4}$/;
+
+export const EMPTY_AT_CREDENTIALS: AtCredentialsInput = { username: "", password: "" };

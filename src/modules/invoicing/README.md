@@ -13,7 +13,7 @@
 
 ## Ports
 ### Entrada (use cases)
-- `InvoicingPort` (`InvoicingUseCases`) — `exportSaft` (valida o período e descarrega), `meta`, `listSeries`, `createSeries`, `setValidationCode`, `listDocuments`, `getDocument`, `issue(form, {attemptKey, confirmWarnings})` → `issued` | `invalid` | `needs-confirmation`, `newAttemptKey`, `cancel`, `legalEntities`.
+- `InvoicingPort` (`InvoicingUseCases`) — `exportSaft` (valida o período e descarrega), `meta`, `listSeries`, `createSeries`, `setValidationCode`, `listDocuments`, `getDocument`, `issue(form, {attemptKey, confirmWarnings})` → `issued` | `invalid` | `needs-confirmation`, `newAttemptKey`, `cancel`, `legalEntities`; comunicação à AT (F6): `atStatus`, `saveAtCredentials`/`removeAtCredentials`, `communicateAt(force)`, `documentAtCommunications`, `registerSeriesAt`/`finalizeSeriesAt`/`cancelSeriesAt` — as escritas validam o utilizador `NIF/n.º` e a senha e devolvem erros do formulário.
 ### Saída (dependências do domínio)
 - `InvoicingApiPort` — a API `/api/invoicing` (+ entidades legais de `/api/novo-rh/legal-entities`); escrita sempre com chave de idempotência.
 - `IdGeneratorPort` — chaves de idempotência.
@@ -24,6 +24,9 @@
 - `IssueDocumentView` — formulário de emissão; diálogo para confirmar avisos.
 - `DocumentsView` + `DocumentDetail` — lista com filtros; 2.ª via numa gaveta (ATCUD imediatamente acima do QR, menções fiscais) e anulação com motivo da lista fechada.
 - `SeriesView` — criar série (formação; normal só com certificado) e registar o código de validação da AT.
+- `AtCommunicationView` — separador «Comunicação AT»: pendentes, prazo (dia 5 do mês seguinte, aviso a 3 dias e ultrapassado), recusas da AT, «Comunicar agora» / «Repetir recusados», credenciais WFA por emitente (a senha nunca é mostrada).
+- `AtSeriesActions` + `AtCredentialsFields` — nas Séries: registar, finalizar (com documentos) ou anular (sem documentos) na AT com o subutilizador WSE pedido no momento.
+- `DocumentDetail` mostra o histórico de envios do documento à AT.
 - `SaftExportView` — exportar o SAF-T (PT) 1.04_01 de um emitente e período (mês anterior por omissão; um só ano; formação opcional).
 - Hooks em `use-invoicing.ts` (`useIssueDocument` gere a chave de idempotência).
 ### Saída
@@ -37,6 +40,7 @@
 - **QR pela especificação da AT**: `qrcode.react` (já dependência do projeto), nível M, versão mínima 9, 30 × 30 mm; o conteúdo (`qrPayload`) vem do backend.
 - **Acesso**: rota `/vendas` exige `sales.invoicing` (`access-ui.service.ts`); o menu «Vendas» só aparece a quem a tem — por omissão, só o Admin; sem acesso carregado, só o papel admin.
 - **Uma instância do módulo por montagem** (`useState` no provider): os hooks dependem dela.
+- **Senhas da AT só em trânsito**: os campos ficam no estado do formulário e limpam-se depois de gravar; WSE nunca é guardada (nem no servidor); `autoComplete="new-password"` para o browser não a sugerir.
 - NC/ND ainda não se emitem pelo ecrã (precisam de escolher o documento retificado) — a API já as suporta.
 
 ## Como testar
@@ -47,4 +51,4 @@
 - Emitir NC/ND e faturar consultas de mesa a partir do ecrã (a API suporta; falta a escolha do documento).
 - Taxa por produto e canal (sala/take-away) — hoje escolhe-se em cada linha.
 - Impressão térmica (POS) e PDF — fase do POS.
-- Não testado contra a BD real: as migrações do backend ainda não estão aplicadas.
+- Comunicação à AT sem teste real (falta o certificado de testes da AT no servidor); a migração `20261220120000` do backend ainda não está aplicada.

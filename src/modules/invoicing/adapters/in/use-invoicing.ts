@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DocumentSummary, DocumentView, InvoicingMeta, IssueResult, NewSeriesInput, Series } from "../../domain/entities/invoicing.ts";
+import type { AtCommunication, AtStatus, DocumentSummary, DocumentView, InvoicingMeta, IssueResult, NewSeriesInput, Series } from "../../domain/entities/invoicing.ts";
 import type { DocumentFilter, LegalEntityOption } from "../../domain/ports/out/invoicing-api.port.ts";
 import type { IssueForm } from "../../domain/services/issue-form.service.ts";
 import { useInvoicingModule } from "../../invoicing.module.tsx";
@@ -137,4 +137,18 @@ export function useIssueDocument() {
   }, []);
 
   return { ...state, submit, formChanged, reset };
+}
+
+/** Estado da comunicação à AT (pendentes, prazo, recusas, credenciais). */
+export function useAtStatus() {
+  const { invoicing } = useInvoicingModule();
+  const load = useCallback(() => invoicing.atStatus(), [invoicing]);
+  return useResource<AtStatus | null>(load, null);
+}
+
+/** Histórico das comunicações de um documento à AT. */
+export function useDocumentAtCommunications(documentId: string | null) {
+  const { invoicing } = useInvoicingModule();
+  const load = useCallback(() => (documentId ? invoicing.documentAtCommunications(documentId) : Promise.resolve([])), [invoicing, documentId]);
+  return useResource<AtCommunication[]>(load, []);
 }

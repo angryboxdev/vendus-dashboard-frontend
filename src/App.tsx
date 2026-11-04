@@ -81,6 +81,7 @@ import { InvoicingLayout } from "./modules/invoicing/adapters/in/InvoicingLayout
 import { IssueDocumentView } from "./modules/invoicing/adapters/in/IssueDocumentView.tsx";
 import { DocumentsView as InvoicingDocumentsView } from "./modules/invoicing/adapters/in/DocumentsView.tsx";
 import { SaftExportView } from "./modules/invoicing/adapters/in/SaftExportView.tsx";
+import { AtCommunicationView } from "./modules/invoicing/adapters/in/AtCommunicationView.tsx";
 import { SeriesView as InvoicingSeriesView } from "./modules/invoicing/adapters/in/SeriesView.tsx";
 import { LocationCredentialsAdminView } from "./modules/location-credentials/adapters/in/LocationCredentialsAdminView.tsx";
 import { StockPurchaseReviewProvider } from "./modules/stock-purchase-review/stock-purchase-review.module.tsx";
@@ -403,6 +404,7 @@ export default function App() {
                   <Route path="documentos" element={<InvoicingDocumentsView />} />
                   <Route path="series" element={<InvoicingSeriesView />} />
                   <Route path="saft" element={<SaftExportView />} />
+                  <Route path="at" element={<AtCommunicationView />} />
                 </Route>
                 <Route
                   path="/vendus"

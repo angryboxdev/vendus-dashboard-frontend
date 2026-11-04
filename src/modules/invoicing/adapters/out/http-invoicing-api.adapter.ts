@@ -1,5 +1,5 @@
-import { ApiError, apiGet, apiGetBlob, apiWrite } from "../../../../lib/api.ts";
-import type { DocumentSummary, DocumentView, InvoicingMeta, IssueDocumentInput, IssueResult, NewSeriesInput, SaftQuery, Series } from "../../domain/entities/invoicing.ts";
+import { ApiError, apiDeleteNoContent, apiGet, apiGetBlob, apiWrite } from "../../../../lib/api.ts";
+import type { AtCommunication, AtCredentialsInput, AtStatus, CommunicateResult, DocumentSummary, DocumentView, InvoicingMeta, IssueDocumentInput, IssueResult, NewSeriesInput, SaftQuery, Series } from "../../domain/entities/invoicing.ts";
 import { FiscalRuleError, IssueNeedsConfirmationError } from "../../domain/errors.ts";
 import type { DocumentFilter, FileSaverPort, IdGeneratorPort, InvoicingApiPort, LegalEntityOption } from "../../domain/ports/out/invoicing-api.port.ts";
 
@@ -11,7 +11,8 @@ function translate(e: unknown): never {
     const body = (e.data ?? {}) as { warnings?: unknown; detail?: unknown };
     if (e.status === 409 && Array.isArray(body.warnings)) throw new IssueNeedsConfirmationError(body.warnings.map(String));
     if ((e.status === 422 || e.status === 400 || e.status === 404 || e.status === 409) && typeof body.detail === "string") throw new FiscalRuleError(body.detail);
-    if (e.status === 503) throw new FiscalRuleError("Emissão indisponível: a chave de assinatura não está configurada no servidor.");
+    // 503: emissão (chave) ou comunicação com a AT (certificado, AT em baixo) indisponível — o detalhe diz qual.
+    if (e.status === 503) throw new FiscalRuleError(typeof body.detail === "string" ? body.detail : "Serviço indisponível de momento.");
   }
   throw e;
 }
@@ -53,6 +54,34 @@ export class HttpInvoicingApiAdapter implements InvoicingApiPort {
   async legalEntities(): Promise<LegalEntityOption[]> {
     const list = await apiGet<Array<{ id: string; name: string; taxId: string }>>("/api/novo-rh/legal-entities");
     return list.map(({ id, name, taxId }) => ({ id, name, taxId }));
+  }
+  atStatus() {
+    return apiGet<AtStatus>(`${B}/at`);
+  }
+  async saveAtCredentials(legalEntityId: string, credentials: AtCredentialsInput) {
+    await write<unknown>(`${B}/at/credentials/${encodeURIComponent(legalEntityId)}`, credentials, crypto.randomUUID(), "PUT");
+  }
+  async removeAtCredentials(legalEntityId: string) {
+    try {
+      await apiDeleteNoContent(`${B}/at/credentials/${encodeURIComponent(legalEntityId)}`);
+    } catch (e) {
+      translate(e);
+    }
+  }
+  communicateAt(force: boolean) {
+    return write<CommunicateResult>(`${B}/at/communicate`, { force }, crypto.randomUUID());
+  }
+  documentAtCommunications(documentId: string) {
+    return apiGet<AtCommunication[]>(`${B}/at/documents/${encodeURIComponent(documentId)}`);
+  }
+  registerSeriesAt(seriesRef: string, credentials: AtCredentialsInput) {
+    return write<Series>(`${B}/at/series/${encodeURIComponent(seriesRef)}/register`, credentials, crypto.randomUUID());
+  }
+  async finalizeSeriesAt(seriesRef: string, credentials: AtCredentialsInput, justification?: string) {
+    await write<unknown>(`${B}/at/series/${encodeURIComponent(seriesRef)}/finalize`, { ...credentials, ...(justification ? { justification } : {}) }, crypto.randomUUID());
+  }
+  async cancelSeriesAt(seriesRef: string, credentials: AtCredentialsInput) {
+    await write<unknown>(`${B}/at/series/${encodeURIComponent(seriesRef)}/cancel`, credentials, crypto.randomUUID());
   }
   async exportSaft(q: SaftQuery): Promise<Blob> {
     const params = new URLSearchParams({ legalEntityId: q.legalEntityId, from: q.from, to: q.to, ...(q.includeTraining ? { training: "1" } : {}) });
