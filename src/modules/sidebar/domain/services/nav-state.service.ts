@@ -77,6 +77,13 @@ const OPERATIONS_ITEMS: NavItem[] = [
   { kind: "item", path: "/vendus", label: "Vendus" },
 ];
 
+// Vendas: faturação certificada AT (testes). Só aparece a quem tem `sales.invoicing` (por omissão, só o Admin).
+const SALES_ITEMS: NavItem[] = [
+  { kind: "item", path: "/vendas/emitir", label: "Emitir documento" },
+  { kind: "item", path: "/vendas/documentos", label: "Documentos" },
+  { kind: "item", path: "/vendas/series", label: "Séries" },
+];
+
 /**
  * Configurações (fim do menu, junto ao bloco do utilizador): as entradas que já existiam — mesmas rotas e
  * permissões — e as integrações técnicas. Sem página «Integrações» vazia: o subgrupo leva aos ecrãs reais.
@@ -133,6 +140,14 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
     },
     {
       kind: "group",
+      id: "sales",
+      label: "Vendas",
+      icon: "documents",
+      basePath: "/vendas",
+      items: SALES_ITEMS,
+    },
+    {
+      kind: "group",
       id: "settings",
       label: "Configurações",
       icon: "settings",
@@ -144,7 +159,10 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
   const access = user.access;
   // Sem acesso efetivo carregado: comportamento antigo (itens de administração só para admin).
   const allowed = (path: string) =>
-    access ? canOpenPath({ isAdmin: access.isAdmin, portalOnly: access.portalOnly, permissions: { ...access.permissions } }, path) : !path.startsWith("/admin") || user.role === "admin";
+    access
+      ? canOpenPath({ isAdmin: access.isAdmin, portalOnly: access.portalOnly, permissions: { ...access.permissions } }, path)
+      : // Sem acesso carregado: administração e a faturação em testes (/vendas) só para admin.
+        !(path.startsWith("/admin") || path.startsWith("/vendas")) || user.role === "admin";
 
   return entries.flatMap((entry): SidebarNavEntry[] => {
     if (entry.kind === "item") return allowed(entry.path) ? [entry] : [];

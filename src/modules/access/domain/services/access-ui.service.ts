@@ -120,6 +120,8 @@ const PATH_PERMISSIONS: Array<[RegExp, PathPermission]> = [
   [/^\/(vendus|analytics)/, "sales.dashboard"],
   [/^\/cash-closings/, "sales.cash_closings"],
   [/^\/air-menu/, "sales.air_menu"],
+  // Faturação certificada AT (testes) — só Admin por omissão.
+  [/^\/vendas/, "sales.invoicing"],
   [/^\/dre\/(demonstrativo|receita-bruta|fluxo-caixa|conferencia-vendas|plataformas|controle-geral)/, "dre.statement"],
   [/^\/dre\/custos-fixos/, "dre.fixed_costs"],
   [/^\/dre\/custos-variaveis/, "dre.variable_costs"],

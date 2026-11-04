@@ -67,6 +67,8 @@ padrão novo, abra o `README.md` dele e veja o campo `Status`; sem README ou com
   picagem com geolocalização)
 - `novo-rh` (outubro 2026) — RH → Novo RH (`/hr/novo`): o novo modelo de RH
   da task faseada, separado do RH atual; só Admin. Usa `src/i18n` (pt-PT/es-ES)
+- `invoicing` (novembro 2026) — Vendas (`/vendas`): faturação certificada AT em
+  testes (emitir, documentos com ATCUD/QR, séries); só `sales.invoicing` (Admin)
 
 ## Stack
 
