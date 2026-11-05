@@ -35,6 +35,8 @@ export interface InvoicingApiPort {
   cancel(id: string, reasonCode: string, note: string | undefined, idempotencyKey: string): Promise<DocumentView>;
   /** Entidades legais ativas (emitentes) — `/api/novo-rh/legal-entities`. */
   legalEntities(): Promise<LegalEntityOption[]>;
+  /** Cria/atualiza o emitente com os dados da Empresa (`POST /api/organization/issuer-sync`). */
+  syncIssuerFromCompany(): Promise<IssuerSyncResult>;
   /** Ficheiro SAF-T (PT) 1.04_01 do período. */
   exportSaft(q: SaftQuery): Promise<Blob>;
   /** Comunicação à AT: estado, credenciais WFA por emitente, envio do que falta, histórico e séries (WSE no momento). */
@@ -52,6 +54,9 @@ export interface InvoicingApiPort {
 export interface FileSaverPort {
   save(fileName: string, content: Blob): void;
 }
+
+/** Resultado de «Usar os dados da Empresa»: `missing` são campos da Empresa (legalName, niss, region, …). */
+export type IssuerSyncResult = { status: "synced" } | { status: "incomplete"; missing: string[] } | { status: "failed"; message: string };
 
 export interface LegalEntityOption {
   id: string;

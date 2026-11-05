@@ -65,6 +65,10 @@ export class InvoicingUseCases implements InvoicingPort {
     return this.api.legalEntities();
   }
 
+  syncIssuerFromCompany() {
+    return this.api.syncIssuerFromCompany();
+  }
+
   async exportSaft(q: SaftQuery): Promise<string[]> {
     const errors: string[] = [];
     if (!q.legalEntityId) errors.push("Escolha o emitente");
