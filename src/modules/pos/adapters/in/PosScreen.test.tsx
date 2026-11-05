@@ -196,4 +196,16 @@ describe("PosScreen", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(api.login).not.toHaveBeenCalled();
   });
+
+  it("provisório: 0000 na janela de saída sai sem ir ao servidor", async () => {
+    const user = userEvent.setup();
+    const api = renderPos();
+    await screen.findByText("Introduza o seu PIN");
+    await user.click(screen.getByRole("button", { name: "Voltar à gestão" }));
+    const dialog = await screen.findByRole("dialog", { name: "Voltar à gestão" });
+    await waitFor(() => expect(within(dialog).getByText("PIN de gestor")).toBeInTheDocument());
+    await user.keyboard("0000");
+    expect(api.login).not.toHaveBeenCalled();
+    expect(within(dialog).getByRole("alert")).toBeEmptyDOMElement();
+  });
 });
