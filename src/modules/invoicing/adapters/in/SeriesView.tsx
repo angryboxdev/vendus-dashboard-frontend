@@ -68,9 +68,9 @@ export function SeriesView() {
           }
         }}
       >
-        <label className="lg:col-span-2">
+        <label className="min-w-0 lg:col-span-2">
           <span className={LABEL}>Emitente</span>
-          <select className={FIELD} value={form.legalEntityId} onChange={(e) => setForm({ ...form, legalEntityId: e.target.value })}>
+          <select className={`${FIELD} w-full min-w-0`} value={form.legalEntityId} onChange={(e) => setForm({ ...form, legalEntityId: e.target.value })}>
             <option value="">Escolher…</option>
             {entities.map((x) => (
               <option key={x.id} value={x.id}>
@@ -84,9 +84,9 @@ export function SeriesView() {
             </span>
           )}
         </label>
-        <label>
+        <label className="min-w-0">
           <span className={LABEL}>Tipo de documento</span>
-          <select className={FIELD} value={form.documentType} onChange={(e) => setForm({ ...form, documentType: e.target.value as FiscalDocumentType })}>
+          <select className={`${FIELD} w-full min-w-0`} value={form.documentType} onChange={(e) => setForm({ ...form, documentType: e.target.value as FiscalDocumentType })}>
             {Object.entries(DOCUMENT_TYPE_LABELS).map(([k, v]) => (
               <option key={k} value={k}>
                 {v}
@@ -94,13 +94,13 @@ export function SeriesView() {
             ))}
           </select>
         </label>
-        <label>
+        <label className="min-w-0">
           <span className={LABEL}>Identificador da série</span>
-          <input className={FIELD} value={form.seriesId} maxLength={35} onChange={(e) => setForm({ ...form, seriesId: e.target.value })} placeholder="Ex.: L01-2027" />
+          <input className={`${FIELD} w-full min-w-0`} value={form.seriesId} maxLength={35} onChange={(e) => setForm({ ...form, seriesId: e.target.value })} placeholder="Ex.: L01-2027" />
         </label>
-        <label>
+        <label className="min-w-0">
           <span className={LABEL}>Modo</span>
-          <select className={FIELD} value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value as SeriesMode })}>
+          <select className={`${FIELD} w-full min-w-0`} value={form.mode} onChange={(e) => setForm({ ...form, mode: e.target.value as SeriesMode })}>
             <option value="training">Formação</option>
             <option value="normal" disabled={!meta?.certified}>
               Normal{meta?.certified ? "" : " (só com certificado)"}
