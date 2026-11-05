@@ -1,5 +1,5 @@
 import { Delete } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { PosEmployee } from "../../domain/entities/pos.ts";
 import { usePosModule } from "../../pos.module.tsx";
 import { errorText } from "./use-pos.ts";
@@ -15,12 +15,15 @@ export function PosPinPad({
   title,
   subtitle,
   requireManager = false,
+  keyboard = true,
   onSuccess,
   onCancel,
 }: {
   title: string;
   subtitle?: string;
   requireManager?: boolean;
+  /** Ouvir o teclado físico (desligar quando há outro teclado de PIN à frente). */
+  keyboard?: boolean;
   onSuccess: (employee: PosEmployee, pin: string) => void;
   onCancel?: () => void;
 }) {
@@ -61,6 +64,27 @@ export function PosPinPad({
     if (k === "back") setPin((p) => p.slice(0, -1));
     else if (k && pin.length < 4) setPin((p) => p + k);
   };
+
+  // Teclado físico: algarismos, apagar e Esc (cancelar). Só o teclado da janela da frente ouve.
+  const pressRef = useRef(press);
+  const cancelRef = useRef(onCancel);
+  useEffect(() => {
+    pressRef.current = press;
+    cancelRef.current = onCancel;
+  });
+  useEffect(() => {
+    if (!keyboard) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;
+      if (/^\d$/.test(e.key)) pressRef.current(e.key);
+      else if (e.key === "Backspace") pressRef.current("back");
+      else if (e.key === "Escape" && cancelRef.current) cancelRef.current();
+      else return;
+      e.preventDefault();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [keyboard]);
 
   return (
     <div className={`${POS.card} ${POS.border} ${POS.radius} w-full max-w-sm border p-6 shadow-sm`}>

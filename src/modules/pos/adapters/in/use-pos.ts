@@ -46,6 +46,13 @@ export function usePosStockDay() {
   return useResource<StockDay | null>(load, null);
 }
 
+/** Só a configuração do POS (para saber se já há gestores). */
+export function usePosConfig() {
+  const { pos } = usePosModule();
+  const load = useCallback(() => pos.settings(), [pos]);
+  return useResource<PosSettings | null>(load, null);
+}
+
 export function usePosSettings() {
   const { pos } = usePosModule();
   const load = useCallback(async () => {
