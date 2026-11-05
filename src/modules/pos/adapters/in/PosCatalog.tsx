@@ -1,7 +1,7 @@
 import { Beer, CakeSlice, Coffee, CupSoda, Droplet, Package, Pizza, Search, Soup, UtensilsCrossed } from "lucide-react";
 import type { RefObject } from "react";
 import { formatEuros, type PosProduct } from "../../domain/entities/pos.ts";
-import { stockBadge } from "../../domain/services/cart.service.ts";
+import { displayImageUrl, stockBadge } from "../../domain/services/cart.service.ts";
 import { POS } from "./pos-theme.ts";
 
 const STOCK_TONE = { ok: POS.mutedText, low: `${POS.amber} rounded-full px-2`, out: `${POS.red} rounded-full px-2` } as const;
@@ -44,7 +44,7 @@ function CategoryIcon({ category, className }: { category: string | null; classN
 export function ProductThumb({ product, size }: { product: PosProduct; size: "sm" | "md" }) {
   const box = size === "md" ? "h-20 w-full xl:h-24" : "h-10 w-10";
   return product.imageUrl ? (
-    <img src={product.imageUrl} alt="" loading="lazy" className={`${box} rounded-lg bg-white object-contain`} />
+    <img src={displayImageUrl(product.imageUrl)} alt="" loading="lazy" className={`${box} rounded-lg bg-white object-contain`} />
   ) : (
     <span className={`${box} flex items-center justify-center rounded-lg bg-white ${POS.mutedText}`}>
       <CategoryIcon category={product.category} className={size === "md" ? "h-9 w-9" : "h-5 w-5"} />
