@@ -16,12 +16,15 @@ export function PosPinPad({
   subtitle,
   requireManager = false,
   keyboard = true,
+  fallbackPin,
   onSuccess,
   onCancel,
 }: {
   title: string;
   subtitle?: string;
   requireManager?: boolean;
+  /** PIN aceite sem ir ao servidor (provisório, só para a saída do POS). */
+  fallbackPin?: string;
   /** Ouvir o teclado físico (desligar quando há outro teclado de PIN à frente). */
   keyboard?: boolean;
   onSuccess: (employee: PosEmployee, pin: string) => void;
@@ -34,6 +37,10 @@ export function PosPinPad({
 
   useEffect(() => {
     if (pin.length !== 4) return;
+    if (fallbackPin && pin === fallbackPin) {
+      onSuccess({ id: "", name: "Gestão", isManager: true }, pin);
+      return;
+    }
     let alive = true;
     setBusy(true);
     pos
@@ -57,7 +64,7 @@ export function PosPinPad({
     };
     // onSuccess muda a cada render do pai; só o PIN completo dispara a validação.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pin, pos, requireManager]);
+  }, [pin, pos, requireManager, fallbackPin]);
 
   const press = (k: string) => {
     if (busy || error) return;

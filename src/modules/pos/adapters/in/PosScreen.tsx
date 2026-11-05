@@ -32,6 +32,8 @@ import { POS, TOUCH } from "./pos-theme.ts";
 type Panel = "sale" | "documents" | "dashboard";
 /** Depois de uma venda ou devolução, o indicador de stock pisca ~4 s. */
 const FLASH_MS = 4000;
+/** PROVISÓRIO (testes antes da demo): 0000 sai sempre do POS para a gestão. Retirar depois. */
+const TEMP_EXIT_PIN = "0000";
 
 const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
 
@@ -232,7 +234,7 @@ export function PosScreen() {
     </div>
   ) : (
     <div className="flex justify-center">
-      <PosPinPad title="PIN de gestor" subtitle="Só um gestor pode sair do POS" requireManager onCancel={() => setExiting(false)} onSuccess={() => navigate("/vendas/emitir")} />
+      <PosPinPad title="PIN de gestor" subtitle="Só um gestor pode sair do POS" requireManager fallbackPin={TEMP_EXIT_PIN} onCancel={() => setExiting(false)} onSuccess={() => navigate("/vendas/emitir")} />
     </div>
   );
 
