@@ -1,4 +1,4 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
@@ -61,6 +61,7 @@ function renderPos(over: Partial<PosApiPort> = {}) {
     receipt: vi.fn(async () => DOC),
     stockDay: vi.fn(async () => ({ date: "2027-03-10", moves: [], alerts: [] })),
     setView: vi.fn(async () => undefined),
+    settings: vi.fn(async () => ({ invoiceSeriesRef: "s1", creditSeriesRef: "s2", managerEmployeeIds: ["e2"], defaultView: "A" })),
     ...over,
   } as unknown as PosApiPort;
   let n = 0;
@@ -162,5 +163,37 @@ describe("PosScreen", () => {
     expect(await screen.findByRole("button", { name: "Mais Refrigerante" })).toBeInTheDocument();
     await user.keyboard("9999999{Enter}");
     expect(await screen.findByRole("status")).toHaveTextContent("Código 9999999 não encontrado");
+  });
+
+  it("PIN também pelo teclado físico", async () => {
+    const user = userEvent.setup();
+    const api = renderPos();
+    await screen.findByText("Introduza o seu PIN");
+    await user.keyboard("1234");
+    expect(await screen.findByRole("button", { name: /Pizza Teste/ })).toBeInTheDocument();
+    expect(api.login).toHaveBeenCalledWith("1234");
+  });
+
+  it("sem gestores marcados, «Voltar à gestão» sai sem PIN para os configurar", async () => {
+    const user = userEvent.setup();
+    renderPos({ settings: vi.fn(async () => ({ invoiceSeriesRef: null, creditSeriesRef: null, managerEmployeeIds: [], defaultView: "A" as const })) });
+    await screen.findByText("Introduza o seu PIN");
+    await user.click(screen.getByRole("button", { name: "Voltar à gestão" }));
+    const dialog = await screen.findByRole("dialog", { name: "Voltar à gestão" });
+    expect(within(dialog).getByText(/Ainda não há gestores/)).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Ir para Caixa (POS)" })).toBeInTheDocument();
+  });
+
+  it("com gestores, sair pede o PIN de gestor; Esc fecha e o teclado de trás não recebe os algarismos", async () => {
+    const user = userEvent.setup();
+    const api = renderPos();
+    await screen.findByText("Introduza o seu PIN");
+    await user.click(screen.getByRole("button", { name: "Voltar à gestão" }));
+    const dialog = await screen.findByRole("dialog", { name: "Voltar à gestão" });
+    await waitFor(() => expect(within(dialog).getByText("PIN de gestor")).toBeInTheDocument());
+    await user.keyboard("12");
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(api.login).not.toHaveBeenCalled();
   });
 });

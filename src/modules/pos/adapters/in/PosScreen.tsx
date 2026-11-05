@@ -26,7 +26,7 @@ import { PaymentPanel } from "./PosPayment.tsx";
 import { PosPinPad } from "./PosPinPad.tsx";
 import { PosReceipt } from "./PosReceipt.tsx";
 import { PosTicket } from "./PosTicket.tsx";
-import { errorText, usePosDocuments, usePosProducts, usePosStockDay, usePosSummary } from "./use-pos.ts";
+import { errorText, usePosConfig, usePosDocuments, usePosProducts, usePosStockDay, usePosSummary } from "./use-pos.ts";
 import { POS, TOUCH } from "./pos-theme.ts";
 
 type Panel = "sale" | "documents" | "dashboard";
@@ -88,6 +88,7 @@ export function PosScreen() {
   const documents = usePosDocuments();
   const summary = usePosSummary();
   const stockDay = usePosStockDay();
+  const config = usePosConfig();
 
   const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
   const categories = useMemo(() => categoriesOf(products), [products]);
@@ -220,6 +221,21 @@ export function PosScreen() {
     }
   };
 
+  // Sem gestores marcados ninguém teria PIN de gestor: sai-se sem PIN para os configurar.
+  const noManagers = config.data !== null && config.data.managerEmployeeIds.length === 0;
+  const exitBody = noManagers ? (
+    <div className="space-y-4 text-center">
+      <p className="text-sm">Ainda não há gestores marcados no POS, por isso pode sair sem PIN. Marque-os em «Vendas → Caixa (POS)»: depois disso, sair do POS pede o PIN de um gestor.</p>
+      <button type="button" onClick={() => navigate("/vendas/caixa")} className={`${TOUCH} ${POS.primary} h-14 w-full`}>
+        Ir para Caixa (POS)
+      </button>
+    </div>
+  ) : (
+    <div className="flex justify-center">
+      <PosPinPad title="PIN de gestor" subtitle="Só um gestor pode sair do POS" requireManager onCancel={() => setExiting(false)} onSuccess={() => navigate("/vendas/emitir")} />
+    </div>
+  );
+
   if (!session) {
     return (
       <main className={`${POS.page} flex min-h-screen flex-col items-center justify-center gap-6 p-4`}>
@@ -227,6 +243,7 @@ export function PosScreen() {
         <PosPinPad
           title="Introduza o seu PIN"
           subtitle="O PIN do registo de ponto"
+          keyboard={!exiting}
           onSuccess={(employee, pin) => {
             setSession({ employee, pin });
             setView(employee.view ?? "A");
@@ -238,9 +255,7 @@ export function PosScreen() {
         </button>
         {exiting && (
           <Overlay title="Voltar à gestão" onClose={() => setExiting(false)}>
-            <div className="flex justify-center">
-              <PosPinPad title="PIN de gestor" requireManager onCancel={() => setExiting(false)} onSuccess={() => navigate("/vendas/emitir")} />
-            </div>
+            {exitBody}
           </Overlay>
         )}
       </main>
@@ -467,9 +482,7 @@ export function PosScreen() {
 
       {exiting && (
         <Overlay title="Sair para a gestão" onClose={() => setExiting(false)}>
-          <div className="flex justify-center">
-            <PosPinPad title="PIN de gestor" subtitle="Só um gestor pode sair do POS" requireManager onCancel={() => setExiting(false)} onSuccess={() => navigate("/vendas/emitir")} />
-          </div>
+          {exitBody}
         </Overlay>
       )}
     </div>
