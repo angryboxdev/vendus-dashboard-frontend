@@ -17,6 +17,7 @@ export function sampleOrganizationProfile(overrides: Partial<OrganizationProfile
     address: "Rua de Teste, 1",
     postalCode: null,
     city: null,
+    region: null,
     country: "PT",
     email: null,
     phone: null,

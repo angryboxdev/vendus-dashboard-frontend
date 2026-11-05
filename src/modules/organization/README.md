@@ -48,6 +48,7 @@ Documentos entram em tickets seguintes da Base Organizacional (
 - `InMemoryOrganizationApiAdapter` → testes/offline (dados fictícios).
 
 ## Decisões de design (ADR resumido)
+- **A Empresa é o emitente das faturas** (2026-11-05): campo «Distrito / região»; ao gravar, a mensagem diz se o emitente ficou atualizado ou o que falta (`issuerSync` da resposta). O backend cria/atualiza a entidade legal com o mesmo NIF.
 - **Edição só para `admin`**, como no backend — os restantes roles veem
   os dados desativados; histórico também só `admin`.
 - **Abas só quando existem** — `CompanyStructureTabs` mostra as 4 abas da task (Empresa, Locais, Calendário & Eventos, Documentos);

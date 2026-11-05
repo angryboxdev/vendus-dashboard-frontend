@@ -8,6 +8,7 @@ import {
   TIMEZONE_OPTIONS,
   type EditableOrganizationField,
   type OrganizationFormValues,
+  type IssuerSyncResult,
   type OrganizationProfile,
 } from "../../domain/entities/organization-profile.ts";
 import { diffChanges, hasChanges, LOGO_ACCEPTED_TYPES, toFormValues } from "../../domain/services/organization-form.service.ts";
@@ -91,6 +92,16 @@ function LogoCard({ profile, canEdit, logoMutation }: { profile: OrganizationPro
     </section>
   );
 }
+
+/** A Empresa é o emitente das faturas: diz se ficou atualizado ou o que falta. */
+function issuerNote(sync: IssuerSyncResult | undefined): string {
+  if (!sync) return "";
+  if (sync.status === "synced") return " Emitente das faturas atualizado.";
+  if (sync.status === "incomplete") return ` Para emitir faturas falta: ${sync.missing.map((f) => ISSUER_FIELD_LABELS[f] ?? f).join(", ")}.`;
+  return ` O emitente das faturas não foi atualizado: ${sync.message}`;
+}
+
+const ISSUER_FIELD_LABELS: Record<string, string> = { ...ORGANIZATION_FIELD_LABELS, country: "País (só Portugal)" };
 
 function ProfileForm({
   profile,
@@ -178,6 +189,7 @@ function ProfileForm({
         <div className="md:col-span-2">{field("address")}</div>
         {field("postalCode", { placeholder: values.country === "PT" ? "0000-000" : undefined })}
         {field("city")}
+        {field("region", { placeholder: "Ex.: Porto" })}
         {select("country", COUNTRY_OPTIONS.map((c) => ({ value: c.code, label: c.label })))}
       </Section>
       <Section title="Contactos">
@@ -189,7 +201,7 @@ function ProfileForm({
 
       {canEdit ? (
         <div className="flex items-center justify-end gap-3">
-          {updateMutation.isSuccess && !dirty && <span className="text-sm text-emerald-700">Alterações guardadas.</span>}
+          {updateMutation.isSuccess && !dirty && <span className="text-sm text-emerald-700">Alterações guardadas.{issuerNote(updateMutation.data?.issuerSync)}</span>}
           {fieldErrors.length > 0 && <span className="text-sm text-[#A3211A]">Corrija os campos assinalados.</span>}
           {genericError && <span className="text-sm text-[#A3211A]">Não foi possível guardar. Tente novamente.</span>}
           <button

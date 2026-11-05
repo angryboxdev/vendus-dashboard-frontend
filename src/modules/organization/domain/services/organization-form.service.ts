@@ -13,6 +13,7 @@ const EDITABLE_FIELDS: EditableOrganizationField[] = [
   "address",
   "postalCode",
   "city",
+  "region",
   "country",
   "email",
   "phone",

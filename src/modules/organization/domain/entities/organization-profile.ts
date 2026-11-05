@@ -13,6 +13,8 @@ export interface OrganizationProfile {
   address: string | null;
   postalCode: string | null;
   city: string | null;
+  /** Distrito/região da morada fiscal (o emitente das faturas exige-o). */
+  region: string | null;
   /** ISO 3166-1 alpha-2. */
   country: string;
   email: string | null;
@@ -23,7 +25,12 @@ export interface OrganizationProfile {
   logoUrl: string | null;
   status: OrganizationStatus;
   updatedAt: string;
+  /** Só na resposta de gravar: a Empresa é o emitente das faturas (entidade legal com o mesmo NIF). */
+  issuerSync?: IssuerSyncResult;
 }
+
+/** Resultado de atualizar o emitente das faturas depois de gravar a Empresa. */
+export type IssuerSyncResult = { status: "synced" } | { status: "incomplete"; missing: string[] } | { status: "failed"; message: string };
 
 export type EditableOrganizationField =
   | "name"
@@ -33,6 +40,7 @@ export type EditableOrganizationField =
   | "address"
   | "postalCode"
   | "city"
+  | "region"
   | "country"
   | "email"
   | "phone"
@@ -58,6 +66,7 @@ export const ORGANIZATION_FIELD_LABELS: Record<EditableOrganizationField, string
   address: "Morada fiscal",
   postalCode: "Código postal",
   city: "Localidade",
+  region: "Distrito / região",
   country: "País",
   email: "Email",
   phone: "Telefone",

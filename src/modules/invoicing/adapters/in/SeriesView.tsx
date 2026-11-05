@@ -78,6 +78,11 @@ export function SeriesView() {
               </option>
             ))}
           </select>
+          {entities.length === 0 && (
+            <span className="mt-1 block text-xs text-ink-secondary">
+              O emitente é a Empresa: preencha e grave «Empresa &amp; Estrutura → Empresa» (razão social, NIF, NISS, e-mail, morada, distrito).
+            </span>
+          )}
         </label>
         <label>
           <span className={LABEL}>Tipo de documento</span>
