@@ -2,9 +2,64 @@ import { useState } from "react";
 import { AlertBanner, Button, EmptyState, FIELD, LABEL, StatusBadge, SURFACE, TABLE, TD, TH, THEAD, TR } from "../../../../components/ui/index.ts";
 import { AT_WEBSERVICE_ENABLED, DOCUMENT_TYPE_LABELS, type FiscalDocumentType, type SeriesMode } from "../../domain/entities/invoicing.ts";
 import { AtSeriesActions } from "./AtSeriesActions.tsx";
+import { Link } from "react-router-dom";
+import { useInvoicingModule } from "../../invoicing.module.tsx";
 import { useInvoicingMeta, useLegalEntities, useSeries } from "./use-invoicing.ts";
 
 const errorText = (e: unknown) => (e instanceof Error ? e.message : "Erro inesperado");
+
+const COMPANY_FIELDS: Record<string, string> = {
+  country: "País (só Portugal)",
+  legalName: "Razão social",
+  nif: "NIF",
+  niss: "NISS",
+  email: "Email",
+  address: "Morada fiscal",
+  postalCode: "Código postal",
+  city: "Localidade",
+  region: "Distrito / região",
+};
+
+/** Sem emitente: cria-o com os dados da Empresa e diz o que falta (ou o erro). */
+function IssuerFromCompany({ onDone }: { onDone: () => Promise<void> }) {
+  const { invoicing } = useInvoicingModule();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState<string | null>(null);
+  return (
+    <div className="mt-2 space-y-2 text-xs text-ink-secondary">
+      <p>O emitente é a Empresa (Empresa &amp; Estrutura → Empresa).</p>
+      <Button
+        type="button"
+        size="sm"
+        loading={busy}
+        onClick={async () => {
+          setBusy(true);
+          setMessage(null);
+          try {
+            const r = await invoicing.syncIssuerFromCompany();
+            if (r.status === "synced") await onDone();
+            else if (r.status === "incomplete") setMessage(`Falta preencher na Empresa: ${r.missing.map((f) => COMPANY_FIELDS[f] ?? f).join(", ")}.`);
+            else setMessage(`Não foi possível criar o emitente: ${r.message}`);
+          } catch (e) {
+            setMessage(errorText(e));
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        Usar os dados da Empresa
+      </Button>
+      {message && (
+        <p role="alert" className="text-red-700">
+          {message}{" "}
+          <Link to="/empresa" className="underline">
+            Abrir a Empresa
+          </Link>
+        </p>
+      )}
+    </div>
+  );
+}
 
 /** Código de validação da AT para uma série (comunicada no Portal das Finanças até haver webservice). */
 function ValidationCodeForm({ onSave }: { onSave: (code: string) => Promise<void> }) {
@@ -40,7 +95,7 @@ function ValidationCodeForm({ onSave }: { onSave: (code: string) => Promise<void
 export function SeriesView() {
   const { data: meta } = useInvoicingMeta();
   const { data: series, error, create, setValidationCode, reload } = useSeries();
-  const { data: entities } = useLegalEntities();
+  const { data: entities, error: entitiesError, loading: entitiesLoading, reload: reloadEntities } = useLegalEntities();
   const [form, setForm] = useState<{ legalEntityId: string; documentType: FiscalDocumentType; seriesId: string; mode: SeriesMode }>({
     legalEntityId: "",
     documentType: "FS",
@@ -78,12 +133,18 @@ export function SeriesView() {
               </option>
             ))}
           </select>
-          {entities.length === 0 && (
-            <span className="mt-1 block text-xs text-ink-secondary">
-              O emitente é a Empresa: preencha e grave «Empresa &amp; Estrutura → Empresa» (razão social, NIF, NISS, e-mail, morada, distrito).
-            </span>
-          )}
         </label>
+        {(entitiesError || (!entitiesLoading && entities.length === 0)) && (
+          <div className="sm:col-span-2 lg:col-span-5">
+            {entitiesError ? (
+              <p role="alert" className="text-sm text-red-700">
+                Não foi possível carregar os emitentes: {entitiesError}
+              </p>
+            ) : (
+              <IssuerFromCompany onDone={reloadEntities} />
+            )}
+          </div>
+        )}
         <label className="min-w-0">
           <span className={LABEL}>Tipo de documento</span>
           <select className={`${FIELD} w-full min-w-0`} value={form.documentType} onChange={(e) => setForm({ ...form, documentType: e.target.value as FiscalDocumentType })}>

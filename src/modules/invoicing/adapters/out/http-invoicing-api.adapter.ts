@@ -1,7 +1,7 @@
 import { ApiError, apiDeleteNoContent, apiGet, apiGetBlob, apiWrite } from "../../../../lib/api.ts";
 import type { AtCommunication, AtCredentialsInput, AtStatus, CommunicateResult, DocumentSummary, DocumentView, InvoicingMeta, IssueDocumentInput, IssueResult, NewSeriesInput, SaftQuery, Series } from "../../domain/entities/invoicing.ts";
 import { FiscalRuleError, IssueNeedsConfirmationError } from "../../domain/errors.ts";
-import type { DocumentFilter, FileSaverPort, IdGeneratorPort, InvoicingApiPort, LegalEntityOption } from "../../domain/ports/out/invoicing-api.port.ts";
+import type { DocumentFilter, FileSaverPort, IdGeneratorPort, InvoicingApiPort, IssuerSyncResult, LegalEntityOption } from "../../domain/ports/out/invoicing-api.port.ts";
 
 const B = "/api/invoicing";
 
@@ -54,6 +54,9 @@ export class HttpInvoicingApiAdapter implements InvoicingApiPort {
   async legalEntities(): Promise<LegalEntityOption[]> {
     const list = await apiGet<Array<{ id: string; name: string; taxId: string }>>("/api/novo-rh/legal-entities");
     return list.map(({ id, name, taxId }) => ({ id, name, taxId }));
+  }
+  syncIssuerFromCompany() {
+    return write<IssuerSyncResult>("/api/organization/issuer-sync", {}, crypto.randomUUID());
   }
   atStatus() {
     return apiGet<AtStatus>(`${B}/at`);

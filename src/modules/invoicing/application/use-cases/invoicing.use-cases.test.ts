@@ -24,6 +24,7 @@ function api(over: Partial<InvoicingApiPort> = {}): InvoicingApiPort {
     issue: vi.fn(async () => ({ documentId: "d1", documentNumber: "FS L01-2027/1", atcud: "CDF7T5HD-1" })),
     cancel: vi.fn(),
     legalEntities: vi.fn(),
+    syncIssuerFromCompany: vi.fn(),
     exportSaft: vi.fn(async () => new Blob(["<AuditFile/>"])),
     atStatus: vi.fn(),
     saveAtCredentials: vi.fn(async () => undefined),
