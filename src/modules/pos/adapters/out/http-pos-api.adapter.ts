@@ -1,5 +1,5 @@
 import { ApiError, apiGet, apiWrite } from "../../../../lib/api.ts";
-import type { DaySummary, ImportPreview, PosEmployee, PosProduct, PosSale, PosSettings, PosView, ProductPatch, ReceiptDocument, StockAdjustment, StockDay } from "../../domain/entities/pos.ts";
+import type { DaySummary, ImportPreview, ImportResult, PosEmployee, PosProduct, PosSale, PosSettings, PosView, ProductPatch, ReceiptDocument, StockAdjustment, StockDay } from "../../domain/entities/pos.ts";
 import { PosError } from "../../domain/errors.ts";
 import type { CheckoutRequest, PosApiPort, PosIdGeneratorPort, SeriesOption } from "../../domain/ports/out/pos-api.port.ts";
 
@@ -51,8 +51,8 @@ export class HttpPosApiAdapter implements PosApiPort {
   previewImport(csv: string) {
     return write<ImportPreview>(`${B}/products/import/preview`, { csv }, key());
   }
-  importProducts(csv: string) {
-    return write<{ created: number; updated: number; skipped: number }>(`${B}/products/import`, { csv }, key());
+  importProducts(csv: string, opts: { replace?: boolean } = {}) {
+    return write<ImportResult>(`${B}/products/import`, { csv, replace: opts.replace === true }, key());
   }
   settings() {
     return get<PosSettings>(`${B}/settings`);

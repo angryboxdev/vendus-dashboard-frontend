@@ -1,4 +1,4 @@
-import type { CartLine, Customer, DaySummary, Discount, ImportPreview, PaymentMethod, PosEmployee, PosProduct, PosSale, PosSettings, PosView, ProductPatch, ReceiptDocument, StockAdjustment, StockDay } from "../../entities/pos.ts";
+import type { CartLine, Customer, DaySummary, Discount, ImportPreview, ImportResult, PaymentMethod, PosEmployee, PosProduct, PosSale, PosSettings, PosView, ProductPatch, ReceiptDocument, StockAdjustment, StockDay } from "../../entities/pos.ts";
 
 export interface SeriesOption {
   ref: string;
@@ -23,7 +23,7 @@ export interface PosApiPort {
   adjustStock(productId: string, adjustment: StockAdjustment): Promise<void>;
   stockDay(date?: string): Promise<StockDay>;
   previewImport(csv: string): Promise<ImportPreview>;
-  importProducts(csv: string): Promise<{ created: number; updated: number; skipped: number }>;
+  importProducts(csv: string, opts?: { replace?: boolean }): Promise<ImportResult>;
   settings(): Promise<PosSettings>;
   saveSettings(s: PosSettings): Promise<PosSettings>;
   employees(): Promise<PosEmployee[]>;

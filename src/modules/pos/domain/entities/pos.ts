@@ -120,6 +120,14 @@ export interface ImportRow {
   warnings: string[];
 }
 
+/** Resultado da importação; `deactivated` = produtos tirados da venda por «Substituir catálogo». */
+export interface ImportResult {
+  created: number;
+  updated: number;
+  skipped: number;
+  deactivated: number;
+}
+
 export interface ImportPreview {
   rows: ImportRow[];
   toImport: number;

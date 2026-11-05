@@ -1,4 +1,4 @@
-import type { CartLine, Customer, DaySummary, Discount, ImportPreview, PaymentMethod, PosEmployee, PosProduct, PosSale, PosSettings, PosView, ProductPatch, ReceiptDocument, StockAdjustment, StockDay } from "../../entities/pos.ts";
+import type { CartLine, Customer, DaySummary, Discount, ImportPreview, ImportResult, PaymentMethod, PosEmployee, PosProduct, PosSale, PosSettings, PosView, ProductPatch, ReceiptDocument, StockAdjustment, StockDay } from "../../entities/pos.ts";
 import type { SeriesOption } from "../out/pos-api.port.ts";
 
 export type CheckoutOutcome = { kind: "done"; sale: PosSale } | { kind: "invalid"; errors: string[] };
@@ -11,7 +11,8 @@ export interface PosPort {
   adjustStock(productId: string, adjustment: StockAdjustment): Promise<void>;
   stockDay(date?: string): Promise<StockDay>;
   previewImport(csv: string): Promise<ImportPreview>;
-  importProducts(csv: string): Promise<{ created: number; updated: number; skipped: number }>;
+  /** `replace`: os produtos fora do ficheiro deixam de estar à venda (não se apagam). */
+  importProducts(csv: string, opts?: { replace?: boolean }): Promise<ImportResult>;
   settings(): Promise<PosSettings>;
   saveSettings(s: PosSettings): Promise<PosSettings>;
   employees(): Promise<PosEmployee[]>;
