@@ -8,6 +8,8 @@ const TABS = [
   { to: "/vendas/documentos", label: "Documentos" },
   { to: "/vendas/series", label: "Séries" },
   { to: "/vendas/saft", label: "SAF-T" },
+  { to: "/vendas/produtos", label: "Produtos" },
+  { to: "/vendas/caixa", label: "Caixa (POS)" },
   ...(AT_WEBSERVICE_ENABLED ? [{ to: "/vendas/at", label: "Comunicação AT" }] : []),
 ];
 

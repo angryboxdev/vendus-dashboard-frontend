@@ -79,10 +79,13 @@ const OPERATIONS_ITEMS: NavItem[] = [
 
 // Vendas: faturação certificada AT (testes). Só aparece a quem tem `sales.invoicing` (por omissão, só o Admin).
 const SALES_ITEMS: NavItem[] = [
+  { kind: "item", path: "/pos", label: "Abrir POS" },
   { kind: "item", path: "/vendas/emitir", label: "Emitir documento" },
   { kind: "item", path: "/vendas/documentos", label: "Documentos" },
   { kind: "item", path: "/vendas/series", label: "Séries" },
   { kind: "item", path: "/vendas/saft", label: "SAF-T" },
+  { kind: "item", path: "/vendas/produtos", label: "Produtos" },
+  { kind: "item", path: "/vendas/caixa", label: "Caixa (POS)" },
 ];
 
 /**
@@ -162,8 +165,8 @@ export function buildTree(user: SidebarUser): SidebarNavEntry[] {
   const allowed = (path: string) =>
     access
       ? canOpenPath({ isAdmin: access.isAdmin, portalOnly: access.portalOnly, permissions: { ...access.permissions } }, path)
-      : // Sem acesso carregado: administração e a faturação em testes (/vendas) só para admin.
-        !(path.startsWith("/admin") || path.startsWith("/vendas")) || user.role === "admin";
+      : // Sem acesso carregado: administração, a faturação em testes (/vendas) e o POS só para admin.
+        !(path.startsWith("/admin") || path.startsWith("/vendas") || path.startsWith("/pos")) || user.role === "admin";
 
   return entries.flatMap((entry): SidebarNavEntry[] => {
     if (entry.kind === "item") return allowed(entry.path) ? [entry] : [];

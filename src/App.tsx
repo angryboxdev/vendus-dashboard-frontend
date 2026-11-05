@@ -78,6 +78,10 @@ import { SalesDeclarationProvider } from "./modules/sales-declaration/sales-decl
 import { SalesDeclarationView } from "./modules/sales-declaration/adapters/in/SalesDeclarationView.tsx";
 import { InvoicingProvider } from "./modules/invoicing/invoicing.module.tsx";
 import { InvoicingLayout } from "./modules/invoicing/adapters/in/InvoicingLayout.tsx";
+import { PosProvider } from "./modules/pos/pos.module.tsx";
+import { PosScreen } from "./modules/pos/adapters/in/PosScreen.tsx";
+import { PosProductsView } from "./modules/pos/adapters/in/PosProductsView.tsx";
+import { PosSettingsView } from "./modules/pos/adapters/in/PosSettingsView.tsx";
 import { IssueDocumentView } from "./modules/invoicing/adapters/in/IssueDocumentView.tsx";
 import { DocumentsView as InvoicingDocumentsView } from "./modules/invoicing/adapters/in/DocumentsView.tsx";
 import { SaftExportView } from "./modules/invoicing/adapters/in/SaftExportView.tsx";
@@ -147,6 +151,18 @@ export default function App() {
           <DevicePairingGate>
             <KdsPage />
           </DevicePairingGate>
+        }
+      />
+
+      {/* POS do Mezza — ecrã inteiro, sem a barra lateral; sai-se só com PIN de gestor. Documentos de formação. */}
+      <Route
+        path="/pos"
+        element={
+          <ProtectedRoute>
+            <PosProvider>
+              <PosScreen />
+            </PosProvider>
+          </ProtectedRoute>
         }
       />
 
@@ -396,7 +412,9 @@ export default function App() {
                   path="/vendas"
                   element={
                     <InvoicingProvider>
-                      <InvoicingLayout />
+                      <PosProvider>
+                        <InvoicingLayout />
+                      </PosProvider>
                     </InvoicingProvider>
                   }
                 >
@@ -405,6 +423,8 @@ export default function App() {
                   <Route path="documentos" element={<InvoicingDocumentsView />} />
                   <Route path="series" element={<InvoicingSeriesView />} />
                   <Route path="saft" element={<SaftExportView />} />
+                  <Route path="produtos" element={<PosProductsView />} />
+                  <Route path="caixa" element={<PosSettingsView />} />
                   {AT_WEBSERVICE_ENABLED && <Route path="at" element={<AtCommunicationView />} />}
                 </Route>
                 <Route
