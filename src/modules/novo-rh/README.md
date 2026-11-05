@@ -96,6 +96,7 @@ módulo a usar a base de i18n (`src/i18n`).
 
 ## Design decisions (ADR summary)
 
+- **«Entidades legais» saiu do RH** (2026-11-05): a Empresa (Empresa & Estrutura) é a fonte; `/hr/novo/entidades` redireciona para `/empresa`. A «entidade de cada centro» deixou de ter ecrã.
 - Área separada em vez de mexer nos ecrãs atuais (pedido do utilizador, 2026-10-11; ADR-0018 do backend).
 - Visível só para Admin enquanto está em desenvolvimento.
 - Textos via `t()` desde o início (pt-PT agora, es-ES depois — ADR-0023 do backend).

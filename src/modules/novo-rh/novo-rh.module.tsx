@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
 import { QueryClientContext } from "@tanstack/react-query";
-import { Route, Routes, useParams } from "react-router-dom";
+import { Navigate, Route, Routes, useParams } from "react-router-dom";
 import { setRequestHeaderProvider } from "../../lib/api.ts";
 import { HttpDemoApiAdapter, SessionDataModeStore, novoRhModeHeaders } from "./adapters/out/http-demo-api.adapter.ts";
 import { DemoModeBanner, DemoAccessNotice } from "./adapters/in/DemoMode.tsx";
@@ -58,9 +58,6 @@ import { AnnouncementsView } from "./adapters/in/engagement/AnnouncementsView.ts
 import type { DistributionsApiPort } from "./domain/ports/out/distributions-api.port.ts";
 import { HttpDistributionsApiAdapter } from "./adapters/out/http-distributions-api.adapter.ts";
 import { DocumentsView } from "./adapters/in/documents/DocumentsView.tsx";
-import type { LegalEntitiesApiPort } from "./domain/ports/out/legal-entities-api.port.ts";
-import { HttpLegalEntitiesApiAdapter } from "./adapters/out/http-legal-entities-api.adapter.ts";
-import { LegalEntitiesView } from "./adapters/in/structure/LegalEntitiesView.tsx";
 import type { InvitationsApiPort } from "./domain/ports/out/invitations-api.port.ts";
 import { HttpInvitationsApiAdapter, HttpJoinApiAdapter } from "./adapters/out/http-invitations-api.adapter.ts";
 import { InvitationsView } from "./adapters/in/people/InvitationsView.tsx";
@@ -118,7 +115,6 @@ export interface NovoRhModule {
   periods: PeriodsApiPort;
   announcements: AnnouncementsApiPort;
   distributions: DistributionsApiPort;
-  legalEntities: LegalEntitiesApiPort;
   invitations: InvitationsApiPort;
   alerts: AlertsApiPort;
   workspace: WorkspaceApiPort;
@@ -197,7 +193,6 @@ export function NovoRhProvider({ children, module: mod, modeStore }: { children:
         periods: new HttpPeriodsApiAdapter(),
         announcements: new HttpAnnouncementsApiAdapter(),
         distributions: new HttpDistributionsApiAdapter(),
-        legalEntities: new HttpLegalEntitiesApiAdapter(),
         invitations: new HttpInvitationsApiAdapter(),
         alerts: new HttpAlertsApiAdapter(),
         workspace: new HttpWorkspaceApiAdapter(),
@@ -292,7 +287,8 @@ function NovoRhRoutes() {
         <Route path="organograma" element={<OrgChartView />} />
         <Route path="configuracoes" element={<SettingsHubView />} />
         <Route path="estrutura" element={<StructureView />} />
-        <Route path="entidades" element={<LegalEntitiesView />} />
+        {/* Entidades legais saíram do RH: a Empresa (Empresa & Estrutura) é o emitente. */}
+        <Route path="entidades" element={<Navigate to="/empresa" replace />} />
         <Route path="convites" element={<InvitationsView />} />
         <Route path="acessos" element={mode === "demo" ? <DemoAccessNotice /> : <AccessView />} />
         <Route path="auditoria" element={<AuditView />} />

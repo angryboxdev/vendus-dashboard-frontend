@@ -60,7 +60,6 @@ export const SCREENS: Screen[] = [
   { path: "/hr/novo/notificacoes", label: "notifications.title", area: "other", tab: false },
   { path: "/hr/novo/configuracoes", label: "novoRh.tab.settingsGeneral", area: "settings", tab: true },
   { path: "/hr/novo/estrutura", label: "novoRh.tab.structure", area: "settings", tab: true },
-  { path: "/hr/novo/entidades", label: "novoRh.tab.legalEntities", area: "settings", tab: true },
   { path: "/hr/novo/acessos", label: "novoRh.tab.access", area: "settings", tab: true },
   { path: "/hr/novo/convites", label: "novoRh.tab.invitations", area: "settings", tab: true },
   { path: "/hr/novo/alertas", label: "novoRh.tab.alerts", area: "settings", tab: true },
