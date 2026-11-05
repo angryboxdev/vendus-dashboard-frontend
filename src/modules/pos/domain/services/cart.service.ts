@@ -188,3 +188,11 @@ export const EMPTY_PAYMENT: PaymentState = { method: null, givenCents: 0, custom
 
 /** Pode confirmar: método escolhido e, em dinheiro, entregue ≥ total. */
 export const paymentReady = (p: PaymentState, totalCents: number) => p.method !== null && (p.method !== "cash" || p.givenCents >= totalCents);
+
+/**
+ * O Vendus exporta a miniatura `_xs` (60 px), que fica desfocada nos cartões.
+ * Mostra-se a `_m` (160 px) do mesmo ficheiro; outros endereços ficam iguais.
+ */
+export function displayImageUrl(url: string): string {
+  return url.replace(/^(https:\/\/www\.vendus\.pt\/foto\/[0-9a-f]+)_xs\.(png|jpe?g|gif|webp)$/i, "$1_m.$2");
+}

@@ -32,8 +32,8 @@ export class PosUseCases implements PosPort {
   previewImport(csv: string) {
     return this.api.previewImport(csv);
   }
-  importProducts(csv: string) {
-    return this.api.importProducts(csv);
+  importProducts(csv: string, opts: { replace?: boolean } = {}) {
+    return this.api.importProducts(csv, opts);
   }
   settings() {
     return this.api.settings();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { PosProduct } from "../entities/pos.ts";
-import { addProduct, categoriesOf, changedStock, changeQuantity, distribute, EMPTY_SCAN, findByCode, keypadPress, priceCart, quickCashAmounts, scanKey, searchProducts, setLineDiscount, stockBadge, stockShortages, type ScanState } from "./cart.service.ts";
+import { addProduct, categoriesOf, changedStock, changeQuantity, displayImageUrl, distribute, EMPTY_SCAN, findByCode, keypadPress, priceCart, quickCashAmounts, scanKey, searchProducts, setLineDiscount, stockBadge, stockShortages, type ScanState } from "./cart.service.ts";
 
 const p = (over: Partial<PosProduct>): PosProduct => ({ id: "p1", ref: "VPIZ1", name: "Pizza Teste", category: "Grandes", priceCents: 1850, vatRate: 13, productType: "P", trackStock: false, stockQty: 0, barcode: null, imageUrl: null, active: true, ...over });
 const PIZZA = p({});
@@ -111,5 +111,14 @@ describe("pesquisa e categorias", () => {
 
   it("categorias na ordem do catálogo, as desconhecidas no fim", () => {
     expect(categoriesOf([p({ category: "Focaccia" }), REFRI, PIZZA, p({ category: "Pequenas" })])).toEqual(["Pequenas", "Grandes", "Bebidas", "Focaccia"]);
+  });
+});
+
+describe("displayImageUrl", () => {
+  it("troca a miniatura _xs do Vendus pela _m; outros endereços ficam iguais", () => {
+    expect(displayImageUrl("https://www.vendus.pt/foto/abc123_xs.png")).toBe("https://www.vendus.pt/foto/abc123_m.png");
+    expect(displayImageUrl("https://www.vendus.pt/foto/abc123_xs.JPG")).toBe("https://www.vendus.pt/foto/abc123_m.JPG");
+    expect(displayImageUrl("https://www.vendus.pt/foto/abc123.png")).toBe("https://www.vendus.pt/foto/abc123.png");
+    expect(displayImageUrl("https://exemplo.pt/foto/abc123_xs.png")).toBe("https://exemplo.pt/foto/abc123_xs.png");
   });
 });

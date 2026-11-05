@@ -13,6 +13,7 @@ function ImportCsv({ onImported }: { onImported: () => Promise<void> }) {
   const [fileName, setFileName] = useState("");
   const [preview, setPreview] = useState<ImportPreview | null>(null);
   const [showSkipped, setShowSkipped] = useState(false);
+  const [replace, setReplace] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -58,6 +59,10 @@ function ImportCsv({ onImported }: { onImported: () => Promise<void> }) {
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={showSkipped} onChange={(e) => setShowSkipped(e.target.checked)} />
             Mostrar também as linhas ignoradas
+          </label>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={replace} onChange={(e) => setReplace(e.target.checked)} />
+            Substituir o catálogo: os produtos que não estão neste ficheiro deixam de estar à venda (não se apagam — têm vendas e stock)
           </label>
           <div className="max-h-96 overflow-auto">
             <table className={TABLE}>
@@ -106,8 +111,8 @@ function ImportCsv({ onImported }: { onImported: () => Promise<void> }) {
               setBusy(true);
               setError(null);
               try {
-                const r = await pos.importProducts(csv);
-                setResult(`${r.created} criados, ${r.updated} atualizados, ${r.skipped} linhas ignoradas.`);
+                const r = await pos.importProducts(csv, { replace });
+                setResult(`${r.created} criados, ${r.updated} atualizados, ${r.skipped} linhas ignoradas${r.deactivated > 0 ? `, ${r.deactivated} tirados da venda` : ""}.`);
                 setPreview(null);
                 setCsv(null);
                 await onImported();
