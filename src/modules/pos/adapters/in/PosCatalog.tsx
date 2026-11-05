@@ -1,7 +1,17 @@
 import { Beer, CakeSlice, Coffee, CupSoda, Droplet, Package, Pizza, Search, Soup, UtensilsCrossed } from "lucide-react";
 import type { RefObject } from "react";
 import { formatEuros, type PosProduct } from "../../domain/entities/pos.ts";
+import { stockBadge } from "../../domain/services/cart.service.ts";
 import { POS } from "./pos-theme.ts";
+
+const STOCK_TONE = { ok: POS.mutedText, low: `${POS.amber} rounded-full px-2`, out: `${POS.red} rounded-full px-2` } as const;
+
+/** «N em stock» (cinza), ≤ 2 âmbar, «Sem stock»/«Stock −N» vermelho; anel laranja ~4 s depois de mudar. */
+export function StockPill({ product, flashing = false }: { product: PosProduct; flashing?: boolean }) {
+  const badge = stockBadge(product);
+  if (!badge) return null;
+  return <span className={`inline-block self-start text-xs font-semibold ${POS.num} ${STOCK_TONE[badge.tone]} ${flashing ? `${POS.primaryRing} animate-pulse rounded-full px-2` : ""}`}>{badge.label}</span>;
+}
 
 /** Ícone da categoria (o mapa é fixo; nada se cria durante o render). */
 function CategoryIcon({ category, className }: { category: string | null; className: string }) {
@@ -57,7 +67,7 @@ export function SearchBox({ value, onChange, inputRef, onEnter, large = false }:
             onEnter();
           }
         }}
-        placeholder="Pesquisar por nome ou referência"
+        placeholder="Pesquisar por nome, referência ou código de barras"
         className="h-full w-full bg-transparent outline-none placeholder:text-[#7d6b5a]"
       />
     </label>
@@ -107,7 +117,7 @@ export function CategoryChips({ categories, active, onChange }: { categories: st
 }
 
 /** Vista A: grelha de artigos com foto; contador laranja quando já está no talão. */
-export function ProductGrid({ products, quantities, onAdd }: { products: PosProduct[]; quantities: Map<string, number>; onAdd: (p: PosProduct) => void }) {
+export function ProductGrid({ products, quantities, onAdd, flashing }: { products: PosProduct[]; quantities: Map<string, number>; onAdd: (p: PosProduct) => void; flashing?: Set<string> }) {
   if (products.length === 0) return <p className={`p-6 text-center ${POS.mutedText}`}>Nenhum artigo encontrado.</p>;
   return (
     <div className="grid grid-cols-3 gap-3 p-3 xl:grid-cols-4 2xl:grid-cols-5">
@@ -123,6 +133,7 @@ export function ProductGrid({ products, quantities, onAdd }: { products: PosProd
             {qty > 0 && <span className={`${POS.primary} absolute right-2 top-2 z-10 flex h-7 min-w-7 items-center justify-center rounded-full px-2 text-sm font-bold ${POS.num}`}>{qty}</span>}
             <ProductThumb product={p} size="md" />
             <span className="line-clamp-2 min-h-10 text-sm font-semibold leading-tight">{p.name}</span>
+            <StockPill product={p} flashing={flashing?.has(p.id)} />
             <span className="flex items-end justify-between gap-1">
               <span className={`text-xs ${POS.mutedText}`}>{p.ref}</span>
               <span className={`font-semibold ${POS.num}`}>{formatEuros(p.priceCents)}</span>
@@ -134,8 +145,8 @@ export function ProductGrid({ products, quantities, onAdd }: { products: PosProd
   );
 }
 
-/** Vista B: tabela rápida (referência, nome, preço). */
-export function ProductTable({ products, quantities, onAdd }: { products: PosProduct[]; quantities: Map<string, number>; onAdd: (p: PosProduct) => void }) {
+/** Vista B: tabela rápida (referência, nome, preço, stock). */
+export function ProductTable({ products, quantities, onAdd, flashing }: { products: PosProduct[]; quantities: Map<string, number>; onAdd: (p: PosProduct) => void; flashing?: Set<string> }) {
   if (products.length === 0) return <p className={`p-6 text-center ${POS.mutedText}`}>Nenhum artigo encontrado.</p>;
   return (
     <table className="w-full text-left">
@@ -144,6 +155,7 @@ export function ProductTable({ products, quantities, onAdd }: { products: PosPro
           <th className="px-3 py-2 font-semibold">Ref.</th>
           <th className="px-3 py-2 font-semibold">Artigo</th>
           <th className="px-3 py-2 text-right font-semibold">Preço</th>
+          <th className="px-3 py-2 text-right font-semibold">Stock</th>
           <th className="px-3 py-2 text-right font-semibold">No talão</th>
         </tr>
       </thead>
@@ -157,6 +169,9 @@ export function ProductTable({ products, quantities, onAdd }: { products: PosPro
               </button>
             </td>
             <td className={`px-3 py-3 text-right font-semibold ${POS.num}`}>{formatEuros(p.priceCents)}</td>
+            <td className="px-3 py-3 text-right">
+              <StockPill product={p} flashing={flashing?.has(p.id)} />
+            </td>
             <td className={`px-3 py-3 text-right ${POS.num}`}>{quantities.get(p.id) ? <span className={`${POS.accent} rounded-full px-2 py-0.5 text-sm font-bold`}>{quantities.get(p.id)}</span> : ""}</td>
           </tr>
         ))}

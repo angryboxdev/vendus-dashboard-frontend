@@ -1,11 +1,59 @@
 import { describe, expect, it } from "vitest";
 import type { PosProduct } from "../entities/pos.ts";
-import { addProduct, categoriesOf, changeQuantity, distribute, keypadPress, priceCart, quickCashAmounts, searchProducts, setLineDiscount } from "./cart.service.ts";
+import { addProduct, categoriesOf, changedStock, changeQuantity, distribute, EMPTY_SCAN, findByCode, keypadPress, priceCart, quickCashAmounts, scanKey, searchProducts, setLineDiscount, stockBadge, stockShortages, type ScanState } from "./cart.service.ts";
 
-const p = (over: Partial<PosProduct>): PosProduct => ({ id: "p1", ref: "VPIZ1", name: "Pizza Teste", category: "Grandes", priceCents: 1850, vatRate: 13, productType: "P", trackStock: false, imageUrl: null, active: true, ...over });
+const p = (over: Partial<PosProduct>): PosProduct => ({ id: "p1", ref: "VPIZ1", name: "Pizza Teste", category: "Grandes", priceCents: 1850, vatRate: 13, productType: "P", trackStock: false, stockQty: 0, barcode: null, imageUrl: null, active: true, ...over });
 const PIZZA = p({});
 const REFRI = p({ id: "p2", ref: "VREF2", name: "Refrigerante Açaí", category: "Bebidas", priceCents: 250, vatRate: 23 });
 const byId = new Map([PIZZA, REFRI].map((x) => [x.id, x]));
+
+describe("stock", () => {
+  it("indicador só nos artigos que controlam stock: normal, ≤ 2 baixo, 0 sem stock, negativo", () => {
+    expect(stockBadge(p({ trackStock: false, stockQty: 0 }))).toBeNull();
+    expect(stockBadge(p({ trackStock: true, stockQty: 12 }))).toEqual({ tone: "ok", label: "12 em stock" });
+    expect(stockBadge(p({ trackStock: true, stockQty: 2 }))).toEqual({ tone: "low", label: "2 em stock" });
+    expect(stockBadge(p({ trackStock: true, stockQty: 0 }))).toEqual({ tone: "out", label: "Sem stock" });
+    expect(stockBadge(p({ trackStock: true, stockQty: -3 }))).toEqual({ tone: "out", label: "Stock −3" });
+  });
+
+  it("faltas: quantidade do talão acima do stock (só quem controla stock)", () => {
+    const drink = p({ id: "d", name: "Água", trackStock: true, stockQty: 1 });
+    const map = new Map([PIZZA, drink].map((x) => [x.id, x]));
+    expect(stockShortages([{ productId: "p1", quantity: 9 }, { productId: "d", quantity: 1 }], map)).toEqual([]);
+    expect(stockShortages([{ productId: "d", quantity: 3 }], map)).toEqual([{ product: drink, quantity: 3, stock: 1 }]);
+  });
+
+  it("stock que mudou entre duas leituras", () => {
+    const a = p({ id: "d", trackStock: true, stockQty: 5 });
+    expect(changedStock([a, PIZZA], [{ ...a, stockQty: 4 }, PIZZA])).toEqual(["d"]);
+  });
+});
+
+describe("código de barras", () => {
+  const AGUA = p({ id: "a", ref: "VAGU1", name: "Água Teste", barcode: "5601234567890" });
+  const list = [PIZZA, REFRI, AGUA];
+
+  it("procura pelo código de barras e depois pela referência exata", () => {
+    expect(findByCode(list, "5601234567890")).toBe(AGUA);
+    expect(findByCode(list, "vref2")).toBe(REFRI);
+    expect(findByCode(list, "560123")).toBeNull();
+  });
+
+  it("pesquisa: o código exato vem em primeiro (Enter adiciona-o)", () => {
+    expect(searchProducts(list, "5601234567890", "Grandes")[0]).toBe(AGUA);
+  });
+
+  it("leitor: teclas rápidas + Enter dão o código; escrever devagar não", () => {
+    let st: ScanState = EMPTY_SCAN;
+    let code: string | null = null;
+    "56012345".split("").forEach((k, i) => ({ state: st, code } = scanKey(st, k, 1000 + i * 10)));
+    ({ code } = scanKey(st, "Enter", 1090));
+    expect(code).toBe("56012345");
+    st = EMPTY_SCAN;
+    "5601".split("").forEach((k, i) => ({ state: st } = scanKey(st, k, 1000 + i * 300)));
+    expect(scanKey(st, "Enter", 2000).code).toBeNull();
+  });
+});
 
 describe("carrinho", () => {
   it("adicionar soma 1; − até zero remove a linha", () => {

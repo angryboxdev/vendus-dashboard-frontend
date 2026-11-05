@@ -1,4 +1,4 @@
-import type { CartLine, Customer, DaySummary, Discount, ImportPreview, PaymentMethod, PosEmployee, PosProduct, PosSale, PosSettings, ReceiptDocument } from "../../entities/pos.ts";
+import type { CartLine, Customer, DaySummary, Discount, ImportPreview, PaymentMethod, PosEmployee, PosProduct, PosSale, PosSettings, PosView, ProductPatch, ReceiptDocument, StockAdjustment, StockDay } from "../../entities/pos.ts";
 
 export interface SeriesOption {
   ref: string;
@@ -19,7 +19,9 @@ export interface CheckoutRequest {
 /** API do POS (`/api/pos`) e a 2.ª via do documento (`/api/invoicing/documents/:id`). */
 export interface PosApiPort {
   products(activeOnly: boolean): Promise<PosProduct[]>;
-  updateProduct(id: string, patch: Partial<Pick<PosProduct, "name" | "category" | "priceCents" | "vatRate" | "active">>): Promise<PosProduct>;
+  updateProduct(id: string, patch: ProductPatch): Promise<PosProduct>;
+  adjustStock(productId: string, adjustment: StockAdjustment): Promise<void>;
+  stockDay(date?: string): Promise<StockDay>;
   previewImport(csv: string): Promise<ImportPreview>;
   importProducts(csv: string): Promise<{ created: number; updated: number; skipped: number }>;
   settings(): Promise<PosSettings>;
@@ -27,6 +29,7 @@ export interface PosApiPort {
   employees(): Promise<PosEmployee[]>;
   series(): Promise<SeriesOption[]>;
   login(pin: string): Promise<PosEmployee>;
+  setView(pin: string, view: PosView): Promise<void>;
   /** A mesma chave num reenvio devolve a mesma venda — nunca uma segunda fatura. */
   checkout(req: CheckoutRequest, idempotencyKey: string): Promise<PosSale>;
   refund(saleId: string, req: { pin: string; lines: Array<{ lineNumber: number; quantity: number }>; reason: string }, idempotencyKey: string): Promise<PosSale>;

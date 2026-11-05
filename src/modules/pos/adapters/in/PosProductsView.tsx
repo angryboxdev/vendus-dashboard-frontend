@@ -126,9 +126,70 @@ function ImportCsv({ onImported }: { onImported: () => Promise<void> }) {
   );
 }
 
-function ProductRow({ p, onSaved }: { p: PosProduct; onSaved: (p: PosProduct) => void }) {
+/** Entrada (chegou mercadoria: +N) ou contagem (o stock passa a N), com nota opcional. */
+function StockAdjust({ p, onDone }: { p: PosProduct; onDone: () => Promise<void> }) {
+  const { pos } = usePosModule();
+  const [kind, setKind] = useState<"entry" | "count" | null>(null);
+  const [qty, setQty] = useState("");
+  const [note, setNote] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const tone = p.stockQty <= 0 ? "danger" : p.stockQty <= 2 ? "warning" : "neutral";
+  if (!p.trackStock) return <span className="text-xs text-ink-secondary">—</span>;
+  return (
+    <div className="space-y-1">
+      <div className="flex items-center gap-2">
+        <StatusBadge tone={tone}>{p.stockQty}</StatusBadge>
+        {(["entry", "count"] as const).map((k) => (
+          <button key={k} type="button" aria-pressed={kind === k} onClick={() => (setKind(kind === k ? null : k), setError(null))} className="text-xs font-medium text-ink underline">
+            {k === "entry" ? "Entrada" : "Contagem"}
+          </button>
+        ))}
+      </div>
+      {kind && (
+        <form
+          className="flex flex-wrap items-center gap-1"
+          onSubmit={async (e) => {
+            e.preventDefault();
+            const n = Number(qty);
+            setBusy(true);
+            setError(null);
+            try {
+              await pos.adjustStock(p.id, kind === "entry" ? { kind, qty: n, note } : { kind, countTo: n, note });
+              setKind(null);
+              setQty("");
+              setNote("");
+              await onDone();
+            } catch (err) {
+              setError(errorText(err));
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          <input
+            aria-label={kind === "entry" ? `Entrada de ${p.name}` : `Contagem de ${p.name}`}
+            inputMode="numeric"
+            value={qty}
+            onChange={(e) => setQty(e.target.value.replace(/\D/g, ""))}
+            placeholder={kind === "entry" ? "+ qtd." : "contado"}
+            className={`${FIELD} w-20 text-right tabular-nums`}
+          />
+          <input aria-label="Nota" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Nota (opcional)" maxLength={200} className={`${FIELD} w-36`} />
+          <Button type="submit" variant="primary" loading={busy} disabled={qty === ""}>
+            Gravar
+          </Button>
+          {error && <span className="block w-full text-xs text-red-700">{error}</span>}
+        </form>
+      )}
+    </div>
+  );
+}
+
+function ProductRow({ p, onSaved, onStock }: { p: PosProduct; onSaved: (p: PosProduct) => void; onStock: () => Promise<void> }) {
   const { pos } = usePosModule();
   const [price, setPrice] = useState((p.priceCents / 100).toFixed(2).replace(".", ","));
+  const [barcode, setBarcode] = useState(p.barcode ?? "");
   const [error, setError] = useState<string | null>(null);
   const save = async (patch: Parameters<typeof pos.updateProduct>[1]) => {
     setError(null);
@@ -169,6 +230,28 @@ function ProductRow({ p, onSaved }: { p: PosProduct; onSaved: (p: PosProduct) =>
         </select>
       </td>
       <td className={TD}>
+        <input
+          aria-label={`Código de barras de ${p.name}`}
+          value={barcode}
+          onChange={(e) => setBarcode(e.target.value.trim())}
+          onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), e.currentTarget.blur())}
+          onBlur={() => {
+            if (barcode !== (p.barcode ?? "")) void save({ barcode: barcode || null });
+          }}
+          placeholder="Ler ou escrever"
+          className={`${FIELD} w-36 tabular-nums`}
+        />
+      </td>
+      <td className={TD}>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={p.trackStock} onChange={(e) => void save({ trackStock: e.target.checked })} />
+          {p.trackStock ? "Sim" : "Não"}
+        </label>
+      </td>
+      <td className={TD}>
+        <StockAdjust p={p} onDone={onStock} />
+      </td>
+      <td className={TD}>
         <label className="flex items-center gap-2 text-sm">
           <input type="checkbox" checked={p.active} onChange={(e) => void save({ active: e.target.checked })} />
           {p.active ? "À venda" : "Fora"}
@@ -178,7 +261,10 @@ function ProductRow({ p, onSaved }: { p: PosProduct; onSaved: (p: PosProduct) =>
   );
 }
 
-/** Vendas → Produtos: os produtos do POS (importar do Vendus, editar preço, IVA e se estão à venda). */
+/**
+ * Vendas → Produtos: os produtos do POS (importar do Vendus; editar preço, IVA,
+ * código de barras, se controla stock e se está à venda; entradas e contagens de stock).
+ */
 export function PosProductsView() {
   const { data: products, error, reload, loading } = usePosProducts(false);
   const [list, setList] = useState<PosProduct[] | null>(null);
@@ -204,12 +290,23 @@ export function PosProductsView() {
                 <th className={TH}>Categoria</th>
                 <th className={`${TH} text-right`}>Preço c/ IVA (€)</th>
                 <th className={`${TH} text-right`}>IVA</th>
+                <th className={TH}>Código de barras</th>
+                <th className={TH}>Controla stock</th>
+                <th className={TH}>Stock</th>
                 <th className={TH}>No POS</th>
               </tr>
             </thead>
             <tbody>
               {shown.map((p) => (
-                <ProductRow key={p.id} p={p} onSaved={(saved) => setList(shown.map((x) => (x.id === saved.id ? saved : x)))} />
+                <ProductRow
+                  key={p.id}
+                  p={p}
+                  onSaved={(saved) => setList(shown.map((x) => (x.id === saved.id ? saved : x)))}
+                  onStock={async () => {
+                    setList(null);
+                    await reload();
+                  }}
+                />
               ))}
             </tbody>
           </table>

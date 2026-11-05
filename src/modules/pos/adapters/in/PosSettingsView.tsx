@@ -5,7 +5,7 @@ import type { PosSettings } from "../../domain/entities/pos.ts";
 import { usePosModule } from "../../pos.module.tsx";
 import { errorText, usePosSettings } from "./use-pos.ts";
 
-/** Vendas → POS: séries (FR e NC, com código da AT) e gestores (PIN do quiosque de ponto). */
+/** Vendas → POS: séries (FR e NC, com código da AT), vista por omissão e gestores (PIN do quiosque de ponto). */
 export function PosSettingsView() {
   const { pos } = usePosModule();
   const { data, error } = usePosSettings();
@@ -73,6 +73,14 @@ export function PosSettingsView() {
         {select("FR", "invoiceSeriesRef", "Série das faturas-recibo (FR)")}
         {select("NC", "creditSeriesRef", "Série das notas de crédito (NC)")}
       </div>
+      <label className="block max-w-sm">
+        <span className={LABEL}>Vista por omissão do ecrã de venda</span>
+        <select className={FIELD} value={form.defaultView} onChange={(e) => setForm({ ...form, defaultView: e.target.value === "B" ? "B" : "A" })}>
+          <option value="A">A — Grelha com talão</option>
+          <option value="B">B — Lista com pesquisa</option>
+        </select>
+        <span className="mt-1 block text-xs text-ink-secondary">Para quem ainda não escolheu. Cada funcionário pode trocar no POS e a escolha fica lembrada.</span>
+      </label>
       <fieldset>
         <legend className={LABEL}>Gestores (podem sair do POS e emitir notas de crédito)</legend>
         <p className="mb-2 text-xs text-ink-secondary">Entram com o PIN do registo de ponto. Só aparecem funcionários ativos.</p>

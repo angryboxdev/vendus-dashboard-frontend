@@ -1,5 +1,5 @@
 import { ApiError, apiGet, apiWrite } from "../../../../lib/api.ts";
-import type { DaySummary, ImportPreview, PosEmployee, PosProduct, PosSale, PosSettings, ReceiptDocument } from "../../domain/entities/pos.ts";
+import type { DaySummary, ImportPreview, PosEmployee, PosProduct, PosSale, PosSettings, PosView, ProductPatch, ReceiptDocument, StockAdjustment, StockDay } from "../../domain/entities/pos.ts";
 import { PosError } from "../../domain/errors.ts";
 import type { CheckoutRequest, PosApiPort, PosIdGeneratorPort, SeriesOption } from "../../domain/ports/out/pos-api.port.ts";
 
@@ -39,8 +39,14 @@ export class HttpPosApiAdapter implements PosApiPort {
   products(activeOnly: boolean) {
     return get<PosProduct[]>(`${B}/products${activeOnly ? "?active=1" : ""}`);
   }
-  updateProduct(id: string, patch: Partial<Pick<PosProduct, "name" | "category" | "priceCents" | "vatRate" | "active">>) {
+  updateProduct(id: string, patch: ProductPatch) {
     return write<PosProduct>(`${B}/products/${encodeURIComponent(id)}`, patch, key(), "PUT");
+  }
+  async adjustStock(productId: string, adjustment: StockAdjustment) {
+    await write<unknown>(`${B}/products/${encodeURIComponent(productId)}/stock`, adjustment, key());
+  }
+  stockDay(date?: string) {
+    return get<StockDay>(`${B}/stock${date ? `?date=${date}` : ""}`);
   }
   previewImport(csv: string) {
     return write<ImportPreview>(`${B}/products/import/preview`, { csv }, key());
@@ -63,6 +69,9 @@ export class HttpPosApiAdapter implements PosApiPort {
   }
   login(pin: string) {
     return write<PosEmployee>(`${B}/pin`, { pin }, key());
+  }
+  async setView(pin: string, view: PosView) {
+    await write<unknown>(`${B}/view`, { pin, view }, key(), "PUT");
   }
   checkout(req: CheckoutRequest, idempotencyKey: string) {
     return write<PosSale>(`${B}/sales`, req, idempotencyKey);

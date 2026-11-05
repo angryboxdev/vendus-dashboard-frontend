@@ -1,4 +1,4 @@
-import type { CartLine, Customer, Discount, PaymentMethod, PosSettings } from "../../domain/entities/pos.ts";
+import type { CartLine, Customer, Discount, PaymentMethod, PosSettings, PosView, ProductPatch, StockAdjustment } from "../../domain/entities/pos.ts";
 import { PosError } from "../../domain/errors.ts";
 import type { CheckoutOutcome, PosPort } from "../../domain/ports/in/pos.port.ts";
 import type { PosApiPort, PosIdGeneratorPort } from "../../domain/ports/out/pos-api.port.ts";
@@ -18,8 +18,16 @@ export class PosUseCases implements PosPort {
   products(activeOnly: boolean) {
     return this.api.products(activeOnly);
   }
-  updateProduct(id: string, patch: Parameters<PosApiPort["updateProduct"]>[1]) {
+  updateProduct(id: string, patch: ProductPatch) {
     return this.api.updateProduct(id, patch);
+  }
+  adjustStock(productId: string, a: StockAdjustment) {
+    if (a.kind === "entry" && (!Number.isInteger(a.qty) || a.qty < 1)) return Promise.reject(new PosError("Entrada: quantidade inteira, 1 ou mais", "rule"));
+    if (a.kind === "count" && (!Number.isInteger(a.countTo) || a.countTo < 0)) return Promise.reject(new PosError("Contagem: quantidade inteira, 0 ou mais", "rule"));
+    return this.api.adjustStock(productId, a);
+  }
+  stockDay(date?: string) {
+    return this.api.stockDay(date);
   }
   previewImport(csv: string) {
     return this.api.previewImport(csv);
@@ -42,6 +50,9 @@ export class PosUseCases implements PosPort {
   login(pin: string) {
     if (!/^\d{4,8}$/.test(pin)) return Promise.reject(new PosError("PIN inválido", "pin"));
     return this.api.login(pin);
+  }
+  setView(pin: string, view: PosView) {
+    return this.api.setView(pin, view);
   }
   newAttemptKey() {
     return this.ids.next();

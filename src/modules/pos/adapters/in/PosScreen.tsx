@@ -1,8 +1,23 @@
-import { FileText, LayoutDashboard, LayoutGrid, List, Lock, Printer, Users, X } from "lucide-react";
+import { FileText, LayoutDashboard, LayoutGrid, List, Lock, Printer, ScanBarcode, Users, X } from "lucide-react";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { useNavigate } from "react-router-dom";
-import { formatEuros, type CartLine, type Discount, type PosEmployee, type PosSale, type ReceiptDocument } from "../../domain/entities/pos.ts";
-import { addProduct, categoriesOf, changeQuantity, EMPTY_PAYMENT, paymentReady, priceCart, searchProducts, setLineDiscount, type PaymentState } from "../../domain/services/cart.service.ts";
+import { formatEuros, type CartLine, type Discount, type PosEmployee, type PosProduct, type PosSale, type PosView, type ReceiptDocument } from "../../domain/entities/pos.ts";
+import {
+  addProduct,
+  categoriesOf,
+  changedStock,
+  changeQuantity,
+  EMPTY_PAYMENT,
+  EMPTY_SCAN,
+  findByCode,
+  paymentReady,
+  priceCart,
+  scanKey,
+  searchProducts,
+  setLineDiscount,
+  stockShortages,
+  type PaymentState,
+} from "../../domain/services/cart.service.ts";
 import { usePosModule } from "../../pos.module.tsx";
 import { CategoryChips, CategorySidebar, ProductGrid, ProductTable, SearchBox } from "./PosCatalog.tsx";
 import { PosDashboard } from "./PosDashboard.tsx";
@@ -11,28 +26,14 @@ import { PaymentPanel } from "./PosPayment.tsx";
 import { PosPinPad } from "./PosPinPad.tsx";
 import { PosReceipt } from "./PosReceipt.tsx";
 import { PosTicket } from "./PosTicket.tsx";
-import { errorText, usePosDocuments, usePosProducts, usePosSummary } from "./use-pos.ts";
+import { errorText, usePosDocuments, usePosProducts, usePosStockDay, usePosSummary } from "./use-pos.ts";
 import { POS, TOUCH } from "./pos-theme.ts";
 
-type View = "A" | "B";
 type Panel = "sale" | "documents" | "dashboard";
+/** Depois de uma venda ou devolução, o indicador de stock pisca ~4 s. */
+const FLASH_MS = 4000;
 
-/** Vista preferida por funcionário, neste aparelho (a configuração por funcionário no servidor é da fase 2). */
-const viewKey = (employeeId: string) => `mezza.pos.view.${employeeId}`;
-function readView(employeeId: string): View {
-  try {
-    return localStorage.getItem(viewKey(employeeId)) === "B" ? "B" : "A";
-  } catch {
-    return "A";
-  }
-}
-function saveView(employeeId: string, v: View) {
-  try {
-    localStorage.setItem(viewKey(employeeId), v);
-  } catch {
-    // Sem armazenamento: fica só nesta sessão.
-  }
-}
+const isTyping = (t: EventTarget | null) => t instanceof HTMLElement && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.tagName === "SELECT" || t.isContentEditable);
 
 function Overlay({ title, onClose, children, wide = false }: { title: string; onClose?: () => void; children: ReactNode; wide?: boolean }) {
   return (
@@ -53,15 +54,16 @@ function Overlay({ title, onClose, children, wide = false }: { title: string; on
 }
 
 /**
- * POS do Mezza em ecrã inteiro (fase 1). Entra-se com o PIN do quiosque de
- * ponto; sai-se para a gestão só com PIN de gestor. As faturas são documentos
- * de formação do Mezza — o Vendus continua a ser o sistema oficial.
+ * POS do Mezza em ecrã inteiro. Entra-se com o PIN do quiosque de ponto (abre
+ * a vista lembrada do funcionário); sai-se para a gestão só com PIN de gestor.
+ * Stock por artigo com aviso antes de faturar, e leitor de código de barras.
+ * As faturas são documentos de formação — o Vendus continua a ser o oficial.
  */
 export function PosScreen() {
   const { pos } = usePosModule();
   const navigate = useNavigate();
   const [session, setSession] = useState<{ employee: PosEmployee; pin: string } | null>(null);
-  const [view, setView] = useState<View>("A");
+  const [view, setView] = useState<PosView>("A");
   const [panel, setPanel] = useState<Panel>("sale");
   const [category, setCategory] = useState<string | null>(null);
   const [query, setQuery] = useState("");
@@ -73,23 +75,85 @@ export function PosScreen() {
   const [errors, setErrors] = useState<string[]>([]);
   const [receipt, setReceipt] = useState<{ sale: PosSale; doc: ReceiptDocument | null; error?: string } | null>(null);
   const [exiting, setExiting] = useState(false);
+  /** Aviso de stock antes de faturar: «pay» abre o pagamento, «charge» fatura (vista B). */
+  const [stockWarning, setStockWarning] = useState<"pay" | "charge" | null>(null);
+  const [flashing, setFlashing] = useState<Set<string>>(new Set());
+  const [scanNotice, setScanNotice] = useState<string | null>(null);
   const attemptKey = useRef<string | null>(null);
   const searchRef = useRef<HTMLInputElement | null>(null);
+  const scan = useRef(EMPTY_SCAN);
+  const lastProducts = useRef<PosProduct[] | null>(null);
 
-  const { data: products, error: productsError } = usePosProducts(true);
+  const { data: products, error: productsError, reload: reloadProducts } = usePosProducts(true);
   const documents = usePosDocuments();
   const summary = usePosSummary();
+  const stockDay = usePosStockDay();
 
   const byId = useMemo(() => new Map(products.map((p) => [p.id, p])), [products]);
   const categories = useMemo(() => categoriesOf(products), [products]);
   const visible = useMemo(() => searchProducts(products, query, category), [products, query, category]);
   const priced = useMemo(() => priceCart(cart, byId, saleDiscount), [cart, byId, saleDiscount]);
   const quantities = useMemo(() => new Map(cart.map((l) => [l.productId, l.quantity])), [cart]);
+  const shortages = useMemo(() => stockShortages(cart, byId), [cart, byId]);
 
   // Um pedido diferente (talão, desconto ou pagamento mudou) leva uma chave nova.
   useEffect(() => {
     attemptKey.current = null;
   }, [cart, saleDiscount, payment]);
+
+  // O stock mudou (venda, devolução, entrada): anel laranja ~4 s nos artigos tocados.
+  useEffect(() => {
+    const before = lastProducts.current;
+    lastProducts.current = products;
+    if (!before) return;
+    const ids = changedStock(before, products);
+    if (ids.length === 0) return;
+    setFlashing(new Set(ids));
+    const t = setTimeout(() => setFlashing(new Set()), FLASH_MS);
+    return () => clearTimeout(t);
+  }, [products]);
+
+  const afterDocument = () => {
+    void documents.reload();
+    void summary.reload();
+    void stockDay.reload();
+    void reloadProducts();
+  };
+
+  const add = (productId: string) => {
+    setCart((c) => addProduct(c, productId));
+    setErrors([]);
+    setScanNotice(null);
+  };
+
+  /** Código lido (leitor) ou escrito na pesquisa com Enter: o código exato; senão o 1.º resultado. */
+  const addByCode = (code: string, fallback?: PosProduct) => {
+    const found = findByCode(products, code) ?? fallback ?? null;
+    if (found) add(found.id);
+    else setScanNotice(`Código ${code} não encontrado`);
+    return found !== null;
+  };
+
+  // Leitor de código de barras (teclado): só no ecrã de venda, fora dos campos de texto.
+  const scanning = session !== null && panel === "sale" && !paying && !receipt && !exiting && stockWarning === null;
+  const scanRef = useRef<(e: KeyboardEvent) => void>(() => {});
+  useEffect(() => {
+    scanRef.current = (e: KeyboardEvent) => {
+      if (isTyping(e.target)) return;
+      const out = scanKey(scan.current, e.key, e.timeStamp);
+      scan.current = out.state;
+      if (out.code) {
+        e.preventDefault();
+        addByCode(out.code);
+      }
+    };
+  });
+  useEffect(() => {
+    if (!scanning) return;
+    const onKey = (e: KeyboardEvent) => scanRef.current(e);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [scanning]);
 
   const clearSale = () => {
     setCart([]);
@@ -98,9 +162,14 @@ export function PosScreen() {
     setErrors([]);
   };
 
-  const add = (productId: string) => {
-    setCart((c) => addProduct(c, productId));
-    setErrors([]);
+  /** Cobrar (A) ou faturar (B): com artigos sem stock suficiente, primeiro o aviso. */
+  const goPay = (next: "pay" | "charge", confirmed = false) => {
+    if (!confirmed && shortages.length > 0) return setStockWarning(next);
+    setStockWarning(null);
+    if (next === "pay") {
+      setErrors([]);
+      setPaying(true);
+    } else void charge();
   };
 
   const charge = async () => {
@@ -128,8 +197,7 @@ export function PosScreen() {
       setPaying(false);
       clearSale();
       setReceipt({ sale: out.sale, doc: null });
-      void documents.reload();
-      void summary.reload();
+      afterDocument();
       try {
         setReceipt({ sale: out.sale, doc: await pos.receipt(out.sale.documentId) });
       } catch (e) {
@@ -161,7 +229,7 @@ export function PosScreen() {
           subtitle="O PIN do registo de ponto"
           onSuccess={(employee, pin) => {
             setSession({ employee, pin });
-            setView(readView(employee.id));
+            setView(employee.view ?? "A");
             setPanel("sale");
           }}
         />
@@ -188,6 +256,12 @@ export function PosScreen() {
       ))}
     </ul>
   );
+  const scanBar = scanNotice && (
+    <p role="status" className={`${POS.red} mt-2 flex items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium`}>
+      <ScanBarcode aria-hidden className="h-4 w-4" />
+      {scanNotice}
+    </p>
+  );
   const ticket = (
     <PosTicket
       priced={priced}
@@ -212,8 +286,9 @@ export function PosScreen() {
               aria-pressed={view === v && panel === "sale"}
               onClick={() => {
                 setView(v);
-                saveView(employee.id, v);
                 setPanel("sale");
+                // Lembrada no servidor para a próxima entrada; uma falha não impede de vender.
+                if (v !== view) void pos.setView(session.pin, v).catch(() => undefined);
               }}
               className={`flex h-11 items-center gap-2 px-3 text-sm font-medium ${view === v && panel === "sale" ? POS.accent : POS.card}`}
             >
@@ -226,7 +301,10 @@ export function PosScreen() {
           <FileText aria-hidden className="h-4 w-4" />
           Documentos
         </button>
-        <button type="button" aria-pressed={panel === "dashboard"} onClick={() => setPanel(panel === "dashboard" ? "sale" : "dashboard")} className={`flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium ${panel === "dashboard" ? POS.accent : POS.secondary}`}>
+        <button type="button" aria-pressed={panel === "dashboard"} onClick={() => {
+            if (panel !== "dashboard") afterDocument();
+            setPanel(panel === "dashboard" ? "sale" : "dashboard");
+          }} className={`flex h-11 items-center gap-2 rounded-xl px-3 text-sm font-medium ${panel === "dashboard" ? POS.accent : POS.secondary}`}>
           <LayoutDashboard aria-hidden className="h-4 w-4" />
           Painel
         </button>
@@ -256,8 +334,7 @@ export function PosScreen() {
               employee={employee}
               onOpen={(s) => void openDocument(s)}
               onRefunded={(nc) => {
-                void documents.reload();
-                void summary.reload();
+                afterDocument();
                 void openDocument(nc);
               }}
             />
@@ -269,7 +346,7 @@ export function PosScreen() {
         <main className="min-h-0 flex-1 overflow-y-auto p-4">
           <div className="mx-auto max-w-3xl">
             <h1 className="mb-3 text-xl font-semibold">Mezza · hoje</h1>
-            <PosDashboard summary={summary.data} />
+            <PosDashboard summary={summary.data} stock={stockDay.data} />
           </div>
         </main>
       )}
@@ -279,15 +356,16 @@ export function PosScreen() {
           <CategorySidebar categories={categories} active={category} onChange={setCategory} />
           <section className="flex min-h-0 min-w-0 flex-1 flex-col">
             <div className="p-3 pb-0">
-              <SearchBox value={query} onChange={setQuery} />
+              <SearchBox value={query} onChange={setQuery} onEnter={() => query.trim() && addByCode(query, visible[0]) && setQuery("")} />
+              {scanBar}
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
-              <ProductGrid products={visible} quantities={quantities} onAdd={(p) => add(p.id)} />
+              <ProductGrid products={visible} quantities={quantities} onAdd={(p) => add(p.id)} flashing={flashing} />
             </div>
           </section>
           <aside className={`flex w-[320px] shrink-0 flex-col border-l ${POS.border} ${POS.card} p-4 xl:w-[400px]`} aria-label="Talão">
             <div className="min-h-0 flex-1 overflow-y-auto">{ticket}</div>
-            <button type="button" disabled={priced.lines.length === 0} onClick={() => (setErrors([]), setPaying(true))} className={`${TOUCH} ${POS.primary} mt-3 h-16 text-lg ${POS.num}`}>
+            <button type="button" disabled={priced.lines.length === 0} onClick={() => goPay("pay")} className={`${TOUCH} ${POS.primary} mt-3 h-16 text-lg ${POS.num}`}>
               Cobrar {totalLabel}
             </button>
           </aside>
@@ -302,17 +380,12 @@ export function PosScreen() {
               value={query}
               onChange={setQuery}
               inputRef={searchRef}
-              onEnter={() => {
-                const first = visible[0];
-                if (first) {
-                  add(first.id);
-                  setQuery("");
-                }
-              }}
+              onEnter={() => query.trim() && addByCode(query, visible[0]) && setQuery("")}
             />
+            {scanBar}
             <CategoryChips categories={categories} active={category} onChange={setCategory} />
             <div className={`min-h-0 flex-1 overflow-y-auto rounded-2xl border ${POS.border} ${POS.card}`}>
-              <ProductTable products={visible} quantities={quantities} onAdd={(p) => add(p.id)} />
+              <ProductTable products={visible} quantities={quantities} onAdd={(p) => add(p.id)} flashing={flashing} />
             </div>
           </section>
           <aside className={`w-[40%] min-w-[360px] shrink-0 space-y-4 overflow-y-auto border-l ${POS.border} ${POS.card} px-4 pt-4`} aria-label="Talão e pagamento">
@@ -323,12 +396,38 @@ export function PosScreen() {
               <button type="button" onClick={clearSale} className={`${TOUCH} ${POS.secondary} h-14`}>
                 Limpar
               </button>
-              <button type="button" disabled={busy || priced.lines.length === 0 || !paymentReady(payment, priced.totalCents)} onClick={() => void charge()} className={`${TOUCH} ${POS.primary} h-14 flex-1 text-lg ${POS.num}`}>
+              <button type="button" disabled={busy || priced.lines.length === 0 || !paymentReady(payment, priced.totalCents)} onClick={() => goPay("charge")} className={`${TOUCH} ${POS.primary} h-14 flex-1 text-lg ${POS.num}`}>
                 {busy ? "A faturar…" : `Faturar ${totalLabel}`}
               </button>
             </div>
           </aside>
         </main>
+      )}
+
+      {stockWarning && (
+        <Overlay title="Stock insuficiente" onClose={() => setStockWarning(null)}>
+          <div className="space-y-4">
+            <p className="text-sm">Estes artigos não têm stock suficiente. Pode vender na mesma: o stock fica negativo e fica registado um alerta de stock.</p>
+            <ul className={`divide-y rounded-xl border ${POS.border} divide-[#e7d9c6]`} aria-label="Artigos em falta">
+              {shortages.map((s) => (
+                <li key={s.product.id} className="flex items-center justify-between gap-2 px-3 py-2">
+                  <span className="font-medium">{s.product.name}</span>
+                  <span className={`${POS.amber} rounded-full px-2 text-sm font-semibold ${POS.num}`}>
+                    {s.quantity} no talão · {s.stock < 0 ? `Stock −${-s.stock}` : `${s.stock} em stock`}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => setStockWarning(null)} className={`${TOUCH} ${POS.secondary} h-14 flex-1`}>
+                Rever venda
+              </button>
+              <button type="button" onClick={() => goPay(stockWarning, true)} className={`${TOUCH} ${POS.primary} h-14 flex-1`}>
+                Vender na mesma
+              </button>
+            </div>
+          </div>
+        </Overlay>
       )}
 
       {paying && (

@@ -73,6 +73,11 @@ function TicketLine({ l, onChange, onDiscount }: { l: PricedCartLine; onChange: 
         </button>
         <span className={`w-20 text-right font-semibold ${POS.num}`}>{formatEuros(l.netCents)}</span>
       </div>
+      {l.product.trackStock && l.line.quantity > l.product.stockQty && (
+        <p className={`${POS.amber} mt-1 ml-12 inline-block rounded-full px-2 text-xs font-semibold`}>
+          stock insuficiente ({l.product.stockQty < 0 ? `Stock −${-l.product.stockQty}` : `${l.product.stockQty} em stock`})
+        </p>
+      )}
       {open && (
         <div className="mt-2 pl-12">
           <DiscountEditor label="Desconto da linha" value={l.line.discount} maxCents={l.grossCents} onChange={onDiscount} />

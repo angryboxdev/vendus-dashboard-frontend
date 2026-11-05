@@ -1,5 +1,54 @@
 import { CATEGORY_ORDER, type CartLine, type Customer, type Discount, type PaymentMethod, type PosProduct } from "../entities/pos.ts";
 
+/** Indicador de stock: só nos artigos que controlam stock. ≤ 2 é baixo; 0 ou menos, sem stock. */
+export type StockBadge = { tone: "ok" | "low" | "out"; label: string };
+
+export function stockBadge(p: PosProduct): StockBadge | null {
+  if (!p.trackStock) return null;
+  if (p.stockQty < 0) return { tone: "out", label: `Stock −${-p.stockQty}` };
+  if (p.stockQty === 0) return { tone: "out", label: "Sem stock" };
+  return { tone: p.stockQty <= 2 ? "low" : "ok", label: `${p.stockQty} em stock` };
+}
+
+/** Artigos do talão com mais quantidade do que o stock (para o aviso antes de faturar). */
+export function stockShortages(cart: CartLine[], products: Map<string, PosProduct>): Array<{ product: PosProduct; quantity: number; stock: number }> {
+  const wanted = new Map<string, number>();
+  for (const l of cart) wanted.set(l.productId, (wanted.get(l.productId) ?? 0) + l.quantity);
+  return [...wanted.entries()].flatMap(([id, quantity]) => {
+    const product = products.get(id);
+    return product?.trackStock && quantity > product.stockQty ? [{ product, quantity, stock: product.stockQty }] : [];
+  });
+}
+
+/** Produtos cujo stock mudou entre duas leituras (para o anel laranja de ~4 s). */
+export function changedStock(before: PosProduct[], after: PosProduct[]): string[] {
+  const old = new Map(before.map((p) => [p.id, p.stockQty]));
+  return after.filter((p) => p.trackStock && old.has(p.id) && old.get(p.id) !== p.stockQty).map((p) => p.id);
+}
+
+/** Código lido ou escrito: o código de barras exato; senão a referência exata (sem maiúsculas). */
+export function findByCode(products: PosProduct[], code: string): PosProduct | null {
+  const c = code.trim();
+  if (!c) return null;
+  return products.find((p) => p.barcode === c) ?? products.find((p) => p.ref.toLowerCase() === c.toLowerCase()) ?? null;
+}
+
+/**
+ * Leitor de código de barras (funciona como teclado): caracteres seguidos a
+ * menos de `SCAN_GAP_MS` e Enter no fim. Uma pessoa a escrever é mais lenta,
+ * por isso não dispara. Puro: recebe a tecla e o instante, devolve o estado.
+ */
+export const SCAN_GAP_MS = 50;
+export type ScanState = { buffer: string; lastAt: number };
+export const EMPTY_SCAN: ScanState = { buffer: "", lastAt: 0 };
+
+export function scanKey(state: ScanState, key: string, at: number): { state: ScanState; code: string | null } {
+  const fast = state.buffer !== "" && at - state.lastAt <= SCAN_GAP_MS;
+  if (key === "Enter") return { state: EMPTY_SCAN, code: fast && state.buffer.length >= 4 ? state.buffer : null };
+  if (key.length !== 1) return { state: EMPTY_SCAN, code: null };
+  return { state: { buffer: fast ? state.buffer + key : key, lastAt: at }, code: null };
+}
+
 /**
  * Carrinho do POS: operações puras e o total com a MESMA regra do backend
  * (`src/modules/pos/domain/services/sale-pricing.service.ts`): o total no ecrã
@@ -104,8 +153,12 @@ export const normalizeSearch = (v: string) =>
 
 export function searchProducts(products: PosProduct[], query: string, category: string | null): PosProduct[] {
   const q = normalizeSearch(query);
-  // A pesquisa passa por cima da categoria escolhida.
-  if (q) return products.filter((p) => normalizeSearch(p.name).includes(q) || normalizeSearch(p.ref).includes(q));
+  // A pesquisa passa por cima da categoria escolhida; o código exato (leitor) vem primeiro.
+  if (q) {
+    const exact = findByCode(products, query);
+    const found = products.filter((p) => p !== exact && (normalizeSearch(p.name).includes(q) || normalizeSearch(p.ref).includes(q) || (p.barcode ?? "").includes(q)));
+    return exact ? [exact, ...found] : found;
+  }
   return category ? products.filter((p) => (p.category ?? "Outros") === category) : products;
 }
 

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import type { DaySummary, PosEmployee, PosProduct, PosSale, PosSettings } from "../../domain/entities/pos.ts";
+import type { DaySummary, PosEmployee, PosProduct, PosSale, PosSettings, StockDay } from "../../domain/entities/pos.ts";
 import type { SeriesOption } from "../../domain/ports/out/pos-api.port.ts";
 import { usePosModule } from "../../pos.module.tsx";
 
@@ -38,6 +38,12 @@ export function usePosSummary() {
   const { pos } = usePosModule();
   const load = useCallback(() => pos.summary(), [pos]);
   return useResource<DaySummary | null>(load, null);
+}
+
+export function usePosStockDay() {
+  const { pos } = usePosModule();
+  const load = useCallback(() => pos.stockDay(), [pos]);
+  return useResource<StockDay | null>(load, null);
 }
 
 export function usePosSettings() {

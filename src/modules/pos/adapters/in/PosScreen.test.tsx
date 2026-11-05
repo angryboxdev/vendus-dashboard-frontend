@@ -10,8 +10,8 @@ import { PosProvider } from "../../pos.module.tsx";
 import { PosScreen } from "./PosScreen.tsx";
 
 const PRODUCTS: PosProduct[] = [
-  { id: "p1", ref: "VPIZ1", name: "Pizza Teste", category: "Grandes", priceCents: 1850, vatRate: 13, productType: "P", trackStock: false, imageUrl: null, active: true },
-  { id: "p2", ref: "VREF2", name: "Refrigerante", category: "Bebidas", priceCents: 250, vatRate: 23, productType: "P", trackStock: true, imageUrl: null, active: true },
+  { id: "p1", ref: "VPIZ1", name: "Pizza Teste", category: "Grandes", priceCents: 1850, vatRate: 13, productType: "P", trackStock: false, stockQty: 0, barcode: null, imageUrl: null, active: true },
+  { id: "p2", ref: "VREF2", name: "Refrigerante", category: "Bebidas", priceCents: 250, vatRate: 23, productType: "P", trackStock: true, stockQty: 5, barcode: "5601234567890", imageUrl: null, active: true },
 ];
 const SALE: PosSale = {
   id: "s1",
@@ -59,6 +59,8 @@ function renderPos(over: Partial<PosApiPort> = {}) {
     }),
     checkout: vi.fn(async () => SALE),
     receipt: vi.fn(async () => DOC),
+    stockDay: vi.fn(async () => ({ date: "2027-03-10", moves: [], alerts: [] })),
+    setView: vi.fn(async () => undefined),
     ...over,
   } as unknown as PosApiPort;
   let n = 0;
@@ -118,5 +120,47 @@ describe("PosScreen", () => {
     await user.click(within(dialog).getByRole("radio", { name: "Cartão" }));
     await user.click(within(dialog).getByRole("button", { name: "Confirmar pagamento e faturar" }));
     expect(await within(dialog).findByText("Escolha a série de faturas-recibo nas configurações do POS")).toBeInTheDocument();
+  });
+
+  it("stock insuficiente: aviso na linha e antes de cobrar; «Rever venda» volta, «Vender na mesma» segue para o pagamento", async () => {
+    const user = userEvent.setup();
+    renderPos({ products: vi.fn(async () => [PRODUCTS[0]!, { ...PRODUCTS[1]!, stockQty: 1 }]) });
+    await enterPin(user, "1234");
+    const refri = await screen.findByRole("button", { name: /Refrigerante/ });
+    expect(refri).toHaveTextContent("1 em stock");
+    await user.click(refri);
+    await user.click(screen.getByRole("button", { name: "Mais Refrigerante" }));
+    expect(screen.getByText(/stock insuficiente/)).toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Cobrar 5,00 €" }));
+    let warning = await screen.findByRole("dialog", { name: "Stock insuficiente" });
+    expect(within(warning).getByText("2 no talão · 1 em stock")).toBeInTheDocument();
+    await user.click(within(warning).getByRole("button", { name: "Rever venda" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "Cobrar 5,00 €" }));
+    warning = await screen.findByRole("dialog", { name: "Stock insuficiente" });
+    await user.click(within(warning).getByRole("button", { name: "Vender na mesma" }));
+    expect(await screen.findByRole("dialog", { name: /Pagamento/ })).toBeInTheDocument();
+  });
+
+  it("abre na vista lembrada do funcionário e guarda a troca no servidor", async () => {
+    const user = userEvent.setup();
+    const api = renderPos({ login: vi.fn(async () => ({ id: "e1", name: "Ana Fictícia", isManager: false, view: "B" as const })) });
+    await enterPin(user, "1234");
+    expect(await screen.findByRole("button", { name: "Lista" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "Grelha" }));
+    expect(api.setView).toHaveBeenCalledWith("1234", "A");
+  });
+
+  it("leitor de código de barras: o código lido adiciona o artigo; código desconhecido avisa", async () => {
+    const user = userEvent.setup();
+    renderPos();
+    await enterPin(user, "1234");
+    await screen.findByRole("button", { name: /Pizza Teste/ });
+    await user.keyboard("5601234567890{Enter}");
+    expect(await screen.findByRole("button", { name: "Mais Refrigerante" })).toBeInTheDocument();
+    await user.keyboard("9999999{Enter}");
+    expect(await screen.findByRole("status")).toHaveTextContent("Código 9999999 não encontrado");
   });
 });

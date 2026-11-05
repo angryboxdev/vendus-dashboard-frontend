@@ -1,4 +1,4 @@
-/** POS do Mezza (fase 1) — contrato com `/api/pos` (backend `src/modules/pos`). */
+/** POS do Mezza — contrato com `/api/pos` (backend `src/modules/pos`). */
 
 export type PaymentMethod = "card" | "cash" | "mbway";
 export const PAYMENT_LABELS: Record<PaymentMethod, string> = { card: "Cartão", cash: "Dinheiro", mbway: "MB Way" };
@@ -14,21 +14,60 @@ export interface PosProduct {
   vatRate: 6 | 13 | 23;
   productType: "P" | "S";
   trackStock: boolean;
+  /** Stock do POS (pode ser negativo depois de «Vender na mesma»). */
+  stockQty: number;
+  barcode: string | null;
   imageUrl: string | null;
   active: boolean;
 }
+
+/** A = grelha com talão; B = lista com pesquisa. */
+export type PosView = "A" | "B";
 
 export interface PosSettings {
   invoiceSeriesRef: string | null;
   creditSeriesRef: string | null;
   managerEmployeeIds: string[];
+  /** Vista por omissão para quem nunca escolheu (definida pelo gestor). */
+  defaultView: PosView;
 }
 
 export interface PosEmployee {
   id: string;
   name: string;
   isManager: boolean;
+  /** Vista lembrada do funcionário (ou a por omissão). */
+  view?: PosView;
 }
+
+/** Movimento de stock do POS (venda, devolução, entrada, contagem) com o nome do produto. */
+export interface StockMove {
+  id: string;
+  productId: string;
+  productName: string;
+  kind: "sale" | "refund" | "entry" | "count";
+  qty: number;
+  stockBefore: number;
+  stockAfter: number;
+  documentNumber: string | null;
+  actorName: string | null;
+  note: string | null;
+  createdAt: string;
+  /** Venda feita sem stock suficiente. */
+  alert: boolean;
+}
+
+export interface StockDay {
+  date: string;
+  moves: StockMove[];
+  alerts: StockMove[];
+}
+
+export const STOCK_MOVE_LABELS: Record<StockMove["kind"], string> = { sale: "Venda", refund: "Devolução", entry: "Entrada", count: "Contagem" };
+
+export type StockAdjustment = { kind: "entry"; qty: number; note?: string } | { kind: "count"; countTo: number; note?: string };
+
+export type ProductPatch = Partial<Pick<PosProduct, "name" | "category" | "priceCents" | "vatRate" | "active" | "trackStock" | "barcode">>;
 
 export interface SoldLine {
   lineNumber: number;
