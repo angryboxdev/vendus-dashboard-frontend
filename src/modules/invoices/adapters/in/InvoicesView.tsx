@@ -4382,6 +4382,14 @@ export function InvoicesView() {
                                   Duplicada
                                 </span>
                               )}
+                              {!inv.isDuplicate && inv.isPossibleDuplicate && (
+                                <span
+                                  title="Existe outra fatura activa do mesmo fornecedor com a mesma data e o mesmo total, mas outro número (pode ter sido mal lido na importação) — compare e elimine a que estiver a mais"
+                                  className="rounded px-1 py-0.5 text-[10px] font-bold uppercase tracking-wide bg-amber-100 text-amber-800"
+                                >
+                                  Possível duplicada
+                                </span>
+                              )}
                             </div>
                             <p className="mt-0.5 text-xs text-stone-400">
                               {formatDate(inv.invoiceDate)}

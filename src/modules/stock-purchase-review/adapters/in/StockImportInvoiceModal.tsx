@@ -41,6 +41,16 @@ export function StockImportInvoiceModal({ onClose }: Props) {
     setAttempts((n) => n + 1);
     try {
       const r = await api.importInvoiceForStock(f, { routeExisting });
+      if (r.validationIssues.includes("possible_duplicate")) {
+        // Mesmo fornecedor, data e total que outra fatura já lançada: avisar antes de seguir.
+        setOutcome({
+          tone: "info",
+          title: "Possível fatura duplicada",
+          text: "Já existe uma fatura do mesmo fornecedor com a mesma data e o mesmo total (com outro número — pode ter sido mal lido). Compare-as em Faturas antes de dar entrada no stock e elimine a que estiver a mais.",
+          reviewId: r.reviewId ?? null,
+        });
+        return;
+      }
       if (r.reviewId) {
         navigate(`/stock/compras-por-rever/${r.reviewId}`);
         onClose();
