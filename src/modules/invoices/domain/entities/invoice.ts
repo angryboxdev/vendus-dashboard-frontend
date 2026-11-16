@@ -134,6 +134,8 @@ export interface InvoiceDTO {
   requiresReview: boolean;
   /** true quando outra fatura activa (não cancelada) do mesmo fornecedor tem o mesmo número. Calculado pelo backend a cada listagem. */
   isDuplicate: boolean;
+  /** true quando outra fatura activa do mesmo fornecedor tem a mesma data, total e tipo mas outro número (ex.: número mal lido na importação). Calculado pelo backend a cada listagem. */
+  isPossibleDuplicate?: boolean;
   costCenterGroupId: string | null;
   costCenterCategoryId: string | null;
   financialType: string | null;

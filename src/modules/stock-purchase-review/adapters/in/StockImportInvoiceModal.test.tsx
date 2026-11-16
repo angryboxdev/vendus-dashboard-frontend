@@ -33,6 +33,16 @@ describe("StockImportInvoiceModal (F3c)", () => {
     expect(imp).toHaveBeenCalledWith(expect.any(File), { routeExisting: false });
   });
 
+  it("possível duplicada (mesmo fornecedor, data e total) → avisa em vez de abrir logo a revisão", async () => {
+    const imp = vi.fn(async () => ({ kind: "created" as const, invoiceId: "inv-1", reviewId: "rev-1", validationIssues: ["possible_duplicate"] }));
+    const { onClose, upload } = renderModal(imp);
+    upload();
+    expect(await screen.findByText("Possível fatura duplicada")).toBeTruthy();
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Abrir a revisão" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalled());
+  });
+
   it("já deu entrada no Stock → aviso de bloqueio, sem opção de importar outra vez", async () => {
     const imp = vi.fn(async () => {
       throw new ApiError("A fatura Makro FT 1 já deu entrada no Stock — não pode entrar outra vez.", 409, { code: "already_in_stock", reviewId: "rev-old" });
