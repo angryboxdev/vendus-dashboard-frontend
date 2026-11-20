@@ -4,6 +4,7 @@ import { NavLink, useLocation, useNavigate } from "react-router-dom";
 import { useI18n } from "../../../../i18n/I18nProvider.tsx";
 import { AppIcon, IconSearch, IconSettings, TabNav, type AppIconKey } from "../../../../components/ui/index.ts";
 import { MAIN_NAV, areaFor, areaTabs, screenFor, searchScreens } from "../../domain/services/screens.registry.ts";
+import { HelpButtonHost } from "./assistant/HelpButtonHost.tsx";
 import { InboxButton } from "./inbox/InboxButton.tsx";
 import { useNovoRh } from "../../novo-rh.module.tsx";
 
@@ -62,6 +63,7 @@ export function NovoRhLayout({ children, extraActions, userMenu }: { children: R
         )}
         {children}
       </div>
+      <HelpButtonHost />
     </div>
   );
 }

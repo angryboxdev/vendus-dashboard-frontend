@@ -1,5 +1,5 @@
-import { apiGet, apiPostBinary, apiWrite } from "../../../../lib/api.ts";
-import type { AssistantReply, AssistantScreenContext, AssistantStatus, ChatTurn } from "../../domain/entities/assistant.ts";
+import { apiGet, apiPost, apiPostBinary, apiWrite } from "../../../../lib/api.ts";
+import type { AssistantReply, AssistantScreenContext, AssistantStatus, ChatTurn, HelpReply } from "../../domain/entities/assistant.ts";
 import type { AssistantApiPort } from "../../domain/ports/out/assistant-api.port.ts";
 
 const B = "/api/novo-rh/assistant";
@@ -19,5 +19,11 @@ export class HttpAssistantApiAdapter implements AssistantApiPort {
   }
   async transcribe(audio: Blob) {
     return (await apiPostBinary<{ text: string }>(`${B}/transcribe`, audio, audio.type || "audio/webm")).text;
+  }
+  helpStatus() {
+    return apiGet<{ available: boolean }>(`${B}/help/status`);
+  }
+  help(input: { history: ChatTurn[]; message: string; page: string }) {
+    return apiPost<HelpReply>(`${B}/help`, input);
   }
 }

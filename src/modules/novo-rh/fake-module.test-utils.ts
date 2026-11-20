@@ -41,6 +41,8 @@ export function fakeNovoRhModule(over: Partial<NovoRhModule> = {}): NovoRhModule
       confirm: vi.fn(),
       cancel: vi.fn(async () => {}),
       transcribe: vi.fn(async () => ""),
+      helpStatus: vi.fn(async () => ({ available: true })),
+      help: vi.fn(),
     },
     overview: { get: vi.fn(async () => { throw new Error("sem painel no teste"); }), today: vi.fn(async () => { throw new Error("sem painel no teste"); }), plan: vi.fn(async () => ({ from: "", to: "", people: [] })) },
     reminders: { run: vi.fn(async () => ({ people: 0, notices: 0 })) },
