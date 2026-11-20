@@ -5,6 +5,7 @@ import { MezzaIcon } from "./MezzaIcon.tsx";
 
 // O chat (e a voz) só é carregado quando a pessoa abre o assistente.
 const AssistantPanel = lazy(() => import("./AssistantPanel.tsx"));
+const HelpPanel = lazy(() => import("./HelpPanel.tsx"));
 
 export interface AssistantHostContext {
   rosterId: string;
@@ -13,6 +14,11 @@ export interface AssistantHostContext {
   to: string;
   pending: number;
 }
+
+/** Na escala: assistente da escala. Noutro ecrã do RH: só a ajuda («como faço…?»). */
+export type MezzaAssistantProps =
+  | { help?: false; context: AssistantHostContext; onApplied: (a: AppliedBatch) => void; onTemplatesChanged: () => void; onPublishFlow: () => void }
+  | { help: true };
 
 const SNAP_MS = 250;
 /** Tamanho da bolinha (56 px − 30%). */
@@ -27,17 +33,7 @@ const reducedMotion = () => typeof window !== "undefined" && !!window.matchMedia
  * ao soltar volta sempre à lateral direita, à altura onde foi largada (dentro
  * do ecrã; não fica guardada entre visitas). Clicar (sem arrastar) abre o chat.
  */
-export function MezzaAssistantButton({
-  context,
-  onApplied,
-  onTemplatesChanged,
-  onPublishFlow,
-}: {
-  context: AssistantHostContext;
-  onApplied: (a: AppliedBatch) => void;
-  onTemplatesChanged: () => void;
-  onPublishFlow: () => void;
-}) {
+export function MezzaAssistantButton(props: MezzaAssistantProps) {
   const [open, setOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -126,7 +122,11 @@ export function MezzaAssistantButton({
       </div>
       {loaded && (
         <Suspense fallback={null}>
-          <AssistantPanel open={open} onClose={close} context={context} onApplied={onApplied} onTemplatesChanged={onTemplatesChanged} onPublishFlow={onPublishFlow} onBusy={setBusy} onReply={onReply} />
+          {props.help ? (
+            <HelpPanel open={open} onClose={close} onBusy={setBusy} onReply={onReply} />
+          ) : (
+            <AssistantPanel open={open} onClose={close} context={props.context} onApplied={props.onApplied} onTemplatesChanged={props.onTemplatesChanged} onPublishFlow={props.onPublishFlow} onBusy={setBusy} onReply={onReply} />
+          )}
         </Suspense>
       )}
     </>

@@ -29,6 +29,20 @@ export interface AssistantReply {
   context: { rosterName: string; from: string; to: string; pending: number };
 }
 
+/** Ajuda do RH (`/api/novo-rh/assistant/help`): só o guia, em qualquer ecrã. */
+export interface HelpSource {
+  id: string;
+  title: string;
+  /** Ecrã onde se faz (rota do RH), quando há um. */
+  path: string | null;
+}
+
+export interface HelpReply {
+  status: "answer" | "unavailable";
+  text: string;
+  sources: HelpSource[];
+}
+
 export interface AssistantStatus {
   available: boolean;
   voice: boolean;

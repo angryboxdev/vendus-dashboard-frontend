@@ -216,7 +216,7 @@ export default function AssistantPanel({
           <div className="space-y-3">
             <div className="flex items-start gap-2 rounded-2xl bg-surface-soft px-3.5 py-3 text-sm text-ink">
               <span aria-hidden="true" className="text-[#C9643A]">✦</span>
-              <p>{unavailable ? UNAVAILABLE : "Olá! Sou o Assistente Mezza. Posso consultar e alterar os turnos por publicar desta escala."}</p>
+              <p>{unavailable ? UNAVAILABLE : "Olá! Sou o Assistente Mezza. Posso consultar e alterar os turnos por publicar desta escala, e explicar como usar o RH."}</p>
             </div>
             {!unavailable && (
               <div className="space-y-1.5">

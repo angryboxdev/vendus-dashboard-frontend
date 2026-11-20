@@ -46,5 +46,16 @@ export function aiBatchOp(a: AppliedBatch): EditOp | null {
   };
 }
 
+/** Sugestões da ajuda do RH (fora das Escalas). */
+export const HELP_SUGGESTIONS = ["Como crio um colaborador novo?", "Como peço férias?", "Como corrijo uma picagem?"];
+
+/**
+ * A ajuda geral aparece em todo o RH, menos em Escalas & Turnos: lá a
+ * bolinha é a do assistente da escala, que também responde a dúvidas.
+ */
+export function showsHelpButton(pathname: string): boolean {
+  return pathname.startsWith("/hr/novo") && !/^\/hr\/novo\/escalas(\/|$)/.test(pathname);
+}
+
 /** Sugestões iniciais (texto para enviar). */
 export const SUGGESTIONS = ["Quem trabalha hoje?", "Quais turnos estão descobertos esta semana?", "Existem conflitos?"];
