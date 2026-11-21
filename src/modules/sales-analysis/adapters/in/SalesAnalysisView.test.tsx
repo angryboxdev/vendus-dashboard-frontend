@@ -78,4 +78,15 @@ describe("SalesAnalysisView", () => {
     await userEvent.click(buscar);
     expect(log).toContain("fetch 2026-11");
   });
+
+  it("mostra «na fila» e o progresso da busca da AirMenu, sem botão enquanto corre", async () => {
+    const mod = makeModule([]);
+    mod.getAnalysis = { execute: async (range, source) => ({ ...analysisData(range, source), airMenu: { months: [{ month: "2026-10", state: "fetching", doneDays: 14, totalDays: 31 }, { month: "2026-11", state: "queued" }], comparisonMissingMonths: [] } }) };
+    render(<SalesAnalysisProvider module={mod}><SalesAnalysisView /></SalesAnalysisProvider>);
+    await screen.findAllByText("Receita bruta");
+    await userEvent.click(screen.getByRole("radio", { name: "Ambas" }));
+    expect(await screen.findByText(/a buscar… 14 de 31 dias/)).toBeInTheDocument();
+    expect(screen.getByText("na fila")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Buscar" })).toBeNull();
+  });
 });
