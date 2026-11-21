@@ -12,6 +12,8 @@ import { getStoredDeviceToken } from "../../modules/location-credentials/adapter
 // ── Constants ──────────────────────────────────────────────────────────────────
 
 const POLL_INTERVAL_MS = 5_000;
+const SSE_RETRY_MIN_MS = 2_000;
+const SSE_RETRY_MAX_MS = 30_000;
 
 const AIR_MENU_SOURCES = ["Glovo", "Uber Eats", "Bolt Food", "AirMenu"] as const;
 
@@ -405,6 +407,8 @@ export function KdsPage() {
   const deliveredAtRef = useRef<Map<number, number>>(new Map());
   // Pedidos AirMenu recebidos via SSE — mantidos separados para não serem apagados pelo polling Vendus
   const airMenuRef = useRef<Map<number, Delivery>>(new Map());
+  // false enquanto o canal em tempo real (pedidos AirMenu) está em baixo
+  const [liveConnected, setLiveConnected] = useState(true);
 
   const refresh = useCallback(async () => {
     try {
@@ -438,29 +442,55 @@ export function KdsPage() {
     return () => clearInterval(interval);
   }, [refresh]);
 
-  // SSE — pedidos AirMenu em tempo real
+  // SSE — pedidos AirMenu em tempo real.
+  // O EventSource só reconecta sozinho quando a ligação cai a meio; se o servidor responder
+  // com erro HTTP (502/503 num deploy, 500 se a BD falhar na autenticação) fica CLOSED para
+  // sempre e os pedidos AirMenu deixavam de aparecer sem aviso. Por isso reabrimos nós, com
+  // backoff, e o replay do servidor repõe o estado.
   useEffect(() => {
-    const token = getStoredDeviceToken();
-    const url = `${API_BASE}/api/kds/stream${token ? `?device_token=${encodeURIComponent(token)}` : ""}`;
-    const es = new EventSource(url);
+    let es: EventSource | null = null;
+    let retryTimer: ReturnType<typeof setTimeout> | null = null;
+    let retryMs = SSE_RETRY_MIN_MS;
+    let disposed = false;
 
-    es.addEventListener("delivery", (e: MessageEvent) => {
-      const delivery = JSON.parse(e.data as string) as Delivery;
-      airMenuRef.current.set(delivery.id, delivery);
-      // Força re-render com o novo pedido
-      setDeliveries((prev) => {
-        const withoutThis = prev.filter((d) => d.id !== delivery.id);
-        const merged = [...withoutThis, delivery];
-        merged.sort((a, b) => parseUtcMs(a.dateCreate) - parseUtcMs(b.dateCreate));
-        return merged;
+    const connect = () => {
+      const token = getStoredDeviceToken();
+      const url = `${API_BASE}/api/kds/stream${token ? `?device_token=${encodeURIComponent(token)}` : ""}`;
+      es = new EventSource(url);
+
+      es.addEventListener("connected", () => {
+        retryMs = SSE_RETRY_MIN_MS;
+        setLiveConnected(true);
       });
-    });
 
-    es.onerror = () => {
-      // O browser reconecta automaticamente — não precisamos fazer nada
+      es.addEventListener("delivery", (e: MessageEvent) => {
+        const delivery = JSON.parse(e.data as string) as Delivery;
+        airMenuRef.current.set(delivery.id, delivery);
+        // Força re-render com o novo pedido
+        setDeliveries((prev) => {
+          const withoutThis = prev.filter((d) => d.id !== delivery.id);
+          const merged = [...withoutThis, delivery];
+          merged.sort((a, b) => parseUtcMs(a.dateCreate) - parseUtcMs(b.dateCreate));
+          return merged;
+        });
+      });
+
+      es.onerror = () => {
+        setLiveConnected(false);
+        if (disposed || es?.readyState !== EventSource.CLOSED) return; // CONNECTING: o browser já tenta
+        es.close();
+        retryTimer = setTimeout(connect, retryMs);
+        retryMs = Math.min(retryMs * 2, SSE_RETRY_MAX_MS);
+      };
     };
 
-    return () => es.close();
+    connect();
+
+    return () => {
+      disposed = true;
+      if (retryTimer) clearTimeout(retryTimer);
+      es?.close();
+    };
   }, []);
 
   const handleAdvance = async (delivery: Delivery) => {
@@ -514,6 +544,11 @@ export function KdsPage() {
             {deliveries.length > 0 && (
               <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium text-stone-300">
                 {deliveries.length} pedido{deliveries.length !== 1 ? "s" : ""}
+              </span>
+            )}
+            {!liveConnected && (
+              <span className="rounded-full bg-red-500/20 px-2.5 py-0.5 text-xs font-bold text-red-400">
+                Sem ligação em tempo real — a reconectar…
               </span>
             )}
             <span className="text-xs text-stone-500">
