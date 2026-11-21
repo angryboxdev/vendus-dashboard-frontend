@@ -39,7 +39,7 @@ describe("buildTree", () => {
     expect(group("stock")).toContain("Fichas técnicas");
     expect(tree.some((e) => e.kind === "item" && e.label === "Fichas técnicas")).toBe(false);
     expect(group("financial")).toEqual(["Categorias", "Fornecedores", "Faturas", "Recorrências", "Conciliação bancária", "Fluxo de caixa", "Conferência de vendas", "Plataformas de delivery", "Contabilidade"]);
-    expect(group("operations")).toEqual(["Fechos de Caixa", "Declaração de Vendas", "Air Menu", "Vendus"]);
+    expect(group("operations")).toEqual(["Fechos de Caixa", "Declaração de Vendas", "Air Menu", "Vendus", "Análise de Vendas"]);
     const paths = tree.flatMap((e) => (e.kind === "item" ? [e.path] : e.items.map((i) => i.path)));
     expect(paths).not.toContain("/dre/receita-bruta");
     expect(paths).not.toContain("/dre/custos-fixos");

@@ -65,6 +65,8 @@ import { AirMenuProvider } from "./modules/air-menu/air-menu.module.tsx";
 import { AirMenuView } from "./modules/air-menu/adapters/in/AirMenuView.tsx";
 import { VendusProvider } from "./modules/vendus/vendus.module.tsx";
 import { VendusView } from "./modules/vendus/adapters/in/VendusView.tsx";
+import { SalesAnalysisProvider } from "./modules/sales-analysis/sales-analysis.module.tsx";
+import { SalesAnalysisView } from "./modules/sales-analysis/adapters/in/SalesAnalysisView.tsx";
 import { DevicePairingGate } from "./modules/location-credentials/adapters/in/DevicePairingGate.tsx";
 import { OrganizationProvider } from "./modules/organization/organization.module.tsx";
 import { OrganizationProfileView } from "./modules/organization/adapters/in/OrganizationProfileView.tsx";
@@ -427,6 +429,14 @@ export default function App() {
                   <Route path="caixa" element={<PosSettingsView />} />
                   {AT_WEBSERVICE_ENABLED && <Route path="at" element={<AtCommunicationView />} />}
                 </Route>
+                <Route
+                  path="/analise-vendas"
+                  element={
+                    <SalesAnalysisProvider>
+                      <SalesAnalysisView />
+                    </SalesAnalysisProvider>
+                  }
+                />
                 <Route
                   path="/vendus"
                   element={

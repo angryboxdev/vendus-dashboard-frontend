@@ -75,6 +75,7 @@ const OPERATIONS_ITEMS: NavItem[] = [
   { kind: "item", path: "/financial/sales-declaration", label: "Declaração de Vendas" },
   { kind: "item", path: "/air-menu", label: "Air Menu" },
   { kind: "item", path: "/vendus", label: "Vendus" },
+  { kind: "item", path: "/analise-vendas", label: "Análise de Vendas" },
 ];
 
 // Vendas: faturação certificada AT (testes). Só aparece a quem tem `sales.invoicing` (por omissão, só o Admin).

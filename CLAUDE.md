@@ -69,6 +69,9 @@ padrão novo, abra o `README.md` dele e veja o campo `Status`; sem README ou com
   da task faseada, separado do RH atual; só Admin. Usa `src/i18n` (pt-PT/es-ES)
 - `invoicing` (novembro 2026) — Vendas (`/vendas`): faturação certificada AT em
   testes (emitir, documentos com ATCUD/QR, séries); só `sales.invoicing` (Admin)
+- `sales-analysis` (novembro 2026) — Operação → Análise de Vendas
+  (`/analise-vendas`): vendas por dia/hora/canal, mapa de calor, detalhe e
+  previsão do mês; só `sales.analysis` (Admin e Gerência)
 
 ## Stack
 
