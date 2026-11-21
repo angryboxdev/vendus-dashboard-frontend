@@ -139,6 +139,7 @@ const MONTH_STATE: Record<AirMenuMonthStatus["state"], string> = {
   stored: "guardado",
   partial: "incompleto",
   missing: "sem dados",
+  queued: "na fila",
   fetching: "a buscar…",
   error: "erro",
 };
@@ -162,14 +163,15 @@ function DataStatus({ data, onFetchMonth }: { data: SalesAnalysisData; onFetchMo
       {data.airMenu && (
         <div className={`${SURFACE} flex flex-wrap items-center gap-2 p-3 text-sm`}>
           <span className="font-medium text-navy-900">AirMenu</span>
-          <span className="text-xs text-ink-secondary">Só é consultada quando clica em «Buscar». Os dias já guardados nunca voltam a ser pedidos.</span>
+          <span className="text-xs text-ink-secondary">Só é consultada quando clica em «Buscar», um mês de cada vez (os outros ficam na fila) e uma semana de cada vez, para não sobrecarregar a AirMenu. Os dias já guardados nunca voltam a ser pedidos.</span>
           <div className="flex w-full flex-wrap gap-2">
             {data.airMenu.months.map((m) => {
-              const canFetch = m.state !== "fetching" && (m.state !== "stored" || m.month === currentMonth);
+              const canFetch = m.state !== "fetching" && m.state !== "queued" && (m.state !== "stored" || m.month === currentMonth);
+              const progress = m.state === "fetching" && m.totalDays ? ` ${m.doneDays ?? 0} de ${m.totalDays} dias` : "";
               return (
                 <span key={m.month} className="inline-flex items-center gap-2 rounded-xl bg-surface-soft px-2.5 py-1">
                   <span className="first-letter:uppercase">{monthLabel(m.month)}</span>
-                  <span className={`text-xs ${m.state === "stored" ? "text-emerald-700" : m.state === "error" ? "text-red-700" : "text-ink-secondary"}`}>{MONTH_STATE[m.state]}</span>
+                  <span className={`text-xs ${m.state === "stored" ? "text-emerald-700" : m.state === "error" ? "text-red-700" : "text-ink-secondary"}`}>{MONTH_STATE[m.state]}{progress}</span>
                   {canFetch && (
                     <button type="button" className="text-xs font-medium text-brand-600 hover:underline" onClick={() => void onFetchMonth(m.month)}>
                       {m.state === "stored" ? "Atualizar hoje" : "Buscar"}
@@ -179,7 +181,7 @@ function DataStatus({ data, onFetchMonth }: { data: SalesAnalysisData; onFetchMo
               );
             })}
           </div>
-          {data.airMenu.months.some((m) => m.state === "error") && <p className="w-full text-xs text-red-700">A AirMenu não respondeu. Tente novamente mais tarde.</p>}
+          {data.airMenu.months.some((m) => m.state === "error") && <p className="w-full text-xs text-red-700">A AirMenu não respondeu. O que já veio ficou guardado; tente de novo mais tarde para buscar o resto.</p>}
           {data.airMenu.comparisonMissingMonths.length > 0 && (
             <p className="w-full text-xs text-ink-secondary">
               Sem dados da AirMenu para a comparação: {data.airMenu.comparisonMissingMonths.map(monthLabel).join(", ")} — busque esses meses para comparar as plataformas.

@@ -16,12 +16,15 @@ export interface DateRange {
 /** [data, hora (−1 = total do dia), índice do canal em `channels`, bruto, líquido, n.º de vendas] — cêntimos. */
 export type CompactBucket = [IsoDate, number, number, number, number, number];
 
-export type AirMenuMonthState = "stored" | "partial" | "missing" | "fetching" | "error";
+export type AirMenuMonthState = "stored" | "partial" | "missing" | "queued" | "fetching" | "error";
 
 export interface AirMenuMonthStatus {
   month: string;
   state: AirMenuMonthState;
   error?: string;
+  /** Progresso (state = fetching): dias já buscados / dias a buscar. */
+  doneDays?: number;
+  totalDays?: number;
 }
 
 export interface FillProgress {

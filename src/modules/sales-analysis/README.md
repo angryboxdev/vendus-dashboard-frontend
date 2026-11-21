@@ -1,7 +1,7 @@
 # Módulo: sales-analysis
 
 > Status: ativo
-> Última atualização: 2026-11-21
+> Última atualização: 2026-11-21 (fila da AirMenu)
 
 ## Propósito
 Página «Análise de Vendas» (Operação → `/analise-vendas`): **quando** a loja
@@ -15,8 +15,10 @@ Não emite documentos nem altera Vendus, Air Menu ou Resultados.
   com IVA (líquido de NC), líquido e n.º de vendas. Hora −1 = total do dia
   (ano anterior e mês anterior vêm assim).
 - **Fonte** — Vendus (por defeito), AirMenu ou Ambas. A AirMenu só é buscada
-  quando o utilizador clica «Buscar» num mês; os dias já guardados nunca voltam
-  a ser pedidos (backend, ADR-0045).
+  quando o utilizador clica «Buscar» num mês; os meses ficam numa fila (um de
+  cada vez), cada mês é buscado uma semana de cada vez (2 pedidos a cada 2 s) e
+  os dias já guardados nunca voltam a ser pedidos (backend, ADR-0045). A página
+  mostra «na fila» e «a buscar… X de Y dias».
 - **Período** — Este mês (pré-selecionado), Mês anterior, Este ano, Personalizado; máx. 12 meses.
 - **Horário de funcionamento** (fixo): abre 12h; fecha 22h30 (seg–qui, dom) ou
   23h30 (sex, sáb). Vendas fora do horário contam nos totais e são assinaladas;

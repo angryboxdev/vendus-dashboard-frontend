@@ -43,7 +43,7 @@ export function useSalesAnalysis() {
   useEffect(() => { void load(); }, [load]);
 
   // Enquanto a Vendus enche a cache ou um mês da AirMenu está a ser buscado, atualiza sozinho.
-  const busy = !!data && (data.vendus?.fill?.running === true || (data.airMenu?.months ?? []).some((m) => m.state === "fetching"));
+  const busy = !!data && (data.vendus?.fill?.running === true || (data.airMenu?.months ?? []).some((m) => m.state === "fetching" || m.state === "queued"));
   useEffect(() => {
     if (!busy) return;
     const t = setInterval(() => void load(true), POLL_MS);
