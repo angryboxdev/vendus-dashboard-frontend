@@ -120,6 +120,8 @@ const PATH_PERMISSIONS: Array<[RegExp, PathPermission]> = [
   [/^\/(vendus|analytics)/, "sales.dashboard"],
   [/^\/cash-closings/, "sales.cash_closings"],
   [/^\/air-menu/, "sales.air_menu"],
+  // Análise de Vendas (Operação) — só Admin e Gerência por omissão.
+  [/^\/analise-vendas/, "sales.analysis"],
   // Faturação certificada AT (testes) — só Admin por omissão.
   [/^\/vendas/, "sales.invoicing"],
   [/^\/pos(\/|$)/, "sales.invoicing"],
