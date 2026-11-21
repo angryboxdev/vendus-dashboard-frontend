@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { CashClosing } from "../entities/cash-closing.ts";
-import { airMenuDiff, groupClosingsByDay, vendusDiff, worstStatus } from "./closings-summary.ts";
+import { airMenuDiff, groupClosingsByDay, shortName, sumClosingDays, vendusDiff, worstStatus } from "./closings-summary.ts";
 
 function closing(p: Partial<CashClosing>): CashClosing {
   const tpa = p.tpa ?? 0;
@@ -130,5 +130,38 @@ describe("groupClosingsByDay", () => {
       ["2026-11-06", 2],
       ["2026-11-05", 1],
     ]);
+  });
+});
+
+describe("shortName", () => {
+  it("fica com o primeiro e o último nome", () => {
+    expect(shortName("GABRIEL GOMES BERNARDO DE SOUZA")).toBe("GABRIEL SOUZA");
+    expect(shortName("  Lucas   Almeida Sampaio Sales ")).toBe("Lucas Sales");
+  });
+  it("nomes com uma ou duas palavras ficam iguais", () => {
+    expect(shortName("Ana")).toBe("Ana");
+    expect(shortName("Ana Rita")).toBe("Ana Rita");
+  });
+});
+
+describe("sumClosingDays", () => {
+  it("soma cada coluna do período e ignora os dias sem referência", () => {
+    const days = groupClosingsByDay([
+      closing({ id: "a", closingDate: "2026-11-06", tpa: 100, vendusTotal: 99, uber: 50, airMenuTotal: 50, sangriaAmount: 10 }),
+      closing({ id: "b", closingDate: "2026-11-06", tpa: 20, vendusTotal: 20, airMenuTotal: 50 }),
+      closing({ id: "c", closingDate: "2026-11-05", tpa: 300, uber: 40, airMenuTotal: 40.5, sangriaAmount: 5.5 }),
+    ]);
+    expect(sumClosingDays(days)).toEqual({
+      days: 2,
+      closings: 3,
+      totalCalculated: 510,
+      vendusTotal: 119, // 05/11 sem Vendus não entra
+      vendusDiff: 1,
+      airMenuDiff: -0.5,
+      sangriaAmount: 15.5,
+    });
+  });
+  it("período vazio dá zeros", () => {
+    expect(sumClosingDays([])).toMatchObject({ days: 0, closings: 0, totalCalculated: 0 });
   });
 });

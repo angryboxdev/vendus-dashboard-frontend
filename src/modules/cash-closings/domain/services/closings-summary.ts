@@ -87,3 +87,33 @@ export function groupClosingsByDay(closings: CashClosing[]): ClosingDay[] {
   }
   return [...byDate.entries()].sort(([a], [b]) => b.localeCompare(a)).map(([date, list]) => summarizeDay(date, list));
 }
+
+/** Primeiro e último nome («Gabriel Gomes Bernardo de Souza» → «Gabriel Souza»). */
+export function shortName(fullName: string): string {
+  const parts = fullName.trim().split(/\s+/).filter(Boolean);
+  return parts.length <= 2 ? parts.join(" ") : `${parts[0]} ${parts[parts.length - 1]}`;
+}
+
+/** Totais do período (rodapé da vista Mês). Dias sem referência não entram na coluna respetiva. */
+export interface ClosingDaysTotals {
+  days: number;
+  closings: number;
+  totalCalculated: number;
+  vendusTotal: number;
+  vendusDiff: number;
+  airMenuDiff: number;
+  sangriaAmount: number;
+}
+
+export function sumClosingDays(days: ClosingDay[]): ClosingDaysTotals {
+  const sum = (f: (d: ClosingDay) => number | null) => round2(days.reduce((s, d) => s + (f(d) ?? 0), 0));
+  return {
+    days: days.length,
+    closings: days.reduce((n, d) => n + d.closings.length, 0),
+    totalCalculated: sum((d) => d.totalCalculated),
+    vendusTotal: sum((d) => d.vendusTotal),
+    vendusDiff: sum((d) => d.vendusDiff),
+    airMenuDiff: sum((d) => d.airMenuDiff),
+    sangriaAmount: sum((d) => d.sangriaAmount),
+  };
+}

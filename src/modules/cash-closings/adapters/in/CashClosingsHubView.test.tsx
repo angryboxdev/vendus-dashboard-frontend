@@ -45,7 +45,7 @@ function closing(p: Partial<CashClosing> & Pick<CashClosing, "id">): CashClosing
 // 06/11: dois fechos (manhã e noite). 05/11: um fecho com 200 € de Uber que o Vendus não conhece.
 const CLOSINGS = [
   closing({ id: "m", tpa: 500, uber: 300, airMenuTotal: 300, employeeName: "Ana" }),
-  closing({ id: "n", tpa: 100, airMenuTotal: 300, employeeName: "Rui", submittedAt: "2026-11-06T21:00:00Z" }),
+  closing({ id: "n", tpa: 100, airMenuTotal: 300, employeeName: "Rui Pedro Costa Lima", submittedAt: "2026-11-06T21:00:00Z" }),
   closing({ id: "o", closingDate: "2026-11-05", tpa: 400, uber: 200, submittedAt: "2026-11-05T10:00:00Z" }),
 ];
 
@@ -78,11 +78,11 @@ describe("CashClosingsHubView — vista Mês", () => {
     await userEvent.setup().click(screen.getByRole("button", { name: "Mês" }));
 
     const rows = await screen.findAllByRole("row");
-    // Cabeçalho + um dia por linha (06/11 e 05/11), não uma linha por fecho.
-    expect(rows).toHaveLength(3);
+    // Cabeçalho + um dia por linha (06/11 e 05/11) + totais, não uma linha por fecho.
+    expect(rows).toHaveLength(4);
     const day6 = rows[1]!;
     expect(within(day6).getByText("2 fechos")).toBeInTheDocument();
-    expect(within(day6).getByText("Ana, Rui")).toBeInTheDocument();
+    expect(within(day6).getByText("Ana, Rui Lima")).toBeInTheDocument();
     expect(within(rows[2]!).queryByText(/fechos/)).not.toBeInTheDocument();
     // O mês vem inteiro (sem páginas a partir um dia ao meio).
     expect(queries.at(-1)).toMatchObject({ limit: 200, offset: 0 });
@@ -105,7 +105,19 @@ describe("CashClosingsHubView — vista Mês", () => {
     await user.click(screen.getByRole("button", { name: "Mês" }));
     const rows = await screen.findAllByRole("row");
     await user.click(rows[1]!);
-    expect(await screen.findByText("Rui")).toBeInTheDocument();
+    expect(await screen.findByText("Rui Pedro Costa Lima")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /Ana|Rui/ })).toHaveLength(2);
+  });
+
+  it("o rodapé soma cada coluna do mês", async () => {
+    renderHub();
+    await userEvent.setup().click(screen.getByRole("button", { name: "Mês" }));
+
+    const rows = await screen.findAllByRole("row");
+    const footer = rows.at(-1)!;
+    expect(within(footer).getByText("Total")).toBeInTheDocument();
+    expect(within(footer).getByText(/2 dias · 3 fechos/)).toBeInTheDocument();
+    expect(within(footer).getByText(/^1500,00\s€$|^1\s?500,00\s€$/)).toBeInTheDocument();
+    expect(within(footer).getByText(/^1000,00\s€$|^1\s?000,00\s€$/)).toBeInTheDocument();
   });
 });

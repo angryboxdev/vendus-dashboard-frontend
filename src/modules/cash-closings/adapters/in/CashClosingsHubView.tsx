@@ -17,6 +17,8 @@ import {
 } from "../../domain/services/closings-period.ts";
 import {
   groupClosingsByDay,
+  shortName,
+  sumClosingDays,
   vendusDiff,
   worstStatus,
   type ClosingDay,
@@ -377,17 +379,19 @@ function MonthView({ days, onDayClick }: MonthViewProps) {
     );
   }
 
+  const totals = sumClosingDays(days);
+
   return (
-    <div className="relative overflow-hidden rounded-xl border border-stone-100 bg-white shadow-sm">
+    <div className="relative overflow-x-auto rounded-xl border border-stone-100 bg-white shadow-sm">
       <div className="absolute inset-x-0 top-0 h-0.5 bg-gradient-to-r from-[#ED5C32] to-[#F1A93F]" />
-      <table className="w-full text-sm">
+      <table className="w-full whitespace-nowrap text-sm">
         <thead className="border-b border-stone-100 bg-stone-50">
           <tr>
             {MONTH_COLUMNS.map((col) => (
               <th
                 key={col.label}
                 title={col.title}
-                className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide text-stone-400 ${col.align}`}
+                className={`px-3 py-3 text-xs font-semibold uppercase tracking-wide text-stone-400 ${col.align}`}
               >
                 {col.label}
               </th>
@@ -403,46 +407,67 @@ function MonthView({ days, onDayClick }: MonthViewProps) {
                 onClick={() => onDayClick(d.closings)}
                 className="cursor-pointer transition-colors hover:bg-[#FAF6F3]"
               >
-                <td className="px-4 py-3 text-stone-600">
-                  <span className="whitespace-nowrap">{fmtDate(d.date)}</span>
+                <td className="px-3 py-3 text-stone-600">
+                  {fmtDate(d.date)}
                   {count > 1 && (
-                    <span className="ml-2 whitespace-nowrap rounded-full bg-[#ED5C32]/10 px-2 py-0.5 text-xs font-medium text-[#ED5C32]">
+                    <span className="ml-2 rounded-full bg-[#ED5C32]/10 px-2 py-0.5 text-xs font-medium text-[#ED5C32]">
                       {count} fechos
                     </span>
                   )}
                 </td>
-                <td className="px-4 py-3 font-medium text-stone-800">
-                  {d.employeeNames.join(", ")}
+                <td className="px-3 py-3 font-medium text-stone-800">
+                  <span title={d.employeeNames.join(", ")}>
+                    {d.employeeNames.map(shortName).join(", ")}
+                  </span>
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums text-stone-700">
+                <td className="px-3 py-3 text-right tabular-nums text-stone-700">
                   {fmtEur(d.totalCalculated)}
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums text-stone-400">
+                <td className="px-3 py-3 text-right tabular-nums text-stone-400">
                   {d.vendusTotal != null ? fmtEur(d.vendusTotal) : "—"}
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums">
+                <td className="px-3 py-3 text-right tabular-nums">
                   <DiffValue diff={d.vendusDiff} />
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums">
+                <td className="px-3 py-3 text-right tabular-nums">
                   <DiffValue diff={d.airMenuDiff} />
                 </td>
-                <td className="px-4 py-3 text-right tabular-nums text-[#7A1A00]">
+                <td className="px-3 py-3 text-right tabular-nums text-[#7A1A00]">
                   {d.sangriaAmount > 0 ? (
                     fmtEur(d.sangriaAmount)
                   ) : (
                     <span className="text-stone-300">—</span>
                   )}
                 </td>
-                <td className="px-4 py-3 text-center">
+                <td className="px-3 py-3 text-center">
                   <StatusBadge status={d.status} />
                 </td>
-                <td className="px-4 py-3 text-stone-400">
+                <td className="px-3 py-3 text-stone-400">
                   {fmtDateTime(d.lastSubmittedAt)}
                 </td>
               </tr>
             );
           })}
         </tbody>
+        <tfoot className="border-t-2 border-stone-200 bg-stone-50 font-semibold">
+          <tr>
+            <td className="px-3 py-3 text-stone-700">Total</td>
+            <td className="px-3 py-3 text-xs font-medium text-stone-400">
+              {totals.days} {totals.days === 1 ? "dia" : "dias"} · {totals.closings}{" "}
+              {totals.closings === 1 ? "fecho" : "fechos"}
+            </td>
+            <td className="px-3 py-3 text-right tabular-nums text-stone-800">{fmtEur(totals.totalCalculated)}</td>
+            <td className="px-3 py-3 text-right tabular-nums text-stone-500">{fmtEur(totals.vendusTotal)}</td>
+            <td className="px-3 py-3 text-right tabular-nums">
+              <DiffValue diff={totals.vendusDiff} />
+            </td>
+            <td className="px-3 py-3 text-right tabular-nums">
+              <DiffValue diff={totals.airMenuDiff} />
+            </td>
+            <td className="px-3 py-3 text-right tabular-nums text-[#7A1A00]">{fmtEur(totals.sangriaAmount)}</td>
+            <td colSpan={2} />
+          </tr>
+        </tfoot>
       </table>
     </div>
   );
