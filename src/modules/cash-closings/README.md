@@ -1,7 +1,7 @@
 # Módulo: cash-closings
 
 > Status: ativo
-> Última atualização: 2026-08-04
+> Última atualização: 2026-11-21
 
 ## Propósito
 
@@ -19,6 +19,11 @@ vistas do fecho de caixa.
   `vendusCalculated` = TPA + Eatz + dinheiro; `airMenuCalculated` = Uber + Glovo + Bolt;
   `airMenuTotal` = soma dos três totais AirMenu (null se AirMenu indisponível).
 - **CashClosingStatus** — `"pending" | "approved" | "rejected"`.
+- **closings-summary.ts** — regras puras das diferenças e do agrupamento por dia:
+  `vendusDiff` = `vendusCalculated − vendusTotal` (só canal próprio — o Vendus não
+  regista Uber/Glovo/Bolt); `airMenuDiff` = `airMenuCalculated − airMenuTotal`;
+  `worstStatus`; `groupClosingsByDay` junta os fechos da mesma data num `ClosingDay`
+  (somas, nomes, estado pior, última submissão).
 - **closings-period.ts** — serviço puro de datas: `getMondayOfWeek`,
   `getWeekDays`, `getMonthRange`, helpers de navegação (next/prev semana/mês)
   e formatação (`formatWeekLabel`, `formatMonthLabel`, `formatDayLabel`).
@@ -28,8 +33,8 @@ vistas do fecho de caixa.
 ### Entrada (use cases)
 
 - `ListClosingsPort` — lista fechos com filtros `from`/`to`/`date`, `status`,
-  `employeeId`, paginação. Suporta tanto a week view (semana inteira de uma vez)
-  como a month view (paginada).
+  `employeeId`, paginação. A week view e a month view pedem o período inteiro de
+  uma vez (`limit: 200`).
 - `ReviewClosingPort` — manager aprova/rejeita e/ou edita valores.
 
 ### Saída (dependências do domínio)
@@ -46,7 +51,9 @@ vistas do fecho de caixa.
 - `CashClosingsHubView` — backoffice page com dois modos:
   - **Semana**: 7 cards (Seg–Dom) com resumo por dia. Click num card abre
     `DayDrawer` (múltiplos fechos) ou `ClosingDetailModal` directamente (1 fecho).
-  - **Mês**: tabela paginada, click numa linha abre `ClosingDetailModal`.
+  - **Mês**: tabela com **um dia por linha** (`groupClosingsByDay`); dias com vários
+    fechos mostram a etiqueta «N fechos» e abrem o `DayDrawer`; um só fecho abre o
+    `ClosingDetailModal`. Colunas Total, Vendus, Dif. Vendus, Dif. AirMenu, Sangria.
 - `ClosingDetailModal` — painel lateral partilhado pelos dois modos; permite
   aprovar/rejeitar e editar valores. Exibe os campos em três secções:
   **Canal Próprio** (TPA, Eatz, dinheiro → subtotal declarado, Total Vendus, Diferença),
@@ -66,6 +73,18 @@ vistas do fecho de caixa.
 Week view (cards) e month view (tabela) partilham estado de filtro de status e o
 mesmo `ClosingDetailModal`. Manter tudo num componente evita sincronização de
 estado e simplifica as queries TanStack.
+
+**Diferenças por canal, nunca total vs Vendus (2026-11-21).**
+A coluna «Dif.» comparava o total declarado (todos os canais) com o Total Vendus,
+que só tem TPA + Eatz + dinheiro — a diferença saía inflacionada todos os dias pelo
+valor das apps de entregas (ex.: 1–20/11: +5 461,50 € mostrados vs +12,18 € reais).
+Agora a lista usa `vendusDiff` (como o detalhe) e mostra à parte a `airMenuDiff`.
+
+**Mês agrupado por dia, sem paginação (2026-11-21).**
+O mês é pedido inteiro (`limit: 200`) para que um dia nunca fique partido entre
+páginas. O AirMenu é consultado por data (não por sessão): todos os fechos do mesmo
+dia trazem o total do dia inteiro, por isso o `ClosingDay` conta-o **uma vez** (o
+mais recente), enquanto as referências Vendus (por sessão) se somam.
 
 **Week view carrega a semana inteira (limit: 200).**
 A query usa `from`/`to` para cobrir os 7 dias. O `limit: 200` é generoso mas
@@ -87,15 +106,17 @@ nunca como fundo dominante.
 
 ## Como testar
 
-- Domínio/use cases: `npx vitest run src/modules/cash-closings`
-  *(testes de domínio puro — sem backend, sem React)*
-- Componentes/hooks: testes de UI com Vitest + Testing Library — a implementar.
+- `npx vitest run src/modules/cash-closings` (com `VITE_SUPABASE_URL` e
+  `VITE_SUPABASE_ANON_KEY` fictícias): domínio puro, use cases e vista Mês do hub.
 
 ## Pontos de atenção / dívidas conhecidas
 
 - `CashClosingPage` (kiosk, `/fecho`) ainda usa as funções legadas de
   `src/pages/cashClosing/cashClosingApi.ts`. Migração para `module.api` prevista.
-- Testes de UI do `CashClosingsHubView` e `ClosingDetailModal` não implementados.
+- Testes de UI do `ClosingDetailModal` não implementados.
+- No `ClosingDetailModal`, num dia com dois fechos, a «Diferença AirMenu» de cada
+  fecho compara as apps dessa sessão com o total AirMenu do **dia inteiro** (a
+  referência é por data). A vista Mês já soma bem; o detalhe por fecho ainda não.
 - O `DayDrawer` reabre sempre que se volta da `ClosingDetailModal` para a week
   view. Considerar manter o `DayDrawer` visível em background enquanto o modal
   está aberto.

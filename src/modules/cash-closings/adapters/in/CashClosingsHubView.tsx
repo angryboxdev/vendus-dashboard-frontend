@@ -15,6 +15,12 @@ import {
   prevMonth,
   prevWeekMonday,
 } from "../../domain/services/closings-period.ts";
+import {
+  groupClosingsByDay,
+  vendusDiff,
+  worstStatus,
+  type ClosingDay,
+} from "../../domain/services/closings-summary.ts";
 
 import { PageFooter } from "../../../../components/PageFooter.tsx";
 import { useCashClosingsModule } from "../../cash-closings.module.tsx";
@@ -50,12 +56,12 @@ function fmtDateTime(iso: string): string {
   });
 }
 
-/** Devolve o status "pior" de uma lista de fechos (pending > rejected > approved). */
-function worstStatus(closings: CashClosing[]): CashClosingStatus | null {
-  if (closings.length === 0) return null;
-  if (closings.some((c) => c.status === "pending")) return "pending";
-  if (closings.some((c) => c.status === "rejected")) return "rejected";
-  return "approved";
+/** Diferença com sinal e cor: verde a zero, laranja a mais, vermelho a menos. */
+function DiffValue({ diff, hideZero = false }: { diff: number | null; hideZero?: boolean }) {
+  if (diff == null) return <span className="text-stone-300">—</span>;
+  if (diff === 0 && hideZero) return null;
+  const color = diff === 0 ? "text-emerald-600" : diff > 0 ? "text-[#ED5C32]" : "text-[#A3211A]";
+  return <span className={color}>{(diff > 0 ? "+" : "") + fmtEur(diff)}</span>;
 }
 
 // ---------- ViewModeToggle ----------
@@ -220,7 +226,7 @@ function DayCard({ date, closings, statusFilter, onClick }: DayCardProps) {
   );
 }
 
-// ---------- DayDrawer (week mode: list of closings for a day) ----------
+// ---------- DayDrawer (semana e mês: lista dos fechos de um dia) ----------
 
 interface DayDrawerProps {
   closings: CashClosing[];
@@ -259,10 +265,7 @@ function DayDrawer({ closings, onSelectClosing, onClose }: DayDrawerProps) {
         </div>
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {closings.map((c) => {
-            const diff =
-              c.vendusTotal != null
-                ? Math.round((c.totalCalculated - c.vendusTotal) * 100) / 100
-                : null;
+            const diff = vendusDiff(c);
             return (
               <button
                 key={c.id}
@@ -281,12 +284,8 @@ function DayDrawer({ closings, onSelectClosing, onClose }: DayDrawerProps) {
                     {fmtEur(c.totalCalculated)}
                   </p>
                   {diff != null && diff !== 0 && (
-                    <span
-                      className={`text-xs font-medium tabular-nums ${
-                        diff > 0 ? "text-[#ED5C32]" : "text-[#A3211A]"
-                      }`}
-                    >
-                      {(diff > 0 ? "+" : "") + fmtEur(diff)}
+                    <span className="text-xs font-medium tabular-nums" title="Diferença Vendus: TPA + Eatz + dinheiro − Total Vendus">
+                      Dif. Vendus <DiffValue diff={diff} />
                     </span>
                   )}
                 </div>
@@ -345,26 +344,30 @@ function WeekView({
   );
 }
 
-// ---------- MonthView (table) ----------
+// ---------- MonthView (table: um dia por linha) ----------
 
-const PAGE_SIZE = 30;
+/** Máximo de fechos pedidos para um mês — o mês vem inteiro para que cada dia junte todos os seus fechos. */
+const MONTH_LIMIT = 200;
+
+const MONTH_COLUMNS: { label: string; align: string; title?: string }[] = [
+  { label: "Data", align: "text-left" },
+  { label: "Funcionário", align: "text-left" },
+  { label: "Total", align: "text-right", title: "Total declarado em todos os canais" },
+  { label: "Vendus", align: "text-right" },
+  { label: "Dif. Vendus", align: "text-right", title: "TPA + Eatz + dinheiro − Total Vendus" },
+  { label: "Dif. AirMenu", align: "text-right", title: "Uber + Glovo + Bolt − Total AirMenu" },
+  { label: "Sangria", align: "text-right" },
+  { label: "Estado", align: "text-center" },
+  { label: "Submetido", align: "text-left" },
+];
 
 interface MonthViewProps {
-  closings: CashClosing[];
-  total: number;
-  offset: number;
-  onOffsetChange: (n: number) => void;
-  onRowClick: (c: CashClosing) => void;
+  days: ClosingDay[];
+  onDayClick: (closings: CashClosing[]) => void;
 }
 
-function MonthView({
-  closings,
-  total,
-  offset,
-  onOffsetChange,
-  onRowClick,
-}: MonthViewProps) {
-  if (closings.length === 0) {
+function MonthView({ days, onDayClick }: MonthViewProps) {
+  if (days.length === 0) {
     return (
       <div className="rounded-xl border border-stone-100 bg-white py-16 text-center shadow-sm">
         <p className="text-sm text-stone-400">
@@ -380,114 +383,67 @@ function MonthView({
       <table className="w-full text-sm">
         <thead className="border-b border-stone-100 bg-stone-50">
           <tr>
-            {[
-              "Data",
-              "Funcionário",
-              "Total",
-              "Vendus",
-              "Dif.",
-              "Sangria",
-              "Estado",
-              "Submetido",
-            ].map((h) => (
+            {MONTH_COLUMNS.map((col) => (
               <th
-                key={h}
-                className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide text-stone-400 ${
-                  ["Total", "Vendus", "Dif.", "Sangria"].includes(h)
-                    ? "text-right"
-                    : h === "Estado"
-                      ? "text-center"
-                      : "text-left"
-                }`}
+                key={col.label}
+                title={col.title}
+                className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide text-stone-400 ${col.align}`}
               >
-                {h}
+                {col.label}
               </th>
             ))}
           </tr>
         </thead>
         <tbody className="divide-y divide-stone-50">
-          {closings.map((c) => {
-            const diff =
-              c.vendusTotal != null
-                ? Math.round((c.totalCalculated - c.vendusTotal) * 100) / 100
-                : null;
+          {days.map((d) => {
+            const count = d.closings.length;
             return (
               <tr
-                key={c.id}
-                onClick={() => onRowClick(c)}
+                key={d.date}
+                onClick={() => onDayClick(d.closings)}
                 className="cursor-pointer transition-colors hover:bg-[#FAF6F3]"
               >
                 <td className="px-4 py-3 text-stone-600">
-                  {fmtDate(c.closingDate)}
-                </td>
-                <td className="px-4 py-3 font-medium text-stone-800">
-                  {c.employeeName}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums text-stone-700">
-                  {fmtEur(c.totalCalculated)}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums text-stone-400">
-                  {c.vendusTotal != null ? fmtEur(c.vendusTotal) : "—"}
-                </td>
-                <td className="px-4 py-3 text-right tabular-nums">
-                  {diff != null ? (
-                    <span
-                      className={
-                        diff === 0
-                          ? "text-emerald-600"
-                          : diff > 0
-                            ? "text-[#ED5C32]"
-                            : "text-[#A3211A]"
-                      }
-                    >
-                      {(diff >= 0 ? "+" : "") + fmtEur(diff)}
+                  <span className="whitespace-nowrap">{fmtDate(d.date)}</span>
+                  {count > 1 && (
+                    <span className="ml-2 whitespace-nowrap rounded-full bg-[#ED5C32]/10 px-2 py-0.5 text-xs font-medium text-[#ED5C32]">
+                      {count} fechos
                     </span>
-                  ) : (
-                    <span className="text-stone-300">—</span>
                   )}
                 </td>
+                <td className="px-4 py-3 font-medium text-stone-800">
+                  {d.employeeNames.join(", ")}
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums text-stone-700">
+                  {fmtEur(d.totalCalculated)}
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums text-stone-400">
+                  {d.vendusTotal != null ? fmtEur(d.vendusTotal) : "—"}
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums">
+                  <DiffValue diff={d.vendusDiff} />
+                </td>
+                <td className="px-4 py-3 text-right tabular-nums">
+                  <DiffValue diff={d.airMenuDiff} />
+                </td>
                 <td className="px-4 py-3 text-right tabular-nums text-[#7A1A00]">
-                  {c.sangriaAmount > 0 ? (
-                    fmtEur(c.sangriaAmount)
+                  {d.sangriaAmount > 0 ? (
+                    fmtEur(d.sangriaAmount)
                   ) : (
                     <span className="text-stone-300">—</span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-center">
-                  <StatusBadge status={c.status} />
+                  <StatusBadge status={d.status} />
                 </td>
                 <td className="px-4 py-3 text-stone-400">
-                  {fmtDateTime(c.submittedAt)}
+                  {fmtDateTime(d.lastSubmittedAt)}
                 </td>
               </tr>
             );
           })}
         </tbody>
       </table>
-
-      {(closings.length < total || offset > 0) && (
-        <div className="flex items-center justify-between border-t border-stone-100 px-4 py-3">
-          <button
-            type="button"
-            disabled={offset === 0}
-            onClick={() => onOffsetChange(Math.max(0, offset - PAGE_SIZE))}
-            className="rounded-lg border border-stone-200 px-3 py-1.5 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-50 disabled:opacity-40"
-          >
-            Anterior
-          </button>
-          <span className="text-xs text-stone-400">
-            {offset + 1}–{Math.min(offset + PAGE_SIZE, total)} de {total}
-          </span>
-          <button
-            type="button"
-            disabled={offset + PAGE_SIZE >= total}
-            onClick={() => onOffsetChange(offset + PAGE_SIZE)}
-            className="rounded-lg border border-stone-200 px-3 py-1.5 text-sm font-medium text-stone-600 transition-colors hover:bg-stone-50 disabled:opacity-40"
-          >
-            Seguinte
-          </button>
-        </div>
-      )}
     </div>
   );
 }
@@ -544,7 +500,6 @@ export function CashClosingsHubView() {
     year: new Date().getFullYear(),
     month: new Date().getMonth() + 1,
   }));
-  const [monthOffset, setMonthOffset] = useState(0);
 
   // Modal / drawer state
   const [selectedClosing, setSelectedClosing] = useState<CashClosing | null>(
@@ -564,8 +519,8 @@ export function CashClosingsHubView() {
       : {
           ...getMonthRange(monthYear.year, monthYear.month),
           status: statusFilter || undefined,
-          limit: PAGE_SIZE,
-          offset: monthOffset,
+          limit: MONTH_LIMIT,
+          offset: 0,
         };
 
   const { data, isPending } = useQuery({
@@ -574,7 +529,6 @@ export function CashClosingsHubView() {
   });
 
   const closings = data?.closings ?? [];
-  const total = data?.total ?? 0;
 
   function handleDayCardClick(dayClosings: CashClosing[]) {
     if (dayClosings.length === 1) {
@@ -636,13 +590,7 @@ export function CashClosingsHubView() {
           </div>
 
           {/* Row 2: status filter */}
-          <StatusFilter
-            value={statusFilter}
-            onChange={(v) => {
-              setStatusFilter(v);
-              setMonthOffset(0);
-            }}
-          />
+          <StatusFilter value={statusFilter} onChange={setStatusFilter} />
         </div>
 
         {/* Period summary */}
@@ -674,11 +622,8 @@ export function CashClosingsHubView() {
           />
         ) : (
           <MonthView
-            closings={closings}
-            total={total}
-            offset={monthOffset}
-            onOffsetChange={setMonthOffset}
-            onRowClick={setSelectedClosing}
+            days={groupClosingsByDay(closings)}
+            onDayClick={handleDayCardClick}
           />
         )}
       </div>
