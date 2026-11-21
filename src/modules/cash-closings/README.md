@@ -24,6 +24,8 @@ vistas do fecho de caixa.
   regista Uber/Glovo/Bolt); `airMenuDiff` = `airMenuCalculated − airMenuTotal`;
   `worstStatus`; `groupClosingsByDay` junta os fechos da mesma data num `ClosingDay`
   (somas, nomes, estado pior, última submissão).
+  `shortName` (primeiro + último nome) e `sumClosingDays` (totais do período para o
+  rodapé; dias sem referência não entram na coluna respetiva).
 - **closings-period.ts** — serviço puro de datas: `getMondayOfWeek`,
   `getWeekDays`, `getMonthRange`, helpers de navegação (next/prev semana/mês)
   e formatação (`formatWeekLabel`, `formatMonthLabel`, `formatDayLabel`).
@@ -54,6 +56,9 @@ vistas do fecho de caixa.
   - **Mês**: tabela com **um dia por linha** (`groupClosingsByDay`); dias com vários
     fechos mostram a etiqueta «N fechos» e abrem o `DayDrawer`; um só fecho abre o
     `ClosingDetailModal`. Colunas Total, Vendus, Dif. Vendus, Dif. AirMenu, Sangria.
+    Cada linha cabe numa só linha (`whitespace-nowrap`, scroll horizontal em ecrãs
+    estreitos); o funcionário aparece com o primeiro e o último nome (nome completo no
+    `title`); rodapé com o total de cada coluna.
 - `ClosingDetailModal` — painel lateral partilhado pelos dois modos; permite
   aprovar/rejeitar e editar valores. Exibe os campos em três secções:
   **Canal Próprio** (TPA, Eatz, dinheiro → subtotal declarado, Total Vendus, Diferença),
