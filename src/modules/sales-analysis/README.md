@@ -16,7 +16,7 @@ Não emite documentos nem altera Vendus, Air Menu ou Resultados.
   (ano anterior e mês anterior vêm assim).
 - **Fonte** — Vendus (por defeito), AirMenu ou Ambas. A AirMenu só é buscada
   quando o utilizador clica «Buscar» num mês; os meses ficam numa fila (um de
-  cada vez), cada mês é buscado uma semana de cada vez (1 pedido a cada 3 s) e
+  cada vez), cada mês é buscado uma semana de cada vez (2 pedidos a cada 2 s) e
   os dias já guardados nunca voltam a ser pedidos (backend, ADR-0045). A página
   mostra «na fila» e «a buscar… X de Y dias».
 - **Período** — Este mês (pré-selecionado), Mês anterior, Este ano, Personalizado; máx. 12 meses.
